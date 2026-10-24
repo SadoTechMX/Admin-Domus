@@ -60,7 +60,7 @@ function doPost(e) {
         result = cajaSimpleDatos();
         break;
       case 'cajaSimpleRegistrar':
-        result = idempotentExecute_(requestId, () => cajaSimpleRegistrar(args[0]));
+        result = idempotentExecute_(requestId, action, args[0], deviceId, () => cajaSimpleRegistrar(args[0]));
         break;
       case 'cajaSimpleEstado':
         result = cajaSimpleEstado(args[0]);
@@ -74,10 +74,10 @@ function doPost(e) {
         result = comandasSimpleDatos(sessionToken || args[0]);
         break;
       case 'comandasSimpleAccion':
-        result = idempotentExecute_(requestId, () => comandasSimpleAccion(sessionToken, args[1] || args[0]));
+        result = idempotentExecute_(requestId, action, args, deviceId, () => comandasSimpleAccion(sessionToken, args[1] || args[0]));
         break;
       case 'comandasSimpleResolver':
-        result = idempotentExecute_(requestId, () => comandasSimpleResolver(sessionToken, args[1] || args[0]));
+        result = idempotentExecute_(requestId, action, args, deviceId, () => comandasSimpleResolver(sessionToken, args[1] || args[0]));
         break;
       case 'comandasSimpleEntrar':
         result = comandasSimpleEntrar(args[0]);
@@ -88,27 +88,27 @@ function doPost(e) {
         result = accesoSimpleDatos();
         break;
       case 'accesoSimpleRegistrar':
-        result = idempotentExecute_(requestId, () => accesoSimpleRegistrar(args[0]));
+        result = idempotentExecute_(requestId, action, args[0], deviceId, () => accesoSimpleRegistrar(args[0]));
         break;
       case 'guardarropaDevolver':
-        result = idempotentExecute_(requestId, () => guardarropaDevolver(args[0]));
+        result = idempotentExecute_(requestId, action, args[0], deviceId, () => guardarropaDevolver(args[0]));
         break;
       case 'accesoCambiarActividad':
-        result = idempotentExecute_(requestId, () => accesoCambiarActividad(args[0]));
+        result = idempotentExecute_(requestId, action, args[0], deviceId, () => accesoCambiarActividad(args[0]));
         break;
       case 'registrarNuevoEvento':
-        result = idempotentExecute_(requestId, () => registrarNuevoEvento(args[0]));
+        result = idempotentExecute_(requestId, action, args[0], deviceId, () => registrarNuevoEvento(args[0]));
         break;
 
       // --- INVENTARIO & CATÁLOGO ---
       case 'sincronizarCartaConCatalogoDOMUS':
-        result = idempotentExecute_(requestId, () => sincronizarCartaConCatalogoDOMUS());
+        result = idempotentExecute_(requestId, action, null, deviceId, () => sincronizarCartaConCatalogoDOMUS());
         break;
       case 'registrarNuevoProducto':
-        result = idempotentExecute_(requestId, () => registrarNuevoProducto(args[0]));
+        result = idempotentExecute_(requestId, action, args[0], deviceId, () => registrarNuevoProducto(args[0]));
         break;
       case 'sincronizarJujutsuShi':
-        result = idempotentExecute_(requestId, () => sincronizarJujutsuShi());
+        result = idempotentExecute_(requestId, action, null, deviceId, () => sincronizarJujutsuShi());
         break;
 
       default:
@@ -124,8 +124,12 @@ function doPost(e) {
 
   } catch (err) {
     console.error('[API ERROR]', err);
+    const statusCode = err.status || (err.message && err.message.includes('IDEMPOTENCY_KEY_REUSED') ? 409 : 500);
+    const errorCode = err.code || (statusCode === 409 ? 'IDEMPOTENCY_KEY_REUSED' : 'SERVER_ERROR');
     return ContentService.createTextOutput(JSON.stringify({
       ok: false,
+      status: statusCode,
+      code: errorCode,
       error: err.message || String(err)
     })).setMimeType(ContentService.MimeType.JSON);
   }

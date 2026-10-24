@@ -1805,6 +1805,26 @@
     }
   }
 
+  let outboxBroadcastChannel = null;
+  try {
+    if (typeof BroadcastChannel !== 'undefined') {
+      outboxBroadcastChannel = new BroadcastChannel('domus-outbox-sync-channel');
+      outboxBroadcastChannel.onmessage = e => {
+        if (e && e.data && e.data.type === 'OUTBOX_CHANGE') {
+          updateOutboxUI();
+        }
+      };
+    }
+  } catch (e) {}
+
+  function notifyOutboxTabs() {
+    if (outboxBroadcastChannel) {
+      try {
+        outboxBroadcastChannel.postMessage({ type: 'OUTBOX_CHANGE', timestamp: Date.now() });
+      } catch (e) {}
+    }
+  }
+
   function saveOutbox(queue) {
     try {
       localStorage.setItem('domus_outbox', JSON.stringify(queue));
@@ -1812,6 +1832,7 @@
       console.warn('Error al guardar outbox en localStorage:', e);
     }
     updateOutboxUI();
+    notifyOutboxTabs();
   }
 
   function enqueueOutbox(action, args, type = 'MUTATION') {
@@ -1845,104 +1866,155 @@
     return item;
   }
 
-  function acquireOutboxLock() {
-    const lockKey = 'domus_outbox_lock';
+  /**
+   * Sincronizador de Outbox con exclusión mutua entre contextos del navegador.
+   * Mecanismo principal: Web Locks API (W3C standard) garantizado por el navegador entre pestañas.
+   * Mecanismo secundario: Fallback con lease temporal en localStorage.
+   */
+  async function sincronizarOutbox() {
+    if (window.navigator && window.navigator.locks && typeof window.navigator.locks.request === 'function') {
+      try {
+        await window.navigator.locks.request('domus-outbox-sync', { ifAvailable: true }, async (lock) => {
+          if (!lock) {
+            console.log('[OUTBOX-WEBLOCKS] Otra pestaña del navegador tiene el lock exclusivo de sincronización.');
+            return;
+          }
+          await sincronizarOutboxCore_();
+        });
+      } catch (err) {
+        console.warn('[OUTBOX] Error con Web Locks, aplicando fallback:', err);
+        await sincronizarOutboxFallback_();
+      }
+    } else {
+      await sincronizarOutboxFallback_();
+    }
+  }
+
+  function acquireOutboxFallbackLock() {
+    const lockKey = 'domus_outbox_lock_lease';
     const now = Date.now();
     const currentLock = parseInt(localStorage.getItem(lockKey), 10);
     if (currentLock && (now - currentLock) < 15000) {
-      return false; // Otra pestaña del navegador está sincronizando en este instante
+      return false;
     }
     localStorage.setItem(lockKey, now.toString());
     return true;
   }
 
-  function releaseOutboxLock() {
-    localStorage.removeItem('domus_outbox_lock');
+  function releaseOutboxFallbackLock() {
+    localStorage.removeItem('domus_outbox_lock_lease');
   }
 
-  let isOutboxProcessing = false;
-  function processOutbox() {
-    if (isOutboxProcessing) return;
-    if (!acquireOutboxLock()) {
-      console.log('[OUTBOX] Otra pestaña del navegador está sincronizando activamente. Esperando turno.');
-      return;
+  async function sincronizarOutboxFallback_() {
+    if (!acquireOutboxFallbackLock()) return;
+    try {
+      await sincronizarOutboxCore_();
+    } finally {
+      releaseOutboxFallbackLock();
     }
+  }
 
-    const queue = getOutbox();
-    const pendingItems = queue.filter(it => it.status === 'LOCAL_PENDING' || it.status === 'RETRY');
-    if (pendingItems.length === 0) {
-      releaseOutboxLock();
-      updateOutboxUI();
-      return;
-    }
+  let isOutboxCoreRunning = false;
+  async function sincronizarOutboxCore_() {
+    if (isOutboxCoreRunning) return;
+    isOutboxCoreRunning = true;
 
-    isOutboxProcessing = true;
-    updateOutboxUI();
+    try {
+      while (true) {
+        const queue = getOutbox();
+        const pendingItems = queue.filter(it => it.status === 'LOCAL_PENDING' || it.status === 'RETRY');
+        if (pendingItems.length === 0) {
+          updateOutboxUI();
+          break;
+        }
 
-    const item = pendingItems[0];
-    item.status = 'SYNCING';
-    item.attempts = (item.attempts || 0) + 1;
-    item.lastAttempt = new Date().toISOString();
-    saveOutbox(queue);
+        const item = pendingItems[0];
+        item.status = 'SYNCING';
+        item.attempts = (item.attempts || 0) + 1;
+        item.lastAttempt = new Date().toISOString();
+        saveOutbox(queue);
 
-    const endpoint = `${STATE.apiUrl}?action=${encodeURIComponent(item.action)}`;
-    const payload = {
-      action: item.action,
-      args: item.args,
-      requestId: item.requestId,
-      deviceId: item.deviceId,
-      operator: item.operatorId,
-      role: item.role,
-      sessionToken: getSessionToken()
-    };
+        const endpoint = `${STATE.apiUrl}?action=${encodeURIComponent(item.action)}`;
+        const payload = {
+          action: item.action,
+          args: item.args,
+          requestId: item.requestId,
+          deviceId: item.deviceId,
+          operator: item.operatorId,
+          role: item.role,
+          sessionToken: getSessionToken()
+        };
 
-    fetch(endpoint, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify(payload)
-    })
-    .then(res => res.json())
-    .then(json => {
-      isOutboxProcessing = false;
-      releaseOutboxLock();
-      if (json && json.ok) {
-        item.status = 'CONFIRMED';
-        item.serverReceipt = json.data;
-        const currentQueue = getOutbox().filter(q => q.requestId !== item.requestId);
-        saveOutbox(currentQueue);
-        toast(`Operación sincronizada exitosamente con Google Sheets.`, 'ok');
-        playChime('success');
-        updateSyncPill('ok');
-        setTimeout(processOutbox, 300);
-      } else {
-        const errorMsg = json.error || 'Error reportado por servidor';
-        if (errorMsg.includes('Acceso denegado') || errorMsg.includes('inválido')) {
-          item.status = 'REQUIRES_REVIEW';
-          item.lastError = errorMsg;
-          saveOutbox(getOutbox().map(q => q.requestId === item.requestId ? item : q));
-          toast(`Permiso requerido: ${errorMsg}`, 'error');
-        } else {
+        try {
+          const res = await fetch(endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify(payload)
+          });
+
+          const json = await res.json();
+          if (json && json.ok) {
+            item.status = 'CONFIRMED';
+            item.serverReceipt = json.data;
+            const updatedQueue = getOutbox().filter(q => q.requestId !== item.requestId);
+            saveOutbox(updatedQueue);
+            toast(`Operación sincronizada exitosamente con Google Sheets.`, 'ok');
+            playChime('success');
+            updateSyncPill('ok');
+          } else {
+            const errorMsg = (json && (json.error || json.message)) || 'Error en servidor';
+            const errorCode = json && (json.code || json.status);
+
+            // Manejo específico de 409 IDEMPOTENCY_KEY_REUSED o permisos
+            if (errorCode === 'IDEMPOTENCY_KEY_REUSED' || errorCode === 409 || errorMsg.includes('IDEMPOTENCY_KEY_REUSED')) {
+              item.status = 'REQUIRES_REVIEW';
+              item.lastError = `Conflicto de Idempotencia: ${errorMsg}`;
+              saveOutbox(getOutbox().map(q => q.requestId === item.requestId ? item : q));
+              toast(`⚠️ Alerta: El requestId fue rechazado por discrepancia de datos.`, 'error');
+              break;
+            } else if (errorMsg.includes('Acceso denegado') || errorMsg.includes('inválido')) {
+              item.status = 'REQUIRES_REVIEW';
+              item.lastError = errorMsg;
+              saveOutbox(getOutbox().map(q => q.requestId === item.requestId ? item : q));
+              toast(`Permiso requerido: ${errorMsg}`, 'error');
+              break;
+            } else {
+              item.status = 'RETRY';
+              item.lastError = errorMsg;
+              saveOutbox(getOutbox().map(q => q.requestId === item.requestId ? item : q));
+              // Error transitorio, pausar bucle para no saturar
+              break;
+            }
+          }
+        } catch (fetchErr) {
           item.status = 'RETRY';
-          item.lastError = errorMsg;
+          item.lastError = fetchErr.message || String(fetchErr);
           saveOutbox(getOutbox().map(q => q.requestId === item.requestId ? item : q));
+          updateSyncPill('error');
+          // Sin conexión o timeout: detener el bucle para reintentar cuando haya red
+          break;
         }
       }
-    })
-    .catch(err => {
-      isOutboxProcessing = false;
-      releaseOutboxLock();
-      item.status = 'RETRY';
-      item.lastError = err.message || String(err);
-      saveOutbox(getOutbox().map(q => q.requestId === item.requestId ? item : q));
-      updateSyncPill('error');
-    });
+    } finally {
+      isOutboxCoreRunning = false;
+      updateOutboxUI();
+    }
   }
 
-  // Sincronización entre pestañas abiertas simultáneamente
+  function processOutbox() {
+    sincronizarOutbox();
+  }
+
+  // Sincronización entre pestañas y reactividad a conexión de red
   window.addEventListener('storage', e => {
     if (e.key === 'domus_outbox') {
       updateOutboxUI();
     }
+  });
+
+  window.addEventListener('online', () => {
+    console.log('[NETWORK] Conexión recuperada. Procesando Outbox...');
+    processOutbox();
   });
 
   function updateOutboxUI() {

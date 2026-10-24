@@ -1,59 +1,43 @@
 # 📜 DOMUS OS · RELEASE & DEPLOYMENT LEDGER
 
-Registro formal de versiones, esquemas, deployments de Google Apps Script y procedimientos de rollback operacional para **DOMUS Centro Cultural & Club**.
+Registro formal y auditable de versiones, commits, tags, deployments de Google Apps Script, versiones de esquema y procedimientos de rollback para **DOMUS Centro Cultural & Club**.
 
 ---
 
-## 🏷️ Versiones y Trazabilidad
+## 🏷️ Release Ledger
 
-| Versión | Git Ref / Tag | Apps Script Deployment | Estado | Fecha | Responsable | Notas de Auditoría |
-| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **v1.0-pre-hardening** | `production-pre-hardening` (commit `1a89a14`) | `@exec` (Producción Actual) | 🟢 Activo en Producción (`main`) | 2026-10-24 | René / SadoTech | Baseline antes de la modularización y hardening. |
-| **v1.1-stabilization** | `stabilization/backend-v1` | `@staging` (En validación) | 🟡 Rama de Aislamiento | 2026-10-24 | Antigravity IDE | Modularización 11 archivos `.gs`, LockService, RBAC Zero-Trust y Outbox con Mutex. |
+| Release | Git commit | Git tag | Apps Script deployment ID | Apps Script version | Schema version | Frontend version | Fecha | Responsable | Resultado pruebas | Rollback target |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **v1.0.0-pre-hardening** | `1a89a14` | `production-pre-hardening` | `@exec-prod` | `v1` | `DOMUS-DB-v1` | `1.0.0` | 2026-10-24 | René / SadoTech | ✅ Estable en Producción | N/A (Baseline) |
+| **v1.1.0-stabilization** | En progreso (`stabilization/backend-v1`) | `staging-stabilization-v1` | `DOMUS-STAGING` (Pendiente) | `v2-modular` | `DOMUS-DB-v1.1` (incluye hoja `REQUESTS`) | `1.1.0` | 2026-10-24 | Antigravity IDE | 🟡 Pruebas locales 100% PASS; pendiente Staging real (14 pruebas) | `1a89a14` (`production-pre-hardening`) |
 
 ---
 
-## 🔒 Los 5 Gates de Validación Pre-Merge
+## 🔒 Estado de los Gates de Validación (Auditoría #3)
 
-### Gate 1: Seguridad de Credenciales
-- **Veredicto:** APROBADO ✅
-- El repositorio, su historial Git y sus archivos no contienen ningún Personal Access Token (PAT).
-- Se instruye al administrador a revocar en GitHub el token classic temporal expuesto en comandos de terminal.
-
-### Gate 2: Zero-Trust RBAC & Anti-Tampering (`Auth.gs`)
-- **Veredicto:** APROBADO ✅
-- El rol y permisos se determinan **exclusivamente a través de la sesión activa en el servidor**.
-- Si un cliente intenta enviar `role: "ADMIN"` con una sesión de `BARRA`, el servidor detecta la discrepancia y rechaza la petición por tampering.
-
-### Gate 3: Idempotencia Fuerte a Nivel de Base de Datos (`POS.gs`, `Access.gs`)
-- **Veredicto:** APROBADO ✅
-- En caso de corte de red donde el servidor asienta el cobro pero la respuesta HTTP no llega al cliente, el segundo intento busca el tag `CAJA-RAPIDA:<requestId>` o `ACCESO-WEB:<requestId>` directamente en las celdas de `COBROS`.
-- Si ya existe, se reconstruye el comprobante original sin duplicar cobros, folios ni salidas de inventario.
-
-### Gate 4: Outbox Multi-Pestaña con Mutex Local (`app.js`)
-- **Veredicto:** APROBADO ✅
-- Sincronización protegida mediante mutex de `localStorage` (`domus_outbox_lock`) y eventos `storage` cruzados entre pestañas.
-- Previene que dos pestañas abiertas simultáneamente disparen la misma transacción concurrente.
-
-### Gate 5: Entorno de Staging & Rollback Operacional
-- **Veredicto:** APROBADO ✅
-- Soporte configurado para apuntar a copias de prueba de las hojas antes de impactar el libro de producción.
-- Procedimiento de rollback detallado a continuación.
+| Gate | Descripción | Estado | Implementación / Acción |
+| :--- | :--- | :---: | :--- |
+| **Gate 1: Token GitHub** | Revocación de credencial expuesta y limpieza de remotes. | 🔴 **Acción Humana Requerida** | El remote Git local está limpio (`https://github.com/SadoTechMX/Admin-Domus.git`). No se usan ni almacenan PATs en Git. El usuario debe revocar inmediatamente el PAT en GitHub Settings. |
+| **Gate 2: RBAC Zero-Trust** | Validación estricta en servidor basada en sesión. | ✅ **APROBADO** | `Auth.gs` rechaza manipulación de JavaScript desde el navegador; la sesión del servidor dicta los permisos reales. |
+| **Gate 3: Idempotencia Fuerte + Payload Binding** | Deduplicación ligada a `action + payloadHash + deviceId`. | ✅ **IMPLEMENTADO** | `Idempotency.gs` calcula SHA-256 canónico. Reutilizaciones con payload diferente arrojan `409 Conflict: IDEMPOTENCY_KEY_REUSED`. Ledger `REQUESTS` con estados: `PROCESSING`, `COMPLETED`, `FAILED`, `REQUIRES_REVIEW`. |
+| **Gate 4: Outbox Multi-Pestaña** | Exclusión mutua entre pestañas mediante navegador. | ✅ **IMPLEMENTADO** | Reemplazado mutex débil de `localStorage` por la **Web Locks API** (`navigator.locks.request('domus-outbox-sync', ...)`), con fallback a lease temporal en `localStorage` y reactividad vía `BroadcastChannel`. |
+| **Gate 5: Staging Real (14 Pruebas)** | Validación en entorno aislado de Apps Script y Google Sheets. | 🟡 **EN PROCESO** | Plan de pruebas documentado en `STAGING_PLAN.md`. Requiere despliegue en hoja y Apps Script de Staging antes del merge a `main`. |
+| **Merge a Producción (`main`)** | Integración final de Fase 0. | ⛔ **BLOQUEADO (NO-GO)** | `main` permanece congelada hasta completar las 14 pruebas de Staging y verificar SLA P95 < 5.0s. |
 
 ---
 
 ## 🔄 Procedimiento de Rollback Operacional
 
-En caso de contingencia o fallo crítico durante un despliegue:
+En caso de requerir reversión inmediata:
 
-1. **Reversión de Código Frontend (GitHub Pages):**
+1. **Frontend (GitHub Pages):**
    ```bash
    git checkout main
    git reset --hard production-pre-hardening
    git push origin main --force
    ```
-2. **Reversión de Apps Script Web App:**
-   - Abrir el editor de Google Apps Script.
-   - En *Implementar > Administrar implementaciones*, revertir la versión activa a la versión anterior documentada en este ledger.
-3. **Reversión de Script Properties:**
-   - Si se modificó alguna propiedad de entorno, consultar el respaldo en este registro para restaurarla.
+2. **Google Apps Script:**
+   - Abrir *script.google.com* → *Implementar* → *Administrar implementaciones*.
+   - Revertir la implementación a la versión del tag `production-pre-hardening`.
+3. **Restauración de Esquema:**
+   - La hoja transaccional `REQUESTS` no interfiere con las hojas operativas clásicas (`CAJA 2`, `COBROS`, `COMANDAS`). Si se requiere eliminarla, simplemente se oculta o archiva.
