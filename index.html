@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <title>DOMUS · Sistema Operativo de Administración, Caja y Comandas</title>
+  <meta name="description" content="Plataforma unificada para administración de DOMUS, punto de venta de caja y pantalla de comandas de cocina y barra." />
+  <meta name="theme-color" content="#0a0b0e" />
+
+  <!-- Favicon / Branding -->
+  <link rel="icon" type="image/png" href="assets/LOGO DOMUS-01.png" />
+  <link rel="apple-touch-icon" href="assets/LOGO DOMUS-01.png" />
+
+  <!-- Stylesheet -->
+  <link rel="stylesheet" href="css/app.css" />
+</head>
+<body>
+
+  <!-- ========================================================================
+       TOP HEADER & NAVIGATION
+       ======================================================================== -->
+  <header class="app-header">
+    <div class="brand-section">
+      <img src="assets/LOGO DOMUS-01.png" alt="DOMUS Logo" class="brand-logo" />
+      <div class="brand-text">
+        <h1>
+          DOMUS
+          <span class="phase-badge" id="currentPhaseBadge">Fase Solar</span>
+        </h1>
+        <span class="brand-subtitle">Caja &middot; Barra &middot; Cocina</span>
+      </div>
+    </div>
+
+    <!-- Mode Switcher (Caja vs Comandas) -->
+    <nav class="mode-switcher" aria-label="Selector de pantalla">
+      <button type="button" class="mode-btn active" id="btnModeCaja" title="Abrir Punto de Venta y Cobro">
+        <span>💰</span>
+        <span>Modo Caja</span>
+      </button>
+      <button type="button" class="mode-btn" id="btnModeComandas" title="Abrir Pantalla de Comandas y Barra">
+        <span>📋</span>
+        <span>Modo Comandas</span>
+        <span class="badge-count" id="kdsActiveCountBadge">0</span>
+      </button>
+    </nav>
+
+    <!-- Header Actions & Controls -->
+    <div class="header-actions">
+      <!-- Sync Status Pill -->
+      <div class="connection-status" id="connectionPill" title="Estado de sincronización con Google">
+        <span class="status-dot" id="statusDot"></span>
+        <span id="syncLabel">Conectando…</span>
+      </div>
+
+      <!-- Staff Member Selector -->
+      <div class="staff-select-wrapper">
+        <select id="staffSelect" aria-label="Seleccionar operador responsable">
+          <option value="">👤 Operador…</option>
+        </select>
+      </div>
+
+      <!-- Phase Toggle (Solar / Lunar) -->
+      <button type="button" class="btn-secondary" id="btnPhaseToggle" title="Cambiar carta entre Solar y Lunar">
+        🌙 Fase
+      </button>
+
+      <!-- Audio Chime Toggle -->
+      <button type="button" class="action-icon-btn" id="btnToggleSound" title="Activar/Desactivar sonido de comandas">
+        🔕 Sonido: Off
+      </button>
+
+      <!-- Manual Refresh -->
+      <button type="button" class="action-icon-btn" id="btnSyncNow" title="Actualizar datos ahora">
+        🔄
+      </button>
+
+      <!-- Settings / Config -->
+      <button type="button" class="action-icon-btn" id="btnOpenSettings" title="Configuración y Enlace con Google Apps Script">
+        ⚙️
+      </button>
+    </div>
+  </header>
+
+  <!-- ========================================================================
+       MAIN APP CONTAINER
+       ======================================================================== -->
+  <main class="app-container">
+
+    <!-- ======================================================================
+         VISTA 1: MODO CAJA (PUNTO DE VENTA Y COBRO)
+         ====================================================================== -->
+    <section id="viewCaja" class="caja-layout" aria-label="Punto de Venta y Cobro">
+      <!-- Left: Catalog & Products -->
+      <div class="catalog-section">
+        <!-- Toolbar: Search & Categories -->
+        <div class="catalog-toolbar">
+          <div class="search-input-wrapper">
+            <span class="search-icon">🔍</span>
+            <input type="text" id="catalogSearchInput" placeholder="Buscar producto, cerveza, cóctel o insumo…" />
+          </div>
+          <div class="category-chips" id="categoryChips">
+            <!-- Rendered dynamically: Todas, Bebidas, Cannábicos, etc. -->
+          </div>
+        </div>
+
+        <!-- Products Grid -->
+        <div class="products-grid" id="productsGrid">
+          <!-- Rendered dynamically -->
+        </div>
+      </div>
+
+      <!-- Right: Cart & Order Drawer -->
+      <aside class="cart-sidebar" aria-label="Pedido actual">
+        <div class="cart-header">
+          <h2>
+            <span>🛒</span>
+            <span>Pedido Actual</span>
+          </h2>
+          <button type="button" class="btn-clear" id="btnClearCart" title="Vaciar pedido">
+            Vaciar
+          </button>
+        </div>
+
+        <!-- Ticket & Customer Fields -->
+        <div class="cart-meta-fields">
+          <div class="input-group">
+            <label for="openAccountsSelect">Cuenta abierta existente (opcional):</label>
+            <div class="account-selector-row">
+              <select id="openAccountsSelect">
+                <option value="">+ Nueva Cuenta / Folio</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="input-group">
+            <label for="customerNameInput">Nombre o Apodo del Cliente: *</label>
+            <input type="text" id="customerNameInput" placeholder="Ej. Fernando L. / Mesa 4" required />
+          </div>
+
+          <div class="input-group">
+            <label for="activitySelect">Actividad / Registro:</label>
+            <select id="activitySelect">
+              <option value="Visita general DOMUS">Visita general DOMUS</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Cart Items List -->
+        <div class="cart-items-scroll" id="cartItemsContainer">
+          <!-- Rendered dynamically -->
+        </div>
+
+        <!-- Totals & Primary Action Buttons -->
+        <div class="cart-footer">
+          <div class="totals-row">
+            <span>Unidades:</span>
+            <span id="cartUnitsCount">0 unidades</span>
+          </div>
+          <div class="totals-row grand-total">
+            <span>Total a Pagar:</span>
+            <span class="amount" id="cartGrandTotal">$0.00</span>
+          </div>
+
+          <button type="button" class="btn-primary-action" id="btnOpenPaymentModal" disabled>
+            <span>💳</span>
+            <span>Cobrar y Enviar a Comanda</span>
+          </button>
+        </div>
+      </aside>
+    </section>
+
+    <!-- ======================================================================
+         VISTA 2: MODO COMANDAS (PANTALLA DE COCINA Y BARRA - KDS)
+         ====================================================================== -->
+    <section id="viewComandas" class="comandas-layout hidden" aria-label="Pantalla de Comandas de Barra y Cocina">
+      <!-- Top Metrics -->
+      <div class="kds-metrics">
+        <div class="kds-metric-card">
+          <div class="kds-metric-icon">⏳</div>
+          <div class="kds-metric-data">
+            <div class="metric-num" id="metricTotalOrders">0</div>
+            <div class="metric-label">Comandas Activas</div>
+          </div>
+        </div>
+        <div class="kds-metric-card">
+          <div class="kds-metric-icon">✓</div>
+          <div class="kds-metric-data">
+            <div class="metric-num" id="metricReadyOrders">0</div>
+            <div class="metric-label">Listas para Entrega</div>
+          </div>
+        </div>
+        <div class="kds-metric-card">
+          <div class="kds-metric-icon">📦</div>
+          <div class="kds-metric-data">
+            <div class="metric-num" id="metricRestockRequests">0</div>
+            <div class="metric-label">Resurtidos Abiertos</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- KDS Filter & Search Toolbar -->
+      <div class="kds-toolbar">
+        <div class="kds-tabs" id="kdsTabs">
+          <button type="button" class="kds-tab-btn active" data-tab="Todas">Todas Activas</button>
+          <button type="button" class="kds-tab-btn" data-tab="Pendiente">Pendientes</button>
+          <button type="button" class="kds-tab-btn" data-tab="En preparación">En preparación</button>
+          <button type="button" class="kds-tab-btn" data-tab="Lista">Listas</button>
+          <button type="button" class="kds-tab-btn" data-tab="Entregadas">Historial Entregadas</button>
+          <button type="button" class="kds-tab-btn" data-tab="Resurtido">Resurtido</button>
+        </div>
+
+        <div class="kds-filters-right">
+          <select id="kdsDestFilter" class="btn-secondary" aria-label="Filtrar por estación">
+            <option value="">Todas las estaciones</option>
+            <option value="Barra">Solo Barra</option>
+            <option value="Cocina">Solo Cocina</option>
+          </select>
+          <div class="search-input-wrapper" style="min-width: 180px;">
+            <span class="search-icon">🔍</span>
+            <input type="text" id="kdsSearchInput" placeholder="Buscar folio, cliente…" />
+          </div>
+        </div>
+      </div>
+
+      <!-- Orders Board (Cards Masonry) -->
+      <div class="orders-board" id="ordersBoard">
+        <!-- Rendered dynamically -->
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ========================================================================
+       MODAL 1: COBRO Y FORMA DE PAGO (CAJA)
+       ======================================================================== -->
+  <div class="modal-overlay" id="paymentModal" role="dialog" aria-modal="true" aria-labelledby="payModalTitle">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 id="payModalTitle">Cobro y Registro de Pago</h3>
+        <button type="button" class="modal-close-btn" id="btnClosePayModal" aria-label="Cerrar">&times;</button>
+      </div>
+
+      <div class="modal-body">
+        <div style="display: flex; justify-content: space-between; align-items: baseline; background: var(--bg-surface-elevated); padding: 14px 18px; border-radius: var(--radius-md);">
+          <span style="font-size: 1rem; color: var(--text-secondary); font-weight: 600;">Total a Cobrar:</span>
+          <span style="font-size: 1.8rem; font-weight: 800; color: var(--gold-400);" id="payTotalDisplay">$0.00</span>
+        </div>
+
+        <!-- Forma de Pago -->
+        <div>
+          <label style="display: block; font-size: 0.85rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 8px;">
+            Selecciona la Forma de Pago:
+          </label>
+          <div class="payment-methods-grid">
+            <button type="button" class="payment-method-btn active" data-method="Efectivo">
+              💵 Efectivo
+            </button>
+            <button type="button" class="payment-method-btn" data-method="Terminal 1">
+              💳 Terminal 1
+            </button>
+            <button type="button" class="payment-method-btn" data-method="Terminal 2">
+              💳 Terminal 2
+            </button>
+            <button type="button" class="payment-method-btn" data-method="Transferencia">
+              📱 Transferencia
+            </button>
+          </div>
+        </div>
+
+        <!-- Calculadora de Efectivo y Cambio -->
+        <div id="cashCalculatorSection">
+          <div class="input-group">
+            <label for="cashReceivedInput">Efectivo Recibido:</label>
+            <input type="number" id="cashReceivedInput" placeholder="0.00" step="any" min="0" />
+            <input type="hidden" id="cashDueInput" value="0" />
+
+            <!-- Botones Rápidos de Billetes -->
+            <div class="cash-quick-buttons">
+              <button type="button" class="btn-cash-preset" data-val="exact">Exacto</button>
+              <button type="button" class="btn-cash-preset" data-val="50">$50</button>
+              <button type="button" class="btn-cash-preset" data-val="100">$100</button>
+              <button type="button" class="btn-cash-preset" data-val="200">$200</button>
+              <button type="button" class="btn-cash-preset" data-val="500">$500</button>
+            </div>
+          </div>
+
+          <div class="input-group" style="margin-top: 10px;">
+            <label for="cashTipInput">Propina Voluntaria (opcional):</label>
+            <input type="number" id="cashTipInput" placeholder="0.00" value="0" min="0" />
+          </div>
+
+          <!-- Cambio a Entregar -->
+          <div class="change-display-box" id="changeDisplayBox" style="margin-top: 14px;">
+            <span class="change-label">Cambio a Entregar:</span>
+            <span class="change-amount" id="changeAmountText">$0.00</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn-secondary" id="btnCancelPayment">
+          Cancelar
+        </button>
+        <button type="button" class="btn-secondary-action" id="btnSendPendingPayment" style="width: auto;">
+          Enviar (Pagar después)
+        </button>
+        <button type="button" class="btn-primary-action" id="btnConfirmChargeAndSend" style="width: auto;">
+          ✓ Confirmar Cobro y Enviar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================================
+       MODAL 2: TICKET / RECIBO DE PAGO
+       ======================================================================== -->
+  <div class="modal-overlay" id="receiptModal" role="dialog" aria-modal="true" aria-labelledby="receiptModalTitle">
+    <div class="modal-card" style="max-width: 420px;">
+      <div class="modal-header">
+        <h3 id="receiptModalTitle">Comprobante de Venta</h3>
+        <button type="button" class="modal-close-btn" id="btnCloseReceipt" aria-label="Cerrar">&times;</button>
+      </div>
+
+      <div class="modal-body">
+        <div class="receipt-paper" id="printableReceipt">
+          <div class="receipt-header">
+            <h2>DOMUS</h2>
+            <p>Comprobante de Operación</p>
+            <p id="receiptFolio" style="font-weight: 700; margin-top: 6px;">RECIBO: R-0000</p>
+            <p id="receiptTicket" style="font-size: 0.85rem; color: #4b5563;">CUENTA: CTA-000</p>
+            <p id="receiptCustomer" style="font-weight: 600;">CLIENTE: ---</p>
+            <p id="receiptDate" style="font-size: 0.8rem; color: #6b7280;">FECHA: --/--/----</p>
+          </div>
+
+          <div class="receipt-items-list" id="receiptItemsList">
+            <!-- Items rendered dynamically -->
+          </div>
+
+          <div class="receipt-total-row">
+            <span>TOTAL:</span>
+            <span id="receiptTotal">$0.00</span>
+          </div>
+
+          <div id="receiptPaymentDetails" style="margin-top: 12px; font-size: 0.88rem; border-top: 1px dotted #9ca3af; padding-top: 8px;">
+            <!-- Payment info rendered dynamically -->
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn-secondary" id="btnPrintReceipt">
+          🖨️ Imprimir Ticket
+        </button>
+        <button type="button" class="btn-primary-action" onclick="document.getElementById('receiptModal').classList.remove('open')">
+          Aceptar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================================
+       MODAL 3: CONFIGURACIÓN & ENLACE DE APPS SCRIPT
+       ======================================================================== -->
+  <div class="modal-overlay" id="configModal" role="dialog" aria-modal="true" aria-labelledby="configModalTitle">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 id="configModalTitle">Configuración de Conexión</h3>
+        <button type="button" class="modal-close-btn" id="btnCloseConfig" aria-label="Cerrar">&times;</button>
+      </div>
+
+      <div class="modal-body">
+        <p style="font-size: 0.88rem; color: var(--text-secondary);">
+          Esta aplicación se conecta automáticamente con el backend de Google Apps Script para DOMUS.
+        </p>
+
+        <div class="input-group">
+          <label for="gasApiUrlInput">URL de Implementación de Apps Script (/exec):</label>
+          <input type="url" id="gasApiUrlInput" placeholder="https://script.google.com/a/macros/domusccc.net/s/.../exec" />
+          <small style="color: var(--text-muted); display: block; margin-top: 4px;">
+            URL del Web App publicado en el proyecto Google Apps Script de DOMUS.
+          </small>
+        </div>
+
+        <div style="background: var(--bg-surface-elevated); padding: 12px 16px; border-radius: var(--radius-md); font-size: 0.85rem; color: var(--text-muted);">
+          ℹ️ Si abres esta web desde el propio enlace de Google Apps Script, la conexión es nativa y directa sin requerir claves externas.
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn-secondary" onclick="document.getElementById('configModal').classList.remove('open')">
+          Cancelar
+        </button>
+        <button type="button" class="btn-primary-action" id="btnSaveConfig" style="width: auto;">
+          Guardar y Probar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Container -->
+  <div class="toast-container" id="toastContainer" aria-live="polite"></div>
+
+  <!-- Script -->
+  <script src="js/app.js"></script>
+</body>
+</html>
