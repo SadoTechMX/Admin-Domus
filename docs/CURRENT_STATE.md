@@ -3,15 +3,17 @@
 > [!NOTE]
 > Este archivo resume el estado técnico del sistema. La fuente de verdad para el commit activo siempre es el comando `git rev-parse HEAD`.
 
-* **Fecha de Último Handoff:** 2026-10-24 05:35 UTC-6
-* **Rama Activa:** `stabilization/backend-v1`
-* **LAST_VERIFIED_COMMIT:** `00fced7` (Gates 1, 2 y 3 aprobados al 100%; STAGING_VERIFIED Completo)
-* **HEAD Activo:** `00fced7`
+* **Fecha de Último Handoff:** 2026-10-24 05:45 UTC-6
+* **Rama Activa:** `main` (Producción)
+* **Release:** `v1.1.0` (Tag `v1.1.0` publicado en origin)
+* **LAST_VERIFIED_COMMIT:** `5736e91` (Release v1.1.0 desplegada y verificada en Producción)
+* **HEAD Activo:** `5736e91`
 * **Estado de Working Tree al Handoff:** `clean`
-* **Rama `main`:** Congelada en commit `1a89a14` (`production-pre-hardening`)
 * **Remote Git:** `https://github.com/SadoTechMX/Admin-Domus.git` (Limpio, autenticación delegada a Git Credential Manager / Keychain)
-* **URL Activa de Staging:** `https://script.google.com/macros/s/AKfycbysBaRA2_oZIOqU10G4E_MHiC8FUR3dCnqj2DlLG91iNJXP3GkZZ7BK0Na1FAJ1thZk/exec` (Apps Script Versión 17)
-* **Baseline Rollback URL:** `https://script.google.com/macros/s/AKfycbzLkId5CWpQp3kBuY6UM5r6zhmyVyxmP1R80SfQidL83qXi_tUueRGd4P20Nc0tRYNH/exec`
+* **URL Activa de Producción:** `https://script.google.com/macros/s/AKfycbysBaRA2_oZIOqU10G4E_MHiC8FUR3dCnqj2DlLG91iNJXP3GkZZ7BK0Na1FAJ1thZk/exec` (Apps Script Versión 18)
+* **Libros Oficiales de Producción:**
+  - Main: `1KQz8oJ4VaWFsqS2-sg25HMCm60SdSoQpIDlCDSV5J1U` (*DOMUS · SISTEMA OPERATIVO*)
+  - Ops: `1DiwPa1cVe33xCYkIiYoHhP015RsEOjHXBFe2iU2RVCc` (*DOMUS · BARRA Y RESURTIDO*)
 
 ---
 
@@ -19,19 +21,12 @@
 
 | Componente | Archivo(s) | Estado Actual | Evidencia / Próximo Paso |
 | :--- | :--- | :---: | :--- |
-| **Backend Modular (11 archivos)** | `google-apps-script/*.gs` | `STAGING_VERIFIED` | Desplegado y verificado en Apps Script de Staging (`DOMUS_STAGING_BUNDLE.gs`, 2,178 líneas, Versión 17). |
-| **RBAC Zero-Trust** | `Auth.gs`, `Api.gs` | `STAGING_VERIFIED` | Tests 7 y 8 aprobados: Escalación BARRA->ADMIN y sesiones expiradas rechazadas por el servidor. |
-| **Idempotencia + Payload Binding** | `Idempotency.gs`, `Api.gs` | `STAGING_VERIFIED` | Tests 1, 2 y 4 aprobados: Reutilización con payload mutado arroja 409; pérdida de ACK recupera folio idéntico sin duplicados. |
-| **Concurrencia / LockService** | `POS.gs`, `Idempotency.gs` | `STAGING_VERIFIED` | Test 3 aprobado: 10 ventas simultáneas registradas limpiamente en serie bajo `LockService` con 10 folios únicos sin colisiones. |
-| **KDS / Comandas (Producción)** | `POS.gs`, `KDS.gs` | `STAGING_VERIFIED` | Tests 9 y 10 aprobados: Venta pagada genera exactamente 1 comanda; reintentos no duplican comanda. |
-| **Ledger Transaccional (`REQUESTS`)** | `Idempotency.gs`, Sheets | `STAGING_VERIFIED` | Persistencia en 3 capas (Memoria/Cache, Properties, Sheets) validada en Staging. |
-| **Mutex Outbox (Web Locks API)** | `js/app.js` | `STAGING_VERIFIED` | **Gate 1 Aprobado**: Dos pestañas de Chrome real en concurrencia emiten exactamente 1 POST; persistencia y sincronización tras cierre/reapertura completa del navegador verificadas. |
-| **Entrega Física e Inventario (ADR-004)** | `KDS.gs`, `Inventory.gs` | `STAGING_VERIFIED` | **Gate 2 Aprobado**: Comanda entregada en KDS en STAGING v17; reintento con mismo requestId recupera op original en 1.00s; segundo intento con ID nuevo rechazado por anti doble-entrega. |
-| **Rollback Operacional Resiliente** | `Api.gs`, Deployments | `STAGING_VERIFIED` | **Gate 3 Aprobado**: Conmutación operacional real de STAGING a baseline anterior (`AKfycbz...`), lectura operativa y restauración a versión nueva (`AKfycbys...`) con `HEALTHY`. |
-| **Fase 0.5: Ticketing & Access Commerce** | `Access.gs`, `Events.gs`, `index.html`, `js/app.js` | `STAGING_VERIFIED` | Tests 11, 12 y Canales A, B, C, D aprobados: Anti pass-back, anti doble devolución, y cobros correctos en `COBROS`. |
-| **Fase 0 Completa (14 Casos + 3 Gates)** | `tests/*.py` | `STAGING_VERIFIED` | 100% de la suite de integración ejecutada con exit code 0 contra el entorno real de STAGING. |
-| **Fase 1: Apertura / Turnos / Corte X / Z** | N/A | `READY_FOR_BRANCHING` | Desbloqueada para inicio inmediatamente tras el merge controlado a `main`. |
-| **Merge a Producción (`main`)** | `main` | `READY_FOR_AUTHORIZATION` | Todos los gates completados. Esperando autorización final expresa del usuario. |
+| **Release v1.1.0 en Producción** | `main` / `v1.1.0` | `PROD_VERIFIED` | Smoke test de solo lectura aprobado (EXIT 0). Cero escrituras o ventas sintéticas en Producción. |
+| **Backend de Producción (`DOMUS_PRODUCTION_BUNDLE.gs`)** | `google-apps-script/DOMUS_PRODUCTION_BUNDLE.gs` | `PROD_VERIFIED` | Desplegado en Versión 18 de Apps Script; PING reporta `HEALTHY` y `environment: PRODUCTION`. |
+| **Aislamiento de Libros Oficiales** | `Config.gs` | `PROD_VERIFIED` | Confirmado en vivo: Main `1KQz8oJ4...` y Ops `1DiwPa1c...` vinculados estrictamente. |
+| **Fase 0: Transaccional Core** | Backend Modular (11 archivos) | `PROD_VERIFIED` | Merge a `main` completado y certificado. |
+| **Fase 0.5: Ticketing & Access Commerce** | `Access.gs`, `Events.gs`, `index.html` | `PROD_VERIFIED` | Modelo de 4 canales comerciales (Taquilla, Boletera, Transferencias, Cortesías) integrado en `main`. |
+| **Fase 1: Apertura / Turnos / Corte X / Z** | N/A | `READY_FOR_DEVELOPMENT` | Desbloqueada para iniciar desarrollo en la rama aislada `feature/phase-1-shifts-cuts`. |
 
 ---
 
