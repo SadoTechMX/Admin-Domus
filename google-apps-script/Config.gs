@@ -1,16 +1,80 @@
 /**
  * ============================================================================
  * DOMUS OS · ARCHITECTURE & CONFIGURATION MODULE (Config.gs)
- * Base de configuración centralizada, libros maestros y políticas de acceso
+ * Base de configuración centralizada, entornos aislados y políticas de acceso
  * ============================================================================
  */
 
 'use strict';
 
+/**
+ * Diccionario Canónico de Entornos (Aislamiento Estricto Staging vs Producción)
+ */
+const ENVIRONMENTS = Object.freeze({
+  PRODUCTION: Object.freeze({
+    name: 'PRODUCTION',
+    mainSheetId: '1KQz8oJ4VaWFsqS2-sg25HMCm60SdSoQpIDlCDSV5J1U', // DOMUS · SISTEMA OPERATIVO (Producción)
+    opsSheetId: '1DiwPa1cVe33xCYkIiYoHhP015RsEOjHXBFe2iU2RVCc'    // DOMUS · BARRA Y RESURTIDO (Producción)
+  }),
+  STAGING: Object.freeze({
+    name: 'STAGING',
+    // Los IDs de Staging se actualizan al duplicar los libros en Drive o mediante ScriptProperties
+    mainSheetId: '', // DOMUS-STAGING · SISTEMA OPERATIVO
+    opsSheetId: ''   // DOMUS-STAGING · BARRA Y RESURTIDO
+  })
+});
+
+/**
+ * Determina el entorno activo de ejecución garantizando que Staging jamás toque Producción.
+ * Prioridad de resolución:
+ * 1. ScriptProperties 'DOMUS_ENV' ('PRODUCTION' | 'STAGING')
+ * 2. ScriptProperties 'STAGING_MAIN_SHEET_ID' y 'STAGING_OPS_SHEET_ID'
+ * 3. Inyección contextual D.env
+ * 4. Fallback seguro
+ */
+function getActiveEnvironment_() {
+  try {
+    if (typeof PropertiesService !== 'undefined') {
+      const props = PropertiesService.getScriptProperties();
+      const propEnv = props.getProperty('DOMUS_ENV');
+      
+      const customMain = props.getProperty('STAGING_MAIN_SHEET_ID') || ENVIRONMENTS.STAGING.mainSheetId;
+      const customOps = props.getProperty('STAGING_OPS_SHEET_ID') || ENVIRONMENTS.STAGING.opsSheetId;
+
+      if (propEnv === 'STAGING' || (customMain && customOps)) {
+        return {
+          name: 'STAGING',
+          mainSheetId: customMain || ENVIRONMENTS.STAGING.mainSheetId,
+          opsSheetId: customOps || ENVIRONMENTS.STAGING.opsSheetId
+        };
+      }
+      if (propEnv === 'PRODUCTION') {
+        return ENVIRONMENTS.PRODUCTION;
+      }
+    }
+  } catch (e) {}
+
+  if (typeof D !== 'undefined' && D.env && ENVIRONMENTS[D.env]) {
+    return ENVIRONMENTS[D.env];
+  }
+
+  if (ENVIRONMENTS.STAGING.mainSheetId && ENVIRONMENTS.STAGING.opsSheetId) {
+    return ENVIRONMENTS.STAGING;
+  }
+
+  return ENVIRONMENTS.PRODUCTION;
+}
+
+const ACTIVE_ENV = getActiveEnvironment_();
+
 const CONFIG = Object.freeze({
+  // Entorno activo
+  environment: ACTIVE_ENV.name,
+  isStaging: ACTIVE_ENV.name === 'STAGING',
+  
   // Identificadores de Google Sheets
-  mainSheetId: typeof D !== 'undefined' && D.main ? D.main : '1KQz8oJ4VaWFsqS2-sg25HMCm60SdSoQpIDlCDSV5J1U',
-  opsSheetId: typeof D !== 'undefined' && D.ops ? D.ops : '1DiwPa1cVe33xCYkIiYoHhP015RsEOjHXBFe2iU2RVCc',
+  mainSheetId: typeof D !== 'undefined' && D.main ? D.main : ACTIVE_ENV.mainSheetId,
+  opsSheetId: typeof D !== 'undefined' && D.ops ? D.ops : ACTIVE_ENV.opsSheetId,
   
   // Lista de Gerencia & Supervisión
   managers: typeof D !== 'undefined' && D.managers ? D.managers : ['direccion@domusccc.net', 'sadotechfet@gmail.com'],
