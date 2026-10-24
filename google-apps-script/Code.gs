@@ -57,6 +57,8 @@ function doPost(e) {
       result = sincronizarCartaConCatalogoDOMUS();
     } else if (action === 'registrarNuevoProducto') {
       result = registrarNuevoProducto(args[0]);
+    } else if (action === 'sincronizarJujutsuShi') {
+      result = sincronizarJujutsuShi();
     } else {
       throw new Error('Acción no soportada: ' + action);
     }
@@ -295,6 +297,32 @@ function sincronizarCartaConCatalogoDOMUS() {
     ]);
   });
 
+  // Garantizar integración de rollos de sushi del proveedor JujuTsu-shi
+  const jujutsuList = [
+    { name: 'Rollo Nobara', desc: 'Zanahoria, aguacate, queso Philadelphia, surimi', sku: 'JJ01' },
+    { name: 'Rollo Itadori', desc: 'Aguacate, Tampico, pollo', sku: 'JJ02' },
+    { name: 'Rollo Megumi', desc: 'Zanahoria, queso Philadelphia, surimi, pepino', sku: 'JJ03' },
+    { name: 'Rollo Maki', desc: 'Tampico, aguacate, queso Philadelphia, pepino', sku: 'JJ04' },
+    { name: 'Rollo Todo', desc: 'Pepino, pollo, queso Philadelphia, surimi', sku: 'JJ05' },
+    { name: 'Rollo Choso', desc: 'Zanahoria, aguacate, queso Philadelphia, surimi, Tampico por fuera', sku: 'JJ06' },
+    { name: 'Rollo Gojo', desc: 'Aguacate, pollo, zanahoria, por fuera queso Philadelphia', sku: 'JJ07' },
+    { name: 'Rollo Sasaki', desc: 'Pepino, zanahoria, aguacate, surimi, por fuera Tampico', sku: 'JJ08' },
+    { name: 'Rollo Rika', desc: 'Pollo, aguacate, surimi, Tampico', sku: 'JJ09' }
+  ];
+
+  const existingCatalogNames = new Set(catalogRows.map(r => String(r[0]).toUpperCase()));
+  jujutsuList.forEach(j => {
+    if (!existingCatalogNames.has(j.name.toUpperCase())) {
+      catalogRows.push([
+        j.name, 'Sushi', 100, 0, 'JujuTsu-shi', '', j.sku, 'Cocina', 'Sí',
+        '', '', '', '', '', '', 'Sí', 100, 100, 'Sí'
+      ]);
+      inventoryRows.push([
+        j.sku, j.name, 'Sushi', 'JujuTsu-shi', 'Unidad', 50, 0, 50, 'Cocina'
+      ]);
+    }
+  });
+
   // Escribir en CATALOGO a partir de fila 7
   const sheetCat = sTarget.getSheetByName('CATALOGO');
   if (sheetCat) {
@@ -329,7 +357,7 @@ function registrarNuevoProducto(prod) {
   const priceLunar = parseFloat(prod.priceLunar) || priceSolar;
   const provider = String(prod.provider || 'DOMUS').trim();
   const sku = String(prod.sku || ('PRD-' + Date.now().toString(36).toUpperCase())).trim();
-  const dest = String(prod.destination || (cat.includes('ALIMENTOS') || cat.includes('CANNA') || cat.includes('COMIDA') ? 'Cocina' : 'Barra')).trim();
+  const dest = String(prod.destination || (cat.includes('ALIMENTOS') || cat.includes('CANNA') || cat.includes('COMIDA') || cat.includes('SUSHI') ? 'Cocina' : 'Barra')).trim();
   const stock = parseInt(prod.stock, 10) || 50;
 
   // 1. Insertar en CATALOGO
@@ -365,6 +393,37 @@ function registrarNuevoProducto(prod) {
       sku: sku,
       provider: provider
     }
+  };
+}
+
+/**
+ * Registra o sincroniza en lote los rollos de sushi de JujuTsu-shi
+ */
+function sincronizarJujutsuShi() {
+  const jujutsuProducts = [
+    { name: 'Rollo Nobara', desc: 'Zanahoria, aguacate, queso Philadelphia, surimi', group: 'Sushi', priceSolar: 100, priceLunar: 100, destination: 'Cocina', sku: 'JJ01', provider: 'JujuTsu-shi' },
+    { name: 'Rollo Itadori', desc: 'Aguacate, Tampico, pollo', group: 'Sushi', priceSolar: 100, priceLunar: 100, destination: 'Cocina', sku: 'JJ02', provider: 'JujuTsu-shi' },
+    { name: 'Rollo Megumi', desc: 'Zanahoria, queso Philadelphia, surimi, pepino', group: 'Sushi', priceSolar: 100, priceLunar: 100, destination: 'Cocina', sku: 'JJ03', provider: 'JujuTsu-shi' },
+    { name: 'Rollo Maki', desc: 'Tampico, aguacate, queso Philadelphia, pepino', group: 'Sushi', priceSolar: 100, priceLunar: 100, destination: 'Cocina', sku: 'JJ04', provider: 'JujuTsu-shi' },
+    { name: 'Rollo Todo', desc: 'Pepino, pollo, queso Philadelphia, surimi', group: 'Sushi', priceSolar: 100, priceLunar: 100, destination: 'Cocina', sku: 'JJ05', provider: 'JujuTsu-shi' },
+    { name: 'Rollo Choso', desc: 'Zanahoria, aguacate, queso Philadelphia, surimi, Tampico por fuera', group: 'Sushi', priceSolar: 100, priceLunar: 100, destination: 'Cocina', sku: 'JJ06', provider: 'JujuTsu-shi' },
+    { name: 'Rollo Gojo', desc: 'Aguacate, pollo, zanahoria, por fuera queso Philadelphia', group: 'Sushi', priceSolar: 100, priceLunar: 100, destination: 'Cocina', sku: 'JJ07', provider: 'JujuTsu-shi' },
+    { name: 'Rollo Sasaki', desc: 'Pepino, zanahoria, aguacate, surimi, por fuera Tampico', group: 'Sushi', priceSolar: 100, priceLunar: 100, destination: 'Cocina', sku: 'JJ08', provider: 'JujuTsu-shi' },
+    { name: 'Rollo Rika', desc: 'Pollo, aguacate, surimi, Tampico', group: 'Sushi', priceSolar: 100, priceLunar: 100, destination: 'Cocina', sku: 'JJ09', provider: 'JujuTsu-shi' }
+  ];
+
+  let added = 0;
+  jujutsuProducts.forEach(p => {
+    try {
+      registrarNuevoProducto(p);
+      added++;
+    } catch (e) {}
+  });
+
+  return {
+    ok: true,
+    total: added,
+    message: 'Se integraron exitosamente ' + added + ' rollos de sushi de JujuTsu-shi en CATALOGO e INVENTARIO.'
   };
 }
 

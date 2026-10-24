@@ -2078,6 +2078,7 @@ html, body {
               <option value="Coctelería">Coctelería</option>
               <option value="Canna Treats">Canna Treats</option>
               <option value="Cocina">Cocina</option>
+              <option value="Sushi">Sushi</option>
               <option value="Shots">Shots</option>
               <option value="__NEW__">+ Otra Categoría…</option>
             </select>
@@ -3514,6 +3515,114 @@ html, body {
         "destination": "Cocina",
         "sku": "CT48",
         "provider": "ANDY"
+    },
+    {
+        "name": "Rollo Nobara",
+        "desc": "Zanahoria, aguacate, queso Philadelphia, surimi",
+        "group": "Sushi",
+        "officialCat": "ALIMENTOS JUJUTSU-SHI",
+        "price": 100.0,
+        "priceSolar": 100.0,
+        "priceLunar": 100.0,
+        "destination": "Cocina",
+        "sku": "JJ01",
+        "provider": "JujuTsu-shi"
+    },
+    {
+        "name": "Rollo Itadori",
+        "desc": "Aguacate, Tampico, pollo",
+        "group": "Sushi",
+        "officialCat": "ALIMENTOS JUJUTSU-SHI",
+        "price": 100.0,
+        "priceSolar": 100.0,
+        "priceLunar": 100.0,
+        "destination": "Cocina",
+        "sku": "JJ02",
+        "provider": "JujuTsu-shi"
+    },
+    {
+        "name": "Rollo Megumi",
+        "desc": "Zanahoria, queso Philadelphia, surimi, pepino",
+        "group": "Sushi",
+        "officialCat": "ALIMENTOS JUJUTSU-SHI",
+        "price": 100.0,
+        "priceSolar": 100.0,
+        "priceLunar": 100.0,
+        "destination": "Cocina",
+        "sku": "JJ03",
+        "provider": "JujuTsu-shi"
+    },
+    {
+        "name": "Rollo Maki",
+        "desc": "Tampico, aguacate, queso Philadelphia, pepino",
+        "group": "Sushi",
+        "officialCat": "ALIMENTOS JUJUTSU-SHI",
+        "price": 100.0,
+        "priceSolar": 100.0,
+        "priceLunar": 100.0,
+        "destination": "Cocina",
+        "sku": "JJ04",
+        "provider": "JujuTsu-shi"
+    },
+    {
+        "name": "Rollo Todo",
+        "desc": "Pepino, pollo, queso Philadelphia, surimi",
+        "group": "Sushi",
+        "officialCat": "ALIMENTOS JUJUTSU-SHI",
+        "price": 100.0,
+        "priceSolar": 100.0,
+        "priceLunar": 100.0,
+        "destination": "Cocina",
+        "sku": "JJ05",
+        "provider": "JujuTsu-shi"
+    },
+    {
+        "name": "Rollo Choso",
+        "desc": "Zanahoria, aguacate, queso Philadelphia, surimi, Tampico por fuera",
+        "group": "Sushi",
+        "officialCat": "ALIMENTOS JUJUTSU-SHI",
+        "price": 100.0,
+        "priceSolar": 100.0,
+        "priceLunar": 100.0,
+        "destination": "Cocina",
+        "sku": "JJ06",
+        "provider": "JujuTsu-shi"
+    },
+    {
+        "name": "Rollo Gojo",
+        "desc": "Aguacate, pollo, zanahoria, por fuera queso Philadelphia",
+        "group": "Sushi",
+        "officialCat": "ALIMENTOS JUJUTSU-SHI",
+        "price": 100.0,
+        "priceSolar": 100.0,
+        "priceLunar": 100.0,
+        "destination": "Cocina",
+        "sku": "JJ07",
+        "provider": "JujuTsu-shi"
+    },
+    {
+        "name": "Rollo Sasaki",
+        "desc": "Pepino, zanahoria, aguacate, surimi, por fuera Tampico",
+        "group": "Sushi",
+        "officialCat": "ALIMENTOS JUJUTSU-SHI",
+        "price": 100.0,
+        "priceSolar": 100.0,
+        "priceLunar": 100.0,
+        "destination": "Cocina",
+        "sku": "JJ08",
+        "provider": "JujuTsu-shi"
+    },
+    {
+        "name": "Rollo Rika",
+        "desc": "Pollo, aguacate, surimi, Tampico",
+        "group": "Sushi",
+        "officialCat": "ALIMENTOS JUJUTSU-SHI",
+        "price": 100.0,
+        "priceSolar": 100.0,
+        "priceLunar": 100.0,
+        "destination": "Cocina",
+        "sku": "JJ09",
+        "provider": "JujuTsu-shi"
     }
 ];
 
@@ -4082,8 +4191,17 @@ html, body {
 
     const query = STATE.searchQuery.toLowerCase().trim();
     const filtered = STATE.products.filter(p => {
-      const matchCat = STATE.catalogCategory === 'Todas' || p.group === STATE.catalogCategory;
-      const matchQuery = !query || p.name.toLowerCase().includes(query) || p.group.toLowerCase().includes(query);
+      const matchCat = STATE.catalogCategory === 'Todas' ||
+                       p.group === STATE.catalogCategory ||
+                       (STATE.catalogCategory === 'Cocina' && (p.destination === 'Cocina' || p.group === 'Sushi')) ||
+                       (STATE.catalogCategory === 'Sushi' && (p.group === 'Sushi' || (p.provider && p.provider.toLowerCase().includes('jujutsu'))));
+
+      const matchQuery = !query ||
+                         p.name.toLowerCase().includes(query) ||
+                         p.group.toLowerCase().includes(query) ||
+                         (p.desc && p.desc.toLowerCase().includes(query)) ||
+                         (p.provider && p.provider.toLowerCase().includes(query)) ||
+                         (p.sku && p.sku.toLowerCase().includes(query));
       return matchCat && matchQuery;
     });
 
@@ -4101,8 +4219,12 @@ html, body {
       return `
         <article class="product-card" data-product="${encodeURIComponent(JSON.stringify(p))}">
           <div>
-            <span class="card-cat-badge">${p.group}</span>
+            <div style="display: flex; justify-content: space-between; align-items: center; gap: 6px; margin-bottom: 4px;">
+              <span class="card-cat-badge">${p.group}</span>
+              ${p.provider && p.provider !== 'DOMUS' ? `<span style="font-size: 0.68rem; color: var(--gold-primary); opacity: 0.9; font-weight: 500;">${p.provider}</span>` : ''}
+            </div>
             <h3 class="card-title">${p.name}</h3>
+            ${p.desc ? `<p style="font-size: 0.76rem; color: var(--text-muted); margin-top: 4px; line-height: 1.25;">${p.desc}</p>` : ''}
           </div>
           <div class="card-footer">
             <span class="card-price">${money(price)}</span>
@@ -4148,8 +4270,9 @@ html, body {
     } else {
       STATE.cart.push({
         name: product.name,
+        desc: product.desc || '',
         group: product.group,
-        destination: product.destination || (product.group === 'Alimentos' ? 'Cocina' : 'Barra'),
+        destination: product.destination || (product.group === 'Alimentos' || product.group === 'Sushi' ? 'Cocina' : 'Barra'),
         price: price,
         qty: 1,
         courtesy: false
