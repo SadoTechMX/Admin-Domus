@@ -5,7 +5,7 @@
 
 * **Fecha de Actualización:** 2026-10-24 02:15 UTC-6
 * **Rama Activa:** `stabilization/backend-v1`
-* **Último Commit:** `cd24636` (*feat(hardening): Idempotency payload binding, Web Locks API mutex, and Staging plan*)
+* **Último Commit:** `43374fc` (*docs(governance): establish canonical multi-AI coordination protocol and ADRs*)
 * **Rama `main`:** Congelada en commit `1a89a14` (`production-pre-hardening`)
 * **Remote Git:** `https://github.com/SadoTechMX/Admin-Domus.git` (Limpio, autenticación delegada a Git Credential Manager / Keychain)
 

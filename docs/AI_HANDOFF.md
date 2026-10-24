@@ -12,7 +12,7 @@
 * **Proyecto:** DOMUS OS (Sistema Operativo de Punto de Venta, KDS, Accesos y Control Operativo para DOMUS Centro Cultural & Club).
 * **Rama Canónica de Producción:** `main` (**CONGELADA · NO HACER COMMITS DIRECTOS NI MERGE**).
 * **Rama Activa de Desarrollo:** `stabilization/backend-v1` (Rama aislada de estabilización).
-* **Último Commit Auditado:** `cd24636` (*feat(hardening): Idempotency payload binding, Web Locks API mutex, and Staging plan*).
+* **Último Commit Auditado:** `43374fc` (*docs(governance): establish canonical multi-AI coordination protocol and ADRs*).
 * **Tag de Línea Base Estable:** `production-pre-hardening` (commit `1a89a14`).
 * **Versión de Apps Script:** `v2-modular` (11 módulos independientes en `google-apps-script/`).
 * **Versión de Esquema de Datos:** `DOMUS-DB-v1.1` (incluye hoja transaccional `REQUESTS`).
