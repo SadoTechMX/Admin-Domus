@@ -1955,15 +1955,42 @@ function registrarNuevoEvento(evento) {
  * Enrutador GET: Sirve la aplicación Web o responde consultas de lectura REST
  */
 function doGet(e) {
-  // Manejo de peticiones API (GET)
-  if (e && e.parameter && e.parameter.action) {
-    return handleApiGetRequest_(e.parameter.action, e.parameter);
-  }
+  try {
+    // Manejo de peticiones API (GET)
+    if (e && e.parameter && e.parameter.action) {
+      return handleApiGetRequest_(e.parameter.action, e.parameter);
+    }
 
-  // Renderizado de la Interfaz Web Unificada
-  return HtmlService.createHtmlOutputFromFile('Index')
-    .setTitle('DOMUS · Administración, Caja, Comandas & Accesos')
-    .addMetaTag('viewport', 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no');
+    // Renderizado de la Interfaz Web Unificada con búsqueda tolerante de nombre
+    let output;
+    const candidates = ['Index', 'index', 'Index.html', 'index.html'];
+    for (let i = 0; i < candidates.length; i++) {
+      try {
+        output = HtmlService.createHtmlOutputFromFile(candidates[i]);
+        if (output) break;
+      } catch (err) {}
+    }
+
+    if (!output) {
+      return ContentService.createTextOutput(JSON.stringify({
+        ok: true,
+        status: 'DOMUS OS API ONLINE',
+        environment: CONFIG.environment,
+        mainSheetId: CONFIG.mainSheetId,
+        opsSheetId: CONFIG.opsSheetId,
+        message: 'Backend activo y conectado a Staging. Si deseas ver la interfaz visual en esta URL, crea el archivo HTML llamado "Index" en el editor de Apps Script.'
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    return output
+      .setTitle('DOMUS · Administración, Caja, Comandas & Accesos')
+      .addMetaTag('viewport', 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no');
+  } catch (err) {
+    return ContentService.createTextOutput(JSON.stringify({
+      ok: false,
+      error: 'Error en doGet: ' + err.message
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
 }
 
 /**
