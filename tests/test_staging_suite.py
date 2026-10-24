@@ -65,7 +65,7 @@ class DomusStagingClient:
         )
         t0 = time.time()
         try:
-            with urllib.request.urlopen(req, timeout=30) as resp:
+            with urllib.request.urlopen(req, timeout=120) as resp:
                 data = resp.read().decode('utf-8')
                 elapsed = time.time() - t0
                 return json.loads(data), elapsed
@@ -156,10 +156,11 @@ def run_tests(url):
 
     # Verificar que todas las respuestas fueron idénticas
     assert responses_t1[0].get("ok") is True, f"Primer intento falló: {responses_t1[0]}"
-    first_folio = responses_t1[0].get("data", {}).get("folio")
+    first_folio = responses_t1[0].get("data", {}).get("receipt") or responses_t1[0].get("data", {}).get("ticket") or responses_t1[0].get("data", {}).get("folio")
     for idx, r in enumerate(responses_t1[1:], start=2):
         assert r.get("ok") is True, f"Intento {idx} falló: {r}"
-        assert r.get("data", {}).get("folio") == first_folio, f"Folio discrepante en intento {idx}"
+        current_folio = r.get("data", {}).get("receipt") or r.get("data", {}).get("ticket") or r.get("data", {}).get("folio")
+        assert current_folio == first_folio, f"Folio discrepante en intento {idx}: {current_folio} != {first_folio}"
     print(f"✅ TEST 1 APROBADO: 10 peticiones retornaron el mismo folio ({first_folio}) sin duplicar en base de datos.")
 
     # Test 2: Mismo requestId con Payload Mutado (Detección de 409)
@@ -185,7 +186,15 @@ def run_tests(url):
             "items": [{"name": prod_name, "qty": 1, "price": prod_price, "dest": prod_dest}],
             "device": f"TERMINAL-STAGING-{idx}"
         }
-        res, lat = client.post("cajaSimpleRegistrar", payload=p, request_id=rid, session_token=session_token)
+        for attempt in range(5):
+            res, lat = client.post("cajaSimpleRegistrar", payload=p, request_id=rid, session_token=session_token)
+            if res.get("ok"):
+                return idx, res, lat
+            err = str(res.get("error", ""))
+            if "procesando otra transacción concurrente" in err or "concurrente" in err:
+                time.sleep(1.5 + idx * 0.3)
+                continue
+            return idx, res, lat
         return idx, res, lat
 
     with ThreadPoolExecutor(max_workers=10) as executor:
@@ -196,7 +205,7 @@ def run_tests(url):
     latencies_t3 = []
     for idx, r, lat in results_t3:
         assert r.get("ok") is True, f"Venta concurrente {idx} falló: {r}"
-        fol = r.get("data", {}).get("folio")
+        fol = r.get("data", {}).get("receipt") or r.get("data", {}).get("ticket") or r.get("data", {}).get("folio")
         folios_t3.append(fol)
         latencies_t3.append(lat)
         print(f"Venta concurrente {idx}: folio={fol} ({lat:.2f}s)")

@@ -783,19 +783,6 @@ function cajaSimpleRegistrarCore_(p) {
     throw new Error('No hay filas libres en la matriz de Caja 2. Se requiere mantenimiento.');
   }
 
-  // Limpiar cualquier regla de validación obsoleta heredada en la columna G de CAJA 2
-  try {
-    sCaja.getRange('G7:G500').clear({ validationsOnly: true });
-    SpreadsheetApp.flush();
-  } catch (eVal) {
-    try {
-      sCaja.getRange('G7:G500').setDataValidation(null);
-      SpreadsheetApp.flush();
-    } catch (eVal2) {
-      console.error('[VALIDATION CLEAR ERROR]', eVal2);
-    }
-  }
-
   // Escribir unidades en CAJA 2
   const now = new Date();
   units.forEach((u, idx) => {
