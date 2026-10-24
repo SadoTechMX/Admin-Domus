@@ -1503,10 +1503,22 @@ function accesoSimpleRegistrar(payload) {
     const wardrobeAmount = wardrobeQty * wardrobeUnitPrice;
 
     const ticketProvider = String(payload.ticketProvider || (salesChannel === ACCESS_SALES_CHANNELS.BOLETERA_EXTERNA ? 'Boletera' : 'DOMUS')).trim();
-    const externalTicketId = String(payload.externalTicketId || payload.presaleFolio || '').trim();
+    const externalTicketId = String(payload.externalTicketId || payload.presaleFolio || payload.folio || '').trim();
     const courtesyAuth = String(payload.courtesyAuth || '').trim();
     const paymentMethod = String(payload.paymentMethod || payload.method || 'Efectivo').trim();
     const paymentReference = String(payload.paymentReference || '').trim();
+
+    // Verificación Anti pass-back: si se proporciona un folio/código QR, validar que no haya ingresado previamente
+    if (externalTicketId && sAcc) {
+      const lastRow = sAcc.getLastRow();
+      if (lastRow >= 7) {
+        const existingExternalTickets = sAcc.getRange(7, 18, lastRow - 6, 1).getValues();
+        const alreadyUsed = existingExternalTickets.some(r => String(r[0]).trim() === externalTicketId);
+        if (alreadyUsed) {
+          throw new Error('Boleto ya utilizado previamente. Folio: ' + externalTicketId);
+        }
+      }
+    }
 
     // 1. Cálculo financiero estricto de puerta:
     let ticketDoorCharge = 0;

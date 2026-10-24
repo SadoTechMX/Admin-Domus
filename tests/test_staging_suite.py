@@ -226,6 +226,7 @@ def run_tests(url):
     ticket_id = f"TICK-STG-{int(time.time()*1000)}"
     checkin_payload = {
         "folio": ticket_id,
+        "externalTicketId": ticket_id,
         "salesChannel": "Boletera Externa",
         "ticketType": "General",
         "customerName": "Invitado Staging",
