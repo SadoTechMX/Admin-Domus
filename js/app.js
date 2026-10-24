@@ -1756,10 +1756,320 @@
     }
   }
 
-  // --- COMUNICACIÓN CON BACKEND (GAS / REST / SIMULADOR) ---
+  // --- OUTBOX & IDEMPOTENCIA TRANSACCIONAL (FASE 0C) ---
+  const MUTATION_ACTIONS = new Set([
+    'cajaSimpleRegistrar',
+    'comandasSimpleAccion',
+    'comandasSimpleResolver',
+    'accesoSimpleRegistrar',
+    'guardarropaDevolver',
+    'accesoCambiarActividad',
+    'registrarNuevoEvento',
+    'registrarNuevoProducto',
+    'sincronizarCartaConCatalogoDOMUS'
+  ]);
+
+  function getDeviceId() {
+    let devId = localStorage.getItem('domus_device_id');
+    if (!devId) {
+      devId = 'DEV-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 6).toUpperCase();
+      localStorage.setItem('domus_device_id', devId);
+    }
+    return devId;
+  }
+
+  function getSessionToken() {
+    return sessionStorage.getItem('domus_session_token') || localStorage.getItem('domus_session_token') || '';
+  }
+
+  function setSessionToken(token) {
+    if (token) {
+      sessionStorage.setItem('domus_session_token', token);
+      localStorage.setItem('domus_session_token', token);
+    }
+  }
+
+  function getStationRole() {
+    if (STATE.mode === 'caja') return 'CAJA';
+    if (STATE.mode === 'comandas') return 'BARRA';
+    if (STATE.mode === 'accesos') return 'ACCESOS';
+    return 'CAJA';
+  }
+
+  function getOutbox() {
+    try {
+      const raw = localStorage.getItem('domus_outbox');
+      return Array.isArray(JSON.parse(raw)) ? JSON.parse(raw) : [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  let outboxBroadcastChannel = null;
+  try {
+    if (typeof BroadcastChannel !== 'undefined') {
+      outboxBroadcastChannel = new BroadcastChannel('domus-outbox-sync-channel');
+      outboxBroadcastChannel.onmessage = e => {
+        if (e && e.data && e.data.type === 'OUTBOX_CHANGE') {
+          updateOutboxUI();
+        }
+      };
+    }
+  } catch (e) {}
+
+  function notifyOutboxTabs() {
+    if (outboxBroadcastChannel) {
+      try {
+        outboxBroadcastChannel.postMessage({ type: 'OUTBOX_CHANGE', timestamp: Date.now() });
+      } catch (e) {}
+    }
+  }
+
+  function saveOutbox(queue) {
+    try {
+      localStorage.setItem('domus_outbox', JSON.stringify(queue));
+    } catch (e) {
+      console.warn('Error al guardar outbox en localStorage:', e);
+    }
+    updateOutboxUI();
+    notifyOutboxTabs();
+  }
+
+  function enqueueOutbox(action, args, type = 'MUTATION') {
+    const queue = getOutbox();
+    const existingReq = (args && args[0] && (args[0].id || args[0].requestId)) ? (args[0].id || args[0].requestId) : null;
+    const reqId = existingReq || ('REQ-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8).toUpperCase());
+
+    if (args && args[0] && typeof args[0] === 'object') {
+      args[0].requestId = reqId;
+      if (!args[0].id) args[0].id = reqId;
+    }
+
+    const item = {
+      requestId: reqId,
+      deviceId: getDeviceId(),
+      operatorId: STATE.operator || 'Operador',
+      role: getStationRole(),
+      createdAt: new Date().toISOString(),
+      type: type,
+      action: action,
+      args: args,
+      status: 'LOCAL_PENDING',
+      attempts: 0,
+      lastAttempt: null,
+      serverReceipt: null,
+      lastError: null
+    };
+
+    queue.push(item);
+    saveOutbox(queue);
+    return item;
+  }
+
+  /**
+   * Sincronizador de Outbox con exclusión mutua entre contextos del navegador.
+   * Mecanismo principal: Web Locks API (W3C standard) garantizado por el navegador entre pestañas.
+   * Mecanismo secundario: Fallback con lease temporal en localStorage.
+   */
+  async function sincronizarOutbox() {
+    if (window.navigator && window.navigator.locks && typeof window.navigator.locks.request === 'function') {
+      try {
+        await window.navigator.locks.request('domus-outbox-sync', { ifAvailable: true }, async (lock) => {
+          if (!lock) {
+            console.log('[OUTBOX-WEBLOCKS] Otra pestaña del navegador tiene el lock exclusivo de sincronización.');
+            return;
+          }
+          await sincronizarOutboxCore_();
+        });
+      } catch (err) {
+        console.warn('[OUTBOX] Error con Web Locks, aplicando fallback:', err);
+        await sincronizarOutboxFallback_();
+      }
+    } else {
+      await sincronizarOutboxFallback_();
+    }
+  }
+
+  function acquireOutboxFallbackLock() {
+    const lockKey = 'domus_outbox_lock_lease';
+    const now = Date.now();
+    const currentLock = parseInt(localStorage.getItem(lockKey), 10);
+    if (currentLock && (now - currentLock) < 15000) {
+      return false;
+    }
+    localStorage.setItem(lockKey, now.toString());
+    return true;
+  }
+
+  function releaseOutboxFallbackLock() {
+    localStorage.removeItem('domus_outbox_lock_lease');
+  }
+
+  async function sincronizarOutboxFallback_() {
+    if (!acquireOutboxFallbackLock()) return;
+    try {
+      await sincronizarOutboxCore_();
+    } finally {
+      releaseOutboxFallbackLock();
+    }
+  }
+
+  let isOutboxCoreRunning = false;
+  async function sincronizarOutboxCore_() {
+    if (isOutboxCoreRunning) return;
+    isOutboxCoreRunning = true;
+
+    try {
+      while (true) {
+        const queue = getOutbox();
+        const pendingItems = queue.filter(it => it.status === 'LOCAL_PENDING' || it.status === 'RETRY');
+        if (pendingItems.length === 0) {
+          updateOutboxUI();
+          break;
+        }
+
+        const item = pendingItems[0];
+        item.status = 'SYNCING';
+        item.attempts = (item.attempts || 0) + 1;
+        item.lastAttempt = new Date().toISOString();
+        saveOutbox(queue);
+
+        const endpoint = `${STATE.apiUrl}?action=${encodeURIComponent(item.action)}`;
+        const payload = {
+          action: item.action,
+          args: item.args,
+          requestId: item.requestId,
+          deviceId: item.deviceId,
+          operator: item.operatorId,
+          role: item.role,
+          sessionToken: getSessionToken()
+        };
+
+        try {
+          const res = await fetch(endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify(payload)
+          });
+
+          const json = await res.json();
+          if (json && json.ok) {
+            item.status = 'CONFIRMED';
+            item.serverReceipt = json.data;
+            const updatedQueue = getOutbox().filter(q => q.requestId !== item.requestId);
+            saveOutbox(updatedQueue);
+            toast(`Operación sincronizada exitosamente con Google Sheets.`, 'ok');
+            playChime('success');
+            updateSyncPill('ok');
+          } else {
+            const errorMsg = (json && (json.error || json.message)) || 'Error en servidor';
+            const errorCode = json && (json.code || json.status);
+
+            // Manejo específico de 409 IDEMPOTENCY_KEY_REUSED o permisos
+            if (errorCode === 'IDEMPOTENCY_KEY_REUSED' || errorCode === 409 || errorMsg.includes('IDEMPOTENCY_KEY_REUSED')) {
+              item.status = 'REQUIRES_REVIEW';
+              item.lastError = `Conflicto de Idempotencia: ${errorMsg}`;
+              saveOutbox(getOutbox().map(q => q.requestId === item.requestId ? item : q));
+              toast(`⚠️ Alerta: El requestId fue rechazado por discrepancia de datos.`, 'error');
+              break;
+            } else if (errorMsg.includes('Acceso denegado') || errorMsg.includes('inválido')) {
+              item.status = 'REQUIRES_REVIEW';
+              item.lastError = errorMsg;
+              saveOutbox(getOutbox().map(q => q.requestId === item.requestId ? item : q));
+              toast(`Permiso requerido: ${errorMsg}`, 'error');
+              break;
+            } else {
+              item.status = 'RETRY';
+              item.lastError = errorMsg;
+              saveOutbox(getOutbox().map(q => q.requestId === item.requestId ? item : q));
+              // Error transitorio, pausar bucle para no saturar
+              break;
+            }
+          }
+        } catch (fetchErr) {
+          item.status = 'RETRY';
+          item.lastError = fetchErr.message || String(fetchErr);
+          saveOutbox(getOutbox().map(q => q.requestId === item.requestId ? item : q));
+          updateSyncPill('error');
+          // Sin conexión o timeout: detener el bucle para reintentar cuando haya red
+          break;
+        }
+      }
+    } finally {
+      isOutboxCoreRunning = false;
+      updateOutboxUI();
+    }
+  }
+
+  function processOutbox() {
+    sincronizarOutbox();
+  }
+
+  // Sincronización entre pestañas y reactividad a conexión de red
+  window.addEventListener('storage', e => {
+    if (e.key === 'domus_outbox') {
+      updateOutboxUI();
+    }
+  });
+
+  window.addEventListener('online', () => {
+    console.log('[NETWORK] Conexión recuperada. Procesando Outbox...');
+    processOutbox();
+  });
+
+  function updateOutboxUI() {
+    const banner = $('outboxBanner');
+    const text = $('outboxStatusText');
+    const queue = getOutbox();
+    const pending = queue.filter(q => q.status !== 'CONFIRMED');
+
+    if (!banner || !text) return;
+
+    if (pending.length > 0) {
+      banner.classList.remove('hidden');
+      text.textContent = `⚠️ MODO SIN CONEXIÓN · ${pending.length} operación(es) pendiente(s) de sincronizar en Outbox`;
+      updateSyncPill('warn');
+    } else {
+      banner.classList.add('hidden');
+    }
+  }
+
+  function cacheQuerySnapshot(fnName, data) {
+    try {
+      if (data && typeof data === 'object') {
+        localStorage.setItem('domus_cache_' + fnName, JSON.stringify({
+          cachedAt: Date.now(),
+          data: data
+        }));
+      }
+    } catch (e) {}
+  }
+
+  function getCachedQuerySnapshot(fnName) {
+    try {
+      const raw = localStorage.getItem('domus_cache_' + fnName);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        return parsed.data || null;
+      }
+    } catch (e) {}
+    return null;
+  }
+
+  // --- COMUNICACIÓN CON BACKEND (IDEMPOTENTE & CON OUTBOX) ---
   function callBackend(fnName, args, onSuccess, onError) {
     STATE.isSyncing = true;
     updateSyncPill();
+
+    const isMutation = MUTATION_ACTIONS.has(fnName);
+    const reqId = (args && args[0] && (args[0].id || args[0].requestId)) 
+      ? (args[0].id || args[0].requestId) 
+      : ('REQ-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7).toUpperCase());
+
+    if (args && args[0] && typeof args[0] === 'object') {
+      if (!args[0].id) args[0].id = reqId;
+      args[0].requestId = reqId;
+    }
 
     // 1. Modo nativo dentro de Google Apps Script Web App
     if (STATE.isNativeGas && window.google && google.script && google.script.run) {
@@ -1767,175 +2077,86 @@
         .withSuccessHandler(res => {
           STATE.isSyncing = false;
           STATE.lastSyncTimestamp = Date.now();
-          updateSyncPill();
-          onSuccess(res);
+          updateSyncPill('ok');
+          if (!isMutation) cacheQuerySnapshot(fnName, res);
+          if (onSuccess) onSuccess(res);
         })
         .withFailureHandler(err => {
           STATE.isSyncing = false;
+          STATE.lastSyncTimestamp = Date.now();
           updateSyncPill('error');
-          onError(err);
+          if (onError) onError(err);
         })[fnName](...args);
       return;
     }
 
-    // 2. Modo externo (GitHub Pages con API fetch al Web App de Apps Script)
-    if (STATE.apiUrl && !STATE.isDemoMode) {
-      const endpoint = `${STATE.apiUrl}?action=${encodeURIComponent(fnName)}`;
-      fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ action: fnName, args: args })
-      })
-      .then(res => res.json())
-      .then(json => {
-        STATE.isSyncing = false;
-        STATE.lastSyncTimestamp = Date.now();
-        updateSyncPill();
-        if (json.error) throw new Error(json.error);
-        onSuccess(json.data || json);
-      })
-      .catch(err => {
-        // Fallback a Demo si la API de Google falla (por CORS o sin auth de Workspace)
-        console.warn('Fallo de conexión en vivo con Apps Script, operando en simulador DOMUS:', err);
-        STATE.isDemoMode = true;
-        STATE.isSyncing = false;
-        updateSyncPill('warn');
-        runSimulatedCall(fnName, args, onSuccess, onError);
-      });
-      return;
-    }
+    // 2. Modo Externo (GitHub Pages / Fetch API con Outbox)
+    const endpoint = `${STATE.apiUrl}?action=${encodeURIComponent(fnName)}`;
+    const payload = {
+      action: fnName,
+      args: args,
+      requestId: reqId,
+      deviceId: getDeviceId(),
+      operator: STATE.operator || 'Operador',
+      role: getStationRole(),
+      sessionToken: getSessionToken()
+    };
 
-    // 3. Modo Simulador DOMUS (offline o demo)
-    runSimulatedCall(fnName, args, onSuccess, onError);
-  }
-
-  function runSimulatedCall(fnName, args, onSuccess, onError) {
-    setTimeout(() => {
+    fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify(payload)
+    })
+    .then(res => res.json())
+    .then(json => {
       STATE.isSyncing = false;
       STATE.lastSyncTimestamp = Date.now();
-      updateSyncPill('warn');
+      if (!json.ok && json.error) throw new Error(json.error);
 
-      if (fnName === 'cajaSimpleDatos') {
-        onSuccess({
-          phase: STATE.phase,
-          products: STATE.products.map(p => ({
-            name: p.name,
-            group: p.group,
-            price: STATE.phase === 'Solar' ? (p.priceSolar || p.price) : (p.priceLunar || p.price)
-          })),
-          accounts: STATE.openAccounts,
-          activities: STATE.activities,
-          lastReceipt: STATE.lastReceiptInfo || 'Simulación activa · Listo para registrar ventas',
-          canCourtesy: true
-        });
-      } else if (fnName === 'cajaSimpleRegistrar') {
-        const p = args[0];
-        const ticket = p.ticket || `CTA-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
-        const folio = `R-${String(Math.floor(Math.random() * 9000) + 1000)}`;
-        
-        // Agregar comanda a la lista de comandas
-        const batchId = `B-${Date.now().toString(36)}`;
-        p.items.forEach((item, idx) => {
-          for (let i = 0; i < item.qty; i++) {
-            STATE.comandas.unshift({
-              key: `DCS-SIM-${Date.now()}-${idx}-${i}`,
-              version: '1',
-              id: `C2-${String(Math.floor(Math.random() * 8000) + 1000)}`,
-              ticket: ticket,
-              batch: batchId,
-              alias: p.customer,
-              product: item.name,
-              notes: item.courtesy ? 'CORTESÍA AUTORIZADA' : '',
-              destination: item.destination || (item.group === 'Alimentos' ? 'Cocina' : 'Barra'),
-              state: 'Pendiente',
-              responsible: '',
-              sent: Date.now(),
-              credit: p.credit === 'Amigo' || p.credit === 'Creador de proyecto',
-              incident: ''
-            });
-          }
-        });
+      updateSyncPill('ok');
+      const data = json.data !== undefined ? json.data : json;
+      if (!isMutation) cacheQuerySnapshot(fnName, data);
 
-        // Actualizar o crear cuenta abierta
-        if (!p.paid) {
-          STATE.openAccounts.unshift({
-            ticket: ticket,
-            customer: p.customer,
-            activity: p.activity || 'Visita general DOMUS',
-            due: p.expectedTotal,
-            credit: p.credit,
-            closed: false
-          });
-        }
+      if (onSuccess) onSuccess(data);
+      processOutbox();
+    })
+    .catch(err => {
+      STATE.isSyncing = false;
+      STATE.lastSyncTimestamp = Date.now();
+      updateSyncPill('error');
 
-        STATE.lastReceiptInfo = `Último cobro: ${p.customer} · ${money(p.expectedTotal)} · ${p.method || 'Pendiente'}`;
-        playChime('success');
-        updateKdsBadgeCount();
+      if (isMutation) {
+        // Encolar de forma segura en Outbox
+        const item = enqueueOutbox(fnName, args, 'MUTATION');
+        item.lastError = err.message || String(err);
+        item.status = 'RETRY';
+        saveOutbox(getOutbox());
 
-        onSuccess({
-          ticket: ticket,
-          receipt: p.paid ? folio : '',
-          paid: !!p.paid,
-          message: `${p.customer} · ${p.paid ? 'PAGO REGISTRADO ' + folio : 'Pedido enviado a comanda (pago pendiente)'}\nCuenta: ${ticket}\nPendiente: ${money(p.paid ? 0 : p.expectedTotal)}`
-        });
-      } else if (fnName === 'comandasSimpleDatos') {
-        onSuccess({
-          version: 'Comandas Simple 2.0',
-          at: Date.now(),
-          mirrorSync: STATE.isDemoMode ? 'Modo Demostración / Simulador Local' : 'Conectado a Google Sheets',
-          team: STAFF_MEMBERS,
-          orders: STATE.comandas,
-          history: STATE.historyComandas,
-          requests: STATE.restockRequests,
-          issues: []
-        });
-      } else if (fnName === 'comandasSimpleAccion') {
-        const body = args[1];
-        const ord = STATE.comandas.find(o => o.key === body.key);
-        if (!ord) {
-          onError(new Error('Comanda no encontrada en el tablero.'));
-          return;
-        }
-
-        if (body.action === 'TOMAR') {
-          // Asigna el lote completo
-          STATE.comandas.filter(o => o.batch === ord.batch).forEach(o => {
-            o.state = 'En preparación';
-            o.responsible = body.operator;
-            o.version = String(Number(o.version) + 1);
-          });
-        } else if (body.action === 'LISTA') {
-          ord.state = 'Lista';
-          ord.version = String(Number(ord.version) + 1);
-        } else if (body.action === 'ENTREGAR') {
-          ord.state = 'Entregada';
-          ord.delivered = Date.now();
-          STATE.historyComandas.unshift(ord);
-          STATE.comandas = STATE.comandas.filter(o => o.key !== ord.key);
-        } else if (body.action === 'ALMACEN' || body.action === 'AGOTADO') {
-          ord.incident = body.action === 'ALMACEN' ? 'Reponer de almacén' : 'Agotado en DOMUS';
-          const reqId = `RES-${Date.now().toString(36).toUpperCase()}`;
-          STATE.restockRequests.unshift({
+        toast(`⚠️ Sin conexión con Google Sheets. Operación guardada de forma segura en Outbox local (${reqId}).`, 'warn');
+        if (onSuccess) {
+          onSuccess({
+            ok: true,
+            localOutbox: true,
+            status: 'LOCAL_PENDING',
+            requestId: reqId,
+            rowId: reqId,
             id: reqId,
-            product: ord.product,
-            type: ord.incident,
-            created: Date.now()
+            ticket: reqId,
+            message: `Guardado en Outbox local (${reqId}). Se sincronizará automáticamente al volver la señal.`
           });
         }
-        playChime('success');
-        updateKdsBadgeCount();
-        onSuccess({ ok: true, message: `Acción ${body.action} aplicada correctamente.` });
-      } else if (fnName === 'comandasSimpleResolver') {
-        const body = args[1];
-        STATE.restockRequests = STATE.restockRequests.filter(r => r.id !== body.id);
-        STATE.comandas.forEach(o => {
-          if (o.incident) o.incident = '';
-        });
-        onSuccess({ ok: true, message: 'Disponibilidad confirmada.' });
       } else {
-        onSuccess({ ok: true });
+        // Consulta de lectura que falló por red: recuperar de caché local si existe
+        console.warn(`Consulta '${fnName}' falló por falta de red. Intentando leer desde caché local.`);
+        const cached = getCachedQuerySnapshot(fnName);
+        if (cached && onSuccess) {
+          toast('Mostrando datos de respaldo en caché local.', 'warn');
+          onSuccess(cached);
+        } else if (onError) {
+          onError(err);
+        }
       }
-    }, 150);
+    });
   }
 
   function updateSyncPill(state = 'ok') {
@@ -1994,6 +2215,8 @@
 
     renderStaffDropdown();
     renderCategoryChips();
+    updateOutboxUI();
+    processOutbox();
     updateAccesosBadge();
     if (STATE.mode === 'accesos') {
       renderAccesosView();
@@ -2880,6 +3103,7 @@
 
   function renderAccesosView() {
     renderAccessActivitySelector();
+    renderAccessChannels();
     renderEntryTypesGrid();
     updateAccesosKpis();
     updateAccessSummary();
@@ -2900,6 +3124,48 @@
     }).join('');
   }
 
+  function renderAccessChannels() {
+    const container = $('salesChannelContainer');
+    if (!container) return;
+
+    if (!STATE.accessSalesChannel) {
+      STATE.accessSalesChannel = 'TAQUILLA_DOMUS';
+    }
+
+    container.querySelectorAll('.channel-btn').forEach(btn => {
+      const ch = btn.getAttribute('data-channel');
+      btn.classList.toggle('active', ch === STATE.accessSalesChannel);
+      btn.onclick = () => setAccessSalesChannel(ch);
+    });
+  }
+
+  function setAccessSalesChannel(channel) {
+    STATE.accessSalesChannel = channel;
+    renderAccessChannels();
+
+    // Toggle specific detail panels
+    const panelBoletera = $('panelBoleteraDetail');
+    if (panelBoletera) panelBoletera.classList.toggle('hidden', channel !== 'BOLETERA_EXTERNA');
+
+    const panelTransfer = $('panelTransferDetail');
+    if (panelTransfer) panelTransfer.classList.toggle('hidden', channel !== 'TRANSFERENCIA_DIRECTA');
+
+    const panelCourtesy = $('panelCourtesyDetail');
+    if (panelCourtesy) panelCourtesy.classList.toggle('hidden', channel !== 'CORTESIA');
+
+    const panelPresaleDomus = $('panelPresaleDomusDetail');
+    if (panelPresaleDomus) panelPresaleDomus.classList.toggle('hidden', channel !== 'PREVENTA_DOMUS');
+
+    // Payment methods section visibility (door payment)
+    const paySec = $('accessPaymentSection');
+    const cashSec = $('accessCashSection');
+    const isDoorPayment = channel === 'TAQUILLA_DOMUS' || (STATE.accessWardrobeQty > 0);
+    if (paySec) paySec.classList.toggle('hidden', !isDoorPayment && channel !== 'TRANSFERENCIA_DIRECTA');
+    if (cashSec) cashSec.classList.toggle('hidden', !isDoorPayment || STATE.accessPaymentMethod !== 'Efectivo');
+
+    updateAccessSummary();
+  }
+
   function renderEntryTypesGrid() {
     const container = $('entryTypesContainer');
     if (!container) return;
@@ -2909,28 +3175,45 @@
     const pPar = ev.pricePareja !== undefined ? Number(ev.pricePareja) : 260;
     const pTrio = ev.priceTrio !== undefined ? Number(ev.priceTrio) : 360;
 
-    const types = [
-      { id: 'General', label: 'General (1 Pers)', price: pGen, icon: '👤', desc: 'Acceso individual' },
-      { id: 'Pareja', label: 'Pareja (2 Pers)', price: pPar, icon: '👥', desc: 'Acceso 2 personas' },
-      { id: 'Trío', label: 'Trío (3 Pers)', price: pTrio, icon: '🧑‍🤝‍🧑', desc: 'Acceso 3 personas' },
-      { id: 'Preventa', label: 'Preventa (Boletera)', price: 0, icon: '🎟️', desc: 'Boleto ya pagado' },
-      { id: 'Cortesía', label: 'Cortesía (VIP/Staff)', price: 0, icon: '⭐', desc: 'Autorización requerida' },
-      { id: 'Solo guardarropa', label: 'Solo Guardarropa', price: 0, icon: '🧥', desc: 'Sin costo de acceso' }
-    ];
+    // Tipos de boletos pertenecientes al evento
+    let types = [];
+    if (Array.isArray(ev.ticketTypes) && ev.ticketTypes.length > 0) {
+      types = ev.ticketTypes.map(t => ({
+        id: t.id || t.name,
+        label: t.name || t.id,
+        price: Number(t.price) || 0,
+        persons: Number(t.persons) || 1,
+        icon: t.icon || (t.persons === 2 ? '👥' : (t.persons >= 3 ? '🧑‍🤝‍🧑' : '👤'))
+      }));
+    } else {
+      types = [
+        { id: 'General', label: 'General (1 Pers)', price: pGen, persons: 1, icon: '👤' },
+        { id: 'Pareja', label: 'Pareja (2 Pers)', price: pPar, persons: 2, icon: '👥' },
+        { id: 'Trío', label: 'Trío (3 Pers)', price: pTrio, persons: 3, icon: '🧑‍🤝‍🧑' },
+        { id: 'VIP', label: 'VIP (Acceso Preferente)', price: pGen * 1.5, persons: 1, icon: '⭐' }
+      ];
+    }
+
+    if (!STATE.accessSelectedType || !types.some(t => t.id === STATE.accessSelectedType)) {
+      STATE.accessSelectedType = types[0].id;
+    }
+
+    if ($('activeEventTicketCountText')) {
+      $('activeEventTicketCountText').textContent = `${types.length} tarifas configuradas`;
+    }
 
     container.innerHTML = types.map(t => {
       const isSelected = STATE.accessSelectedType === t.id;
-      const priceText = t.price > 0 ? `$${t.price.toFixed(2)}` : (t.id === 'Solo guardarropa' ? '$0.00' : 'Gratis / Validar');
+      const priceText = `$${t.price.toFixed(2)}`;
       return `
-        <div class="entry-type-card ${isSelected ? 'selected' : ''}" data-entry-type="${t.id}">
+        <div class="entry-type-card ${isSelected ? 'selected' : ''}" data-entry-type="${t.id}" data-price="${t.price}" data-persons="${t.persons}">
           <div class="entry-type-icon">${t.icon}</div>
-          <div class="entry-type-title">${t.label}</div>
+          <div class="entry-type-title">${escapeHtml(t.label)}</div>
           <div class="entry-type-price">${priceText}</div>
         </div>
       `;
     }).join('');
 
-    // Reattach click listeners on cards
     container.querySelectorAll('.entry-type-card').forEach(card => {
       card.addEventListener('click', () => {
         const type = card.getAttribute('data-entry-type');
@@ -2938,7 +3221,6 @@
       });
     });
 
-    // Update wardrobe unit price text
     const pGua = ev.priceGuardarropa !== undefined ? Number(ev.priceGuardarropa) : 50;
     if ($('wardrobeUnitPriceText')) {
       $('wardrobeUnitPriceText').textContent = `$${pGua.toFixed(2)} c/u`;
@@ -2948,14 +3230,6 @@
   function setAccessEntryType(type) {
     STATE.accessSelectedType = type;
 
-    // Toggle specific inputs
-    const presaleGroup = $('presaleInputGroup');
-    if (presaleGroup) presaleGroup.classList.toggle('hidden', type !== 'Preventa');
-
-    const courtesyGroup = $('courtesyInputGroup');
-    if (courtesyGroup) courtesyGroup.classList.toggle('hidden', type !== 'Cortesía');
-
-    // Update card selection styles
     const container = $('entryTypesContainer');
     if (container) {
       container.querySelectorAll('.entry-type-card').forEach(card => {
@@ -2992,7 +3266,8 @@
 
     const cashSec = $('accessCashSection');
     if (cashSec) {
-      cashSec.classList.toggle('hidden', method !== 'Efectivo');
+      const { doorTotal } = calculateAccessSubtotal();
+      cashSec.classList.toggle('hidden', method !== 'Efectivo' || doorTotal <= 0);
     }
 
     updateAccessSummary();
@@ -3000,38 +3275,72 @@
 
   function calculateAccessSubtotal() {
     const ev = getActiveEvent();
-    let entryCost = 0;
-    if (STATE.accessSelectedType === 'General') entryCost = Number(ev.priceGeneral) || 0;
-    else if (STATE.accessSelectedType === 'Pareja') entryCost = Number(ev.pricePareja) || 0;
-    else if (STATE.accessSelectedType === 'Trío') entryCost = Number(ev.priceTrio) || 0;
-    else entryCost = 0;
+    const channel = STATE.accessSalesChannel || 'TAQUILLA_DOMUS';
+    
+    // Obtener tarifa nominal del tipo de boleto
+    let faceValue = 0;
+    let persons = 1;
+    const selectedCard = document.querySelector(`.entry-type-card[data-entry-type="${STATE.accessSelectedType}"]`);
+    if (selectedCard) {
+      faceValue = parseFloat(selectedCard.getAttribute('data-price')) || 0;
+      persons = parseInt(selectedCard.getAttribute('data-persons'), 10) || 1;
+    } else {
+      if (STATE.accessSelectedType === 'Pareja') { faceValue = Number(ev.pricePareja) || 260; persons = 2; }
+      else if (STATE.accessSelectedType === 'Trío') { faceValue = Number(ev.priceTrio) || 360; persons = 3; }
+      else { faceValue = Number(ev.priceGeneral) || 150; persons = 1; }
+    }
 
+    // Cobro de entrada en puerta según canal
+    let doorEntryCharge = 0;
+    if (channel === 'TAQUILLA_DOMUS') {
+      doorEntryCharge = faceValue;
+    } else if (channel === 'TRANSFERENCIA_DIRECTA') {
+      const transferStatus = $('accessTransferStatus') ? $('accessTransferStatus').value : 'PENDIENTE_VERIFICACION';
+      doorEntryCharge = (transferStatus === 'CONFIRMADA') ? 0 : 0; // Si ya transfirió, no se cobra efectivo en puerta
+    } else {
+      // BOLETERA_EXTERNA, PREVENTA_DOMUS, CORTESIA, LISTA
+      doorEntryCharge = 0;
+    }
+
+    // Cobro de guardarropa desacoplado
     const pGua = Number(ev.priceGuardarropa) || 50;
     const wardrobeCost = (STATE.accessWardrobeQty || 0) * pGua;
-    const total = entryCost + wardrobeCost;
+    const doorTotal = doorEntryCharge + wardrobeCost;
+    const commercialTotal = faceValue + wardrobeCost;
 
-    return { entryCost, wardrobeCost, total };
+    return { faceValue, persons, doorEntryCharge, wardrobeCost, doorTotal, commercialTotal };
   }
 
   function updateAccessSummary() {
-    const { entryCost, wardrobeCost, total } = calculateAccessSubtotal();
+    const { faceValue, doorEntryCharge, wardrobeCost, doorTotal, commercialTotal } = calculateAccessSubtotal();
 
-    if ($('summaryEntryType')) $('summaryEntryType').textContent = STATE.accessSelectedType;
-    if ($('summaryEntryAmount')) $('summaryEntryAmount').textContent = `$${entryCost.toFixed(2)}`;
-    if ($('summaryWardrobeQty')) $('summaryWardrobeQty').textContent = STATE.accessWardrobeQty;
+    if ($('summaryFaceValue')) $('summaryFaceValue').textContent = `$${faceValue.toFixed(2)}`;
+    if ($('summaryDoorEntryAmount')) $('summaryDoorEntryAmount').textContent = `$${doorEntryCharge.toFixed(2)}`;
+    if ($('summaryWardrobeQty')) $('summaryWardrobeQty').textContent = STATE.accessWardrobeQty || 0;
     if ($('summaryWardrobeAmount')) $('summaryWardrobeAmount').textContent = `$${wardrobeCost.toFixed(2)}`;
-    if ($('summaryTotalAdmission')) $('summaryTotalAdmission').textContent = `$${total.toFixed(2)}`;
+    if ($('summaryTotalAdmission')) $('summaryTotalAdmission').textContent = `$${doorTotal.toFixed(2)}`;
 
-    // Update Change Display
+    // Dinamismo del botón de acción principal
+    const btnConfirm = $('btnConfirmAccess');
+    if (btnConfirm) {
+      if (doorTotal > 0) {
+        btnConfirm.textContent = `✓ Cobrar $${doorTotal.toFixed(2)} y Emitir Tickets`;
+        btnConfirm.classList.remove('btn-neutral-action');
+      } else {
+        btnConfirm.textContent = `✓ Validar Entrada (${STATE.accessSalesChannel === 'CORTESIA' ? 'Cortesía $0' : 'Ya Pagada'})`;
+      }
+    }
+
+    // Actualizar sección de cambio en efectivo
     const cashInput = $('accessCashReceived');
     const changeDisplay = $('accessCashChangeText');
     if (cashInput && changeDisplay) {
       const received = parseFloat(cashInput.value) || 0;
-      if (received > 0 && received >= total) {
-        changeDisplay.textContent = `$${(received - total).toFixed(2)}`;
+      if (received > 0 && received >= doorTotal) {
+        changeDisplay.textContent = `$${(received - doorTotal).toFixed(2)}`;
         changeDisplay.style.color = 'var(--emerald-400)';
-      } else if (received > 0 && received < total) {
-        changeDisplay.textContent = `Faltan $${(total - received).toFixed(2)}`;
+      } else if (received > 0 && received < doorTotal) {
+        changeDisplay.textContent = `Faltan $${(doorTotal - received).toFixed(2)}`;
         changeDisplay.style.color = 'var(--rose-400)';
       } else {
         changeDisplay.textContent = '$0.00';
@@ -3043,13 +3352,13 @@
   function updateAccesosKpis() {
     const records = STATE.recentAccessList || [];
     
-    // 1. Total Attendance (sum of packages)
-    const totalAttendance = records.reduce((sum, r) => sum + (Number(r.packages) || 1), 0);
+    // 1. Total Attendance (aforo real acumulado)
+    const totalAttendance = records.reduce((sum, r) => sum + (Number(r.persons) || Number(r.packages) || 1), 0);
     if ($('kpiTotalAttendance')) $('kpiTotalAttendance').textContent = totalAttendance;
 
-    // 2. Active Wardrobe (items currently in custody, devuelto !== true)
+    // 2. Active Wardrobe (prendas en custodia)
     const activeWardrobe = records.reduce((sum, r) => {
-      if (!r.devuelto && Number(r.wardrobeQty) > 0) {
+      if (!r.wardrobeReturned && !r.devuelto && Number(r.wardrobeQty) > 0) {
         return sum + Number(r.wardrobeQty);
       }
       return sum;
@@ -3057,13 +3366,13 @@
     if ($('kpiActiveWardrobe')) $('kpiActiveWardrobe').textContent = activeWardrobe;
     if ($('wardrobeBadgeCount')) $('wardrobeBadgeCount').textContent = activeWardrobe;
 
-    // 3. Validated Presales
-    const validatedPresales = records.filter(r => r.entryType === 'Preventa').length;
-    if ($('kpiValidatedPresales')) $('kpiValidatedPresales').textContent = validatedPresales;
+    // 3. Validated Presales & Externas
+    const presales = records.filter(r => r.salesChannel === 'BOLETERA_EXTERNA' || r.salesChannel === 'PREVENTA_DOMUS' || r.entryType === 'Preventa').length;
+    if ($('kpiValidatedPresales')) $('kpiValidatedPresales').textContent = presales;
 
-    // 4. Total Admission Revenue
-    const totalRev = records.reduce((sum, r) => sum + (Number(r.paid !== undefined ? r.paid : r.totalAmount) || 0), 0);
-    if ($('kpiTotalAdmissionRevenue')) $('kpiTotalAdmissionRevenue').textContent = `$${totalRev.toFixed(2)}`;
+    // 4. Total Door Revenue (dinero cobrado efectivamente en puerta DOMUS)
+    const totalDoorRev = records.reduce((sum, r) => sum + (Number(r.doorCollected !== undefined ? r.doorCollected : (r.amountPaidAtDoor !== undefined ? r.amountPaidAtDoor : r.paid)) || 0), 0);
+    if ($('kpiTotalAdmissionRevenue')) $('kpiTotalAdmissionRevenue').textContent = `$${totalDoorRev.toFixed(2)}`;
 
     updateAccesosBadge();
   }
@@ -3076,34 +3385,55 @@
       return;
     }
 
+    const channel = STATE.accessSalesChannel || 'TAQUILLA_DOMUS';
     const phone = ($('accessCustomerPhone').value || '').trim();
     const email = ($('accessCustomerEmail').value || '').trim();
-    const entryType = STATE.accessSelectedType;
+    const ticketTypeId = STATE.accessSelectedType;
     const wardrobeQty = STATE.accessWardrobeQty || 0;
     const wardrobeNotes = ($('accessWardrobeNotes') ? $('accessWardrobeNotes').value : '').trim();
     const method = STATE.accessPaymentMethod || 'Efectivo';
-    const presaleFolio = ($('accessPresaleFolio') ? $('accessPresaleFolio').value : '').trim();
-    const courtesyAuth = ($('accessCourtesyAuth') ? $('accessCourtesyAuth').value : '').trim();
 
-    if (entryType === 'Preventa' && !presaleFolio) {
-      toast('Ingresa el folio del boleto de preventa.', 'warn');
-      if ($('accessPresaleFolio')) $('accessPresaleFolio').focus();
-      return;
+    let externalTicketId = '';
+    let ticketProvider = 'DOMUS';
+    let courtesyAuth = '';
+    let paymentStatus = 'CONFIRMADA';
+    let paymentReference = '';
+
+    if (channel === 'BOLETERA_EXTERNA') {
+      externalTicketId = ($('accessExternalTicketId') ? $('accessExternalTicketId').value : '').trim();
+      ticketProvider = ($('accessTicketProvider') ? $('accessTicketProvider').value : 'Boletia');
+      if (!externalTicketId) {
+        toast('Por favor ingresa el folio o código QR del boleto de la boletera.', 'warn');
+        if ($('accessExternalTicketId')) $('accessExternalTicketId').focus();
+        return;
+      }
+      paymentStatus = 'PAGADO_EXTERNAMENTE';
+    } else if (channel === 'PREVENTA_DOMUS') {
+      externalTicketId = ($('accessPresaleDomusFolio') ? $('accessPresaleDomusFolio').value : '').trim();
+      if (!externalTicketId) {
+        toast('Ingresa el folio de la preventa DOMUS.', 'warn');
+        if ($('accessPresaleDomusFolio')) $('accessPresaleDomusFolio').focus();
+        return;
+      }
+      paymentStatus = 'CONFIRMADA';
+    } else if (channel === 'TRANSFERENCIA_DIRECTA') {
+      paymentReference = ($('accessTransferRef') ? $('accessTransferRef').value : '').trim();
+      paymentStatus = ($('accessTransferStatus') ? $('accessTransferStatus').value : 'PENDIENTE_VERIFICACION');
+    } else if (channel === 'CORTESIA') {
+      courtesyAuth = ($('accessCourtesyAuth') ? $('accessCourtesyAuth').value : '').trim();
+      const courtesyReason = ($('accessCourtesyReason') ? $('accessCourtesyReason').value : '').trim();
+      if (!courtesyAuth) {
+        toast('Ingresa quién autoriza la cortesía (Gerencia / Dirección).', 'warn');
+        if ($('accessCourtesyAuth')) $('accessCourtesyAuth').focus();
+        return;
+      }
+      courtesyAuth = `${courtesyAuth}${courtesyReason ? ' · ' + courtesyReason : ''}`;
+      paymentStatus = 'CONFIRMADA';
     }
 
-    if (entryType === 'Cortesía' && !courtesyAuth) {
-      toast('Ingresa quién autoriza la cortesía.', 'warn');
-      if ($('accessCourtesyAuth')) $('accessCourtesyAuth').focus();
-      return;
-    }
+    const { faceValue, persons, doorEntryCharge, wardrobeCost, doorTotal, commercialTotal } = calculateAccessSubtotal();
 
-    const { entryCost, wardrobeCost, total } = calculateAccessSubtotal();
-
-    let packages = 1;
-    if (entryType === 'Pareja') packages = 2;
-    if (entryType === 'Trío') packages = 3;
-
-    // Generate rowId & wardrobe ticket
+    // Generate atomic folio & wardrobe ticket
     const randNum = Math.floor(1000 + Math.random() * 9000);
     const rowId = `A-${randNum}`;
     const ticketGuardarropa = wardrobeQty > 0 ? `GUA-${rowId}` : '';
@@ -3118,31 +3448,37 @@
       customer: customer,
       email: email,
       phone: phone,
-      entryType: entryType,
-      packages: packages,
+      salesChannel: channel,
+      ticketTypeId: ticketTypeId,
+      ticketProvider: ticketProvider,
+      externalTicketId: externalTicketId,
+      persons: persons,
+      faceValue: faceValue,
+      doorEntryCharge: doorEntryCharge,
       wardrobeQty: wardrobeQty,
       wardrobeNotes: wardrobeNotes,
-      entryCost: entryCost,
-      wardrobeCost: wardrobeCost,
-      totalAmount: total,
-      paid: total,
+      wardrobeUnitPrice: 50,
+      wardrobeAmount: wardrobeCost,
+      doorCollected: doorTotal,
+      commercialTotal: commercialTotal,
+      paid: doorTotal,
       due: 0,
-      presaleFolio: presaleFolio,
+      paymentMethod: (doorTotal > 0 ? method : (channel === 'BOLETERA_EXTERNA' ? 'Externo' : 'Gratis')),
+      paymentStatus: paymentStatus,
+      paymentReference: paymentReference,
       courtesyAuth: courtesyAuth,
-      method: method,
       ticketGuardarropa: ticketGuardarropa,
-      devuelto: false
+      wardrobeReturned: false
     };
 
     // Prepend to local state
     STATE.recentAccessList.unshift(newRecord);
 
-    // Save locally
     try {
       localStorage.setItem('domus_custom_access', JSON.stringify(STATE.recentAccessList.slice(0, 50)));
     } catch (e) {}
 
-    // Backend call
+    // Backend call con Idempotencia
     callBackend('accesoSimpleRegistrar', [newRecord], res => {
       if (res && res.rowId) {
         newRecord.id = res.rowId;
@@ -3161,16 +3497,19 @@
     $('accessCustomerName').value = '';
     $('accessCustomerPhone').value = '';
     $('accessCustomerEmail').value = '';
-    if ($('accessPresaleFolio')) $('accessPresaleFolio').value = '';
+    if ($('accessExternalTicketId')) $('accessExternalTicketId').value = '';
+    if ($('accessPresaleDomusFolio')) $('accessPresaleDomusFolio').value = '';
+    if ($('accessTransferRef')) $('accessTransferRef').value = '';
     if ($('accessCourtesyAuth')) $('accessCourtesyAuth').value = '';
+    if ($('accessCourtesyReason')) $('accessCourtesyReason').value = '';
     if ($('accessWardrobeNotes')) $('accessWardrobeNotes').value = '';
     if ($('accessCashReceived')) $('accessCashReceived').value = '';
 
-    setAccessEntryType('General');
+    setAccessSalesChannel('TAQUILLA_DOMUS');
     setWardrobeQty(0);
     renderAccesosView();
 
-    // Open Printable Ticket Modal
+    // Modal de comprobante / ticket
     openAccessReceiptModal(newRecord);
   }
 
@@ -3631,6 +3970,14 @@
     });
 
     // Refresh Button
+    const btnRetryOutbox = $('btnOutboxRetry');
+    if (btnRetryOutbox) {
+      btnRetryOutbox.addEventListener('click', () => {
+        toast('Reintentando sincronización de Outbox…', 'ok');
+        processOutbox();
+      });
+    }
+
     $('btnSyncNow').addEventListener('click', () => {
       toast('Sincronizando con Google…', 'ok');
       syncBackendData();
