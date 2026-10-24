@@ -787,6 +787,16 @@ function cajaSimpleRegistrarCore_(p) {
   const now = new Date();
   units.forEach((u, idx) => {
     const rowNum = freeIndices[idx];
+    try {
+      sCaja.getRange(rowNum, 7).setDataValidation(
+        SpreadsheetApp.newDataValidation()
+          .requireValueInList([u.name], true)
+          .setAllowInvalid(true)
+          .build()
+      );
+    } catch (eVal) {
+      try { sCaja.getRange(rowNum, 7).clearDataValidations(); } catch (eClear) {}
+    }
     const rowData = [
       'U-' + rowNum, ticket, now, activity, customer, u.group, u.name, 1,
       u.courtesy ? 'Cortesía' : 'Normal', u.price, u.courtesy ? 0 : u.price, u.courtesy ? 0 : u.price,
