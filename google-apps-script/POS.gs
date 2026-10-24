@@ -88,18 +88,23 @@ function cajaSimpleDatos() {
 /**
  * Registra una venta en Caja (inmediata o a cuenta abierta) con control atómico de concurrencia
  */
-function cajaSimpleRegistrar(p) {
+function cajaSimpleRegistrar(p, authContext) {
   if (!p) throw new Error('Cuerpo de venta vacío.');
   const id = String(p.id || p.requestId || ('POS-' + Date.now())).trim();
   p.id = id;
 
   return withLock_(CONFIG.lockTimeoutMs, () => {
-    return cajaSimpleRegistrarCore_(p);
+    return cajaSimpleRegistrarCore_(p, authContext);
   });
 }
 
-function cajaSimpleRegistrarCore_(p) {
-  const who = String(Session.getActiveUser().getEmail() || 'Caja');
+function cajaSimpleRegistrarCore_(p, authContext) {
+  const who = String((authContext && authContext.operator) || Session.getActiveUser().getEmail() || 'Caja');
+  const stationId = (authContext && authContext.stationId) || 'CAJA_1';
+  const registerId = (authContext && authContext.registerId) || 'GAVETA_1';
+  const activeShift = typeof getActiveShiftForStation_ === 'function' ? getActiveShiftForStation_(stationId, registerId) : null;
+  const shiftId = activeShift ? activeShift.shiftId : '';
+  const businessDate = activeShift ? activeShift.businessDate : (typeof getBusinessDateNow_ === 'function' ? getBusinessDateNow_() : Utilities.formatDate(new Date(), 'America/Mexico_City', 'yyyy-MM-dd'));
   const props = PropertiesService.getScriptProperties();
   const key = 'cajaSimple:' + p.id;
   
@@ -180,6 +185,9 @@ function cajaSimpleRegistrarCore_(p) {
 
   // Escribir unidades en CAJA 2
   const now = new Date();
+  const colCajaShift = typeof getOrAddColumnIndex_ === 'function' ? getOrAddColumnIndex_(sCaja, 'shiftId', 6) : 0;
+  const colCajaBizDate = typeof getOrAddColumnIndex_ === 'function' ? getOrAddColumnIndex_(sCaja, 'businessDate', 6) : 0;
+
   units.forEach((u, idx) => {
     const rowNum = freeIndices[idx];
     const rowData = [
@@ -189,6 +197,8 @@ function cajaSimpleRegistrarCore_(p) {
       '', u.inventory || '', '', 'LISTO', '', u.destination || 'Barra'
     ];
     sCaja.getRange(rowNum, 1, 1, rowData.length).setValues([rowData]);
+    if (colCajaShift) sCaja.getRange(rowNum, colCajaShift).setValue(shiftId);
+    if (colCajaBizDate) sCaja.getRange(rowNum, colCajaBizDate).setValue(businessDate);
   });
 
   // Si fue pagado, asentar en COBROS
@@ -207,6 +217,11 @@ function cajaSimpleRegistrarCore_(p) {
         math.tip, math.received || '', math.change || ''
       ];
       sCobros.getRange(cobRowIdx, 1, 1, cobRow.length).setValues([cobRow]);
+
+      const colCobShift = typeof getOrAddColumnIndex_ === 'function' ? getOrAddColumnIndex_(sCobros, 'shiftId', 6) : 0;
+      const colCobBizDate = typeof getOrAddColumnIndex_ === 'function' ? getOrAddColumnIndex_(sCobros, 'businessDate', 6) : 0;
+      if (colCobShift) sCobros.getRange(cobRowIdx, colCobShift).setValue(shiftId);
+      if (colCobBizDate) sCobros.getRange(cobRowIdx, colCobBizDate).setValue(businessDate);
     }
   }
 

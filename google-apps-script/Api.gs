@@ -87,7 +87,32 @@ function doPost(e) {
     switch (action) {
       // --- AUTENTICACIÓN ---
       case 'authCrearSesion':
-        result = authCreateSession(args[0] || role, deviceId, args[1] || 'Operador');
+        result = authCreateSession(args[0] || role, deviceId, args[1] || 'Operador', args[2], args[3]);
+        break;
+
+      // --- TURNOS & APERTURA (FASE 1) ---
+      case 'turnoAbrir':
+        result = idempotentExecute_(requestId, action, args[0], deviceId, () => turnoAbrir(args[0], authContext));
+        break;
+      case 'turnoEstado':
+        result = turnoEstado(args[0], args[1]);
+        break;
+
+      // --- CORTES X / Z & ARQUEO (FASE 1) ---
+      case 'corteXConsultar':
+        result = corteXConsultar(args[0], authContext);
+        break;
+      case 'arqueoCapturar':
+        result = idempotentExecute_(requestId, action, args[0], deviceId, () => arqueoCapturar(args[0], authContext));
+        break;
+      case 'corteZCerrar':
+        result = idempotentExecute_(requestId, action, args[0], deviceId, () => corteZCerrar(args[0], authContext));
+        break;
+      case 'ajusteZRegistrar':
+        result = idempotentExecute_(requestId, action, args[0], deviceId, () => ajusteZRegistrar(args[0], authContext));
+        break;
+      case 'corteZConsultar':
+        result = corteZConsultar(args[0], authContext);
         break;
 
       // --- CAJA / POS ---
@@ -95,7 +120,7 @@ function doPost(e) {
         result = cajaSimpleDatos();
         break;
       case 'cajaSimpleRegistrar':
-        result = idempotentExecute_(requestId, action, args[0], deviceId, () => cajaSimpleRegistrar(args[0]));
+        result = idempotentExecute_(requestId, action, args[0], deviceId, () => cajaSimpleRegistrar(args[0], authContext));
         break;
       case 'cajaSimpleEstado':
         result = cajaSimpleEstado(args[0]);
@@ -123,7 +148,7 @@ function doPost(e) {
         result = accesoSimpleDatos();
         break;
       case 'accesoSimpleRegistrar':
-        result = idempotentExecute_(requestId, action, args[0], deviceId, () => accesoSimpleRegistrar(args[0]));
+        result = idempotentExecute_(requestId, action, args[0], deviceId, () => accesoSimpleRegistrar(args[0], authContext));
         break;
       case 'guardarropaDevolver':
         result = idempotentExecute_(requestId, action, args[0], deviceId, () => guardarropaDevolver(args[0]));
@@ -184,6 +209,12 @@ function handleApiGetRequest_(action, params) {
       data = accesoSimpleDatos();
     } else if (action === 'cajaSimpleEstado') {
       data = cajaSimpleEstado(params.id || '');
+    } else if (action === 'corteXConsultar') {
+      data = corteXConsultar(params, { stationId: params.stationId, registerId: params.registerId });
+    } else if (action === 'corteZConsultar') {
+      data = corteZConsultar(params, { role: 'ADMIN' });
+    } else if (action === 'turnoEstado') {
+      data = turnoEstado(params.stationId, params.registerId);
     } else if (action === 'ping' || action === 'health') {
       data = {
         status: 'HEALTHY',

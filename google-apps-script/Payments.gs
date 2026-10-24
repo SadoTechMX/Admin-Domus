@@ -44,12 +44,22 @@ function recordPaymentTransaction_(m, payload) {
   ];
 
   sCobros.getRange(nextRow, 1, 1, rowData.length).setValues([rowData]);
+
+  const shiftId = payload.shiftId || '';
+  const businessDate = payload.businessDate || (typeof getBusinessDateNow_ === 'function' ? getBusinessDateNow_() : Utilities.formatDate(now, 'America/Mexico_City', 'yyyy-MM-dd'));
+  const colCobShift = typeof getOrAddColumnIndex_ === 'function' ? getOrAddColumnIndex_(sCobros, 'shiftId', 6) : 0;
+  const colCobBizDate = typeof getOrAddColumnIndex_ === 'function' ? getOrAddColumnIndex_(sCobros, 'businessDate', 6) : 0;
+  if (colCobShift) sCobros.getRange(nextRow, colCobShift).setValue(shiftId);
+  if (colCobBizDate) sCobros.getRange(nextRow, colCobBizDate).setValue(businessDate);
+
   SpreadsheetApp.flush();
 
   return {
     folio: folio,
     amount: Number(payload.amount) || 0,
     method: payload.method,
-    date: now
+    date: now,
+    shiftId: shiftId,
+    businessDate: businessDate
   };
 }

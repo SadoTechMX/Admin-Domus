@@ -34,16 +34,27 @@ const ACTION_PERMISSIONS = Object.freeze({
   // Catálogo, Administración y Carta
   sincronizarCartaConCatalogoDOMUS: ['ADMIN', 'GERENCIA'],
   registrarNuevoProducto: ['CAJA', 'ADMIN', 'GERENCIA'],
-  sincronizarJujutsuShi: ['ADMIN', 'GERENCIA']
+  sincronizarJujutsuShi: ['ADMIN', 'GERENCIA'],
+
+  // Turnos, Apertura, Arqueo y Cortes (Fase 1)
+  turnoAbrir: ['CAJA', 'ACCESOS', 'GERENCIA', 'ADMIN'],
+  turnoEstado: ['CAJA', 'ACCESOS', 'BARRA', 'COCINA', 'GERENCIA', 'ADMIN'],
+  corteXConsultar: ['CAJA', 'ACCESOS', 'GERENCIA', 'ADMIN'],
+  arqueoCapturar: ['CAJA', 'ACCESOS', 'GERENCIA', 'ADMIN'],
+  corteZCerrar: ['GERENCIA', 'ADMIN'], // ESTRICTO: Solo Gerencia o Admin
+  ajusteZRegistrar: ['GERENCIA', 'ADMIN'], // ESTRICTO: Solo Gerencia o Admin
+  corteZConsultar: ['CAJA', 'ACCESOS', 'GERENCIA', 'ADMIN']
 });
 
 /**
  * Crea una sesión autenticada en el servidor vinculada a un rol y dispositivo
  */
-function authCreateSession(requestedRole, deviceId, operator) {
+function authCreateSession(requestedRole, deviceId, operator, stationId, registerId) {
   const cleanRole = (requestedRole && CONFIG.roles[requestedRole.toUpperCase()]) ? requestedRole.toUpperCase() : 'CAJA';
   const cleanDevice = String(deviceId || 'DEV-ANON').trim();
   const cleanOperator = String(operator || 'Operador').trim();
+  const cleanStation = String(stationId || (cleanRole === 'ACCESOS' ? 'ACCESOS' : 'CAJA_1')).toUpperCase();
+  const cleanRegister = String(registerId || (typeof getDefaultRegisterForStation_ === 'function' ? getDefaultRegisterForStation_(cleanStation) : 'GAVETA_1')).toUpperCase();
   const token = 'DOMUS-SES-' + Utilities.getUuid();
   
   const session = {
@@ -51,6 +62,8 @@ function authCreateSession(requestedRole, deviceId, operator) {
     role: cleanRole,
     deviceId: cleanDevice,
     operator: cleanOperator,
+    stationId: cleanStation,
+    registerId: cleanRegister,
     created: Date.now(),
     expires: Date.now() + (CONFIG.sessionDurationHours * 3600 * 1000)
   };
@@ -121,6 +134,8 @@ function authValidateAction(action, sessionToken, clientClaimedRole, clientDevic
     ok: true,
     role: serverAssignedRole,
     operator: session.operator || 'Operador',
+    stationId: session.stationId || (serverAssignedRole === 'ACCESOS' ? 'ACCESOS' : 'CAJA_1'),
+    registerId: session.registerId || 'GAVETA_1',
     deviceId: session.deviceId || clientDeviceId || 'DEV-ESTACION'
   };
 }

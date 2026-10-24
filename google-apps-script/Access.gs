@@ -176,13 +176,19 @@ function accesoSimpleDatos() {
  * Registra un acceso/asistencia y su cobro en ACCESO y COBROS bajo candado estricto
  * Fase 0.5: Atribución correcta de ingresos (Boleteras vs Taquilla vs Guardarropa)
  */
-function accesoSimpleRegistrar(payload) {
+function accesoSimpleRegistrar(payload, authContext) {
   if (!payload) throw new Error('Datos de acceso no proporcionados.');
 
   return withLock_(CONFIG.lockTimeoutMs, () => {
     const m = SpreadsheetApp.openById(CONFIG.mainSheetId);
     const sAcc = m.getSheetByName('ACCESO');
     const sCob = m.getSheetByName('COBROS');
+
+    const stationId = (authContext && authContext.stationId) || 'ACCESOS';
+    const registerId = (authContext && authContext.registerId) || 'GAVETA_ACCESOS';
+    const activeShift = typeof getActiveShiftForStation_ === 'function' ? getActiveShiftForStation_(stationId, registerId) : null;
+    const shiftId = activeShift ? activeShift.shiftId : '';
+    const businessDate = activeShift ? activeShift.businessDate : (typeof getBusinessDateNow_ === 'function' ? getBusinessDateNow_() : Utilities.formatDate(new Date(), 'America/Mexico_City', 'yyyy-MM-dd'));
 
     const customer = String(payload.customer || 'Asistente').trim();
     const phone = String(payload.phone || '').trim();
@@ -307,7 +313,15 @@ function accesoSimpleRegistrar(payload) {
 
     sAcc.getRange(rowIdx, 1, 1, rowData.length).setValues([rowData]);
 
+    const colAccShift = typeof getOrAddColumnIndex_ === 'function' ? getOrAddColumnIndex_(sAcc, 'shiftId', 6) : 0;
+    const colAccBizDate = typeof getOrAddColumnIndex_ === 'function' ? getOrAddColumnIndex_(sAcc, 'businessDate', 6) : 0;
+    if (colAccShift) sAcc.getRange(rowIdx, colAccShift).setValue(shiftId);
+    if (colAccBizDate) sAcc.getRange(rowIdx, colAccBizDate).setValue(businessDate);
+
     // 3. Asentar en COBROS ÚNICAMENTE lo que DOMUS cobra en puerta:
+    const colCobShift = sCob && typeof getOrAddColumnIndex_ === 'function' ? getOrAddColumnIndex_(sCob, 'shiftId', 6) : 0;
+    const colCobBizDate = sCob && typeof getOrAddColumnIndex_ === 'function' ? getOrAddColumnIndex_(sCob, 'businessDate', 6) : 0;
+
     // A. Cobro de Entrada de Taquilla
     if (ticketDoorCharge > 0 && sCob) {
       const cobIdx = Math.max(sCob.getLastRow() + 1, 7);
@@ -319,6 +333,8 @@ function accesoSimpleRegistrar(payload) {
         activity, 0, 0, 0, 'SISTEMA-WEB'
       ];
       sCob.getRange(cobIdx, 1, 1, cobRow.length).setValues([cobRow]);
+      if (colCobShift) sCob.getRange(cobIdx, colCobShift).setValue(shiftId);
+      if (colCobBizDate) sCob.getRange(cobIdx, colCobBizDate).setValue(businessDate);
     }
 
     // B. Cobro de Guardarropa independiente
@@ -332,6 +348,8 @@ function accesoSimpleRegistrar(payload) {
         activity, 0, 0, 0, 'SISTEMA-WEB'
       ];
       sCob.getRange(cobIdxGua, 1, 1, cobRowGua.length).setValues([cobRowGua]);
+      if (colCobShift) sCob.getRange(cobIdxGua, colCobShift).setValue(shiftId);
+      if (colCobBizDate) sCob.getRange(cobIdxGua, colCobBizDate).setValue(businessDate);
     }
 
     SpreadsheetApp.flush();
