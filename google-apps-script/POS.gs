@@ -143,6 +143,27 @@ function cajaSimpleRegistrarCore_(p) {
     math = posPaymentMath_(expectedTotal, method, p.received, p.tip);
   }
 
+  // 1. Doble verificación a nivel base de datos en COBROS (Idempotencia Fuerte en Sheets):
+  // Si la respuesta HTTP se cortó por timeout pero la transacción ya se asentó en COBROS,
+  // recuperamos el registro original directamente de las celdas sin crear nada nuevo.
+  const sCobros = m.getSheetByName('COBROS');
+  if (sCobros) {
+    const existingPayments = sCobros.getRange(7, 1, 500, 14).getValues();
+    const existingPay = existingPayments.find(r => r[8] === 'CAJA-RAPIDA:' + p.id);
+    if (existingPay && existingPay[0]) {
+      console.log(`[IDEMPOTENCY EN SHEETS] Transacción previa localizada en COBROS: Folio ${existingPay[0]} para ${p.id}`);
+      return {
+        ok: true,
+        ticket: String(existingPay[3] || ticket),
+        receipt: String(existingPay[0]),
+        paid: true,
+        total: Number(existingPay[5]) || expectedTotal,
+        customer: String(existingPay[7] || customer),
+        message: `Cobro previamente confirmado (recuperado de COBROS): Folio ${existingPay[0]}`
+      };
+    }
+  }
+
   // Buscar filas libres en CAJA 2
   const allRows = sCaja.getRange(7, 1, 500, 32).getValues();
   const freeIndices = [];

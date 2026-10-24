@@ -1,14 +1,15 @@
 /**
  * ============================================================================
- * DOMUS OS · AUTHENTICATION & ROLE-BASED ACCESS CONTROL (Auth.gs)
- * Validación de sesión, dispositivos y autorización en servidor (RBAC)
+ * DOMUS OS · AUTHENTICATION & ZERO-TRUST RBAC (Auth.gs)
+ * Validación estricta de sesión, dispositivos y autorización en servidor
+ * PRINCIPIO: El servidor NUNCA confía en el rol o deviceId reportados por el cliente.
  * ============================================================================
  */
 
 'use strict';
 
 /**
- * Matriz de Permisos por Acción y Rol
+ * Matriz de Permisos por Acción y Roles Autorizados
  */
 const ACTION_PERMISSIONS = Object.freeze({
   // Caja y POS
@@ -37,19 +38,17 @@ const ACTION_PERMISSIONS = Object.freeze({
 });
 
 /**
- * Valida o genera un token de sesión para una estación/dispositivo
+ * Crea una sesión autenticada en el servidor vinculada a un rol y dispositivo
  */
-function authCreateSession(role, deviceId, operator) {
-  if (!role || !CONFIG.roles[role]) {
-    role = 'CAJA'; // Rol por defecto controlado
-  }
+function authCreateSession(requestedRole, deviceId, operator) {
+  const cleanRole = (requestedRole && CONFIG.roles[requestedRole.toUpperCase()]) ? requestedRole.toUpperCase() : 'CAJA';
   const cleanDevice = String(deviceId || 'DEV-ANON').trim();
   const cleanOperator = String(operator || 'Operador').trim();
   const token = 'DOMUS-SES-' + Utilities.getUuid();
   
   const session = {
     token: token,
-    role: role,
+    role: cleanRole,
     deviceId: cleanDevice,
     operator: cleanOperator,
     created: Date.now(),
@@ -58,52 +57,70 @@ function authCreateSession(role, deviceId, operator) {
 
   const cache = CacheService.getScriptCache();
   cache.put('ses:' + token, JSON.stringify(session), 21600); // 6 horas en cache rápido
-  
-  // Guardar también en PropertiesService para persistencia garantizada
   PropertiesService.getScriptProperties().setProperty('ses:' + token, JSON.stringify(session));
 
   return session;
 }
 
 /**
- * Verifica si la petición cuenta con el rol requerido para ejecutar la acción
+ * Valida de forma estricta la sesión del servidor (Zero-Trust)
+ * REGLA DE ORO: El rol se determina EXCLUSIVAMENTE a partir de la sesión en servidor.
+ * Si el cliente manipula el payload para pretender ser 'ADMIN' o 'CAJA'
+ * teniendo una sesión de 'BARRA', la solicitud es rechazada inmediatamente.
  */
-function authValidateAction(action, sessionToken, requestedRole, deviceId) {
+function authValidateAction(action, sessionToken, clientClaimedRole, clientDeviceId) {
   const allowedRoles = ACTION_PERMISSIONS[action];
   
-  // Si la acción no está restringida explícitamente, permitir
+  // Acciones de consulta abiertas (ping, estado básico)
   if (!allowedRoles || allowedRoles.length === 0) {
-    return { ok: true, role: 'ANON' };
+    return { ok: true, role: 'PUBLIC', operator: 'Público', deviceId: clientDeviceId };
   }
 
-  // Si no se proporcionó token pero sí un rol reconocido de estación local:
-  // Permitir la transición con registro de auditoría mientras se establece el apretón de manos
-  let session = null;
-  if (sessionToken) {
-    const cache = CacheService.getScriptCache();
-    const raw = cache.get('ses:' + sessionToken) || PropertiesService.getScriptProperties().getProperty('ses:' + sessionToken);
-    if (raw) {
-      try {
-        session = JSON.parse(raw);
-        if (session.expires && session.expires < Date.now()) {
-          session = null; // Sesión expirada
-        }
-      } catch (e) {
-        session = null;
-      }
-    }
+  // 1. Verificar existencia de token de sesión
+  if (!sessionToken || typeof sessionToken !== 'string') {
+    // Si no hay token de sesión, rechazar cualquier mutación
+    throw new Error(`Acceso denegado: Se requiere un token de sesión activo para ejecutar '${action}'. Inicia sesión en la estación.`);
   }
 
-  const effectiveRole = session ? session.role : (requestedRole ? String(requestedRole).toUpperCase() : '');
+  // 2. Recuperar la sesión guardada en el servidor (Cache + Properties)
+  const cache = CacheService.getScriptCache();
+  const rawSession = cache.get('ses:' + sessionToken) || PropertiesService.getScriptProperties().getProperty('ses:' + sessionToken);
+  
+  if (!rawSession) {
+    throw new Error('Sesión inválida o expirada. Por favor autentica nuevamente la estación.');
+  }
 
-  if (!effectiveRole || !allowedRoles.includes(effectiveRole)) {
-    throw new Error(`Acceso denegado: El rol '${effectiveRole || 'NO_AUTH'}' no tiene autorización para ejecutar '${action}'. Se requiere: [${allowedRoles.join(', ')}]`);
+  let session;
+  try {
+    session = JSON.parse(rawSession);
+  } catch (e) {
+    throw new Error('Error de integridad en los datos de sesión del servidor.');
+  }
+
+  // 3. Validar expiración de sesión
+  if (session.expires && session.expires < Date.now()) {
+    throw new Error('La sesión de la estación ha caducado. Vuelve a iniciar sesión.');
+  }
+
+  const serverAssignedRole = session.role;
+
+  // 4. Detección de Manipulación en Cliente (Anti-Tampering):
+  // Si el cliente envió explícitamente un rol reclamado en el payload (ej. "ADMIN")
+  // y no coincide con el rol asignado en la sesión de servidor (ej. "BARRA"), abortar.
+  if (clientClaimedRole && String(clientClaimedRole).toUpperCase() !== serverAssignedRole) {
+    console.warn(`[SECURITY ALERT] Intento de escalación de privilegios: Dispositivo ${clientDeviceId || session.deviceId} con sesión '${serverAssignedRole}' intentó reclamar rol '${clientClaimedRole}' para la acción '${action}'.`);
+    throw new Error(`Violación de seguridad: El rol declarado '${clientClaimedRole}' discrepa del rol autenticado '${serverAssignedRole}'. Petición bloqueada.`);
+  }
+
+  // 5. Validar que el rol del servidor tenga autorización para la acción requerida
+  if (!allowedRoles.includes(serverAssignedRole)) {
+    throw new Error(`Acceso denegado: El rol autenticado '${serverAssignedRole}' no tiene autorización para ejecutar '${action}'. Roles autorizados: [${allowedRoles.join(', ')}].`);
   }
 
   return {
     ok: true,
-    role: effectiveRole,
-    operator: session ? session.operator : 'Operador Local',
-    deviceId: session ? session.deviceId : (deviceId || 'UNKNOWN_DEVICE')
+    role: serverAssignedRole,
+    operator: session.operator || 'Operador',
+    deviceId: session.deviceId || clientDeviceId || 'DEV-ESTACION'
   };
 }

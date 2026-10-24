@@ -1845,12 +1845,33 @@
     return item;
   }
 
+  function acquireOutboxLock() {
+    const lockKey = 'domus_outbox_lock';
+    const now = Date.now();
+    const currentLock = parseInt(localStorage.getItem(lockKey), 10);
+    if (currentLock && (now - currentLock) < 15000) {
+      return false; // Otra pestaña del navegador está sincronizando en este instante
+    }
+    localStorage.setItem(lockKey, now.toString());
+    return true;
+  }
+
+  function releaseOutboxLock() {
+    localStorage.removeItem('domus_outbox_lock');
+  }
+
   let isOutboxProcessing = false;
   function processOutbox() {
     if (isOutboxProcessing) return;
+    if (!acquireOutboxLock()) {
+      console.log('[OUTBOX] Otra pestaña del navegador está sincronizando activamente. Esperando turno.');
+      return;
+    }
+
     const queue = getOutbox();
     const pendingItems = queue.filter(it => it.status === 'LOCAL_PENDING' || it.status === 'RETRY');
     if (pendingItems.length === 0) {
+      releaseOutboxLock();
       updateOutboxUI();
       return;
     }
@@ -1883,6 +1904,7 @@
     .then(res => res.json())
     .then(json => {
       isOutboxProcessing = false;
+      releaseOutboxLock();
       if (json && json.ok) {
         item.status = 'CONFIRMED';
         item.serverReceipt = json.data;
@@ -1908,12 +1930,20 @@
     })
     .catch(err => {
       isOutboxProcessing = false;
+      releaseOutboxLock();
       item.status = 'RETRY';
       item.lastError = err.message || String(err);
       saveOutbox(getOutbox().map(q => q.requestId === item.requestId ? item : q));
       updateSyncPill('error');
     });
   }
+
+  // Sincronización entre pestañas abiertas simultáneamente
+  window.addEventListener('storage', e => {
+    if (e.key === 'domus_outbox') {
+      updateOutboxUI();
+    }
+  });
 
   function updateOutboxUI() {
     const banner = $('outboxBanner');

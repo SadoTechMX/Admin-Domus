@@ -136,6 +136,26 @@ function accesoSimpleRegistrar(payload) {
     const total = entryPrice + wardrobePrice;
     const method = String(payload.method || 'Efectivo').trim();
     const isPaid = payload.paid !== false;
+    const reqKey = String(payload.id || payload.requestId || '').trim();
+
+    // 1. Doble verificación a nivel base de datos en COBROS (Idempotencia Fuerte):
+    if (reqKey && sCob) {
+      const existingPayments = sCob.getRange(7, 1, 500, 14).getValues();
+      const existingPay = existingPayments.find(r => r[8] === 'ACCESO-WEB:' + reqKey);
+      if (existingPay && existingPay[0]) {
+        console.log(`[IDEMPOTENCY EN SHEETS] Acceso previo localizado en COBROS: Folio ${existingPay[0]} para ${reqKey}`);
+        return {
+          ok: true,
+          ticket: String(existingPay[3] || reqKey),
+          rowId: String(existingPay[3] || reqKey),
+          customer: String(existingPay[7] || customer),
+          total: Number(existingPay[5]) || total,
+          paid: true,
+          date: Utilities.formatDate(new Date(), 'America/Mexico_City', 'yyyy-MM-dd HH:mm'),
+          message: `Acceso previamente confirmado (recuperado de COBROS): Folio ${existingPay[3] || existingPay[0]}`
+        };
+      }
+    }
 
     // Generar Folio Atómico Inmutable
     const rowIdx = Math.max(sAcc.getLastRow() + 1, 7);
