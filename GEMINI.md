@@ -9,9 +9,19 @@
 * **Repositorio Canónico:** `SadoTechMX/Admin-Domus`
 * **Rama `main` (Producción):** **ESTRICTAMENTE CONGELADA.** Nunca trabajar directamente sobre `main`, nunca hacer commits directos ni ejecutar merges a `main` sin autorización expresa y pruebas de Staging aprobadas.
 * **Rama de Trabajo:** Trabajar siempre sobre ramas de aislamiento (actualmente `stabilization/backend-v1`).
-* **Verificación Previa:** Antes de modificar código, confirmar rama con `git branch --show-current` y estado limpio con `git status`.
-* **Verificación Pre-Commit:** Ejecutar la suite de pruebas unitarias y verificar el diff con `git diff`.
-* **Trazabilidad:** Al realizar cambios, actualizar [`docs/CURRENT_STATE.md`](file:///Users/sadotechdireccion/Documents/GitHub/Admin-Domus/docs/CURRENT_STATE.md) y [`RELEASE_LOG.md`](file:///Users/sadotechdireccion/Documents/GitHub/Admin-Domus/RELEASE_LOG.md).
+* **Verificación Previa (Inbound):**
+  1. `git fetch origin`
+  2. `git status`
+  3. `git branch --show-current`
+  4. `git rev-parse HEAD`
+  5. Consultar `docs/AI_HANDOFF.md`, `docs/CURRENT_STATE.md` y `docs/OPERATING_RULES.md`
+  6. Revisar commits posteriores a `LAST_VERIFIED_COMMIT`
+* **Verificación Pre-Commit (Outbound):**
+  1. Ejecutar la suite de pruebas unitarias locales.
+  2. Verificar el diff con `git diff`.
+  3. Crear commit en la rama de trabajo.
+  4. Pushear a origin con el remote limpio.
+  5. Actualizar `docs/CURRENT_STATE.md` registrando estados con la taxonomía formal (`IMPLEMENTED`, `LOCAL_TESTED`, `STAGING_VERIFIED`, etc.).
 
 ---
 

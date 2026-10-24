@@ -1,17 +1,34 @@
 # ⏱️ DOMUS OS · CURRENT STATE SNAPSHOT
 
 > [!NOTE]
-> Este archivo se actualiza en cada commit o sesión de trabajo para que cualquier IA o desarrollador conozca con exactitud milimétrica el estado técnico del sistema.
+> Este archivo resume el estado técnico del sistema. La fuente de verdad para el commit activo siempre es el comando `git rev-parse HEAD`.
 
-* **Fecha de Actualización:** 2026-10-24 02:15 UTC-6
+* **Fecha de Último Handoff:** 2026-10-24 02:20 UTC-6
 * **Rama Activa:** `stabilization/backend-v1`
-* **Último Commit:** `43374fc` (*docs(governance): establish canonical multi-AI coordination protocol and ADRs*)
+* **LAST_VERIFIED_COMMIT:** `5dd47ab` (Auditado formalmente por ChatGPT / Ariadna)
+* **HEAD Activo:** Ejecutar `git rev-parse HEAD` para obtener el hash de trabajo actual
+* **Estado de Working Tree al Handoff:** `clean`
 * **Rama `main`:** Congelada en commit `1a89a14` (`production-pre-hardening`)
 * **Remote Git:** `https://github.com/SadoTechMX/Admin-Domus.git` (Limpio, autenticación delegada a Git Credential Manager / Keychain)
 
 ---
 
-## 🧩 Estado de Componentes
+## 🏷️ Matriz de Estados de Verificación (Taxonomía Formal)
+
+| Componente | Archivo(s) | Estado Actual | Evidencia / Próximo Paso |
+| :--- | :--- | :---: | :--- |
+| **Backend Modular (11 archivos)** | `google-apps-script/*.gs` | `LOCAL_TESTED` | Pasa suite `test_gates_audit3.py`. Pendiente despliegue en Staging real. |
+| **RBAC Zero-Trust** | `Auth.gs`, `Api.gs` | `AUDITED` | Concepto aprobado por auditoría. Pendiente prueba #7 en Staging. |
+| **Idempotencia + Payload Binding** | `Idempotency.gs`, `Api.gs` | `LOCAL_TESTED` | SHA-256 canónico y rechazo 409 verificado localmente. Pendiente pruebas 1 y 2 en Staging. |
+| **Ledger Transaccional (`REQUESTS`)** | `Idempotency.gs`, Sheets | `LOCAL_TESTED` | Estructura de 8 columnas y persistencia en 3 capas verificada. Pendiente validar en Sheets real. |
+| **Mutex Outbox (Web Locks API)** | `js/app.js` | `LOCAL_TESTED` | W3C Web Locks con lease fallback y BroadcastChannel verificado localmente. Pendiente prueba 5 en Staging. |
+| **Entorno de Staging (14 Pruebas)** | `STAGING_PLAN.md` | `IMPLEMENTED` | Plan y criterios de aceptación definidos. Pendiente duplicación de Sheets y deploy de Apps Script. |
+| **Fase 1: Apertura / Turnos / Corte X / Z** | N/A | `PLANNING` | Bloqueado formalmente hasta GO de Fase 0 en Staging. |
+| **Merge a Producción (`main`)** | `main` | `BLOCKED` | Requiere todas las 14 pruebas en `STAGING_VERIFIED` y SLA P95 < 5.0s. |
+
+---
+
+## 🧩 Detalle de Componentes Implementados
 
 ### 1. Backend (`google-apps-script/`)
 * **Modularización:** 100% completada. `Code.gs` original fue eliminado y dividido en 11 archivos especializados:
@@ -40,13 +57,11 @@
 
 ### 3. Base de Datos (Google Sheets)
 * **Libro de Producción:** ID `1KQz8oJ4VaWFsqS2-sg25HMCm60SdSoQpIDlCDSV5J1U`
-* **Hojas Operativas:**
-  * `CAJA 2`, `COBROS`, `COMANDAS`, `CATALOGO`, `INVENTARIO`, `ACCESO`, `ACTIVIDADES`
-* **Nueva Hoja Transaccional (Fase 0):**
-  * `REQUESTS`: `REQUEST_ID | ACTION | PAYLOAD_HASH | DEVICE_ID | STATUS | CREATED_AT | COMPLETED_AT | RESPONSE`
+* **Hojas Operativas:** `CAJA 2`, `COBROS`, `COMANDAS`, `CATALOGO`, `INVENTARIO`, `ACCESO`, `ACTIVIDADES`
+* **Nueva Hoja Transaccional (Fase 0):** `REQUESTS`: `REQUEST_ID | ACTION | PAYLOAD_HASH | DEVICE_ID | STATUS | CREATED_AT | COMPLETED_AT | RESPONSE`
 
 ---
 
 ## 🚧 Siguiente Tarea Inmediata
-1. Esperar confirmación del usuario de la revocación del token personal en GitHub Settings.
-2. Desplegar copia de pruebas `DOMUS-STAGING` y ejecutar el checklist de 14 pruebas detallado en [`STAGING_PLAN.md`](file:///Users/sadotechdireccion/Documents/GitHub/Admin-Domus/STAGING_PLAN.md).
+1. Configurar libro de pruebas duplicado (`DOMUS-STAGING`) y deployment de pruebas en Google Apps Script.
+2. Ejecutar el checklist de 14 pruebas de integración detallado en [`STAGING_PLAN.md`](file:///Users/sadotechdireccion/Documents/GitHub/Admin-Domus/STAGING_PLAN.md).
