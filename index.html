@@ -91,6 +91,17 @@
     </div>
   </header>
 
+  <!-- Outbox Status Banner (Modo Sin Conexión & Encolamiento Transaccional) -->
+  <aside class="outbox-banner hidden" id="outboxBanner" aria-live="polite">
+    <div class="outbox-content">
+      <span class="outbox-icon">⚠️</span>
+      <span class="outbox-text" id="outboxStatusText">MODO SIN CONEXIÓN · 0 operaciones pendientes en Outbox</span>
+    </div>
+    <div class="outbox-actions">
+      <button type="button" class="btn-outbox-sync" id="btnOutboxRetry">🔄 Reintentar Sincronización</button>
+    </div>
+  </aside>
+
   <!-- ========================================================================
        MAIN APP CONTAINER
        ======================================================================== -->

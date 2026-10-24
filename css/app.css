@@ -1962,4 +1962,64 @@ html, body {
   gap: 4px;
 }
 
+/* ==========================================================================
+   OUTBOX & INTEGRIDAD TRANSACCIONAL (FASE 0C)
+   ========================================================================== */
+.outbox-banner {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.22), rgba(220, 38, 38, 0.28));
+  border-bottom: 1px solid rgba(245, 158, 11, 0.45);
+  padding: 10px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  backdrop-filter: blur(12px);
+  z-index: 100;
+  animation: slideDown 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.outbox-banner.hidden {
+  display: none !important;
+}
+
+.outbox-content {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--amber-300, #fcd34d);
+}
+
+.outbox-icon {
+  font-size: 1.25rem;
+  animation: pulseWarning 2s infinite ease-in-out;
+}
+
+@keyframes pulseWarning {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.18); opacity: 0.75; }
+}
+
+.btn-outbox-sync {
+  background: linear-gradient(135deg, var(--gold-400), var(--gold-600));
+  color: #0a0b0e;
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 6px 14px;
+  font-size: 0.82rem;
+  font-weight: 800;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all var(--transition-fast);
+}
+
+.btn-outbox-sync:hover {
+  filter: brightness(1.15);
+  transform: translateY(-1px);
+}
+
+
 

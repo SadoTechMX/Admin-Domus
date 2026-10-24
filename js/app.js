@@ -1756,10 +1756,218 @@
     }
   }
 
-  // --- COMUNICACIÓN CON BACKEND (GAS / REST / SIMULADOR) ---
+  // --- OUTBOX & IDEMPOTENCIA TRANSACCIONAL (FASE 0C) ---
+  const MUTATION_ACTIONS = new Set([
+    'cajaSimpleRegistrar',
+    'comandasSimpleAccion',
+    'comandasSimpleResolver',
+    'accesoSimpleRegistrar',
+    'guardarropaDevolver',
+    'accesoCambiarActividad',
+    'registrarNuevoEvento',
+    'registrarNuevoProducto',
+    'sincronizarCartaConCatalogoDOMUS'
+  ]);
+
+  function getDeviceId() {
+    let devId = localStorage.getItem('domus_device_id');
+    if (!devId) {
+      devId = 'DEV-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 6).toUpperCase();
+      localStorage.setItem('domus_device_id', devId);
+    }
+    return devId;
+  }
+
+  function getSessionToken() {
+    return sessionStorage.getItem('domus_session_token') || localStorage.getItem('domus_session_token') || '';
+  }
+
+  function setSessionToken(token) {
+    if (token) {
+      sessionStorage.setItem('domus_session_token', token);
+      localStorage.setItem('domus_session_token', token);
+    }
+  }
+
+  function getStationRole() {
+    if (STATE.mode === 'caja') return 'CAJA';
+    if (STATE.mode === 'comandas') return 'BARRA';
+    if (STATE.mode === 'accesos') return 'ACCESOS';
+    return 'CAJA';
+  }
+
+  function getOutbox() {
+    try {
+      const raw = localStorage.getItem('domus_outbox');
+      return Array.isArray(JSON.parse(raw)) ? JSON.parse(raw) : [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  function saveOutbox(queue) {
+    try {
+      localStorage.setItem('domus_outbox', JSON.stringify(queue));
+    } catch (e) {
+      console.warn('Error al guardar outbox en localStorage:', e);
+    }
+    updateOutboxUI();
+  }
+
+  function enqueueOutbox(action, args, type = 'MUTATION') {
+    const queue = getOutbox();
+    const existingReq = (args && args[0] && (args[0].id || args[0].requestId)) ? (args[0].id || args[0].requestId) : null;
+    const reqId = existingReq || ('REQ-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8).toUpperCase());
+
+    if (args && args[0] && typeof args[0] === 'object') {
+      args[0].requestId = reqId;
+      if (!args[0].id) args[0].id = reqId;
+    }
+
+    const item = {
+      requestId: reqId,
+      deviceId: getDeviceId(),
+      operatorId: STATE.operator || 'Operador',
+      role: getStationRole(),
+      createdAt: new Date().toISOString(),
+      type: type,
+      action: action,
+      args: args,
+      status: 'LOCAL_PENDING',
+      attempts: 0,
+      lastAttempt: null,
+      serverReceipt: null,
+      lastError: null
+    };
+
+    queue.push(item);
+    saveOutbox(queue);
+    return item;
+  }
+
+  let isOutboxProcessing = false;
+  function processOutbox() {
+    if (isOutboxProcessing) return;
+    const queue = getOutbox();
+    const pendingItems = queue.filter(it => it.status === 'LOCAL_PENDING' || it.status === 'RETRY');
+    if (pendingItems.length === 0) {
+      updateOutboxUI();
+      return;
+    }
+
+    isOutboxProcessing = true;
+    updateOutboxUI();
+
+    const item = pendingItems[0];
+    item.status = 'SYNCING';
+    item.attempts = (item.attempts || 0) + 1;
+    item.lastAttempt = new Date().toISOString();
+    saveOutbox(queue);
+
+    const endpoint = `${STATE.apiUrl}?action=${encodeURIComponent(item.action)}`;
+    const payload = {
+      action: item.action,
+      args: item.args,
+      requestId: item.requestId,
+      deviceId: item.deviceId,
+      operator: item.operatorId,
+      role: item.role,
+      sessionToken: getSessionToken()
+    };
+
+    fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify(payload)
+    })
+    .then(res => res.json())
+    .then(json => {
+      isOutboxProcessing = false;
+      if (json && json.ok) {
+        item.status = 'CONFIRMED';
+        item.serverReceipt = json.data;
+        const currentQueue = getOutbox().filter(q => q.requestId !== item.requestId);
+        saveOutbox(currentQueue);
+        toast(`Operación sincronizada exitosamente con Google Sheets.`, 'ok');
+        playChime('success');
+        updateSyncPill('ok');
+        setTimeout(processOutbox, 300);
+      } else {
+        const errorMsg = json.error || 'Error reportado por servidor';
+        if (errorMsg.includes('Acceso denegado') || errorMsg.includes('inválido')) {
+          item.status = 'REQUIRES_REVIEW';
+          item.lastError = errorMsg;
+          saveOutbox(getOutbox().map(q => q.requestId === item.requestId ? item : q));
+          toast(`Permiso requerido: ${errorMsg}`, 'error');
+        } else {
+          item.status = 'RETRY';
+          item.lastError = errorMsg;
+          saveOutbox(getOutbox().map(q => q.requestId === item.requestId ? item : q));
+        }
+      }
+    })
+    .catch(err => {
+      isOutboxProcessing = false;
+      item.status = 'RETRY';
+      item.lastError = err.message || String(err);
+      saveOutbox(getOutbox().map(q => q.requestId === item.requestId ? item : q));
+      updateSyncPill('error');
+    });
+  }
+
+  function updateOutboxUI() {
+    const banner = $('outboxBanner');
+    const text = $('outboxStatusText');
+    const queue = getOutbox();
+    const pending = queue.filter(q => q.status !== 'CONFIRMED');
+
+    if (!banner || !text) return;
+
+    if (pending.length > 0) {
+      banner.classList.remove('hidden');
+      text.textContent = `⚠️ MODO SIN CONEXIÓN · ${pending.length} operación(es) pendiente(s) de sincronizar en Outbox`;
+      updateSyncPill('warn');
+    } else {
+      banner.classList.add('hidden');
+    }
+  }
+
+  function cacheQuerySnapshot(fnName, data) {
+    try {
+      if (data && typeof data === 'object') {
+        localStorage.setItem('domus_cache_' + fnName, JSON.stringify({
+          cachedAt: Date.now(),
+          data: data
+        }));
+      }
+    } catch (e) {}
+  }
+
+  function getCachedQuerySnapshot(fnName) {
+    try {
+      const raw = localStorage.getItem('domus_cache_' + fnName);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        return parsed.data || null;
+      }
+    } catch (e) {}
+    return null;
+  }
+
+  // --- COMUNICACIÓN CON BACKEND (IDEMPOTENTE & CON OUTBOX) ---
   function callBackend(fnName, args, onSuccess, onError) {
     STATE.isSyncing = true;
     updateSyncPill();
+
+    const isMutation = MUTATION_ACTIONS.has(fnName);
+    const reqId = (args && args[0] && (args[0].id || args[0].requestId)) 
+      ? (args[0].id || args[0].requestId) 
+      : ('REQ-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7).toUpperCase());
+
+    if (args && args[0] && typeof args[0] === 'object') {
+      if (!args[0].id) args[0].id = reqId;
+      args[0].requestId = reqId;
+    }
 
     // 1. Modo nativo dentro de Google Apps Script Web App
     if (STATE.isNativeGas && window.google && google.script && google.script.run) {
@@ -1767,175 +1975,86 @@
         .withSuccessHandler(res => {
           STATE.isSyncing = false;
           STATE.lastSyncTimestamp = Date.now();
-          updateSyncPill();
-          onSuccess(res);
+          updateSyncPill('ok');
+          if (!isMutation) cacheQuerySnapshot(fnName, res);
+          if (onSuccess) onSuccess(res);
         })
         .withFailureHandler(err => {
           STATE.isSyncing = false;
+          STATE.lastSyncTimestamp = Date.now();
           updateSyncPill('error');
-          onError(err);
+          if (onError) onError(err);
         })[fnName](...args);
       return;
     }
 
-    // 2. Modo externo (GitHub Pages con API fetch al Web App de Apps Script)
-    if (STATE.apiUrl && !STATE.isDemoMode) {
-      const endpoint = `${STATE.apiUrl}?action=${encodeURIComponent(fnName)}`;
-      fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ action: fnName, args: args })
-      })
-      .then(res => res.json())
-      .then(json => {
-        STATE.isSyncing = false;
-        STATE.lastSyncTimestamp = Date.now();
-        updateSyncPill();
-        if (json.error) throw new Error(json.error);
-        onSuccess(json.data || json);
-      })
-      .catch(err => {
-        // Fallback a Demo si la API de Google falla (por CORS o sin auth de Workspace)
-        console.warn('Fallo de conexión en vivo con Apps Script, operando en simulador DOMUS:', err);
-        STATE.isDemoMode = true;
-        STATE.isSyncing = false;
-        updateSyncPill('warn');
-        runSimulatedCall(fnName, args, onSuccess, onError);
-      });
-      return;
-    }
+    // 2. Modo Externo (GitHub Pages / Fetch API con Outbox)
+    const endpoint = `${STATE.apiUrl}?action=${encodeURIComponent(fnName)}`;
+    const payload = {
+      action: fnName,
+      args: args,
+      requestId: reqId,
+      deviceId: getDeviceId(),
+      operator: STATE.operator || 'Operador',
+      role: getStationRole(),
+      sessionToken: getSessionToken()
+    };
 
-    // 3. Modo Simulador DOMUS (offline o demo)
-    runSimulatedCall(fnName, args, onSuccess, onError);
-  }
-
-  function runSimulatedCall(fnName, args, onSuccess, onError) {
-    setTimeout(() => {
+    fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify(payload)
+    })
+    .then(res => res.json())
+    .then(json => {
       STATE.isSyncing = false;
       STATE.lastSyncTimestamp = Date.now();
-      updateSyncPill('warn');
+      if (!json.ok && json.error) throw new Error(json.error);
 
-      if (fnName === 'cajaSimpleDatos') {
-        onSuccess({
-          phase: STATE.phase,
-          products: STATE.products.map(p => ({
-            name: p.name,
-            group: p.group,
-            price: STATE.phase === 'Solar' ? (p.priceSolar || p.price) : (p.priceLunar || p.price)
-          })),
-          accounts: STATE.openAccounts,
-          activities: STATE.activities,
-          lastReceipt: STATE.lastReceiptInfo || 'Simulación activa · Listo para registrar ventas',
-          canCourtesy: true
-        });
-      } else if (fnName === 'cajaSimpleRegistrar') {
-        const p = args[0];
-        const ticket = p.ticket || `CTA-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
-        const folio = `R-${String(Math.floor(Math.random() * 9000) + 1000)}`;
-        
-        // Agregar comanda a la lista de comandas
-        const batchId = `B-${Date.now().toString(36)}`;
-        p.items.forEach((item, idx) => {
-          for (let i = 0; i < item.qty; i++) {
-            STATE.comandas.unshift({
-              key: `DCS-SIM-${Date.now()}-${idx}-${i}`,
-              version: '1',
-              id: `C2-${String(Math.floor(Math.random() * 8000) + 1000)}`,
-              ticket: ticket,
-              batch: batchId,
-              alias: p.customer,
-              product: item.name,
-              notes: item.courtesy ? 'CORTESÍA AUTORIZADA' : '',
-              destination: item.destination || (item.group === 'Alimentos' ? 'Cocina' : 'Barra'),
-              state: 'Pendiente',
-              responsible: '',
-              sent: Date.now(),
-              credit: p.credit === 'Amigo' || p.credit === 'Creador de proyecto',
-              incident: ''
-            });
-          }
-        });
+      updateSyncPill('ok');
+      const data = json.data !== undefined ? json.data : json;
+      if (!isMutation) cacheQuerySnapshot(fnName, data);
 
-        // Actualizar o crear cuenta abierta
-        if (!p.paid) {
-          STATE.openAccounts.unshift({
-            ticket: ticket,
-            customer: p.customer,
-            activity: p.activity || 'Visita general DOMUS',
-            due: p.expectedTotal,
-            credit: p.credit,
-            closed: false
-          });
-        }
+      if (onSuccess) onSuccess(data);
+      processOutbox();
+    })
+    .catch(err => {
+      STATE.isSyncing = false;
+      STATE.lastSyncTimestamp = Date.now();
+      updateSyncPill('error');
 
-        STATE.lastReceiptInfo = `Último cobro: ${p.customer} · ${money(p.expectedTotal)} · ${p.method || 'Pendiente'}`;
-        playChime('success');
-        updateKdsBadgeCount();
+      if (isMutation) {
+        // Encolar de forma segura en Outbox
+        const item = enqueueOutbox(fnName, args, 'MUTATION');
+        item.lastError = err.message || String(err);
+        item.status = 'RETRY';
+        saveOutbox(getOutbox());
 
-        onSuccess({
-          ticket: ticket,
-          receipt: p.paid ? folio : '',
-          paid: !!p.paid,
-          message: `${p.customer} · ${p.paid ? 'PAGO REGISTRADO ' + folio : 'Pedido enviado a comanda (pago pendiente)'}\nCuenta: ${ticket}\nPendiente: ${money(p.paid ? 0 : p.expectedTotal)}`
-        });
-      } else if (fnName === 'comandasSimpleDatos') {
-        onSuccess({
-          version: 'Comandas Simple 2.0',
-          at: Date.now(),
-          mirrorSync: STATE.isDemoMode ? 'Modo Demostración / Simulador Local' : 'Conectado a Google Sheets',
-          team: STAFF_MEMBERS,
-          orders: STATE.comandas,
-          history: STATE.historyComandas,
-          requests: STATE.restockRequests,
-          issues: []
-        });
-      } else if (fnName === 'comandasSimpleAccion') {
-        const body = args[1];
-        const ord = STATE.comandas.find(o => o.key === body.key);
-        if (!ord) {
-          onError(new Error('Comanda no encontrada en el tablero.'));
-          return;
-        }
-
-        if (body.action === 'TOMAR') {
-          // Asigna el lote completo
-          STATE.comandas.filter(o => o.batch === ord.batch).forEach(o => {
-            o.state = 'En preparación';
-            o.responsible = body.operator;
-            o.version = String(Number(o.version) + 1);
-          });
-        } else if (body.action === 'LISTA') {
-          ord.state = 'Lista';
-          ord.version = String(Number(ord.version) + 1);
-        } else if (body.action === 'ENTREGAR') {
-          ord.state = 'Entregada';
-          ord.delivered = Date.now();
-          STATE.historyComandas.unshift(ord);
-          STATE.comandas = STATE.comandas.filter(o => o.key !== ord.key);
-        } else if (body.action === 'ALMACEN' || body.action === 'AGOTADO') {
-          ord.incident = body.action === 'ALMACEN' ? 'Reponer de almacén' : 'Agotado en DOMUS';
-          const reqId = `RES-${Date.now().toString(36).toUpperCase()}`;
-          STATE.restockRequests.unshift({
+        toast(`⚠️ Sin conexión con Google Sheets. Operación guardada de forma segura en Outbox local (${reqId}).`, 'warn');
+        if (onSuccess) {
+          onSuccess({
+            ok: true,
+            localOutbox: true,
+            status: 'LOCAL_PENDING',
+            requestId: reqId,
+            rowId: reqId,
             id: reqId,
-            product: ord.product,
-            type: ord.incident,
-            created: Date.now()
+            ticket: reqId,
+            message: `Guardado en Outbox local (${reqId}). Se sincronizará automáticamente al volver la señal.`
           });
         }
-        playChime('success');
-        updateKdsBadgeCount();
-        onSuccess({ ok: true, message: `Acción ${body.action} aplicada correctamente.` });
-      } else if (fnName === 'comandasSimpleResolver') {
-        const body = args[1];
-        STATE.restockRequests = STATE.restockRequests.filter(r => r.id !== body.id);
-        STATE.comandas.forEach(o => {
-          if (o.incident) o.incident = '';
-        });
-        onSuccess({ ok: true, message: 'Disponibilidad confirmada.' });
       } else {
-        onSuccess({ ok: true });
+        // Consulta de lectura que falló por red: recuperar de caché local si existe
+        console.warn(`Consulta '${fnName}' falló por falta de red. Intentando leer desde caché local.`);
+        const cached = getCachedQuerySnapshot(fnName);
+        if (cached && onSuccess) {
+          toast('Mostrando datos de respaldo en caché local.', 'warn');
+          onSuccess(cached);
+        } else if (onError) {
+          onError(err);
+        }
       }
-    }, 150);
+    });
   }
 
   function updateSyncPill(state = 'ok') {
@@ -1994,6 +2113,8 @@
 
     renderStaffDropdown();
     renderCategoryChips();
+    updateOutboxUI();
+    processOutbox();
     updateAccesosBadge();
     if (STATE.mode === 'accesos') {
       renderAccesosView();
@@ -3631,6 +3752,14 @@
     });
 
     // Refresh Button
+    const btnRetryOutbox = $('btnOutboxRetry');
+    if (btnRetryOutbox) {
+      btnRetryOutbox.addEventListener('click', () => {
+        toast('Reintentando sincronización de Outbox…', 'ok');
+        processOutbox();
+      });
+    }
+
     $('btnSyncNow').addEventListener('click', () => {
       toast('Sincronizando con Google…', 'ok');
       syncBackendData();
