@@ -1816,7 +1816,16 @@
 
   // --- CARGA INICIAL DE DATOS ---
   function loadInitialData() {
-    STATE.products = DEFAULT_CATALOG;
+    STATE.products = [...DEFAULT_CATALOG];
+    try {
+      const custom = JSON.parse(localStorage.getItem('domus_custom_products') || '[]');
+      if (Array.isArray(custom) && custom.length) {
+        const existingKeys = new Set(STATE.products.map(p => (p.sku || p.name).toLowerCase()));
+        const toAdd = custom.filter(c => !existingKeys.has((c.sku || c.name).toLowerCase()));
+        STATE.products = [...toAdd, ...STATE.products];
+      }
+    } catch (e) {}
+
     STATE.comandas = [...DEFAULT_ORDERS];
     renderStaffDropdown();
     renderCategoryChips();
@@ -1832,6 +1841,16 @@
       }
       if (data.products && data.products.length) {
         STATE.products = data.products;
+        // Fusionar productos personalizados creados en el cliente
+        try {
+          const custom = JSON.parse(localStorage.getItem('domus_custom_products') || '[]');
+          if (Array.isArray(custom) && custom.length) {
+            const existingKeys = new Set(STATE.products.map(p => (p.sku || p.name).toLowerCase()));
+            const toAdd = custom.filter(c => !existingKeys.has((c.sku || c.name).toLowerCase()));
+            STATE.products = [...toAdd, ...STATE.products];
+          }
+        } catch (e) {}
+        renderCategoryChips();
       }
       if (data.accounts) {
         STATE.openAccounts = data.accounts;
@@ -2530,6 +2549,101 @@
     syncBackendData();
   }
 
+  // --- ALTA / REGISTRO DE NUEVOS PRODUCTOS (ADMIN CAJA) ---
+  function openNewProductModal() {
+    $('newProdName').value = '';
+    $('newProdPriceSolar').value = '';
+    $('newProdPriceLunar').value = '';
+    $('newProdSku').value = '';
+    $('newProdCustomCategory').value = '';
+    $('customCatWrapper').classList.add('hidden');
+    $('newProdStock').value = '50';
+
+    // Poblar categorías existentes
+    const select = $('newProdCategory');
+    const existingGroups = [...new Set(STATE.products.map(p => p.group))];
+    select.innerHTML = existingGroups.map(g => `<option value="${g}">${g}</option>`).join('') +
+      '<option value="__NEW__">+ Otra Categoría…</option>';
+
+    $('newProductModal').classList.add('open');
+    setTimeout(() => $('newProdName').focus(), 150);
+  }
+
+  function closeNewProductModal() {
+    $('newProductModal').classList.remove('open');
+  }
+
+  function saveNewProduct() {
+    const name = $('newProdName').value.trim();
+    if (!name) {
+      toast('Escribe el nombre del producto.', 'warn');
+      $('newProdName').focus();
+      return;
+    }
+
+    let category = $('newProdCategory').value;
+    if (category === '__NEW__') {
+      category = $('newProdCustomCategory').value.trim();
+      if (!category) {
+        toast('Escribe el nombre de la nueva categoría.', 'warn');
+        $('newProdCustomCategory').focus();
+        return;
+      }
+    }
+
+    const priceSolar = parseFloat($('newProdPriceSolar').value);
+    const priceLunar = parseFloat($('newProdPriceLunar').value);
+
+    if (isNaN(priceSolar) || priceSolar < 0) {
+      toast('Introduce un precio válido para Fase Solar.', 'warn');
+      $('newProdPriceSolar').focus();
+      return;
+    }
+
+    const destination = $('newProdDestination').value;
+    const provider = $('newProdProvider').value.trim() || 'DOMUS';
+    const sku = $('newProdSku').value.trim() || `PRD-${Date.now().toString(36).toUpperCase()}`;
+    const stock = parseInt($('newProdStock').value, 10) || 50;
+
+    const newProduct = {
+      name: name,
+      group: category,
+      price: priceSolar,
+      priceSolar: priceSolar,
+      priceLunar: isNaN(priceLunar) ? priceSolar : priceLunar,
+      destination: destination,
+      provider: provider,
+      sku: sku,
+      stock: stock
+    };
+
+    // Agregar al catálogo en memoria
+    STATE.products.unshift(newProduct);
+
+    // Guardar en almacenamiento local del navegador
+    try {
+      const custom = JSON.parse(localStorage.getItem('domus_custom_products') || '[]');
+      custom.unshift(newProduct);
+      localStorage.setItem('domus_custom_products', JSON.stringify(custom));
+    } catch (e) {}
+
+    // Enviar al backend de Google Apps Script para actualizar CATALOGO e INVENTARIO
+    callBackend('registrarNuevoProducto', [newProduct], res => {
+      toast(res.message || `Producto "${name}" guardado en Google Sheets.`, 'ok');
+    }, err => {
+      console.warn('Registro local activo. Enlace de Google notificó:', err);
+    });
+
+    closeNewProductModal();
+    playChime('success');
+    toast(`Producto "${name}" registrado con éxito en ${category}.`, 'ok');
+
+    // Cambiar a la categoría del producto nuevo para verlo inmediatamente
+    STATE.catalogCategory = category;
+    renderCategoryChips();
+    renderCatalog();
+  }
+
   // --- EVENT LISTENERS ---
   function setupEventListeners() {
     // Mode Switcher
@@ -2707,6 +2821,37 @@
         }, err => {
           toast('Error en sincronización: ' + (err.message || String(err)), 'error');
         });
+      });
+    }
+
+    // Modal Alta / Registro de Nuevo Producto (Admin Caja)
+    const btnOpenNewProd = $('btnOpenNewProductModal');
+    if (btnOpenNewProd) {
+      btnOpenNewProd.addEventListener('click', openNewProductModal);
+    }
+    const btnCloseNewProd = $('btnCloseNewProductModal');
+    if (btnCloseNewProd) {
+      btnCloseNewProd.addEventListener('click', closeNewProductModal);
+    }
+    const btnCancelNewProd = $('btnCancelNewProduct');
+    if (btnCancelNewProd) {
+      btnCancelNewProd.addEventListener('click', closeNewProductModal);
+    }
+    const btnSaveNewProd = $('btnSaveNewProduct');
+    if (btnSaveNewProd) {
+      btnSaveNewProd.addEventListener('click', saveNewProduct);
+    }
+    const selectNewCat = $('newProdCategory');
+    if (selectNewCat) {
+      selectNewCat.addEventListener('change', e => {
+        const customWrapper = $('customCatWrapper');
+        if (customWrapper) {
+          const isNew = e.target.value === '__NEW__';
+          customWrapper.classList.toggle('hidden', !isNew);
+          if (isNew) {
+            $('newProdCustomCategory').focus();
+          }
+        }
       });
     }
   }

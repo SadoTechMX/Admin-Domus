@@ -103,6 +103,10 @@
             <span class="search-icon">🔍</span>
             <input type="text" id="catalogSearchInput" placeholder="Buscar producto, cerveza, cóctel o insumo…" />
           </div>
+          <button type="button" class="btn-add-product-toolbar" id="btnOpenNewProductModal" title="Registrar un nuevo producto en el catálogo e inventario">
+            <span>➕</span>
+            <span>Alta de Producto</span>
+          </button>
           <div class="category-chips" id="categoryChips">
             <!-- Rendered dynamically: Todas, Bebidas, Cannábicos, etc. -->
           </div>
@@ -482,6 +486,93 @@
         </button>
         <button type="button" class="btn-primary-action" id="btnSubmitCajaPin" style="width: auto;">
           ✓ Desbloquear
+        </button>
+  <!-- ========================================================================
+       MODAL 5: REGISTRAR NUEVO PRODUCTO EN CAJA / INVENTARIO
+       ======================================================================== -->
+  <div class="modal-overlay" id="newProductModal" role="dialog" aria-modal="true" aria-labelledby="newProductTitle">
+    <div class="modal-card" style="max-width: 520px;">
+      <div class="modal-header">
+        <h3 id="newProductTitle">➕ Alta de Nuevo Producto</h3>
+        <button type="button" class="modal-close-btn" id="btnCloseNewProductModal" aria-label="Cerrar">&times;</button>
+      </div>
+
+      <div class="modal-body">
+        <p style="font-size: 0.85rem; color: var(--text-muted);">
+          El producto se registrará en el catálogo de Caja, el inventario operativo y en Google Sheets.
+        </p>
+
+        <div class="input-group">
+          <label for="newProdName">Nombre del Producto / Presentación: *</label>
+          <input type="text" id="newProdName" placeholder="Ej. Mezcalina de Jamaica · 500 ml" required />
+        </div>
+
+        <div class="form-row-2">
+          <div class="input-group">
+            <label for="newProdCategory">Categoría:</label>
+            <select id="newProdCategory">
+              <option value="Cafetería">Cafetería</option>
+              <option value="Bebidas">Bebidas</option>
+              <option value="Cervezas">Cervezas</option>
+              <option value="Cheladas">Cheladas</option>
+              <option value="Coctelería">Coctelería</option>
+              <option value="Canna Treats">Canna Treats</option>
+              <option value="Cocina">Cocina</option>
+              <option value="Shots">Shots</option>
+              <option value="__NEW__">+ Otra Categoría…</option>
+            </select>
+          </div>
+
+          <div class="input-group">
+            <label for="newProdDestination">Estación de Comanda: *</label>
+            <select id="newProdDestination">
+              <option value="Barra">Barra</option>
+              <option value="Cocina">Cocina</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="input-group hidden" id="customCatWrapper">
+          <label for="newProdCustomCategory">Nombre de la Nueva Categoría:</label>
+          <input type="text" id="newProdCustomCategory" placeholder="Escribe el nombre de la nueva categoría…" />
+        </div>
+
+        <div class="form-row-2">
+          <div class="input-group">
+            <label for="newProdPriceSolar">Precio Fase Solar (MXN): *</label>
+            <input type="number" id="newProdPriceSolar" placeholder="0.00" min="0" step="any" required />
+          </div>
+
+          <div class="input-group">
+            <label for="newProdPriceLunar">Precio Fase Lunar (MXN): *</label>
+            <input type="number" id="newProdPriceLunar" placeholder="0.00" min="0" step="any" required />
+          </div>
+        </div>
+
+        <div class="form-row-2">
+          <div class="input-group">
+            <label for="newProdProvider">Proveedor / Marca:</label>
+            <input type="text" id="newProdProvider" placeholder="DOMUS" value="DOMUS" />
+          </div>
+
+          <div class="input-group">
+            <label for="newProdSku">Clave / SKU (opcional):</label>
+            <input type="text" id="newProdSku" placeholder="Auto-generado si está vacío" />
+          </div>
+        </div>
+
+        <div class="input-group">
+          <label for="newProdStock">Stock Inicial en Inventario:</label>
+          <input type="number" id="newProdStock" value="50" min="0" step="1" />
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn-secondary" id="btnCancelNewProduct">
+          Cancelar
+        </button>
+        <button type="button" class="btn-primary-action" id="btnSaveNewProduct" style="width: auto;">
+          ✓ Guardar y Dar de Alta
         </button>
       </div>
     </div>

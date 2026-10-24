@@ -1515,8 +1515,44 @@ html, body {
   border-color: var(--rose-border);
 }
 
+/* Product Registration Modal & Toolbar */
+.form-row-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+@media (max-width: 480px) {
+  .form-row-2 {
+    grid-template-columns: 1fr;
+  }
+}
+
+.btn-add-product-toolbar {
+  background: linear-gradient(135deg, var(--gold-600), var(--gold-500));
+  color: #0b0c10;
+  border: none;
+  border-radius: var(--radius-md);
+  padding: 8px 16px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+}
+
+.btn-add-product-toolbar:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.1);
+  box-shadow: var(--shadow-gold);
+}
+
 /* Utility Hidden */
 .hidden {
   display: none !important;
 }
+
 

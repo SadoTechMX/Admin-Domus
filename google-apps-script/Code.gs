@@ -55,6 +55,8 @@ function doPost(e) {
       result = comandasSimpleEntrar(args[0]);
     } else if (action === 'sincronizarCartaConCatalogoDOMUS') {
       result = sincronizarCartaConCatalogoDOMUS();
+    } else if (action === 'registrarNuevoProducto') {
+      result = registrarNuevoProducto(args[0]);
     } else {
       throw new Error('Acción no soportada: ' + action);
     }
@@ -312,4 +314,58 @@ function sincronizarCartaConCatalogoDOMUS() {
     message: 'Se sincronizaron con éxito ' + catalogRows.length + ' productos en CATALOGO e INVENTARIO de DOMUS.'
   };
 }
+
+/**
+ * Registra un nuevo producto individual en CATALOGO e INVENTARIO del libro maestro
+ */
+function registrarNuevoProducto(prod) {
+  if (!prod || !prod.name) throw new Error('El nombre del producto es obligatorio.');
+  const targetId = CONFIG.mainSheetId;
+  const sTarget = SpreadsheetApp.openById(targetId);
+
+  const name = String(prod.name).trim();
+  const cat = String(prod.group || 'General').trim();
+  const priceSolar = parseFloat(prod.priceSolar) || parseFloat(prod.price) || 0;
+  const priceLunar = parseFloat(prod.priceLunar) || priceSolar;
+  const provider = String(prod.provider || 'DOMUS').trim();
+  const sku = String(prod.sku || ('PRD-' + Date.now().toString(36).toUpperCase())).trim();
+  const dest = String(prod.destination || (cat.includes('ALIMENTOS') || cat.includes('CANNA') || cat.includes('COMIDA') ? 'Cocina' : 'Barra')).trim();
+  const stock = parseInt(prod.stock, 10) || 50;
+
+  // 1. Insertar en CATALOGO
+  const sheetCat = sTarget.getSheetByName('CATALOGO');
+  if (sheetCat) {
+    const lastRow = Math.max(sheetCat.getLastRow(), 6);
+    const row = [
+      name, cat, priceSolar, 0, provider, '', sku, dest, 'Sí',
+      '', '', '', '', '', '', 'Sí', priceSolar, priceLunar, 'Sí'
+    ];
+    sheetCat.getRange(lastRow + 1, 1, 1, row.length).setValues([row]);
+  }
+
+  // 2. Insertar en INVENTARIO
+  const sheetInv = sTarget.getSheetByName('INVENTARIO');
+  if (sheetInv) {
+    const lastRow = Math.max(sheetInv.getLastRow(), 6);
+    const invRow = [sku, name, cat, provider, 'Unidad', stock, 0, stock, dest];
+    sheetInv.getRange(lastRow + 1, 1, 1, invRow.length).setValues([invRow]);
+  }
+
+  SpreadsheetApp.flush();
+  return {
+    ok: true,
+    message: 'Producto "' + name + '" registrado en CATALOGO e INVENTARIO.',
+    product: {
+      name: name,
+      group: cat,
+      price: priceSolar,
+      priceSolar: priceSolar,
+      priceLunar: priceLunar,
+      destination: dest,
+      sku: sku,
+      provider: provider
+    }
+  };
+}
+
 
