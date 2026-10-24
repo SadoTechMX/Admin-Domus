@@ -1094,12 +1094,57 @@ function comandasSimpleAccion(token, body) {
       sComandas.getRange(targetRow, 13).setValue(JSON.stringify(targetItem));
       sComandas.getRange(targetRow, 14).setValue('Lista para entrega');
     } else if (action === 'ENTREGAR') {
+      if (targetItem.state === 'Entregada') {
+        throw new Error(`La comanda '${body.key}' (${targetItem.product}) ya fue entregada previamente.`);
+      }
       targetItem.state = 'Entregada';
       targetItem.delivered = new Date().toISOString();
       targetItem.deliveredBy = operator;
       sComandas.getRange(targetRow, 13).setValue(JSON.stringify(targetItem));
       sComandas.getRange(targetRow, 8).setValue('Entregada');
       sComandas.getRange(targetRow, 14).setValue('Entregada por ' + operator);
+
+      // Decremento físico de inventario en hoja INVENTARIO (ADR-004)
+      let invMovement = null;
+      const sInv = m.getSheetByName('INVENTARIO');
+      if (sInv) {
+        const invValues = sInv.getRange(7, 1, 300, 9).getValues();
+        for (let j = 0; j < invValues.length; j++) {
+          const invSku = String(invValues[j][0] || '').trim();
+          const invName = String(invValues[j][1] || '').trim();
+          if ((targetItem.sku && invSku === targetItem.sku) ||
+              (invName && (invName === targetItem.product || targetItem.product.startsWith(invName) || targetItem.product.includes(invName)))) {
+            const rowIdx = j + 7;
+            const currentInitial = Number(invValues[j][5]) || 0;
+            const currentOut = Number(invValues[j][6]) || 0;
+            const qty = Number(targetItem.qty || 1);
+            const newOut = currentOut + qty;
+            const newDisp = Math.max(0, currentInitial - newOut);
+            sInv.getRange(rowIdx, 7).setValue(newOut);
+            sInv.getRange(rowIdx, 8).setValue(newDisp);
+            invMovement = {
+              sku: invSku,
+              product: invName,
+              qty: qty,
+              previousOut: currentOut,
+              newOut: newOut,
+              available: newDisp
+            };
+            break;
+          }
+        }
+      }
+
+      SpreadsheetApp.flush();
+      return {
+        ok: true,
+        message: `Acción '${action}' aplicada exitosamente a ${targetItem.product}.`,
+        key: body.key,
+        product: targetItem.product,
+        state: 'Entregada',
+        deliveredBy: operator,
+        inventory: invMovement
+      };
     } else if (action === 'ALMACEN' || action === 'AGOTADO') {
       const incidentType = action === 'ALMACEN' ? 'Reponer de almacén' : 'Agotado en DOMUS';
       targetItem.incident = incidentType;
