@@ -9,7 +9,7 @@ Registro formal y auditable de versiones, commits, tags, deployments de Google A
 | Release | Git commit | Git tag | Apps Script deployment ID | Apps Script version | Schema version | Frontend version | Fecha | Responsable | Resultado pruebas | Rollback target |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
 | **v1.0.0-pre-hardening** | `1a89a14` | `production-pre-hardening` | `@exec-prod` | `v1` | `DOMUS-DB-v1` | `1.0.0` | 2026-10-24 | René / SadoTech | ✅ Estable en Producción | N/A (Baseline) |
-| **v1.1.0-stabilization** | `b5b07ca` (`stabilization/backend-v1`) | `staging-stabilization-v1` | `AKfycbysBaRA2_oZIOqU10G4E_MHiC8FUR3dCnqj2DlLG91iNJXP3GkZZ7BK0Na1FAJ1thZk` (`114VSwo3...` y `1NDpuyx6...`) | `v2-modular` | `DOMUS-DB-v1.1` (incluye hoja `REQUESTS`) | `1.1.0` | 2026-10-24 | René / Antigravity IDE | ✅ STAGING_VERIFIED (Pruebas 1, 2, 3, 7, 11 PASS) | `1a89a14` (`production-pre-hardening`) |
+| **v1.1.0-stabilization** | `731aa05` (`stabilization/backend-v1`) | `staging-stabilization-v1` | `AKfycbysBaRA2_oZIOqU10G4E_MHiC8FUR3dCnqj2DlLG91iNJXP3GkZZ7BK0Na1FAJ1thZk` (`114VSwo3...` y `1NDpuyx6...`) | `v2-modular` | `DOMUS-DB-v1.1` (incluye hoja `REQUESTS`) | `1.1.0` | 2026-10-24 | René / Antigravity IDE | 🟡 Despliegue de bundle 731aa05 en Staging para suite extendida | `1a89a14` (`production-pre-hardening`) |
 
 ---
 
