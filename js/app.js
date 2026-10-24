@@ -37,6 +37,16 @@
     kdsFilterState: 'Todas',
     kdsFilterDest: '',
     kdsSearch: '',
+
+    // Accesos, Eventos y Guardarropa
+    activeActivity: 'Sensorama fetish y kinky',
+    eventsList: [],
+    recentAccessList: [],
+    accessSelectedType: 'General',
+    accessWardrobeQty: 0,
+    accessPaymentMethod: 'Efectivo',
+    accessSearch: '',
+    accessTab: 'log', // 'log' | 'wardrobe' | 'events'
     
     // Conexión
     isNativeGas: !!(window.google && google.script && google.script.run),
@@ -1532,6 +1542,24 @@
     }
   ];
 
+  // Eventos y Actividades Base (para Demo / Offline)
+  const DEFAULT_EVENTS = [
+    { name: 'Sensorama fetish y kinky', date: '2026-10-25', type: 'Fiesta temática', organizer: 'DOMUS', priceGeneral: 150, pricePareja: 260, priceTrio: 360, priceGuardarropa: 50, capacity: 150, status: 'Confirmado' },
+    { name: 'Forza · sábado', date: '2026-10-24', type: 'Club nocturno', organizer: 'DOMUS', priceGeneral: 120, pricePareja: 200, priceTrio: 280, priceGuardarropa: 50, capacity: 200, status: 'Confirmado' },
+    { name: 'Chilangoticas · Haunted', date: '2026-10-23', type: 'Fiesta Drag / Performance', organizer: 'Chilangoticas', priceGeneral: 100, pricePareja: 180, priceTrio: 250, priceGuardarropa: 50, capacity: 180, status: 'Confirmado' },
+    { name: 'Videojuegos y películas · miércoles', date: '2026-10-21', type: 'Social / Gaming', organizer: 'DOMUS', priceGeneral: 80, pricePareja: 150, priceTrio: 200, priceGuardarropa: 50, capacity: 120, status: 'Confirmado' },
+    { name: 'Evento de Steven · registro obligatorio', date: '2026-10-20', type: 'Comunidad / Privado', organizer: 'Steven', priceGeneral: 0, pricePareja: 0, priceTrio: 0, priceGuardarropa: 50, capacity: 100, status: 'Confirmado' },
+    { name: 'Operación diaria', date: '2026-10-24', type: 'Club general', organizer: 'DOMUS', priceGeneral: 50, pricePareja: 90, priceTrio: 120, priceGuardarropa: 50, capacity: 100, status: 'Confirmado' }
+  ];
+
+  // Accesos Iniciales de Muestra (para Demo / Offline)
+  const DEFAULT_ACCESS_RECORDS = [
+    { id: 'A-0101', date: '2026-10-24 21:15', activity: 'Sensorama fetish y kinky', customer: 'Arturo & Elena', email: 'arturo@ejemplo.com', phone: '5512345678', entryType: 'Pareja', packages: 2, wardrobeQty: 2, totalAmount: 360, paid: 360, due: 0, method: 'Efectivo', ticketGuardarropa: 'GUA-A-0101', devuelto: false },
+    { id: 'A-0102', date: '2026-10-24 21:30', activity: 'Sensorama fetish y kinky', customer: 'Valeria R.', email: 'valeria@ejemplo.com', phone: '5598765432', entryType: 'General', packages: 1, wardrobeQty: 1, totalAmount: 200, paid: 200, due: 0, method: 'Terminal 1', ticketGuardarropa: 'GUA-A-0102', devuelto: false },
+    { id: 'A-0103', date: '2026-10-24 21:45', activity: 'Sensorama fetish y kinky', customer: 'Mateo, Sofía & Leo', email: '', phone: '', entryType: 'Trío', packages: 3, wardrobeQty: 0, totalAmount: 360, paid: 360, due: 0, method: 'Efectivo', ticketGuardarropa: '', devuelto: false },
+    { id: 'A-0104', date: '2026-10-24 22:00', activity: 'Sensorama fetish y kinky', customer: 'Rodrigo P.', email: 'rodrigo@ejemplo.com', phone: '5544332211', entryType: 'Preventa', packages: 1, wardrobeQty: 1, totalAmount: 50, paid: 50, due: 0, presaleFolio: 'BOL-SENSO-089', method: 'Efectivo', ticketGuardarropa: 'GUA-A-0104', devuelto: false }
+  ];
+
   // --- SELECTORES DOM ---
   const $ = id => document.getElementById(id);
 
@@ -1677,10 +1705,14 @@
       }
     } else if (vista === 'comandas') {
       setMode('comandas', false);
+    } else if (vista === 'accesos') {
+      setMode('accesos', false);
     } else {
       const saved = localStorage.getItem('domus_view');
       if (saved === 'caja' && isCajaAuthorized()) {
         setMode('caja', false);
+      } else if (saved === 'accesos') {
+        setMode('accesos', false);
       } else {
         setMode('comandas', false);
       }
@@ -1704,9 +1736,11 @@
 
     $('btnModeCaja').classList.toggle('active', newMode === 'caja');
     $('btnModeComandas').classList.toggle('active', newMode === 'comandas');
+    if ($('btnModeAccesos')) $('btnModeAccesos').classList.toggle('active', newMode === 'accesos');
 
     $('viewCaja').classList.toggle('hidden', newMode !== 'caja');
     $('viewComandas').classList.toggle('hidden', newMode !== 'comandas');
+    if ($('viewAccesos')) $('viewAccesos').classList.toggle('hidden', newMode !== 'accesos');
 
     const btnLock = $('btnLockCaja');
     if (btnLock) {
@@ -1715,6 +1749,8 @@
 
     if (newMode === 'comandas') {
       renderComandasBoard();
+    } else if (newMode === 'accesos') {
+      renderAccesosView();
     } else {
       renderCatalog();
     }
@@ -1935,8 +1971,33 @@
     } catch (e) {}
 
     STATE.comandas = [...DEFAULT_ORDERS];
+
+    // Inicializar eventos y accesos
+    STATE.eventsList = [...DEFAULT_EVENTS];
+    STATE.recentAccessList = [...DEFAULT_ACCESS_RECORDS];
+    STATE.activeActivity = STATE.eventsList[0] ? STATE.eventsList[0].name : 'Sensorama fetish y kinky';
+
+    try {
+      const savedEvents = JSON.parse(localStorage.getItem('domus_custom_events') || '[]');
+      if (Array.isArray(savedEvents) && savedEvents.length) {
+        STATE.eventsList = [...savedEvents, ...STATE.eventsList];
+      }
+      const savedAccess = JSON.parse(localStorage.getItem('domus_custom_access') || '[]');
+      if (Array.isArray(savedAccess) && savedAccess.length) {
+        STATE.recentAccessList = [...savedAccess, ...STATE.recentAccessList];
+      }
+      const savedActiveAct = localStorage.getItem('domus_active_event');
+      if (savedActiveAct) {
+        STATE.activeActivity = savedActiveAct;
+      }
+    } catch (e) {}
+
     renderStaffDropdown();
     renderCategoryChips();
+    updateAccesosBadge();
+    if (STATE.mode === 'accesos') {
+      renderAccesosView();
+    }
     syncBackendData();
     startPolling();
   }
@@ -1971,14 +2032,15 @@
       if (data.lastReceipt) {
         STATE.lastReceiptInfo = data.lastReceipt;
       }
-      renderCatalog();
+      if (STATE.mode === 'caja') {
+        renderCatalog();
+      }
     }, err => {
       console.warn('No se pudo leer datos de Caja desde el servidor:', err);
     });
 
     callBackend('comandasSimpleDatos', [sessionStorage.getItem('domus_token') || ''], d => {
       if (d.orders) {
-        // Detectar si llegaron órdenes nuevas para sonar beep
         const currentKeys = new Set(d.orders.map(o => o.key));
         if (STATE.seenOrderKeys.size > 0) {
           const hasNew = [...currentKeys].some(k => !STATE.seenOrderKeys.has(k));
@@ -1995,6 +2057,31 @@
     }, err => {
       console.warn('Fallo al refrescar comandas:', err);
     });
+
+    callBackend('accesoSimpleDatos', [], data => {
+      if (data.activities && data.activities.length) {
+        STATE.eventsList = data.activities;
+      }
+      if (data.activeActivity) {
+        STATE.activeActivity = data.activeActivity;
+      }
+      if (data.recentAccess && data.recentAccess.length) {
+        STATE.recentAccessList = data.recentAccess;
+      }
+      updateAccesosBadge();
+      if (STATE.mode === 'accesos') {
+        renderAccesosView();
+      }
+    }, err => {
+      console.warn('Accesos: enlace de Google notificó:', err);
+    });
+  }
+
+  function updateAccesosBadge() {
+    const badge = $('accessActiveCountBadge');
+    if (!badge) return;
+    const activeCount = STATE.recentAccessList.reduce((acc, r) => acc + (r.packages || 1), 0);
+    badge.textContent = activeCount;
   }
 
   function startPolling() {
@@ -2766,6 +2853,709 @@
     renderCatalog();
   }
 
+
+  // --- INTERFAZ: MODO ACCESOS, EVENTOS Y GUARDARROPA ---
+
+  function getActiveEvent() {
+    let ev = (STATE.eventsList || []).find(e => e.name === STATE.activeActivity);
+    if (!ev && STATE.eventsList && STATE.eventsList.length > 0) {
+      ev = STATE.eventsList[0];
+    }
+    if (!ev) {
+      ev = {
+        name: STATE.activeActivity || 'Sensorama fetish y kinky',
+        date: new Date().toISOString().slice(0, 10),
+        type: 'Fiesta temática',
+        organizer: 'DOMUS',
+        priceGeneral: 150,
+        pricePareja: 260,
+        priceTrio: 360,
+        priceGuardarropa: 50,
+        capacity: 150,
+        status: 'Confirmado'
+      };
+    }
+    return ev;
+  }
+
+  function renderAccesosView() {
+    renderAccessActivitySelector();
+    renderEntryTypesGrid();
+    updateAccesosKpis();
+    updateAccessSummary();
+    renderAccessTab();
+  }
+
+  function renderAccessActivitySelector() {
+    const select = $('accessActivitySelect');
+    if (!select) return;
+
+    if (!STATE.eventsList || STATE.eventsList.length === 0) {
+      STATE.eventsList = [...DEFAULT_EVENTS];
+    }
+
+    select.innerHTML = STATE.eventsList.map(ev => {
+      const isSelected = ev.name === STATE.activeActivity;
+      return `<option value="${escapeHtml(ev.name)}" ${isSelected ? 'selected' : ''}>${escapeHtml(ev.name)} (${ev.date || 'Hoy'}) - ${escapeHtml(ev.type || 'Evento')}</option>`;
+    }).join('');
+  }
+
+  function renderEntryTypesGrid() {
+    const container = $('entryTypesContainer');
+    if (!container) return;
+
+    const ev = getActiveEvent();
+    const pGen = ev.priceGeneral !== undefined ? Number(ev.priceGeneral) : 150;
+    const pPar = ev.pricePareja !== undefined ? Number(ev.pricePareja) : 260;
+    const pTrio = ev.priceTrio !== undefined ? Number(ev.priceTrio) : 360;
+
+    const types = [
+      { id: 'General', label: 'General (1 Pers)', price: pGen, icon: '👤', desc: 'Acceso individual' },
+      { id: 'Pareja', label: 'Pareja (2 Pers)', price: pPar, icon: '👥', desc: 'Acceso 2 personas' },
+      { id: 'Trío', label: 'Trío (3 Pers)', price: pTrio, icon: '🧑‍🤝‍🧑', desc: 'Acceso 3 personas' },
+      { id: 'Preventa', label: 'Preventa (Boletera)', price: 0, icon: '🎟️', desc: 'Boleto ya pagado' },
+      { id: 'Cortesía', label: 'Cortesía (VIP/Staff)', price: 0, icon: '⭐', desc: 'Autorización requerida' },
+      { id: 'Solo guardarropa', label: 'Solo Guardarropa', price: 0, icon: '🧥', desc: 'Sin costo de acceso' }
+    ];
+
+    container.innerHTML = types.map(t => {
+      const isSelected = STATE.accessSelectedType === t.id;
+      const priceText = t.price > 0 ? `$${t.price.toFixed(2)}` : (t.id === 'Solo guardarropa' ? '$0.00' : 'Gratis / Validar');
+      return `
+        <div class="entry-type-card ${isSelected ? 'selected' : ''}" data-entry-type="${t.id}">
+          <div class="entry-type-icon">${t.icon}</div>
+          <div class="entry-type-title">${t.label}</div>
+          <div class="entry-type-price">${priceText}</div>
+        </div>
+      `;
+    }).join('');
+
+    // Reattach click listeners on cards
+    container.querySelectorAll('.entry-type-card').forEach(card => {
+      card.addEventListener('click', () => {
+        const type = card.getAttribute('data-entry-type');
+        setAccessEntryType(type);
+      });
+    });
+
+    // Update wardrobe unit price text
+    const pGua = ev.priceGuardarropa !== undefined ? Number(ev.priceGuardarropa) : 50;
+    if ($('wardrobeUnitPriceText')) {
+      $('wardrobeUnitPriceText').textContent = `$${pGua.toFixed(2)} c/u`;
+    }
+  }
+
+  function setAccessEntryType(type) {
+    STATE.accessSelectedType = type;
+
+    // Toggle specific inputs
+    const presaleGroup = $('presaleInputGroup');
+    if (presaleGroup) presaleGroup.classList.toggle('hidden', type !== 'Preventa');
+
+    const courtesyGroup = $('courtesyInputGroup');
+    if (courtesyGroup) courtesyGroup.classList.toggle('hidden', type !== 'Cortesía');
+
+    // Update card selection styles
+    const container = $('entryTypesContainer');
+    if (container) {
+      container.querySelectorAll('.entry-type-card').forEach(card => {
+        card.classList.toggle('selected', card.getAttribute('data-entry-type') === type);
+      });
+    }
+
+    updateAccessSummary();
+  }
+
+  function setWardrobeQty(qty) {
+    STATE.accessWardrobeQty = qty;
+    const group = $('wardrobeSelectorGroup');
+    if (group) {
+      group.querySelectorAll('.wardrobe-btn').forEach(btn => {
+        const bQty = parseInt(btn.getAttribute('data-qty'), 10);
+        btn.classList.toggle('active', bQty === qty);
+      });
+    }
+
+    const notesWrapper = $('wardrobeNotesWrapper');
+    if (notesWrapper) {
+      notesWrapper.style.display = qty > 0 ? 'block' : 'none';
+    }
+
+    updateAccessSummary();
+  }
+
+  function setAccessPaymentMethod(method) {
+    STATE.accessPaymentMethod = method;
+    document.querySelectorAll('.payment-method-btn[data-access-method]').forEach(btn => {
+      btn.classList.toggle('active', btn.getAttribute('data-access-method') === method);
+    });
+
+    const cashSec = $('accessCashSection');
+    if (cashSec) {
+      cashSec.classList.toggle('hidden', method !== 'Efectivo');
+    }
+
+    updateAccessSummary();
+  }
+
+  function calculateAccessSubtotal() {
+    const ev = getActiveEvent();
+    let entryCost = 0;
+    if (STATE.accessSelectedType === 'General') entryCost = Number(ev.priceGeneral) || 0;
+    else if (STATE.accessSelectedType === 'Pareja') entryCost = Number(ev.pricePareja) || 0;
+    else if (STATE.accessSelectedType === 'Trío') entryCost = Number(ev.priceTrio) || 0;
+    else entryCost = 0;
+
+    const pGua = Number(ev.priceGuardarropa) || 50;
+    const wardrobeCost = (STATE.accessWardrobeQty || 0) * pGua;
+    const total = entryCost + wardrobeCost;
+
+    return { entryCost, wardrobeCost, total };
+  }
+
+  function updateAccessSummary() {
+    const { entryCost, wardrobeCost, total } = calculateAccessSubtotal();
+
+    if ($('summaryEntryType')) $('summaryEntryType').textContent = STATE.accessSelectedType;
+    if ($('summaryEntryAmount')) $('summaryEntryAmount').textContent = `$${entryCost.toFixed(2)}`;
+    if ($('summaryWardrobeQty')) $('summaryWardrobeQty').textContent = STATE.accessWardrobeQty;
+    if ($('summaryWardrobeAmount')) $('summaryWardrobeAmount').textContent = `$${wardrobeCost.toFixed(2)}`;
+    if ($('summaryTotalAdmission')) $('summaryTotalAdmission').textContent = `$${total.toFixed(2)}`;
+
+    // Update Change Display
+    const cashInput = $('accessCashReceived');
+    const changeDisplay = $('accessCashChangeText');
+    if (cashInput && changeDisplay) {
+      const received = parseFloat(cashInput.value) || 0;
+      if (received > 0 && received >= total) {
+        changeDisplay.textContent = `$${(received - total).toFixed(2)}`;
+        changeDisplay.style.color = 'var(--emerald-400)';
+      } else if (received > 0 && received < total) {
+        changeDisplay.textContent = `Faltan $${(total - received).toFixed(2)}`;
+        changeDisplay.style.color = 'var(--rose-400)';
+      } else {
+        changeDisplay.textContent = '$0.00';
+        changeDisplay.style.color = 'var(--emerald-400)';
+      }
+    }
+  }
+
+  function updateAccesosKpis() {
+    const records = STATE.recentAccessList || [];
+    
+    // 1. Total Attendance (sum of packages)
+    const totalAttendance = records.reduce((sum, r) => sum + (Number(r.packages) || 1), 0);
+    if ($('kpiTotalAttendance')) $('kpiTotalAttendance').textContent = totalAttendance;
+
+    // 2. Active Wardrobe (items currently in custody, devuelto !== true)
+    const activeWardrobe = records.reduce((sum, r) => {
+      if (!r.devuelto && Number(r.wardrobeQty) > 0) {
+        return sum + Number(r.wardrobeQty);
+      }
+      return sum;
+    }, 0);
+    if ($('kpiActiveWardrobe')) $('kpiActiveWardrobe').textContent = activeWardrobe;
+    if ($('wardrobeBadgeCount')) $('wardrobeBadgeCount').textContent = activeWardrobe;
+
+    // 3. Validated Presales
+    const validatedPresales = records.filter(r => r.entryType === 'Preventa').length;
+    if ($('kpiValidatedPresales')) $('kpiValidatedPresales').textContent = validatedPresales;
+
+    // 4. Total Admission Revenue
+    const totalRev = records.reduce((sum, r) => sum + (Number(r.paid !== undefined ? r.paid : r.totalAmount) || 0), 0);
+    if ($('kpiTotalAdmissionRevenue')) $('kpiTotalAdmissionRevenue').textContent = `$${totalRev.toFixed(2)}`;
+
+    updateAccesosBadge();
+  }
+
+  function confirmAccessAndRegister() {
+    const customer = ($('accessCustomerName').value || '').trim();
+    if (!customer) {
+      toast('Por favor ingresa el nombre o alias del asistente.', 'warn');
+      $('accessCustomerName').focus();
+      return;
+    }
+
+    const phone = ($('accessCustomerPhone').value || '').trim();
+    const email = ($('accessCustomerEmail').value || '').trim();
+    const entryType = STATE.accessSelectedType;
+    const wardrobeQty = STATE.accessWardrobeQty || 0;
+    const wardrobeNotes = ($('accessWardrobeNotes') ? $('accessWardrobeNotes').value : '').trim();
+    const method = STATE.accessPaymentMethod || 'Efectivo';
+    const presaleFolio = ($('accessPresaleFolio') ? $('accessPresaleFolio').value : '').trim();
+    const courtesyAuth = ($('accessCourtesyAuth') ? $('accessCourtesyAuth').value : '').trim();
+
+    if (entryType === 'Preventa' && !presaleFolio) {
+      toast('Ingresa el folio del boleto de preventa.', 'warn');
+      if ($('accessPresaleFolio')) $('accessPresaleFolio').focus();
+      return;
+    }
+
+    if (entryType === 'Cortesía' && !courtesyAuth) {
+      toast('Ingresa quién autoriza la cortesía.', 'warn');
+      if ($('accessCourtesyAuth')) $('accessCourtesyAuth').focus();
+      return;
+    }
+
+    const { entryCost, wardrobeCost, total } = calculateAccessSubtotal();
+
+    let packages = 1;
+    if (entryType === 'Pareja') packages = 2;
+    if (entryType === 'Trío') packages = 3;
+
+    // Generate rowId & wardrobe ticket
+    const randNum = Math.floor(1000 + Math.random() * 9000);
+    const rowId = `A-${randNum}`;
+    const ticketGuardarropa = wardrobeQty > 0 ? `GUA-${rowId}` : '';
+
+    const now = new Date();
+    const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+
+    const newRecord = {
+      id: rowId,
+      date: dateStr,
+      activity: STATE.activeActivity,
+      customer: customer,
+      email: email,
+      phone: phone,
+      entryType: entryType,
+      packages: packages,
+      wardrobeQty: wardrobeQty,
+      wardrobeNotes: wardrobeNotes,
+      entryCost: entryCost,
+      wardrobeCost: wardrobeCost,
+      totalAmount: total,
+      paid: total,
+      due: 0,
+      presaleFolio: presaleFolio,
+      courtesyAuth: courtesyAuth,
+      method: method,
+      ticketGuardarropa: ticketGuardarropa,
+      devuelto: false
+    };
+
+    // Prepend to local state
+    STATE.recentAccessList.unshift(newRecord);
+
+    // Save locally
+    try {
+      localStorage.setItem('domus_custom_access', JSON.stringify(STATE.recentAccessList.slice(0, 50)));
+    } catch (e) {}
+
+    // Backend call
+    callBackend('accesoSimpleRegistrar', [newRecord], res => {
+      if (res && res.rowId) {
+        newRecord.id = res.rowId;
+        if (res.ticketGuardarropa) newRecord.ticketGuardarropa = res.ticketGuardarropa;
+      }
+      toast(`Acceso registrado exitosamente: Folio ${newRecord.id}`, 'ok');
+      playChime('success');
+      syncBackendData();
+    }, err => {
+      console.warn('Registro local de acceso (modo offline o sincronización diferida):', err);
+      toast(`Acceso registrado localmente: Folio ${newRecord.id}`, 'ok');
+      playChime('success');
+    });
+
+    // Reset Form
+    $('accessCustomerName').value = '';
+    $('accessCustomerPhone').value = '';
+    $('accessCustomerEmail').value = '';
+    if ($('accessPresaleFolio')) $('accessPresaleFolio').value = '';
+    if ($('accessCourtesyAuth')) $('accessCourtesyAuth').value = '';
+    if ($('accessWardrobeNotes')) $('accessWardrobeNotes').value = '';
+    if ($('accessCashReceived')) $('accessCashReceived').value = '';
+
+    setAccessEntryType('General');
+    setWardrobeQty(0);
+    renderAccesosView();
+
+    // Open Printable Ticket Modal
+    openAccessReceiptModal(newRecord);
+  }
+
+  // --- TABS DE OPERACIONES (Ingresos Hoy, Guardarropa Activo, Eventos & Tarifas) ---
+
+  function setAccessTab(tabName) {
+    STATE.accessTab = tabName;
+
+    $('tabBtnAccessLog').classList.toggle('active', tabName === 'log');
+    $('tabBtnWardrobe').classList.toggle('active', tabName === 'wardrobe');
+    $('tabBtnEvents').classList.toggle('active', tabName === 'events');
+
+    $('panelAccessLog').classList.toggle('hidden', tabName !== 'log');
+    $('panelWardrobe').classList.toggle('hidden', tabName !== 'wardrobe');
+    $('panelEvents').classList.toggle('hidden', tabName !== 'events');
+
+    renderAccessTab();
+  }
+
+  function renderAccessTab() {
+    if (STATE.accessTab === 'log') {
+      renderAccessLogTable();
+    } else if (STATE.accessTab === 'wardrobe') {
+      renderWardrobeTable();
+    } else if (STATE.accessTab === 'events') {
+      renderEventsTable();
+    }
+  }
+
+  function renderAccessLogTable() {
+    const tbody = $('accessLogTableBody');
+    if (!tbody) return;
+
+    const q = (STATE.accessSearch || '').toLowerCase().trim();
+    const records = (STATE.recentAccessList || []).filter(r => {
+      if (!q) return true;
+      const haystack = `${r.id} ${r.customer} ${r.phone} ${r.email} ${r.entryType} ${r.method} ${r.ticketGuardarropa || ''}`.toLowerCase();
+      return haystack.includes(q);
+    });
+
+    if (records.length === 0) {
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="8" style="text-align: center; color: var(--text-muted); padding: 32px 16px;">
+            <div style="font-size: 2rem; margin-bottom: 8px;">📋</div>
+            No se encontraron registros de acceso hoy.
+          </td>
+        </tr>
+      `;
+      return;
+    }
+
+    tbody.innerHTML = records.map(r => {
+      const typeBadge = `<span class="badge-entry-type ${getEntryTypeBadgeClass(r.entryType)}">${escapeHtml(r.entryType)}</span>`;
+      const guaBadge = r.ticketGuardarropa
+        ? `<span class="badge-wardrobe-ticket ${r.devuelto ? 'returned' : ''}">🧥 ${escapeHtml(r.ticketGuardarropa)} (${r.wardrobeQty})</span>`
+        : '<span style="color: var(--text-muted); font-size: 0.8rem;">---</span>';
+
+      const timeOnly = (r.date || '').split(' ')[1] || r.date || '';
+
+      return `
+        <tr>
+          <td><strong style="color: var(--gold-primary);">${escapeHtml(r.id)}</strong></td>
+          <td style="font-size: 0.82rem; color: var(--text-muted);">${escapeHtml(timeOnly)}</td>
+          <td>
+            <strong>${escapeHtml(r.customer)}</strong>
+            ${r.phone ? `<div style="font-size: 0.75rem; color: var(--text-muted);">📞 ${escapeHtml(r.phone)}</div>` : ''}
+          </td>
+          <td>${typeBadge}</td>
+          <td>${guaBadge}</td>
+          <td><strong style="color: var(--emerald-400);">$${Number(r.paid !== undefined ? r.paid : r.totalAmount).toFixed(2)}</strong></td>
+          <td style="font-size: 0.82rem;">${escapeHtml(r.method || 'Efectivo')}</td>
+          <td>
+            <button type="button" class="btn-table-action" onclick="window.__domusApp.reprintAccessTicket('${r.id}')" title="Reimprimir Comprobante de Entrada">
+              🖨️
+            </button>
+          </td>
+        </tr>
+      `;
+    }).join('');
+  }
+
+  function getEntryTypeBadgeClass(type) {
+    switch (type) {
+      case 'General': return 'badge-general';
+      case 'Pareja': return 'badge-pareja';
+      case 'Trío': return 'badge-trio';
+      case 'Preventa': return 'badge-preventa';
+      case 'Cortesía': return 'badge-cortesia';
+      case 'Solo guardarropa': return 'badge-guardarropa';
+      default: return 'badge-general';
+    }
+  }
+
+  function renderWardrobeTable() {
+    const tbody = $('wardrobeTableBody');
+    if (!tbody) return;
+
+    const q = (STATE.accessSearch || '').toLowerCase().trim();
+    const records = (STATE.recentAccessList || []).filter(r => {
+      if (!r.ticketGuardarropa || Number(r.wardrobeQty) <= 0) return false;
+      if (!q) return true;
+      const haystack = `${r.ticketGuardarropa} ${r.customer} ${r.wardrobeNotes || ''}`.toLowerCase();
+      return haystack.includes(q);
+    });
+
+    if (records.length === 0) {
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="6" style="text-align: center; color: var(--text-muted); padding: 32px 16px;">
+            <div style="font-size: 2rem; margin-bottom: 8px;">🧥</div>
+            No hay prendas registradas en el guardarropa actualmente.
+          </td>
+        </tr>
+      `;
+      return;
+    }
+
+    tbody.innerHTML = records.map(r => {
+      const timeOnly = (r.date || '').split(' ')[1] || r.date || '';
+      const isReturned = !!r.devuelto;
+
+      return `
+        <tr class="${isReturned ? 'wardrobe-returned-row' : ''}">
+          <td>
+            <span class="badge-wardrobe-ticket ${isReturned ? 'returned' : ''}" style="font-size: 0.95rem;">
+              🧥 ${escapeHtml(r.ticketGuardarropa)}
+            </span>
+          </td>
+          <td>
+            <strong>${escapeHtml(r.customer)}</strong>
+            ${r.wardrobeNotes ? `<div style="font-size: 0.75rem; color: var(--text-muted);">${escapeHtml(r.wardrobeNotes)}</div>` : ''}
+          </td>
+          <td><strong>${r.wardrobeQty} prenda${r.wardrobeQty > 1 ? 's' : ''}</strong></td>
+          <td style="font-size: 0.82rem; color: var(--text-muted);">${escapeHtml(timeOnly)}</td>
+          <td>
+            ${isReturned 
+              ? '<span style="color: var(--text-muted); font-size: 0.82rem;">✅ Devuelto</span>'
+              : '<span style="color: var(--amber-400); font-weight: 700; font-size: 0.82rem;">⏱️ En Custodia</span>'}
+          </td>
+          <td>
+            ${isReturned
+              ? '<button type="button" class="btn-table-action" disabled title="Prendas ya entregadas">Entregado</button>'
+              : `<button type="button" class="btn-return-wardrobe" onclick="window.__domusApp.returnWardrobe('${escapeHtml(r.ticketGuardarropa)}')">
+                   🧥 Marcar Devuelto
+                 </button>`}
+          </td>
+        </tr>
+      `;
+    }).join('');
+  }
+
+  function renderEventsTable() {
+    const tbody = $('eventsTableBody');
+    if (!tbody) return;
+
+    if (!STATE.eventsList || STATE.eventsList.length === 0) {
+      STATE.eventsList = [...DEFAULT_EVENTS];
+    }
+
+    tbody.innerHTML = STATE.eventsList.map(ev => {
+      const isActive = ev.name === STATE.activeActivity;
+
+      return `
+        <tr class="${isActive ? 'active-event-row' : ''}">
+          <td>
+            <strong>${escapeHtml(ev.name)}</strong>
+            <div style="font-size: 0.75rem; color: var(--text-muted);">${escapeHtml(ev.type || '')} · ${escapeHtml(ev.organizer || 'DOMUS')}</div>
+          </td>
+          <td style="font-size: 0.82rem; color: var(--text-muted);">${escapeHtml(ev.date || '---')}</td>
+          <td><strong>$${Number(ev.priceGeneral || 0).toFixed(2)}</strong></td>
+          <td><strong>$${Number(ev.pricePareja || 0).toFixed(2)}</strong></td>
+          <td><strong>$${Number(ev.priceTrio || 0).toFixed(2)}</strong></td>
+          <td><span style="color: var(--gold-primary);">$${Number(ev.priceGuardarropa || 50).toFixed(2)}</span></td>
+          <td style="font-size: 0.82rem;">${ev.capacity || 150} pers.</td>
+          <td>
+            ${isActive 
+              ? '<span class="badge-active-event">⭐ Activo Ahora</span>'
+              : `<button type="button" class="btn-set-active-event" onclick="window.__domusApp.setActiveEvent('${escapeHtml(ev.name)}')">
+                   Fijar Activo
+                 </button>`}
+          </td>
+        </tr>
+      `;
+    }).join('');
+  }
+
+  function changeActiveEvent(eventName) {
+    STATE.activeActivity = eventName;
+    localStorage.setItem('domus_active_event', eventName);
+    toast(`Evento activo de turno: ${eventName}`, 'ok');
+
+    callBackend('accesoCambiarActividad', [eventName], res => {
+      // Backend updated
+    }, err => console.warn('Cambio de evento local:', err));
+
+    renderAccesosView();
+  }
+
+  function returnWardrobeItems(ticketGua) {
+    const rec = (STATE.recentAccessList || []).find(r => r.ticketGuardarropa === ticketGua);
+    if (!rec) {
+      toast('Ticket de guardarropa no encontrado.', 'error');
+      return;
+    }
+
+    rec.devuelto = true;
+    try {
+      localStorage.setItem('domus_custom_access', JSON.stringify(STATE.recentAccessList.slice(0, 50)));
+    } catch (e) {}
+
+    toast(`Prendas devueltas para ticket: ${ticketGua}`, 'ok');
+    playChime('success');
+
+    callBackend('guardarropaDevolver', [ticketGua], res => {
+      // Backend updated
+    }, err => console.warn('Devolución guardarropa local:', err));
+
+    updateAccesosKpis();
+    renderAccessTab();
+  }
+
+  // --- MODAL: COMPROBANTE DE ACCESO Y GUARDARROPA ---
+
+  function openAccessReceiptModal(record) {
+    if (!record) return;
+    const modal = $('accessReceiptModal');
+    if (!modal) return;
+
+    $('accessTicketFolio').textContent = `TICKET: ${record.id}`;
+    $('accessTicketEvent').textContent = `EVENTO: ${record.activity || 'DOMUS'}`;
+    $('accessTicketCustomer').textContent = `ASISTENTE: ${record.customer}`;
+    $('accessTicketDate').textContent = `FECHA: ${record.date}`;
+
+    // Itemized Details
+    const detailsContainer = $('accessTicketDetailsList');
+    if (detailsContainer) {
+      let html = `
+        <div class="receipt-item-row">
+          <span>Entrada: ${escapeHtml(record.entryType)} (${record.packages} pers.)</span>
+          <span>$${Number(record.entryCost || 0).toFixed(2)}</span>
+        </div>
+      `;
+      if (record.wardrobeQty > 0) {
+        html += `
+          <div class="receipt-item-row">
+            <span>Guardarropa (${record.wardrobeQty} prendas)</span>
+            <span>$${Number(record.wardrobeCost || 0).toFixed(2)}</span>
+          </div>
+        `;
+      }
+      if (record.presaleFolio) {
+        html += `<div style="font-size: 0.72rem; color: #4b5563; padding: 2px 0;">Preventa: ${escapeHtml(record.presaleFolio)}</div>`;
+      }
+      if (record.courtesyAuth) {
+        html += `<div style="font-size: 0.72rem; color: #4b5563; padding: 2px 0;">Cortesía: ${escapeHtml(record.courtesyAuth)}</div>`;
+      }
+      detailsContainer.innerHTML = html;
+    }
+
+    $('accessTicketTotalAmount').textContent = `$${Number(record.paid !== undefined ? record.paid : record.totalAmount).toFixed(2)}`;
+
+    const payInfo = $('accessTicketPaymentInfo');
+    if (payInfo) {
+      payInfo.innerHTML = `
+        <div>Método: <strong>${escapeHtml(record.method || 'Efectivo')}</strong></div>
+        <div style="font-size: 0.7rem; color: #6b7280; margin-top: 4px;">DOMUS Centro Cultural &middot; Ciudad de México</div>
+      `;
+    }
+
+    // Wardrobe Tear-Off Stub
+    const stub = $('wardrobeTearOffStub');
+    if (stub) {
+      if (record.wardrobeQty > 0 && record.ticketGuardarropa) {
+        stub.style.display = 'block';
+        $('stubWardrobeTicket').textContent = record.ticketGuardarropa;
+        $('stubWardrobeQty').textContent = `${record.wardrobeQty} Prenda${record.wardrobeQty > 1 ? 's' : ''}`;
+        $('stubWardrobeNotes').textContent = record.wardrobeNotes || '';
+      } else {
+        stub.style.display = 'none';
+      }
+    }
+
+    modal.classList.add('open');
+  }
+
+  function closeAccessReceiptModal() {
+    const modal = $('accessReceiptModal');
+    if (modal) modal.classList.remove('open');
+  }
+
+  function reprintAccessTicket(rowId) {
+    const rec = (STATE.recentAccessList || []).find(r => r.id === rowId);
+    if (rec) {
+      openAccessReceiptModal(rec);
+    } else {
+      toast('Ticket no encontrado.', 'error');
+    }
+  }
+
+  // --- MODAL: ALTA Y CONFIGURACIÓN DE NUEVO EVENTO ---
+
+  function openNewEventModal() {
+    const modal = $('newEventModal');
+    if (!modal) return;
+
+    $('eventFormName').value = '';
+    $('eventFormDate').value = new Date().toISOString().slice(0, 10);
+    $('eventFormType').value = 'Fiesta temática';
+    $('eventFormOrganizer').value = 'DOMUS';
+    $('eventFormCapacity').value = '150';
+    $('eventFormPriceGeneral').value = '150';
+    $('eventFormPricePareja').value = '260';
+    $('eventFormPriceTrio').value = '360';
+    $('eventFormPriceWardrobe').value = '50';
+    $('eventFormNotes').value = '';
+
+    modal.classList.add('open');
+    $('eventFormName').focus();
+  }
+
+  function closeNewEventModal() {
+    const modal = $('newEventModal');
+    if (modal) modal.classList.remove('open');
+  }
+
+  function saveNewEvent() {
+    const name = ($('eventFormName').value || '').trim();
+    const date = $('eventFormDate').value;
+    const type = $('eventFormType').value;
+    const organizer = ($('eventFormOrganizer').value || 'DOMUS').trim();
+    const capacity = parseInt($('eventFormCapacity').value, 10) || 150;
+    const priceGeneral = parseFloat($('eventFormPriceGeneral').value) || 0;
+    const pricePareja = parseFloat($('eventFormPricePareja').value) || 0;
+    const priceTrio = parseFloat($('eventFormPriceTrio').value) || 0;
+    const priceWardrobe = parseFloat($('eventFormPriceWardrobe').value) || 50;
+    const notes = ($('eventFormNotes').value || '').trim();
+
+    if (!name) {
+      toast('Ingresa el nombre del evento.', 'warn');
+      $('eventFormName').focus();
+      return;
+    }
+    if (!date) {
+      toast('Selecciona la fecha del evento.', 'warn');
+      $('eventFormDate').focus();
+      return;
+    }
+
+    const newEv = {
+      name: name,
+      date: date,
+      type: type,
+      organizer: organizer,
+      priceGeneral: priceGeneral,
+      pricePareja: pricePareja,
+      priceTrio: priceTrio,
+      priceGuardarropa: priceWardrobe,
+      capacity: capacity,
+      notes: notes,
+      status: 'Confirmado'
+    };
+
+    // Prepend to events list & set as active
+    STATE.eventsList.unshift(newEv);
+    STATE.activeActivity = name;
+    localStorage.setItem('domus_active_event', name);
+
+    try {
+      localStorage.setItem('domus_custom_events', JSON.stringify(STATE.eventsList.slice(0, 30)));
+    } catch (e) {}
+
+    toast(`Evento "${name}" guardado exitosamente.`, 'ok');
+    playChime('success');
+    closeNewEventModal();
+
+    callBackend('registrarNuevoEvento', [newEv], res => {
+      syncBackendData();
+    }, err => {
+      console.warn('Evento registrado en modo local:', err);
+    });
+
+    renderAccesosView();
+  }
+
   // --- EVENT LISTENERS ---
   function setupEventListeners() {
     // Mode Switcher
@@ -2976,7 +3766,72 @@
         }
       });
     }
+
+    // --- MODO ACCESOS, EVENTOS Y GUARDARROPA ---
+    if ($('btnModeAccesos')) {
+      $('btnModeAccesos').addEventListener('click', () => setMode('accesos'));
+    }
+
+    if ($('accessActivitySelect')) {
+      $('accessActivitySelect').addEventListener('change', e => changeActiveEvent(e.target.value));
+    }
+
+    // Wardrobe Selector Buttons
+    document.querySelectorAll('#wardrobeSelectorGroup .wardrobe-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        setWardrobeQty(parseInt(btn.getAttribute('data-qty'), 10));
+      });
+    });
+
+    // Payment Methods for Access
+    document.querySelectorAll('.payment-method-btn[data-access-method]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        setAccessPaymentMethod(btn.getAttribute('data-access-method'));
+      });
+    });
+
+    // Cash Calculator for Access
+    if ($('accessCashReceived')) {
+      $('accessCashReceived').addEventListener('input', updateAccessSummary);
+    }
+
+    // Confirm Access & Register Button
+    if ($('btnConfirmAccess')) {
+      $('btnConfirmAccess').addEventListener('click', confirmAccessAndRegister);
+    }
+
+    // Operations Tabs
+    if ($('tabBtnAccessLog')) $('tabBtnAccessLog').addEventListener('click', () => setAccessTab('log'));
+    if ($('tabBtnWardrobe')) $('tabBtnWardrobe').addEventListener('click', () => setAccessTab('wardrobe'));
+    if ($('tabBtnEvents')) $('tabBtnEvents').addEventListener('click', () => setAccessTab('events'));
+
+    // Search Inputs for Tabs
+    if ($('accessLogSearchInput')) {
+      $('accessLogSearchInput').addEventListener('input', e => {
+        STATE.accessSearch = e.target.value;
+        renderAccessLogTable();
+      });
+    }
+    if ($('wardrobeSearchInput')) {
+      $('wardrobeSearchInput').addEventListener('input', e => {
+        STATE.accessSearch = e.target.value;
+        renderWardrobeTable();
+      });
+    }
+
+    // Modals: Eventos
+    if ($('btnOpenNewEventModal')) $('btnOpenNewEventModal').addEventListener('click', openNewEventModal);
+    if ($('btnOpenNewEventModal2')) $('btnOpenNewEventModal2').addEventListener('click', openNewEventModal);
+    if ($('btnCloseNewEventModal')) $('btnCloseNewEventModal').addEventListener('click', closeNewEventModal);
+    if ($('btnCancelNewEvent')) $('btnCancelNewEvent').addEventListener('click', closeNewEventModal);
+    if ($('btnSaveNewEvent')) $('btnSaveNewEvent').addEventListener('click', saveNewEvent);
+
+    // Modals: Access Receipt
+    if ($('btnCloseAccessReceipt')) $('btnCloseAccessReceipt').addEventListener('click', closeAccessReceiptModal);
+    if ($('btnDismissAccessReceipt')) $('btnDismissAccessReceipt').addEventListener('click', closeAccessReceiptModal);
+    if ($('btnPrintAccessReceipt')) $('btnPrintAccessReceipt').addEventListener('click', () => window.print());
   }
+
 
   // --- INICIALIZAR APP ---
   document.addEventListener('DOMContentLoaded', () => {
@@ -2993,7 +3848,10 @@
     deliverOrder: deliverOrder,
     reportIncident: reportIncident,
     submitRestockRequest: submitRestockRequest,
-    resolveRestock: resolveRestock
+    resolveRestock: resolveRestock,
+    reprintAccessTicket: reprintAccessTicket,
+    returnWardrobe: returnWardrobeItems,
+    setActiveEvent: changeActiveEvent
   };
 
 })();

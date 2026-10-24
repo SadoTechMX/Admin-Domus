@@ -27,11 +27,11 @@
           DOMUS
           <span class="phase-badge" id="currentPhaseBadge">Fase Solar</span>
         </h1>
-        <span class="brand-subtitle">Caja &middot; Barra &middot; Cocina</span>
+        <span class="brand-subtitle">Caja &middot; Barra &middot; Cocina &middot; Accesos</span>
       </div>
     </div>
 
-    <!-- Mode Switcher (Caja vs Comandas) -->
+    <!-- Mode Switcher (Caja vs Comandas vs Accesos) -->
     <nav class="mode-switcher" aria-label="Selector de pantalla">
       <button type="button" class="mode-btn active" id="btnModeCaja" title="Abrir Punto de Venta y Cobro">
         <span>💰</span>
@@ -41,6 +41,11 @@
         <span>📋</span>
         <span>Modo Comandas</span>
         <span class="badge-count" id="kdsActiveCountBadge">0</span>
+      </button>
+      <button type="button" class="mode-btn" id="btnModeAccesos" title="Abrir Control de Accesos, Taquilla y Eventos">
+        <span>🎟️</span>
+        <span>Modo Accesos</span>
+        <span class="badge-count" id="accessActiveCountBadge">0</span>
       </button>
     </nav>
 
@@ -234,6 +239,285 @@
       <!-- Orders Board (Cards Masonry) -->
       <div class="orders-board" id="ordersBoard">
         <!-- Rendered dynamically -->
+      </div>
+    </section>
+
+    <!-- ======================================================================
+         VISTA 3: MODO ACCESOS, EVENTOS Y GUARDARROPA (TAQUILLA / CHECK-IN)
+         ====================================================================== -->
+    <section id="viewAccesos" class="accesos-layout hidden" aria-label="Control de Accesos, Eventos y Guardarropa">
+      <!-- Accesos Header Card with Event Picker & Realtime KPIs -->
+      <div class="accesos-header-card">
+        <div class="accesos-event-picker">
+          <span class="event-picker-label">📅 Actividad / Evento:</span>
+          <select id="accessActivitySelect" class="event-select-styled" title="Selecciona el evento en curso">
+            <!-- Rendered dynamically -->
+          </select>
+          <button type="button" class="btn-new-event" id="btnOpenNewEventModal" title="Programar o configurar un evento con sus tarifas">
+            <span>➕</span>
+            <span>Nuevo Evento / Tarifas</span>
+          </button>
+        </div>
+
+        <div class="accesos-kpi-grid">
+          <div class="accesos-kpi-card" title="Personas registradas e ingresadas hoy">
+            <span class="accesos-kpi-icon">👥</span>
+            <div class="accesos-kpi-info">
+              <span class="accesos-kpi-val" id="kpiTotalAttendance">0</span>
+              <span class="accesos-kpi-lbl">Aforo Hoy</span>
+            </div>
+          </div>
+
+          <div class="accesos-kpi-card" title="Prendas actualmente bajo custodia en el guardarropa">
+            <span class="accesos-kpi-icon">🧥</span>
+            <div class="accesos-kpi-info">
+              <span class="accesos-kpi-val" id="kpiActiveWardrobe">0</span>
+              <span class="accesos-kpi-lbl">Guardarropa</span>
+            </div>
+          </div>
+
+          <div class="accesos-kpi-card" title="Asistentes con preventa validada">
+            <span class="accesos-kpi-icon">🎟️</span>
+            <div class="accesos-kpi-info">
+              <span class="accesos-kpi-val" id="kpiValidatedPresales">0</span>
+              <span class="accesos-kpi-lbl">Preventas</span>
+            </div>
+          </div>
+
+          <div class="accesos-kpi-card" title="Total recaudado por accesos y guardarropa">
+            <span class="accesos-kpi-icon">💵</span>
+            <div class="accesos-kpi-info">
+              <span class="accesos-kpi-val" id="kpiTotalAdmissionRevenue">$0.00</span>
+              <span class="accesos-kpi-lbl">Taquilla Hoy</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Main 2 Columns Grid -->
+      <div class="accesos-main-grid">
+        <!-- Left Column: Check-In & Cobro Form -->
+        <div class="accesos-form-card">
+          <h2 class="accesos-form-title">
+            <span>🎟️</span>
+            <span>Registro y Cobro de Entrada</span>
+          </h2>
+
+          <!-- Customer Data -->
+          <div class="input-group">
+            <label for="accessCustomerName">Nombre / Alias del Asistente: *</label>
+            <input type="text" id="accessCustomerName" placeholder="Ej. Alex / Pareja / Nombre del invitado" required />
+          </div>
+
+          <div class="form-row-2">
+            <div class="input-group">
+              <label for="accessCustomerPhone">WhatsApp / Teléfono:</label>
+              <input type="tel" id="accessCustomerPhone" placeholder="10 dígitos (opcional)" />
+            </div>
+            <div class="input-group">
+              <label for="accessCustomerEmail">Correo Electrónico:</label>
+              <input type="email" id="accessCustomerEmail" placeholder="correo@ejemplo.com" />
+            </div>
+          </div>
+
+          <!-- Entry Type Selection -->
+          <div class="input-group">
+            <label>Tipo de Entrada & Tarifa del Evento: *</label>
+            <div class="entry-types-grid" id="entryTypesContainer">
+              <!-- Rendered dynamically based on active event tariffs -->
+            </div>
+          </div>
+
+          <!-- Dynamic Presale / Courtesy inputs -->
+          <div class="input-group hidden" id="presaleInputGroup">
+            <label for="accessPresaleFolio">Folio de Preventa (Boletera): *</label>
+            <input type="text" id="accessPresaleFolio" placeholder="Ej. BOL-SENSO-089" />
+          </div>
+
+          <div class="input-group hidden" id="courtesyInputGroup">
+            <label for="accessCourtesyAuth">Autorización de Cortesía (Gerencia): *</label>
+            <input type="text" id="accessCourtesyAuth" placeholder="Ej. Autorizado por Steven / Dirección" />
+          </div>
+
+          <!-- Wardrobe / Guardarropa Section -->
+          <div class="input-group">
+            <label>Prendas en Guardarropa (<span id="wardrobeUnitPriceText">$50 c/u</span>):</label>
+            <div class="wardrobe-selector-group" id="wardrobeSelectorGroup">
+              <button type="button" class="wardrobe-btn active" data-qty="0">0</button>
+              <button type="button" class="wardrobe-btn" data-qty="1">1</button>
+              <button type="button" class="wardrobe-btn" data-qty="2">2</button>
+              <button type="button" class="wardrobe-btn" data-qty="3">3</button>
+              <button type="button" class="wardrobe-btn" data-qty="4">4+</button>
+            </div>
+          </div>
+
+          <div class="input-group" id="wardrobeNotesWrapper" style="display: none;">
+            <label for="accessWardrobeNotes">Detalle de Prendas (Opcional):</label>
+            <input type="text" id="accessWardrobeNotes" placeholder="Ej. Chamarra de cuero negra, mochila" />
+          </div>
+
+          <!-- Summary Box -->
+          <div class="accesos-summary-box">
+            <div class="accesos-summary-row">
+              <span>Entrada (<span id="summaryEntryType">General</span>):</span>
+              <strong id="summaryEntryAmount">$0.00</strong>
+            </div>
+            <div class="accesos-summary-row">
+              <span>Guardarropa (<span id="summaryWardrobeQty">0</span> prendas):</span>
+              <strong id="summaryWardrobeAmount">$0.00</strong>
+            </div>
+            <div class="accesos-summary-row accesos-summary-total">
+              <span>TOTAL A COBRAR:</span>
+              <strong id="summaryTotalAdmission">$0.00</strong>
+            </div>
+          </div>
+
+          <!-- Payment Methods -->
+          <div class="input-group">
+            <label>Medio de Pago:</label>
+            <div class="payment-methods-grid">
+              <button type="button" class="payment-method-btn active" data-access-method="Efectivo">
+                <span class="pay-icon">💵</span>
+                <span>Efectivo</span>
+              </button>
+              <button type="button" class="payment-method-btn" data-access-method="Terminal 1">
+                <span class="pay-icon">💳</span>
+                <span>Terminal 1</span>
+              </button>
+              <button type="button" class="payment-method-btn" data-access-method="Terminal 2">
+                <span class="pay-icon">💳</span>
+                <span>Terminal 2</span>
+              </button>
+              <button type="button" class="payment-method-btn" data-access-method="Transferencia">
+                <span class="pay-icon">📱</span>
+                <span>Transferencia</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Cash Calculator for Access -->
+          <div class="cash-calc-section" id="accessCashSection">
+            <div class="form-row-2">
+              <div class="input-group">
+                <label for="accessCashReceived">Efectivo Recibido:</label>
+                <input type="number" id="accessCashReceived" placeholder="0.00" min="0" step="any" />
+              </div>
+              <div class="input-group">
+                <label>Cambio:</label>
+                <div style="font-size: 1.2rem; font-weight: 800; color: var(--emerald-400); padding-top: 8px;" id="accessCashChangeText">$0.00</div>
+              </div>
+            </div>
+          </div>
+
+          <button type="button" class="btn-primary-action" id="btnConfirmAccess" style="padding: 14px; font-size: 1.05rem;">
+            ✓ Confirmar Acceso y Emitir Tickets
+          </button>
+        </div>
+
+        <!-- Right Column: Operations Tabs (Log, Wardrobe, Events) -->
+        <div class="accesos-tabs-card">
+          <div class="accesos-tab-nav">
+            <button type="button" class="accesos-nav-btn active" id="tabBtnAccessLog">
+              <span>📋</span>
+              <span>Ingresos Hoy</span>
+            </button>
+            <button type="button" class="accesos-nav-btn" id="tabBtnWardrobe">
+              <span>🧥</span>
+              <span>Guardarropa Activo</span>
+              <span class="badge-count" id="wardrobeBadgeCount">0</span>
+            </button>
+            <button type="button" class="accesos-nav-btn" id="tabBtnEvents">
+              <span>📅</span>
+              <span>Eventos & Tarifas</span>
+            </button>
+          </div>
+
+          <div class="accesos-tab-body">
+            <!-- Tab Panel 1: Ingresos Log -->
+            <div id="panelAccessLog" class="accesos-panel">
+              <div class="search-input-wrapper" style="margin-bottom: 12px;">
+                <span class="search-icon">🔍</span>
+                <input type="text" id="accessLogSearchInput" placeholder="Buscar por asistente, teléfono, folio o tipo…" />
+              </div>
+              <div class="accesos-table-wrapper">
+                <table class="accesos-table">
+                  <thead>
+                    <tr>
+                      <th>Folio</th>
+                      <th>Hora</th>
+                      <th>Asistente</th>
+                      <th>Entrada</th>
+                      <th>Guardarropa</th>
+                      <th>Cobrado</th>
+                      <th>Método</th>
+                      <th>Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody id="accessLogTableBody">
+                    <!-- Rendered dynamically -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- Tab Panel 2: Guardarropa Activo -->
+            <div id="panelWardrobe" class="accesos-panel hidden">
+              <div class="search-input-wrapper" style="margin-bottom: 12px;">
+                <span class="search-icon">🔍</span>
+                <input type="text" id="wardrobeSearchInput" placeholder="Buscar por ticket GUA, nombre de cliente o prenda…" />
+              </div>
+              <div class="accesos-table-wrapper">
+                <table class="accesos-table">
+                  <thead>
+                    <tr>
+                      <th>Ticket Guardarropa</th>
+                      <th>Asistente</th>
+                      <th>Prendas</th>
+                      <th>Hora Recepción</th>
+                      <th>Estatus</th>
+                      <th>Acción</th>
+                    </tr>
+                  </thead>
+                  <tbody id="wardrobeTableBody">
+                    <!-- Rendered dynamically -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- Tab Panel 3: Eventos & Tarifas -->
+            <div id="panelEvents" class="accesos-panel hidden">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
+                <p style="font-size: 0.85rem; color: var(--text-muted); margin: 0;">
+                  Catálogo de actividades programadas y estructura de tarifas autorizadas en DOMUS.
+                </p>
+                <button type="button" class="btn-new-event" id="btnOpenNewEventModal2">
+                  <span>➕</span>
+                  <span>Nuevo Evento</span>
+                </button>
+              </div>
+              <div class="accesos-table-wrapper">
+                <table class="accesos-table">
+                  <thead>
+                    <tr>
+                      <th>Actividad / Evento</th>
+                      <th>Fecha</th>
+                      <th>General</th>
+                      <th>Pareja</th>
+                      <th>Trío</th>
+                      <th>Prenda</th>
+                      <th>Aforo</th>
+                      <th>Acción</th>
+                    </tr>
+                  </thead>
+                  <tbody id="eventsTableBody">
+                    <!-- Rendered dynamically -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </section>
 
@@ -574,6 +858,153 @@
         </button>
         <button type="button" class="btn-primary-action" id="btnSaveNewProduct" style="width: auto;">
           ✓ Guardar y Dar de Alta
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================================
+       MODAL 6: COMPROBANTE DE ACCESO Y TALÓN DE GUARDARROPA
+       ======================================================================== -->
+  <div class="modal-overlay" id="accessReceiptModal" role="dialog" aria-modal="true" aria-labelledby="accessReceiptTitle">
+    <div class="modal-card" style="max-width: 440px;">
+      <div class="modal-header">
+        <h3 id="accessReceiptTitle">🎟️ Ticket de Acceso</h3>
+        <button type="button" class="modal-close-btn" id="btnCloseAccessReceipt" aria-label="Cerrar">&times;</button>
+      </div>
+
+      <div class="modal-body">
+        <div class="receipt-paper" id="printableAccessReceipt">
+          <div class="receipt-header">
+            <h2>DOMUS</h2>
+            <p style="letter-spacing: 0.1em; font-size: 0.75rem; text-transform: uppercase;">Control de Accesos &middot; Taquilla</p>
+            <p id="accessTicketFolio" style="font-size: 1.15rem; font-weight: 800; color: #111827; margin: 8px 0 2px;">TICKET: A-0000</p>
+            <p id="accessTicketEvent" style="font-weight: 700; color: #4b5563; font-size: 0.9rem;">EVENTO: ---</p>
+            <p id="accessTicketCustomer" style="font-weight: 600; color: #111827;">ASISTENTE: ---</p>
+            <p id="accessTicketDate" style="font-size: 0.8rem; color: #6b7280;">FECHA: --/--/----</p>
+          </div>
+
+          <div class="receipt-items-list" id="accessTicketDetailsList">
+            <!-- Details rendered dynamically -->
+          </div>
+
+          <div class="receipt-total-row">
+            <span>TOTAL PAGADO:</span>
+            <span id="accessTicketTotalAmount">$0.00</span>
+          </div>
+
+          <div class="receipt-payment-info" id="accessTicketPaymentInfo">
+            <!-- Payment info -->
+          </div>
+
+          <!-- Talón desprendible de guardarropa -->
+          <div id="wardrobeTearOffStub" style="display: none; border-top: 2px dashed #9ca3af; margin-top: 14px; padding-top: 12px; text-align: center;">
+            <p style="font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; color: #6b7280; margin: 0;">Talón de Guardarropa DOMUS</p>
+            <div id="stubWardrobeTicket" style="font-size: 1.6rem; font-weight: 900; color: #1e3a8a; margin: 4px 0;">GUA-A-0000</div>
+            <p id="stubWardrobeQty" style="font-weight: 700; font-size: 0.95rem; margin: 0; color: #111827;">1 Prenda</p>
+            <p id="stubWardrobeNotes" style="font-size: 0.78rem; color: #4b5563; margin-top: 2px;"></p>
+            <small style="font-size: 0.65rem; color: #9ca3af; display: block; margin-top: 4px;">Presenta este talón para retirar tus pertenencias al salir.</small>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn-secondary" id="btnDismissAccessReceipt">
+          Cerrar
+        </button>
+        <button type="button" class="btn-primary-action" id="btnPrintAccessReceipt" style="width: auto;">
+          🖨️ Imprimir Ticket
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================================
+       MODAL 7: ALTA Y CONFIGURACIÓN DE EVENTO / ACTIVIDAD
+       ======================================================================== -->
+  <div class="modal-overlay" id="newEventModal" role="dialog" aria-modal="true" aria-labelledby="newEventTitle">
+    <div class="modal-card" style="max-width: 520px;">
+      <div class="modal-header">
+        <h3 id="newEventTitle">📅 Programar / Configurar Evento</h3>
+        <button type="button" class="modal-close-btn" id="btnCloseNewEventModal" aria-label="Cerrar">&times;</button>
+      </div>
+
+      <div class="modal-body">
+        <p style="font-size: 0.85rem; color: var(--text-muted);">
+          Configura un nuevo evento en el calendario de DOMUS y define sus tarifas de taquilla y guardarropa.
+        </p>
+
+        <div class="input-group">
+          <label for="eventFormName">Nombre del Evento / Actividad: *</label>
+          <input type="text" id="eventFormName" placeholder="Ej. Sensorama fetish y kinky" required />
+        </div>
+
+        <div class="form-row-2">
+          <div class="input-group">
+            <label for="eventFormDate">Fecha del Evento: *</label>
+            <input type="date" id="eventFormDate" required />
+          </div>
+          <div class="input-group">
+            <label for="eventFormType">Tipo / Categoría:</label>
+            <select id="eventFormType">
+              <option value="Fiesta temática">Fiesta temática</option>
+              <option value="Club nocturno">Club nocturno</option>
+              <option value="Social / Gaming">Social / Gaming</option>
+              <option value="Comunidad / Privado">Comunidad / Privado</option>
+              <option value="Taller / Performance">Taller / Performance</option>
+              <option value="Operación diaria">Operación diaria</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row-2">
+          <div class="input-group">
+            <label for="eventFormOrganizer">Organizador / Marca:</label>
+            <input type="text" id="eventFormOrganizer" placeholder="DOMUS" value="DOMUS" />
+          </div>
+          <div class="input-group">
+            <label for="eventFormCapacity">Aforo Estimado (Personas):</label>
+            <input type="number" id="eventFormCapacity" value="150" min="10" />
+          </div>
+        </div>
+
+        <!-- Tariffs Grid -->
+        <div style="background: var(--bg-surface-elevated); padding: 14px; border-radius: var(--radius-lg); border: 1px solid var(--border-subtle); margin: 6px 0;">
+          <h4 style="margin: 0 0 10px 0; font-size: 0.88rem; color: var(--gold-primary);">Estructura de Tarifas (MXN)</h4>
+          <div class="form-row-2">
+            <div class="input-group">
+              <label for="eventFormPriceGeneral">Entrada General (1 pers): *</label>
+              <input type="number" id="eventFormPriceGeneral" placeholder="100.00" min="0" step="any" required />
+            </div>
+            <div class="input-group">
+              <label for="eventFormPricePareja">Entrada Pareja (2 pers): *</label>
+              <input type="number" id="eventFormPricePareja" placeholder="180.00" min="0" step="any" required />
+            </div>
+          </div>
+          <div class="form-row-2" style="margin-top: 8px;">
+            <div class="input-group">
+              <label for="eventFormPriceTrio">Entrada Trío (3 pers): *</label>
+              <input type="number" id="eventFormPriceTrio" placeholder="250.00" min="0" step="any" required />
+            </div>
+            <div class="input-group">
+              <label for="eventFormPriceWardrobe">Guardarropa (por prenda): *</label>
+              <input type="number" id="eventFormPriceWardrobe" value="50.00" min="0" step="any" required />
+            </div>
+          </div>
+        </div>
+
+        <div class="input-group">
+          <label for="eventFormNotes">Notas / Descripción (opcional):</label>
+          <input type="text" id="eventFormNotes" placeholder="Detalles de admisión, dress code o requerimientos" />
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn-secondary" id="btnCancelNewEvent">
+          Cancelar
+        </button>
+        <button type="button" class="btn-primary-action" id="btnSaveNewEvent" style="width: auto;">
+          ✓ Guardar en ACTIVIDADES
         </button>
       </div>
     </div>
