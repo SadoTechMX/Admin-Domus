@@ -1392,7 +1392,131 @@ html, body {
   }
 }
 
+/* ==========================================================================
+   CAJA SECURITY LOCK & PIN KEYPAD
+   ========================================================================== */
+.pin-display-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  margin: 10px 0;
+}
+
+.pin-input-field {
+  width: 100%;
+  max-width: 280px;
+  background: var(--bg-surface-elevated);
+  border: 2px solid var(--border-gold);
+  border-radius: var(--radius-lg);
+  padding: 14px 18px;
+  color: var(--text-primary);
+  font-size: 1.6rem;
+  letter-spacing: 6px;
+  text-align: center;
+  outline: none;
+  font-family: inherit;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.pin-input-field:focus {
+  border-color: var(--gold-400);
+  box-shadow: 0 0 16px var(--gold-glow);
+}
+
+.pin-keypad {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  max-width: 280px;
+  width: 100%;
+  margin: 8px auto;
+}
+
+.pin-key-btn {
+  background: var(--bg-surface-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-size: 1.4rem;
+  font-weight: 700;
+  padding: 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition-fast);
+}
+
+.pin-key-btn:hover {
+  background: var(--bg-surface);
+  border-color: var(--gold-500);
+  color: var(--gold-400);
+  transform: translateY(-1px);
+}
+
+.pin-key-btn:active {
+  transform: scale(0.96);
+}
+
+.pin-key-btn.action-key {
+  font-size: 1rem;
+  color: var(--text-secondary);
+}
+
+.lock-badge-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--amber-bg);
+  border: 2px solid var(--gold-500);
+  color: var(--gold-400);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.8rem;
+  margin: 0 auto 8px auto;
+}
+
+.checkbox-remember-device {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.88rem;
+  color: var(--text-secondary);
+  cursor: pointer;
+  user-select: none;
+}
+
+.checkbox-remember-device input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--gold-500);
+  cursor: pointer;
+}
+
+.btn-lock-caja {
+  background: var(--bg-surface-elevated);
+  border: 1px solid var(--border-subtle);
+  color: var(--rose-400);
+  padding: 6px 12px;
+  border-radius: var(--radius-md);
+  font-size: 0.8rem;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.btn-lock-caja:hover {
+  background: var(--rose-bg);
+  border-color: var(--rose-border);
+}
+
 /* Utility Hidden */
 .hidden {
   display: none !important;
 }
+

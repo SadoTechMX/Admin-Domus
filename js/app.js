@@ -192,21 +192,93 @@
     return Math.floor(diff / 60000);
   }
 
+  // --- SEGURIDAD Y CONTROL DE ACCESO A CAJA ---
+  const DEFAULT_CAJA_PIN = '2026';
+
+  function getCajaPin() {
+    return localStorage.getItem('domus_caja_pin') || DEFAULT_CAJA_PIN;
+  }
+
+  function isCajaAuthorized() {
+    return localStorage.getItem('domus_caja_authorized') === 'true' ||
+           sessionStorage.getItem('domus_caja_session') === 'true';
+  }
+
+  function openCajaLockModal() {
+    const modal = $('cajaLockModal');
+    if (!modal) return;
+    $('cajaPinInput').value = '';
+    $('cajaPinError').textContent = '';
+    modal.classList.add('open');
+    setTimeout(() => $('cajaPinInput').focus(), 150);
+  }
+
+  function closeCajaLockModal() {
+    const modal = $('cajaLockModal');
+    if (modal) modal.classList.remove('open');
+  }
+
+  function unlockCajaWithPin() {
+    const entered = $('cajaPinInput').value.trim();
+    const correctPin = getCajaPin();
+
+    if (entered === correctPin) {
+      const remember = $('rememberCajaDeviceCheckbox').checked;
+      if (remember) {
+        localStorage.setItem('domus_caja_authorized', 'true');
+        toast('Equipo autorizado como Máquina de Caja.', 'ok');
+      } else {
+        sessionStorage.setItem('domus_caja_session', 'true');
+        toast('Caja desbloqueada para esta sesión.', 'ok');
+      }
+      closeCajaLockModal();
+      setMode('caja');
+      playChime('success');
+    } else {
+      $('cajaPinError').textContent = 'Contraseña o PIN incorrecto. Reintenta.';
+      $('cajaPinInput').value = '';
+      $('cajaPinInput').focus();
+      playChime('alert');
+    }
+  }
+
+  function lockCajaOnDevice() {
+    localStorage.removeItem('domus_caja_authorized');
+    sessionStorage.removeItem('domus_caja_session');
+    $('btnLockCaja').classList.add('hidden');
+    setMode('comandas');
+    toast('Caja bloqueada en este equipo. Modo Comandas activo.', 'warn');
+  }
+
   // --- RUTA Y NAVEGACIÓN ---
   function initRouting() {
     const params = new URLSearchParams(window.location.search);
     const vista = params.get('vista');
-    if (vista === 'comandas') {
+    if (vista === 'caja') {
+      if (isCajaAuthorized()) {
+        setMode('caja', false);
+      } else {
+        setMode('comandas', false);
+        openCajaLockModal();
+      }
+    } else if (vista === 'comandas') {
       setMode('comandas', false);
-    } else if (vista === 'caja') {
-      setMode('caja', false);
     } else {
       const saved = localStorage.getItem('domus_view');
-      setMode(saved || 'caja', false);
+      if (saved === 'caja' && isCajaAuthorized()) {
+        setMode('caja', false);
+      } else {
+        setMode('comandas', false);
+      }
     }
   }
 
   function setMode(newMode, updateUrl = true) {
+    if (newMode === 'caja' && !isCajaAuthorized()) {
+      openCajaLockModal();
+      return;
+    }
+
     STATE.mode = newMode;
     localStorage.setItem('domus_view', newMode);
 
@@ -221,6 +293,11 @@
 
     $('viewCaja').classList.toggle('hidden', newMode !== 'caja');
     $('viewComandas').classList.toggle('hidden', newMode !== 'comandas');
+
+    const btnLock = $('btnLockCaja');
+    if (btnLock) {
+      btnLock.classList.toggle('hidden', newMode !== 'caja' || !isCajaAuthorized());
+    }
 
     if (newMode === 'comandas') {
       renderComandasBoard();
@@ -1131,11 +1208,19 @@
 
   function saveConfig() {
     const url = $('gasApiUrlInput').value.trim();
-    STATE.apiUrl = url;
-    localStorage.setItem('domus_gas_url', url);
-    STATE.isDemoMode = false;
+    if (url) {
+      STATE.apiUrl = url;
+      localStorage.setItem('domus_gas_url', url);
+      STATE.isDemoMode = false;
+    }
+    const newPin = $('newCajaPasswordInput') ? $('newCajaPasswordInput').value.trim() : '';
+    if (newPin) {
+      localStorage.setItem('domus_caja_pin', newPin);
+      toast('Nueva contraseña de Caja establecida.', 'ok');
+      $('newCajaPasswordInput').value = '';
+    }
     $('configModal').classList.remove('open');
-    toast('Configuración guardada. Probando conexión…', 'ok');
+    toast('Configuración guardada.', 'ok');
     syncBackendData();
   }
 
@@ -1144,6 +1229,46 @@
     // Mode Switcher
     $('btnModeCaja').addEventListener('click', () => setMode('caja'));
     $('btnModeComandas').addEventListener('click', () => setMode('comandas'));
+
+    // Bloquear Caja Button
+    const btnLock = $('btnLockCaja');
+    if (btnLock) {
+      btnLock.addEventListener('click', lockCajaOnDevice);
+    }
+
+    // Modal de Bloqueo de Caja / PIN Keypad
+    $('btnSubmitCajaPin').addEventListener('click', unlockCajaWithPin);
+    $('btnCancelCajaUnlock').addEventListener('click', () => {
+      closeCajaLockModal();
+      setMode('comandas');
+    });
+
+    $('cajaPinInput').addEventListener('keydown', e => {
+      if (e.key === 'Enter') unlockCajaWithPin();
+    });
+
+    // Teclado numérico táctil
+    document.querySelectorAll('.pin-key-btn[data-key]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const key = btn.getAttribute('data-key');
+        const input = $('cajaPinInput');
+        if (input.value.length < 20) {
+          input.value += key;
+        }
+      });
+    });
+
+    $('btnPinClear').addEventListener('click', () => {
+      $('cajaPinInput').value = '';
+      $('cajaPinError').textContent = '';
+      $('cajaPinInput').focus();
+    });
+
+    $('btnPinBackspace').addEventListener('click', () => {
+      const input = $('cajaPinInput');
+      input.value = input.value.slice(0, -1);
+      input.focus();
+    });
 
     // Staff Selector
     $('staffSelect').addEventListener('change', e => {

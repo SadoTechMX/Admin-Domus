@@ -78,6 +78,11 @@
       <button type="button" class="action-icon-btn" id="btnOpenSettings" title="Configuración y Enlace con Google Apps Script">
         ⚙️
       </button>
+
+      <!-- Bloquear Caja Button -->
+      <button type="button" class="btn-lock-caja hidden" id="btnLockCaja" title="Bloquear acceso a Caja en este equipo">
+        🔒 Bloquear Caja
+      </button>
     </div>
   </header>
 
@@ -384,6 +389,20 @@
         <div style="background: var(--bg-surface-elevated); padding: 12px 16px; border-radius: var(--radius-md); font-size: 0.85rem; color: var(--text-muted);">
           ℹ️ Si abres esta web desde el propio enlace de Google Apps Script, la conexión es nativa y directa sin requerir claves externas.
         </div>
+
+        <hr style="border: none; border-top: 1px solid var(--border-subtle); margin: 6px 0;" />
+
+        <!-- Seguridad: Contraseña de Caja -->
+        <div>
+          <h4 style="font-size: 0.95rem; margin-bottom: 8px; color: var(--gold-400);">🔒 Seguridad de Caja</h4>
+          <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 8px;">
+            Cambiar la contraseña o PIN numérico requerido para ingresar a Modo Caja desde cualquier equipo no autorizado.
+          </p>
+          <div class="input-group">
+            <label for="newCajaPasswordInput">Nueva Contraseña o PIN de Caja:</label>
+            <input type="password" id="newCajaPasswordInput" placeholder="Ej. 2026 o clave segura" />
+          </div>
+        </div>
       </div>
 
       <div class="modal-footer">
@@ -391,7 +410,65 @@
           Cancelar
         </button>
         <button type="button" class="btn-primary-action" id="btnSaveConfig" style="width: auto;">
-          Guardar y Probar
+          Guardar Configuración
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================================
+       MODAL 4: BLOQUEO / ACCESO PROTEGIDO A MODO CAJA
+       ======================================================================== -->
+  <div class="modal-overlay" id="cajaLockModal" role="dialog" aria-modal="true" aria-labelledby="cajaLockTitle">
+    <div class="modal-card" style="max-width: 380px;">
+      <div class="modal-header" style="justify-content: center; text-align: center; border-bottom: none; padding-bottom: 0;">
+        <div style="text-align: center; width: 100%;">
+          <div class="lock-badge-icon">🔒</div>
+          <h3 id="cajaLockTitle">Acceso Protegido a Caja</h3>
+          <p style="font-size: 0.82rem; color: var(--text-muted); margin-top: 4px;">
+            Introduce el PIN o contraseña de Caja para ingresar.
+          </p>
+        </div>
+      </div>
+
+      <div class="modal-body" style="padding-top: 8px;">
+        <div class="pin-display-wrapper">
+          <input type="password" id="cajaPinInput" class="pin-input-field" placeholder="••••" maxlength="20" autofocus />
+          <div id="cajaPinError" style="color: var(--rose-400); font-size: 0.85rem; font-weight: 600; min-height: 20px;"></div>
+        </div>
+
+        <!-- Teclado Numérico para Pantallas Táctiles / Tablets -->
+        <div class="pin-keypad" id="pinKeypad">
+          <button type="button" class="pin-key-btn" data-key="1">1</button>
+          <button type="button" class="pin-key-btn" data-key="2">2</button>
+          <button type="button" class="pin-key-btn" data-key="3">3</button>
+          <button type="button" class="pin-key-btn" data-key="4">4</button>
+          <button type="button" class="pin-key-btn" data-key="5">5</button>
+          <button type="button" class="pin-key-btn" data-key="6">6</button>
+          <button type="button" class="pin-key-btn" data-key="7">7</button>
+          <button type="button" class="pin-key-btn" data-key="8">8</button>
+          <button type="button" class="pin-key-btn" data-key="9">9</button>
+          <button type="button" class="pin-key-btn action-key" id="btnPinClear">C</button>
+          <button type="button" class="pin-key-btn" data-key="0">0</button>
+          <button type="button" class="pin-key-btn action-key" id="btnPinBackspace">⌫</button>
+        </div>
+
+        <!-- Casilla para Recordar Acceso en esta Máquina -->
+        <label class="checkbox-remember-device" style="margin-top: 6px;">
+          <input type="checkbox" id="rememberCajaDeviceCheckbox" checked />
+          <span>Autorizar este equipo permanentemente (Máquina de Caja)</span>
+        </label>
+        <small style="color: var(--text-muted); display: block; font-size: 0.76rem; margin-top: 2px;">
+          En las pantallas de Barra/Comanda, desmarca esta casilla para que nadie pueda acceder a ventas o cobros.
+        </small>
+      </div>
+
+      <div class="modal-footer" style="justify-content: space-between;">
+        <button type="button" class="btn-secondary" id="btnCancelCajaUnlock">
+          Volver a Comandas
+        </button>
+        <button type="button" class="btn-primary-action" id="btnSubmitCajaPin" style="width: auto;">
+          ✓ Desbloquear
         </button>
       </div>
     </div>

@@ -1407,10 +1407,134 @@ html, body {
   }
 }
 
+/* ==========================================================================
+   CAJA SECURITY LOCK & PIN KEYPAD
+   ========================================================================== */
+.pin-display-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  margin: 10px 0;
+}
+
+.pin-input-field {
+  width: 100%;
+  max-width: 280px;
+  background: var(--bg-surface-elevated);
+  border: 2px solid var(--border-gold);
+  border-radius: var(--radius-lg);
+  padding: 14px 18px;
+  color: var(--text-primary);
+  font-size: 1.6rem;
+  letter-spacing: 6px;
+  text-align: center;
+  outline: none;
+  font-family: inherit;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.pin-input-field:focus {
+  border-color: var(--gold-400);
+  box-shadow: 0 0 16px var(--gold-glow);
+}
+
+.pin-keypad {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  max-width: 280px;
+  width: 100%;
+  margin: 8px auto;
+}
+
+.pin-key-btn {
+  background: var(--bg-surface-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-size: 1.4rem;
+  font-weight: 700;
+  padding: 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition-fast);
+}
+
+.pin-key-btn:hover {
+  background: var(--bg-surface);
+  border-color: var(--gold-500);
+  color: var(--gold-400);
+  transform: translateY(-1px);
+}
+
+.pin-key-btn:active {
+  transform: scale(0.96);
+}
+
+.pin-key-btn.action-key {
+  font-size: 1rem;
+  color: var(--text-secondary);
+}
+
+.lock-badge-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--amber-bg);
+  border: 2px solid var(--gold-500);
+  color: var(--gold-400);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.8rem;
+  margin: 0 auto 8px auto;
+}
+
+.checkbox-remember-device {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.88rem;
+  color: var(--text-secondary);
+  cursor: pointer;
+  user-select: none;
+}
+
+.checkbox-remember-device input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--gold-500);
+  cursor: pointer;
+}
+
+.btn-lock-caja {
+  background: var(--bg-surface-elevated);
+  border: 1px solid var(--border-subtle);
+  color: var(--rose-400);
+  padding: 6px 12px;
+  border-radius: var(--radius-md);
+  font-size: 0.8rem;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.btn-lock-caja:hover {
+  background: var(--rose-bg);
+  border-color: var(--rose-border);
+}
+
 /* Utility Hidden */
 .hidden {
   display: none !important;
 }
+
 
 </style>
 </head>
@@ -1477,6 +1601,11 @@ html, body {
       <!-- Settings / Config -->
       <button type="button" class="action-icon-btn" id="btnOpenSettings" title="Configuración y Enlace con Google Apps Script">
         ⚙️
+      </button>
+
+      <!-- Bloquear Caja Button -->
+      <button type="button" class="btn-lock-caja hidden" id="btnLockCaja" title="Bloquear acceso a Caja en este equipo">
+        🔒 Bloquear Caja
       </button>
     </div>
   </header>
@@ -1784,6 +1913,20 @@ html, body {
         <div style="background: var(--bg-surface-elevated); padding: 12px 16px; border-radius: var(--radius-md); font-size: 0.85rem; color: var(--text-muted);">
           ℹ️ Si abres esta web desde el propio enlace de Google Apps Script, la conexión es nativa y directa sin requerir claves externas.
         </div>
+
+        <hr style="border: none; border-top: 1px solid var(--border-subtle); margin: 6px 0;" />
+
+        <!-- Seguridad: Contraseña de Caja -->
+        <div>
+          <h4 style="font-size: 0.95rem; margin-bottom: 8px; color: var(--gold-400);">🔒 Seguridad de Caja</h4>
+          <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 8px;">
+            Cambiar la contraseña o PIN numérico requerido para ingresar a Modo Caja desde cualquier equipo no autorizado.
+          </p>
+          <div class="input-group">
+            <label for="newCajaPasswordInput">Nueva Contraseña o PIN de Caja:</label>
+            <input type="password" id="newCajaPasswordInput" placeholder="Ej. 2026 o clave segura" />
+          </div>
+        </div>
       </div>
 
       <div class="modal-footer">
@@ -1791,7 +1934,65 @@ html, body {
           Cancelar
         </button>
         <button type="button" class="btn-primary-action" id="btnSaveConfig" style="width: auto;">
-          Guardar y Probar
+          Guardar Configuración
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================================
+       MODAL 4: BLOQUEO / ACCESO PROTEGIDO A MODO CAJA
+       ======================================================================== -->
+  <div class="modal-overlay" id="cajaLockModal" role="dialog" aria-modal="true" aria-labelledby="cajaLockTitle">
+    <div class="modal-card" style="max-width: 380px;">
+      <div class="modal-header" style="justify-content: center; text-align: center; border-bottom: none; padding-bottom: 0;">
+        <div style="text-align: center; width: 100%;">
+          <div class="lock-badge-icon">🔒</div>
+          <h3 id="cajaLockTitle">Acceso Protegido a Caja</h3>
+          <p style="font-size: 0.82rem; color: var(--text-muted); margin-top: 4px;">
+            Introduce el PIN o contraseña de Caja para ingresar.
+          </p>
+        </div>
+      </div>
+
+      <div class="modal-body" style="padding-top: 8px;">
+        <div class="pin-display-wrapper">
+          <input type="password" id="cajaPinInput" class="pin-input-field" placeholder="••••" maxlength="20" autofocus />
+          <div id="cajaPinError" style="color: var(--rose-400); font-size: 0.85rem; font-weight: 600; min-height: 20px;"></div>
+        </div>
+
+        <!-- Teclado Numérico para Pantallas Táctiles / Tablets -->
+        <div class="pin-keypad" id="pinKeypad">
+          <button type="button" class="pin-key-btn" data-key="1">1</button>
+          <button type="button" class="pin-key-btn" data-key="2">2</button>
+          <button type="button" class="pin-key-btn" data-key="3">3</button>
+          <button type="button" class="pin-key-btn" data-key="4">4</button>
+          <button type="button" class="pin-key-btn" data-key="5">5</button>
+          <button type="button" class="pin-key-btn" data-key="6">6</button>
+          <button type="button" class="pin-key-btn" data-key="7">7</button>
+          <button type="button" class="pin-key-btn" data-key="8">8</button>
+          <button type="button" class="pin-key-btn" data-key="9">9</button>
+          <button type="button" class="pin-key-btn action-key" id="btnPinClear">C</button>
+          <button type="button" class="pin-key-btn" data-key="0">0</button>
+          <button type="button" class="pin-key-btn action-key" id="btnPinBackspace">⌫</button>
+        </div>
+
+        <!-- Casilla para Recordar Acceso en esta Máquina -->
+        <label class="checkbox-remember-device" style="margin-top: 6px;">
+          <input type="checkbox" id="rememberCajaDeviceCheckbox" checked />
+          <span>Autorizar este equipo permanentemente (Máquina de Caja)</span>
+        </label>
+        <small style="color: var(--text-muted); display: block; font-size: 0.76rem; margin-top: 2px;">
+          En las pantallas de Barra/Comanda, desmarca esta casilla para que nadie pueda acceder a ventas o cobros.
+        </small>
+      </div>
+
+      <div class="modal-footer" style="justify-content: space-between;">
+        <button type="button" class="btn-secondary" id="btnCancelCajaUnlock">
+          Volver a Comandas
+        </button>
+        <button type="button" class="btn-primary-action" id="btnSubmitCajaPin" style="width: auto;">
+          ✓ Desbloquear
         </button>
       </div>
     </div>
@@ -1996,21 +2197,93 @@ html, body {
     return Math.floor(diff / 60000);
   }
 
+  // --- SEGURIDAD Y CONTROL DE ACCESO A CAJA ---
+  const DEFAULT_CAJA_PIN = '2026';
+
+  function getCajaPin() {
+    return localStorage.getItem('domus_caja_pin') || DEFAULT_CAJA_PIN;
+  }
+
+  function isCajaAuthorized() {
+    return localStorage.getItem('domus_caja_authorized') === 'true' ||
+           sessionStorage.getItem('domus_caja_session') === 'true';
+  }
+
+  function openCajaLockModal() {
+    const modal = $('cajaLockModal');
+    if (!modal) return;
+    $('cajaPinInput').value = '';
+    $('cajaPinError').textContent = '';
+    modal.classList.add('open');
+    setTimeout(() => $('cajaPinInput').focus(), 150);
+  }
+
+  function closeCajaLockModal() {
+    const modal = $('cajaLockModal');
+    if (modal) modal.classList.remove('open');
+  }
+
+  function unlockCajaWithPin() {
+    const entered = $('cajaPinInput').value.trim();
+    const correctPin = getCajaPin();
+
+    if (entered === correctPin) {
+      const remember = $('rememberCajaDeviceCheckbox').checked;
+      if (remember) {
+        localStorage.setItem('domus_caja_authorized', 'true');
+        toast('Equipo autorizado como Máquina de Caja.', 'ok');
+      } else {
+        sessionStorage.setItem('domus_caja_session', 'true');
+        toast('Caja desbloqueada para esta sesión.', 'ok');
+      }
+      closeCajaLockModal();
+      setMode('caja');
+      playChime('success');
+    } else {
+      $('cajaPinError').textContent = 'Contraseña o PIN incorrecto. Reintenta.';
+      $('cajaPinInput').value = '';
+      $('cajaPinInput').focus();
+      playChime('alert');
+    }
+  }
+
+  function lockCajaOnDevice() {
+    localStorage.removeItem('domus_caja_authorized');
+    sessionStorage.removeItem('domus_caja_session');
+    $('btnLockCaja').classList.add('hidden');
+    setMode('comandas');
+    toast('Caja bloqueada en este equipo. Modo Comandas activo.', 'warn');
+  }
+
   // --- RUTA Y NAVEGACIÓN ---
   function initRouting() {
     const params = new URLSearchParams(window.location.search);
     const vista = params.get('vista');
-    if (vista === 'comandas') {
+    if (vista === 'caja') {
+      if (isCajaAuthorized()) {
+        setMode('caja', false);
+      } else {
+        setMode('comandas', false);
+        openCajaLockModal();
+      }
+    } else if (vista === 'comandas') {
       setMode('comandas', false);
-    } else if (vista === 'caja') {
-      setMode('caja', false);
     } else {
       const saved = localStorage.getItem('domus_view');
-      setMode(saved || 'caja', false);
+      if (saved === 'caja' && isCajaAuthorized()) {
+        setMode('caja', false);
+      } else {
+        setMode('comandas', false);
+      }
     }
   }
 
   function setMode(newMode, updateUrl = true) {
+    if (newMode === 'caja' && !isCajaAuthorized()) {
+      openCajaLockModal();
+      return;
+    }
+
     STATE.mode = newMode;
     localStorage.setItem('domus_view', newMode);
 
@@ -2025,6 +2298,11 @@ html, body {
 
     $('viewCaja').classList.toggle('hidden', newMode !== 'caja');
     $('viewComandas').classList.toggle('hidden', newMode !== 'comandas');
+
+    const btnLock = $('btnLockCaja');
+    if (btnLock) {
+      btnLock.classList.toggle('hidden', newMode !== 'caja' || !isCajaAuthorized());
+    }
 
     if (newMode === 'comandas') {
       renderComandasBoard();
@@ -2935,11 +3213,19 @@ html, body {
 
   function saveConfig() {
     const url = $('gasApiUrlInput').value.trim();
-    STATE.apiUrl = url;
-    localStorage.setItem('domus_gas_url', url);
-    STATE.isDemoMode = false;
+    if (url) {
+      STATE.apiUrl = url;
+      localStorage.setItem('domus_gas_url', url);
+      STATE.isDemoMode = false;
+    }
+    const newPin = $('newCajaPasswordInput') ? $('newCajaPasswordInput').value.trim() : '';
+    if (newPin) {
+      localStorage.setItem('domus_caja_pin', newPin);
+      toast('Nueva contraseña de Caja establecida.', 'ok');
+      $('newCajaPasswordInput').value = '';
+    }
     $('configModal').classList.remove('open');
-    toast('Configuración guardada. Probando conexión…', 'ok');
+    toast('Configuración guardada.', 'ok');
     syncBackendData();
   }
 
@@ -2948,6 +3234,46 @@ html, body {
     // Mode Switcher
     $('btnModeCaja').addEventListener('click', () => setMode('caja'));
     $('btnModeComandas').addEventListener('click', () => setMode('comandas'));
+
+    // Bloquear Caja Button
+    const btnLock = $('btnLockCaja');
+    if (btnLock) {
+      btnLock.addEventListener('click', lockCajaOnDevice);
+    }
+
+    // Modal de Bloqueo de Caja / PIN Keypad
+    $('btnSubmitCajaPin').addEventListener('click', unlockCajaWithPin);
+    $('btnCancelCajaUnlock').addEventListener('click', () => {
+      closeCajaLockModal();
+      setMode('comandas');
+    });
+
+    $('cajaPinInput').addEventListener('keydown', e => {
+      if (e.key === 'Enter') unlockCajaWithPin();
+    });
+
+    // Teclado numérico táctil
+    document.querySelectorAll('.pin-key-btn[data-key]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const key = btn.getAttribute('data-key');
+        const input = $('cajaPinInput');
+        if (input.value.length < 20) {
+          input.value += key;
+        }
+      });
+    });
+
+    $('btnPinClear').addEventListener('click', () => {
+      $('cajaPinInput').value = '';
+      $('cajaPinError').textContent = '';
+      $('cajaPinInput').focus();
+    });
+
+    $('btnPinBackspace').addEventListener('click', () => {
+      const input = $('cajaPinInput');
+      input.value = input.value.slice(0, -1);
+      input.focus();
+    });
 
     // Staff Selector
     $('staffSelect').addEventListener('change', e => {
