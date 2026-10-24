@@ -149,8 +149,16 @@ function handleApiGetRequest_(action, params) {
       data = accesoSimpleDatos();
     } else if (action === 'cajaSimpleEstado') {
       data = cajaSimpleEstado(params.id || '');
+    } else if (action === 'ping' || action === 'health') {
+      data = {
+        status: 'HEALTHY',
+        environment: CONFIG.environment,
+        mainSheetId: CONFIG.mainSheetId,
+        opsSheetId: CONFIG.opsSheetId,
+        timestamp: new Date().toISOString()
+      };
     } else {
-      data = { status: 'DOMUS OS API Activa', timestamp: new Date().toISOString() };
+      data = { status: 'DOMUS OS API Activa', environment: CONFIG.environment, timestamp: new Date().toISOString() };
     }
 
     return ContentService.createTextOutput(JSON.stringify({ ok: true, data: data }))

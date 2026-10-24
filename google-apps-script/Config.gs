@@ -37,18 +37,18 @@ function getActiveEnvironment_() {
       const props = PropertiesService.getScriptProperties();
       const propEnv = props.getProperty('DOMUS_ENV');
       
-      const customMain = props.getProperty('STAGING_MAIN_SHEET_ID') || ENVIRONMENTS.STAGING.mainSheetId;
-      const customOps = props.getProperty('STAGING_OPS_SHEET_ID') || ENVIRONMENTS.STAGING.opsSheetId;
-
-      if (propEnv === 'STAGING' || (customMain && customOps)) {
-        return {
-          name: 'STAGING',
-          mainSheetId: customMain || ENVIRONMENTS.STAGING.mainSheetId,
-          opsSheetId: customOps || ENVIRONMENTS.STAGING.opsSheetId
-        };
-      }
       if (propEnv === 'PRODUCTION') {
         return ENVIRONMENTS.PRODUCTION;
+      }
+
+      if (propEnv === 'STAGING') {
+        const customMain = props.getProperty('STAGING_MAIN_SHEET_ID') || ENVIRONMENTS.STAGING.mainSheetId;
+        const customOps = props.getProperty('STAGING_OPS_SHEET_ID') || ENVIRONMENTS.STAGING.opsSheetId;
+        return {
+          name: 'STAGING',
+          mainSheetId: customMain,
+          opsSheetId: customOps
+        };
       }
     }
   } catch (e) {}
@@ -57,6 +57,7 @@ function getActiveEnvironment_() {
     return ENVIRONMENTS[D.env];
   }
 
+  // Por seguridad en branch de aislamiento, si los IDs de Staging están configurados se usa STAGING
   if (ENVIRONMENTS.STAGING.mainSheetId && ENVIRONMENTS.STAGING.opsSheetId) {
     return ENVIRONMENTS.STAGING;
   }

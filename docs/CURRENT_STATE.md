@@ -3,9 +3,9 @@
 > [!NOTE]
 > Este archivo resume el estado técnico del sistema. La fuente de verdad para el commit activo siempre es el comando `git rev-parse HEAD`.
 
-* **Fecha de Último Handoff:** 2026-10-24 02:20 UTC-6
+* **Fecha de Último Handoff:** 2026-10-24 02:45 UTC-6
 * **Rama Activa:** `stabilization/backend-v1`
-* **LAST_VERIFIED_COMMIT:** `5dd47ab` (Auditado formalmente por ChatGPT / Ariadna)
+* **LAST_VERIFIED_COMMIT:** `320e8f4` (Anclaje verificado de libros de Staging)
 * **HEAD Activo:** Ejecutar `git rev-parse HEAD` para obtener el hash de trabajo actual
 * **Estado de Working Tree al Handoff:** `clean`
 * **Rama `main`:** Congelada en commit `1a89a14` (`production-pre-hardening`)
@@ -17,13 +17,13 @@
 
 | Componente | Archivo(s) | Estado Actual | Evidencia / Próximo Paso |
 | :--- | :--- | :---: | :--- |
-| **Backend Modular (11 archivos)** | `google-apps-script/*.gs` | `LOCAL_TESTED` | Pasa suite `test_gates_audit3.py`. Pendiente despliegue en Staging real. |
-| **RBAC Zero-Trust** | `Auth.gs`, `Api.gs` | `AUDITED` | Concepto aprobado por auditoría. Pendiente prueba #7 en Staging. |
-| **Idempotencia + Payload Binding** | `Idempotency.gs`, `Api.gs` | `LOCAL_TESTED` | SHA-256 canónico y rechazo 409 verificado localmente. Pendiente pruebas 1 y 2 en Staging. |
+| **Backend Modular (11 archivos)** | `google-apps-script/*.gs` | `LOCAL_TESTED` | Pasa suite `test_gates_audit3.py`. `DOMUS_STAGING_BUNDLE.gs` generado (2,116 líneas). |
+| **RBAC Zero-Trust** | `Auth.gs`, `Api.gs` | `AUDITED` | Concepto aprobado por auditoría. Pendiente prueba #7 en Staging real. |
+| **Idempotencia + Payload Binding** | `Idempotency.gs`, `Api.gs` | `LOCAL_TESTED` | SHA-256 canónico y rechazo 409 verificado localmente. Pendiente pruebas 1 y 2 en Staging real. |
 | **Ledger Transaccional (`REQUESTS`)** | `Idempotency.gs`, Sheets | `LOCAL_TESTED` | Estructura de 8 columnas y persistencia en 3 capas verificada. Pendiente validar en Sheets real. |
-| **Mutex Outbox (Web Locks API)** | `js/app.js` | `LOCAL_TESTED` | W3C Web Locks con lease fallback y BroadcastChannel verificado localmente. Pendiente prueba 5 en Staging. |
+| **Mutex Outbox (Web Locks API)** | `js/app.js` | `LOCAL_TESTED` | W3C Web Locks con lease fallback y BroadcastChannel verificado localmente. Pendiente prueba 5 en Staging real. |
 | **Fase 0.5: Ticketing & Access Commerce** | `Access.gs`, `Events.gs`, `index.html`, `js/app.js` | `LOCAL_TESTED` | Canales (Boletera, Preventa, Taquilla, Cortesía), guardarropa desacoplado y modelo 22 campos verificado en `test_phase0_5_accesos.py` (ADR-005). |
-| **Entorno de Staging (14 Pruebas)** | `STAGING_PLAN.md` | `IMPLEMENTED` | Plan y criterios de aceptación definidos. Pendiente duplicación de Sheets y deploy de Apps Script. |
+| **Entorno de Staging (14 Pruebas)** | `STAGING_PLAN.md`, `tests/test_staging_suite.py` | `STAGING_CONFIGURED` | Libros Drive duplicados y anclados (`114VS...` y `1NDpuy...`). Harness automatizado listo. |
 | **Fase 1: Apertura / Turnos / Corte X / Z** | N/A | `PLANNING` | Bloqueado formalmente hasta GO de Fase 0 y 0.5 en Staging. |
 | **Merge a Producción (`main`)** | `main` | `BLOCKED` | Requiere todas las pruebas en `STAGING_VERIFIED` y SLA P95 < 5.0s. |
 
@@ -64,5 +64,6 @@
 ---
 
 ## 🚧 Siguiente Tarea Inmediata
-1. Configurar libro de pruebas duplicado (`DOMUS-STAGING`) y deployment de pruebas en Google Apps Script.
-2. Ejecutar el checklist de 14 pruebas de integración detallado en [`STAGING_PLAN.md`](file:///Users/sadotechdireccion/Documents/GitHub/Admin-Domus/STAGING_PLAN.md).
+1. Desplegar el Web App en Google Apps Script (`DOMUS-STAGING · SISTEMA OPERATIVO`) copiando `DOMUS_STAGING_BUNDLE.gs` e `Index.html`.
+2. Proporcionar la URL del Web App de Staging (`https://script.google.com/macros/s/<ID>/exec`).
+3. Ejecutar la suite automatizada de pruebas con `python3 tests/test_staging_suite.py --url '<STAGING_URL>'` y validar las 14 pruebas de integración y SLA.
