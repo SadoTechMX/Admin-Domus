@@ -25,8 +25,9 @@
 | Fase | Alcance | Estado | Política |
 | :--- | :--- | :---: | :--- |
 | **Fase 0** | Hardening transaccional, modularización, RBAC Zero-Trust, Idempotencia y Outbox. | **~95% (En Staging)** | Implementado en repo local. Pendiente validación real de 14 pruebas en `DOMUS-STAGING`. |
-| **Merge a `main`** | Despliegue de Fase 0 a Producción. | ⛔ **BLOQUEADO (NO-GO)** | Requiere veredicto PASS en las 14 pruebas de Staging y P95 < 5.0s. |
-| **Fase 1** | Apertura de Caja, Turnos, Corte X, Arqueo de Efectivo y Corte Z. | 🔒 **EN ESPERA** | No comenzar hasta que Fase 0 esté aprobada en Staging. |
+| **Fase 0.5** | **Ticketing & Access Commerce**: Canales comerciales, boleteras externas, preventas, transferencias, cortesías y guardarropa desacoplado (ADR-005). | 🟢 **EN IMPLEMENTACIÓN** | Requisito previo indispensable para evitar contaminar el Corte X/Z con ingresos ficticios. |
+| **Merge a `main`** | Despliegue de Fase 0 + 0.5 a Producción. | ⛔ **BLOQUEADO (NO-GO)** | Requiere veredicto PASS en las pruebas de Staging y P95 < 5.0s. |
+| **Fase 1** | Apertura de Caja, Turnos, Corte X, Arqueo de Efectivo y Corte Z. | 🔒 **EN ESPERA** | No comenzar hasta que Fase 0 y 0.5 estén validadas en Staging. |
 
 ---
 
