@@ -313,7 +313,7 @@ function accesoSimpleRegistrar(payload) {
       const cobIdx = Math.max(sCob.getLastRow() + 1, 7);
       const cobFolio = 'REC-TAQ-' + Date.now().toString(36).toUpperCase();
       const cobRow = [
-        cobFolio, new Date(), 'Accesos', rowId, paymentMethod, ticketDoorCharge,
+        cobFolio, new Date(), 'Acceso', rowId, paymentMethod, ticketDoorCharge,
         paymentMethod === 'Efectivo' ? 0 : '', customer, 'ACCESO-WEB:' + rowId,
         '', 'Confirmado', 'Taquilla', ticketDoorCharge, ticketDoorCharge, '',
         activity, 0, 0, 0, 'SISTEMA-WEB'
@@ -326,9 +326,9 @@ function accesoSimpleRegistrar(payload) {
       const cobIdxGua = Math.max(sCob.getLastRow() + 1, 7);
       const cobFolioGua = 'REC-GUA-' + Date.now().toString(36).toUpperCase();
       const cobRowGua = [
-        cobFolioGua, new Date(), 'Guardarropa', guaTicket, paymentMethod, wardrobeAmount,
+        cobFolioGua, new Date(), 'Acceso', guaTicket, paymentMethod, wardrobeAmount,
         paymentMethod === 'Efectivo' ? 0 : '', customer, 'ACCESO-GUA:' + guaTicket,
-        '', 'Confirmado', 'Taquilla', wardrobeAmount, wardrobeAmount, '',
+        '', 'Confirmado', 'Guardarropa', wardrobeAmount, wardrobeAmount, '',
         activity, 0, 0, 0, 'SISTEMA-WEB'
       ];
       sCob.getRange(cobIdxGua, 1, 1, cobRowGua.length).setValues([cobRowGua]);
@@ -372,12 +372,20 @@ function guardarropaDevolver(payload) {
     const sAcc = m.getSheetByName('ACCESO');
     if (!sAcc) throw new Error('Hoja ACCESO no encontrada.');
 
-    const rows = sAcc.getRange('A7:AF506').getValues();
+    const lastRow = Math.max(sAcc.getLastRow(), 7);
+    const rows = sAcc.getRange(7, 1, lastRow - 6, 32).getValues();
     let foundRow = -1;
+    let alreadyReturned = false;
 
     for (let i = 0; i < rows.length; i++) {
-      if (String(rows[i][30]).trim() === ticket || String(rows[i][0]).trim() === ticket) {
+      const rowTicketGuardarropa = String(rows[i][30]).trim();
+      const rowAccessId = String(rows[i][0]).trim();
+      if (rowTicketGuardarropa === ticket || rowAccessId === ticket) {
         foundRow = i + 7;
+        const valCol32 = rows[i][31];
+        if (valCol32 === true || String(valCol32).toUpperCase().includes('DEVUELTO') || String(rows[i][28]).toUpperCase().includes('DEVUELTO')) {
+          alreadyReturned = true;
+        }
         break;
       }
     }
@@ -386,7 +394,12 @@ function guardarropaDevolver(payload) {
       throw new Error(`Ticket de guardarropa "${ticket}" no encontrado.`);
     }
 
+    if (alreadyReturned) {
+      throw new Error(`Prenda del ticket "${ticket}" ya fue devuelta previamente.`);
+    }
+
     sAcc.getRange(foundRow, 32).setValue(true);
+    sAcc.getRange(foundRow, 29).setValue('DEVUELTO');
     SpreadsheetApp.flush();
 
     return {

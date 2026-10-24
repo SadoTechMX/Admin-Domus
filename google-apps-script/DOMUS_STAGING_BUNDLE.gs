@@ -958,147 +958,6 @@ function posExpandCart_(items, cat, phase, canCourtesy) {
 // ==================== END OF POS.gs ====================
 
 
-// ==================== START OF Accounts.gs ====================
-
-/**
- * ============================================================================
- * DOMUS OS · CUSTOMER ACCOUNTS & BALANCES (Accounts.gs)
- * Gestión de saldos de cuentas abiertas, aperturas, autorizaciones y cierres
- * ============================================================================
- */
-
-
-function accountKey_(ticket) {
-  return 'cuenta:' + Utilities.base64EncodeWebSafe(String(ticket));
-}
-
-function account_(ticket) {
-  const raw = PropertiesService.getScriptProperties().getProperty(accountKey_(ticket));
-  return JSON.parse(raw || '{}');
-}
-
-function putAccount_(ticket, a) {
-  PropertiesService.getScriptProperties().setProperty(accountKey_(ticket), JSON.stringify(a));
-}
-
-function posBalanceFast_(x, ticket) {
-  const sCaja = x.c || x.m.getSheetByName('CAJA 2');
-  const sCobros = x.m.getSheetByName('COBROS');
-
-  const rows = sCaja.getRange(7, 1, 500, 32).getValues()
-    .filter(r => String(r[1]) === String(ticket) && r[6] && r[15] !== 'Cancelado');
-
-  const total = rows.reduce((n, r) => n + (Number(r[11]) || 0), 0);
-
-  const paid = sCobros.getRange(7, 1, 500, 14).getValues()
-    .filter(r => r[2] === 'Caja' && String(r[3]) === String(ticket))
-    .reduce((n, r) => n + (Number(r[13]) || 0), 0);
-
-  return {
-    rows: rows,
-    total: posRound_(total),
-    paid: posRound_(paid),
-    due: posRound_(total - paid)
-  };
-}
-
-function closeCashAccount_(x, ticket, who) {
-  const b = posBalanceFast_(x, ticket);
-  if (b.due > 0.01) {
-    throw new Error(`No se puede cerrar la cuenta '${ticket}'. Presenta un saldo pendiente de $${b.due.toFixed(2)}.`);
-  }
-
-  const a = account_(ticket);
-  a.closed = true;
-  a.closedBy = who;
-  a.closedAt = new Date().toISOString();
-  putAccount_(ticket, a);
-
-  return { ok: true, ticket: ticket, message: `Cuenta '${ticket}' cerrada formalmente por ${who}.` };
-}
-
-function reopenCashAccount_(ticket, who, reason) {
-  if (!reason || !String(reason).trim()) {
-    throw new Error('El motivo de reapertura es obligatorio para auditoría.');
-  }
-
-  const a = account_(ticket);
-  a.closed = false;
-  a.events = a.events || [];
-  a.events.push({
-    action: 'Reabrir',
-    who: who,
-    reason: String(reason).trim(),
-    at: new Date().toISOString()
-  });
-  putAccount_(ticket, a);
-
-  return { ok: true, ticket: ticket, message: `Cuenta '${ticket}' reabierta con éxito.` };
-}
-
-// ==================== END OF Accounts.gs ====================
-
-
-// ==================== START OF Payments.gs ====================
-
-/**
- * ============================================================================
- * DOMUS OS · PAYMENTS & CONCILIATION (Payments.gs)
- * Registro de transacciones en COBROS, validación de medios de pago y folios
- * ============================================================================
- */
-
-
-/**
- * Registra un cobro asentado en la hoja maestra COBROS
- */
-function recordPaymentTransaction_(m, payload) {
-  const sCobros = m.getSheetByName('COBROS');
-  if (!sCobros) throw new Error('Hoja COBROS no encontrada.');
-
-  const folio = payload.folio || ('REC-' + Date.now().toString(36).toUpperCase());
-  const now = new Date();
-  const nextRow = Math.max(sCobros.getLastRow() + 1, 7);
-
-  const rowData = [
-    folio,
-    now,
-    payload.origin || 'Caja',
-    payload.ticket || '',
-    payload.method || 'Efectivo',
-    Number(payload.amount) || 0,
-    payload.method === 'Efectivo' ? 0 : '',
-    payload.customer || 'Público General',
-    payload.tag || ('PAGO:' + folio),
-    '',
-    payload.method === 'Transferencia' ? 'Borrador' : 'Confirmado',
-    payload.operator || 'Caja',
-    Number(payload.amount) || 0,
-    Number(payload.amount) || 0,
-    '',
-    payload.activity || 'Visita general DOMUS',
-    0, 0, 0, 'SISTEMA-WEB',
-    '', '', '', '', '', '', '',
-    payload.detailsJson || '',
-    Number(payload.tip) || 0,
-    payload.received !== undefined && payload.received !== null ? Number(payload.received) : '',
-    payload.change !== undefined && payload.change !== null ? Number(payload.change) : ''
-  ];
-
-  sCobros.getRange(nextRow, 1, 1, rowData.length).setValues([rowData]);
-  SpreadsheetApp.flush();
-
-  return {
-    folio: folio,
-    amount: Number(payload.amount) || 0,
-    method: payload.method,
-    date: now
-  };
-}
-
-// ==================== END OF Payments.gs ====================
-
-
 // ==================== START OF KDS.gs ====================
 
 /**
@@ -1299,6 +1158,187 @@ function comandasSimpleEntrar(token) {
 }
 
 // ==================== END OF KDS.gs ====================
+
+
+// ==================== START OF Inventory.gs ====================
+
+/**
+ * ============================================================================
+ * DOMUS OS · INVENTORY & CATALOG MODULE (Inventory.gs)
+ * Catálogo de productos, recetas, inventario y homologación con la Carta Oficial
+ * ============================================================================
+ */
+
+
+/**
+ * Sincroniza la Carta Oficial Definitiva hacia CATALOGO e INVENTARIO
+ * Protege contra sobreescritura ciega y colisión de claves SKU
+ */
+function sincronizarCartaConCatalogoDOMUS() {
+  const sourceId = '1F5PrL19pRabjbgkI035Q2bf2np5Xy3MUL1KdZgMnOHQ';
+  const targetId = CONFIG.mainSheetId;
+
+  return withLock_(CONFIG.lockTimeoutMs, () => {
+    const sSource = SpreadsheetApp.openById(sourceId);
+    const sTarget = SpreadsheetApp.openById(targetId);
+
+    // 1. Localizar pestaña de Carta Oficial
+    let sheetSource = null;
+    const sheets = sSource.getSheets();
+    for (let s of sheets) {
+      if (s.getName().toUpperCase().includes('CARTA') || s.getSheetId() === 926692473) {
+        sheetSource = s;
+        break;
+      }
+    }
+    if (!sheetSource) sheetSource = sheets[0];
+
+    const raw = sheetSource.getDataRange().getValues();
+    let headerIndex = -1;
+    for (let i = 0; i < raw.length; i++) {
+      if (raw[i][1] && String(raw[i][1]).toUpperCase().includes('PRODUCTO')) {
+        headerIndex = i;
+        break;
+      }
+    }
+
+    if (headerIndex < 0) throw new Error('No se encontró la cabecera de productos en la Carta Oficial.');
+
+    const rows = raw.slice(headerIndex + 1);
+    const catalogRows = [];
+    const inventoryRows = [];
+    const seenSkus = new Set();
+    let skuCounter = 1;
+
+    rows.forEach(r => {
+      const cat = String(r[0] || '').trim();
+      const name = String(r[1] || '').trim();
+      if (!name) return;
+
+      const rawSolar = String(r[2] || '').replace(/[$,]/g, '').trim();
+      const rawLunar = String(r[3] || '').replace(/[$,]/g, '').trim();
+      const priceSolar = parseFloat(rawSolar) || 0;
+      const priceLunar = parseFloat(rawLunar) || priceSolar;
+      const provider = String(r[4] || 'DOMUS').trim();
+      let sku = String(r[5] || '').trim();
+
+      // Resolver colisión de SKUs si están vacíos o repetidos
+      if (!sku || seenSkus.has(sku)) {
+        sku = (sku ? sku + '-' : 'SKU-') + String(skuCounter++).padStart(3, '0');
+      }
+      seenSkus.add(sku);
+
+      const dest = (cat.includes('ALIMENTOS') || cat.includes('CANNA') || cat.includes('COMIDA')) ? 'Cocina' : 'Barra';
+
+      // Fila para CATALOGO (A - S)
+      catalogRows.push([
+        name, cat, priceSolar, 0, provider, '', sku, dest, 'Sí',
+        '', '', '', '', '', '', 'Sí', priceSolar, priceLunar, 'Sí'
+      ]);
+
+      // Fila para INVENTARIO: SKU, Nombre, Categoria, Proveedor, Unidad, Stock Inicial, Reservado, Disponible, Destino
+      inventoryRows.push([
+        sku, name, cat, provider, 'Unidad', 50, 0, 50, dest
+      ]);
+    });
+
+    // Garantizar integración de rollos de sushi JujuTsu-shi
+    const jujutsuList = [
+      { name: 'Rollo Nobara', sku: 'JJ01' },
+      { name: 'Rollo Itadori', sku: 'JJ02' },
+      { name: 'Rollo Megumi', sku: 'JJ03' },
+      { name: 'Rollo Maki', sku: 'JJ04' },
+      { name: 'Rollo Todo', sku: 'JJ05' },
+      { name: 'Rollo Choso', sku: 'JJ06' },
+      { name: 'Rollo Gojo', sku: 'JJ07' },
+      { name: 'Rollo Sasaki', sku: 'JJ08' },
+      { name: 'Rollo Rika', sku: 'JJ09' }
+    ];
+
+    const existingNames = new Set(catalogRows.map(r => String(r[0]).toUpperCase()));
+    jujutsuList.forEach(j => {
+      if (!existingNames.has(j.name.toUpperCase())) {
+        catalogRows.push([
+          j.name, 'Sushi', 100, 0, 'JujuTsu-shi', '', j.sku, 'Cocina', 'Sí',
+          '', '', '', '', '', '', 'Sí', 100, 100, 'Sí'
+        ]);
+        inventoryRows.push([
+          j.sku, j.name, 'Sushi', 'JujuTsu-shi', 'Unidad', 50, 0, 50, 'Cocina'
+        ]);
+      }
+    });
+
+    // Escribir en CATALOGO a partir de fila 7
+    const sheetCat = sTarget.getSheetByName('CATALOGO');
+    if (sheetCat) {
+      sheetCat.getRange(7, 1, catalogRows.length, catalogRows[0].length).setValues(catalogRows);
+    }
+
+    // Escribir en INVENTARIO a partir de fila 7
+    const sheetInv = sTarget.getSheetByName('INVENTARIO');
+    if (sheetInv) {
+      sheetInv.getRange(7, 1, inventoryRows.length, inventoryRows[0].length).setValues(inventoryRows);
+    }
+
+    SpreadsheetApp.flush();
+    return {
+      ok: true,
+      total: catalogRows.length,
+      message: `Se sincronizaron con éxito ${catalogRows.length} productos en CATALOGO e INVENTARIO sin colisiones de SKU.`
+    };
+  });
+}
+
+/**
+ * Registra un producto individual en CATALOGO e INVENTARIO bajo candado
+ */
+function registrarNuevoProducto(prod) {
+  if (!prod || !prod.name) throw new Error('El nombre del producto es obligatorio.');
+
+  return withLock_(CONFIG.lockTimeoutMs, () => {
+    const sTarget = SpreadsheetApp.openById(CONFIG.mainSheetId);
+    const name = String(prod.name).trim();
+    const cat = String(prod.group || 'General').trim();
+    const priceSolar = parseFloat(prod.priceSolar) || parseFloat(prod.price) || 0;
+    const priceLunar = parseFloat(prod.priceLunar) || priceSolar;
+    const provider = String(prod.provider || 'DOMUS').trim();
+    const sku = String(prod.sku || ('PRD-' + Date.now().toString(36).toUpperCase())).trim();
+    const dest = String(prod.destination || (cat.includes('ALIMENTOS') || cat.includes('CANNA') || cat.includes('COMIDA') || cat.includes('SUSHI') ? 'Cocina' : 'Barra')).trim();
+    const stock = parseInt(prod.stock, 10) || 50;
+
+    // 1. Insertar en CATALOGO
+    const sheetCat = sTarget.getSheetByName('CATALOGO');
+    if (sheetCat) {
+      const lastRow = Math.max(sheetCat.getLastRow(), 6);
+      const row = [
+        name, cat, priceSolar, 0, provider, '', sku, dest, 'Sí',
+        '', '', '', '', '', '', 'Sí', priceSolar, priceLunar, 'Sí'
+      ];
+      sheetCat.getRange(lastRow + 1, 1, 1, row.length).setValues([row]);
+    }
+
+    // 2. Insertar en INVENTARIO
+    const sheetInv = sTarget.getSheetByName('INVENTARIO');
+    if (sheetInv) {
+      const lastRow = Math.max(sheetInv.getLastRow(), 6);
+      const invRow = [sku, name, cat, provider, 'Unidad', stock, 0, stock, dest];
+      sheetInv.getRange(lastRow + 1, 1, 1, invRow.length).setValues([invRow]);
+    }
+
+    SpreadsheetApp.flush();
+    return {
+      ok: true,
+      message: `Producto "${name}" registrado en CATALOGO e INVENTARIO.`,
+      product: { name, group: cat, priceSolar, priceLunar, destination: dest, sku, provider }
+    };
+  });
+}
+
+function sincronizarJujutsuShi() {
+  return sincronizarCartaConCatalogoDOMUS();
+}
+
+// ==================== END OF Inventory.gs ====================
 
 
 // ==================== START OF Access.gs ====================
@@ -1617,7 +1657,7 @@ function accesoSimpleRegistrar(payload) {
       const cobIdx = Math.max(sCob.getLastRow() + 1, 7);
       const cobFolio = 'REC-TAQ-' + Date.now().toString(36).toUpperCase();
       const cobRow = [
-        cobFolio, new Date(), 'Accesos', rowId, paymentMethod, ticketDoorCharge,
+        cobFolio, new Date(), 'Acceso', rowId, paymentMethod, ticketDoorCharge,
         paymentMethod === 'Efectivo' ? 0 : '', customer, 'ACCESO-WEB:' + rowId,
         '', 'Confirmado', 'Taquilla', ticketDoorCharge, ticketDoorCharge, '',
         activity, 0, 0, 0, 'SISTEMA-WEB'
@@ -1630,9 +1670,9 @@ function accesoSimpleRegistrar(payload) {
       const cobIdxGua = Math.max(sCob.getLastRow() + 1, 7);
       const cobFolioGua = 'REC-GUA-' + Date.now().toString(36).toUpperCase();
       const cobRowGua = [
-        cobFolioGua, new Date(), 'Guardarropa', guaTicket, paymentMethod, wardrobeAmount,
+        cobFolioGua, new Date(), 'Acceso', guaTicket, paymentMethod, wardrobeAmount,
         paymentMethod === 'Efectivo' ? 0 : '', customer, 'ACCESO-GUA:' + guaTicket,
-        '', 'Confirmado', 'Taquilla', wardrobeAmount, wardrobeAmount, '',
+        '', 'Confirmado', 'Guardarropa', wardrobeAmount, wardrobeAmount, '',
         activity, 0, 0, 0, 'SISTEMA-WEB'
       ];
       sCob.getRange(cobIdxGua, 1, 1, cobRowGua.length).setValues([cobRowGua]);
@@ -1676,12 +1716,20 @@ function guardarropaDevolver(payload) {
     const sAcc = m.getSheetByName('ACCESO');
     if (!sAcc) throw new Error('Hoja ACCESO no encontrada.');
 
-    const rows = sAcc.getRange('A7:AF506').getValues();
+    const lastRow = Math.max(sAcc.getLastRow(), 7);
+    const rows = sAcc.getRange(7, 1, lastRow - 6, 32).getValues();
     let foundRow = -1;
+    let alreadyReturned = false;
 
     for (let i = 0; i < rows.length; i++) {
-      if (String(rows[i][30]).trim() === ticket || String(rows[i][0]).trim() === ticket) {
+      const rowTicketGuardarropa = String(rows[i][30]).trim();
+      const rowAccessId = String(rows[i][0]).trim();
+      if (rowTicketGuardarropa === ticket || rowAccessId === ticket) {
         foundRow = i + 7;
+        const valCol32 = rows[i][31];
+        if (valCol32 === true || String(valCol32).toUpperCase().includes('DEVUELTO') || String(rows[i][28]).toUpperCase().includes('DEVUELTO')) {
+          alreadyReturned = true;
+        }
         break;
       }
     }
@@ -1690,7 +1738,12 @@ function guardarropaDevolver(payload) {
       throw new Error(`Ticket de guardarropa "${ticket}" no encontrado.`);
     }
 
+    if (alreadyReturned) {
+      throw new Error(`Prenda del ticket "${ticket}" ya fue devuelta previamente.`);
+    }
+
     sAcc.getRange(foundRow, 32).setValue(true);
+    sAcc.getRange(foundRow, 29).setValue('DEVUELTO');
     SpreadsheetApp.flush();
 
     return {
@@ -1714,185 +1767,145 @@ function accesoCambiarActividad(payload) {
 // ==================== END OF Access.gs ====================
 
 
-// ==================== START OF Inventory.gs ====================
+// ==================== START OF Payments.gs ====================
 
 /**
  * ============================================================================
- * DOMUS OS · INVENTORY & CATALOG MODULE (Inventory.gs)
- * Catálogo de productos, recetas, inventario y homologación con la Carta Oficial
+ * DOMUS OS · PAYMENTS & CONCILIATION (Payments.gs)
+ * Registro de transacciones en COBROS, validación de medios de pago y folios
  * ============================================================================
  */
 
 
 /**
- * Sincroniza la Carta Oficial Definitiva hacia CATALOGO e INVENTARIO
- * Protege contra sobreescritura ciega y colisión de claves SKU
+ * Registra un cobro asentado en la hoja maestra COBROS
  */
-function sincronizarCartaConCatalogoDOMUS() {
-  const sourceId = '1F5PrL19pRabjbgkI035Q2bf2np5Xy3MUL1KdZgMnOHQ';
-  const targetId = CONFIG.mainSheetId;
+function recordPaymentTransaction_(m, payload) {
+  const sCobros = m.getSheetByName('COBROS');
+  if (!sCobros) throw new Error('Hoja COBROS no encontrada.');
 
-  return withLock_(CONFIG.lockTimeoutMs, () => {
-    const sSource = SpreadsheetApp.openById(sourceId);
-    const sTarget = SpreadsheetApp.openById(targetId);
+  const folio = payload.folio || ('REC-' + Date.now().toString(36).toUpperCase());
+  const now = new Date();
+  const nextRow = Math.max(sCobros.getLastRow() + 1, 7);
 
-    // 1. Localizar pestaña de Carta Oficial
-    let sheetSource = null;
-    const sheets = sSource.getSheets();
-    for (let s of sheets) {
-      if (s.getName().toUpperCase().includes('CARTA') || s.getSheetId() === 926692473) {
-        sheetSource = s;
-        break;
-      }
-    }
-    if (!sheetSource) sheetSource = sheets[0];
+  const rowData = [
+    folio,
+    now,
+    payload.origin || 'Caja',
+    payload.ticket || '',
+    payload.method || 'Efectivo',
+    Number(payload.amount) || 0,
+    payload.method === 'Efectivo' ? 0 : '',
+    payload.customer || 'Público General',
+    payload.tag || ('PAGO:' + folio),
+    '',
+    payload.method === 'Transferencia' ? 'Borrador' : 'Confirmado',
+    payload.operator || 'Caja',
+    Number(payload.amount) || 0,
+    Number(payload.amount) || 0,
+    '',
+    payload.activity || 'Visita general DOMUS',
+    0, 0, 0, 'SISTEMA-WEB',
+    '', '', '', '', '', '', '',
+    payload.detailsJson || '',
+    Number(payload.tip) || 0,
+    payload.received !== undefined && payload.received !== null ? Number(payload.received) : '',
+    payload.change !== undefined && payload.change !== null ? Number(payload.change) : ''
+  ];
 
-    const raw = sheetSource.getDataRange().getValues();
-    let headerIndex = -1;
-    for (let i = 0; i < raw.length; i++) {
-      if (raw[i][1] && String(raw[i][1]).toUpperCase().includes('PRODUCTO')) {
-        headerIndex = i;
-        break;
-      }
-    }
+  sCobros.getRange(nextRow, 1, 1, rowData.length).setValues([rowData]);
+  SpreadsheetApp.flush();
 
-    if (headerIndex < 0) throw new Error('No se encontró la cabecera de productos en la Carta Oficial.');
-
-    const rows = raw.slice(headerIndex + 1);
-    const catalogRows = [];
-    const inventoryRows = [];
-    const seenSkus = new Set();
-    let skuCounter = 1;
-
-    rows.forEach(r => {
-      const cat = String(r[0] || '').trim();
-      const name = String(r[1] || '').trim();
-      if (!name) return;
-
-      const rawSolar = String(r[2] || '').replace(/[$,]/g, '').trim();
-      const rawLunar = String(r[3] || '').replace(/[$,]/g, '').trim();
-      const priceSolar = parseFloat(rawSolar) || 0;
-      const priceLunar = parseFloat(rawLunar) || priceSolar;
-      const provider = String(r[4] || 'DOMUS').trim();
-      let sku = String(r[5] || '').trim();
-
-      // Resolver colisión de SKUs si están vacíos o repetidos
-      if (!sku || seenSkus.has(sku)) {
-        sku = (sku ? sku + '-' : 'SKU-') + String(skuCounter++).padStart(3, '0');
-      }
-      seenSkus.add(sku);
-
-      const dest = (cat.includes('ALIMENTOS') || cat.includes('CANNA') || cat.includes('COMIDA')) ? 'Cocina' : 'Barra';
-
-      // Fila para CATALOGO (A - S)
-      catalogRows.push([
-        name, cat, priceSolar, 0, provider, '', sku, dest, 'Sí',
-        '', '', '', '', '', '', 'Sí', priceSolar, priceLunar, 'Sí'
-      ]);
-
-      // Fila para INVENTARIO: SKU, Nombre, Categoria, Proveedor, Unidad, Stock Inicial, Reservado, Disponible, Destino
-      inventoryRows.push([
-        sku, name, cat, provider, 'Unidad', 50, 0, 50, dest
-      ]);
-    });
-
-    // Garantizar integración de rollos de sushi JujuTsu-shi
-    const jujutsuList = [
-      { name: 'Rollo Nobara', sku: 'JJ01' },
-      { name: 'Rollo Itadori', sku: 'JJ02' },
-      { name: 'Rollo Megumi', sku: 'JJ03' },
-      { name: 'Rollo Maki', sku: 'JJ04' },
-      { name: 'Rollo Todo', sku: 'JJ05' },
-      { name: 'Rollo Choso', sku: 'JJ06' },
-      { name: 'Rollo Gojo', sku: 'JJ07' },
-      { name: 'Rollo Sasaki', sku: 'JJ08' },
-      { name: 'Rollo Rika', sku: 'JJ09' }
-    ];
-
-    const existingNames = new Set(catalogRows.map(r => String(r[0]).toUpperCase()));
-    jujutsuList.forEach(j => {
-      if (!existingNames.has(j.name.toUpperCase())) {
-        catalogRows.push([
-          j.name, 'Sushi', 100, 0, 'JujuTsu-shi', '', j.sku, 'Cocina', 'Sí',
-          '', '', '', '', '', '', 'Sí', 100, 100, 'Sí'
-        ]);
-        inventoryRows.push([
-          j.sku, j.name, 'Sushi', 'JujuTsu-shi', 'Unidad', 50, 0, 50, 'Cocina'
-        ]);
-      }
-    });
-
-    // Escribir en CATALOGO a partir de fila 7
-    const sheetCat = sTarget.getSheetByName('CATALOGO');
-    if (sheetCat) {
-      sheetCat.getRange(7, 1, catalogRows.length, catalogRows[0].length).setValues(catalogRows);
-    }
-
-    // Escribir en INVENTARIO a partir de fila 7
-    const sheetInv = sTarget.getSheetByName('INVENTARIO');
-    if (sheetInv) {
-      sheetInv.getRange(7, 1, inventoryRows.length, inventoryRows[0].length).setValues(inventoryRows);
-    }
-
-    SpreadsheetApp.flush();
-    return {
-      ok: true,
-      total: catalogRows.length,
-      message: `Se sincronizaron con éxito ${catalogRows.length} productos en CATALOGO e INVENTARIO sin colisiones de SKU.`
-    };
-  });
+  return {
+    folio: folio,
+    amount: Number(payload.amount) || 0,
+    method: payload.method,
+    date: now
+  };
 }
+
+// ==================== END OF Payments.gs ====================
+
+
+// ==================== START OF Accounts.gs ====================
 
 /**
- * Registra un producto individual en CATALOGO e INVENTARIO bajo candado
+ * ============================================================================
+ * DOMUS OS · CUSTOMER ACCOUNTS & BALANCES (Accounts.gs)
+ * Gestión de saldos de cuentas abiertas, aperturas, autorizaciones y cierres
+ * ============================================================================
  */
-function registrarNuevoProducto(prod) {
-  if (!prod || !prod.name) throw new Error('El nombre del producto es obligatorio.');
 
-  return withLock_(CONFIG.lockTimeoutMs, () => {
-    const sTarget = SpreadsheetApp.openById(CONFIG.mainSheetId);
-    const name = String(prod.name).trim();
-    const cat = String(prod.group || 'General').trim();
-    const priceSolar = parseFloat(prod.priceSolar) || parseFloat(prod.price) || 0;
-    const priceLunar = parseFloat(prod.priceLunar) || priceSolar;
-    const provider = String(prod.provider || 'DOMUS').trim();
-    const sku = String(prod.sku || ('PRD-' + Date.now().toString(36).toUpperCase())).trim();
-    const dest = String(prod.destination || (cat.includes('ALIMENTOS') || cat.includes('CANNA') || cat.includes('COMIDA') || cat.includes('SUSHI') ? 'Cocina' : 'Barra')).trim();
-    const stock = parseInt(prod.stock, 10) || 50;
 
-    // 1. Insertar en CATALOGO
-    const sheetCat = sTarget.getSheetByName('CATALOGO');
-    if (sheetCat) {
-      const lastRow = Math.max(sheetCat.getLastRow(), 6);
-      const row = [
-        name, cat, priceSolar, 0, provider, '', sku, dest, 'Sí',
-        '', '', '', '', '', '', 'Sí', priceSolar, priceLunar, 'Sí'
-      ];
-      sheetCat.getRange(lastRow + 1, 1, 1, row.length).setValues([row]);
-    }
+function accountKey_(ticket) {
+  return 'cuenta:' + Utilities.base64EncodeWebSafe(String(ticket));
+}
 
-    // 2. Insertar en INVENTARIO
-    const sheetInv = sTarget.getSheetByName('INVENTARIO');
-    if (sheetInv) {
-      const lastRow = Math.max(sheetInv.getLastRow(), 6);
-      const invRow = [sku, name, cat, provider, 'Unidad', stock, 0, stock, dest];
-      sheetInv.getRange(lastRow + 1, 1, 1, invRow.length).setValues([invRow]);
-    }
+function account_(ticket) {
+  const raw = PropertiesService.getScriptProperties().getProperty(accountKey_(ticket));
+  return JSON.parse(raw || '{}');
+}
 
-    SpreadsheetApp.flush();
-    return {
-      ok: true,
-      message: `Producto "${name}" registrado en CATALOGO e INVENTARIO.`,
-      product: { name, group: cat, priceSolar, priceLunar, destination: dest, sku, provider }
-    };
+function putAccount_(ticket, a) {
+  PropertiesService.getScriptProperties().setProperty(accountKey_(ticket), JSON.stringify(a));
+}
+
+function posBalanceFast_(x, ticket) {
+  const sCaja = x.c || x.m.getSheetByName('CAJA 2');
+  const sCobros = x.m.getSheetByName('COBROS');
+
+  const rows = sCaja.getRange(7, 1, 500, 32).getValues()
+    .filter(r => String(r[1]) === String(ticket) && r[6] && r[15] !== 'Cancelado');
+
+  const total = rows.reduce((n, r) => n + (Number(r[11]) || 0), 0);
+
+  const paid = sCobros.getRange(7, 1, 500, 14).getValues()
+    .filter(r => r[2] === 'Caja' && String(r[3]) === String(ticket))
+    .reduce((n, r) => n + (Number(r[13]) || 0), 0);
+
+  return {
+    rows: rows,
+    total: posRound_(total),
+    paid: posRound_(paid),
+    due: posRound_(total - paid)
+  };
+}
+
+function closeCashAccount_(x, ticket, who) {
+  const b = posBalanceFast_(x, ticket);
+  if (b.due > 0.01) {
+    throw new Error(`No se puede cerrar la cuenta '${ticket}'. Presenta un saldo pendiente de $${b.due.toFixed(2)}.`);
+  }
+
+  const a = account_(ticket);
+  a.closed = true;
+  a.closedBy = who;
+  a.closedAt = new Date().toISOString();
+  putAccount_(ticket, a);
+
+  return { ok: true, ticket: ticket, message: `Cuenta '${ticket}' cerrada formalmente por ${who}.` };
+}
+
+function reopenCashAccount_(ticket, who, reason) {
+  if (!reason || !String(reason).trim()) {
+    throw new Error('El motivo de reapertura es obligatorio para auditoría.');
+  }
+
+  const a = account_(ticket);
+  a.closed = false;
+  a.events = a.events || [];
+  a.events.push({
+    action: 'Reabrir',
+    who: who,
+    reason: String(reason).trim(),
+    at: new Date().toISOString()
   });
+  putAccount_(ticket, a);
+
+  return { ok: true, ticket: ticket, message: `Cuenta '${ticket}' reabierta con éxito.` };
 }
 
-function sincronizarJujutsuShi() {
-  return sincronizarCartaConCatalogoDOMUS();
-}
-
-// ==================== END OF Inventory.gs ====================
+// ==================== END OF Accounts.gs ====================
 
 
 // ==================== START OF Events.gs ====================
