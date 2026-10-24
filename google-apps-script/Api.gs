@@ -50,6 +50,14 @@ function doGet(e) {
 }
 
 /**
+ * Compatibilidad hacia atrás con extensiones heredadas de Apps Script (ej. ComandasSimple)
+ * Desactiva el error 'Instalacion incompleta: renombra el doGet original a domusCajaDoGetOriginal_'
+ */
+function domusCajaDoGetOriginal_(e) {
+  return doGet(e);
+}
+
+/**
  * Enrutador POST: Recepción de mutaciones transaccionales y RPC
  */
 function doPost(e) {
