@@ -12,21 +12,20 @@ Validar el comportamiento del sistema ante condiciones de red inestables, concur
 ## 🏗️ 1. Infraestructura de Staging
 
 ### A. Copia del Libro de Google Sheets (`DOMUS-STAGING`)
-Duplicar el libro maestro de producción (`1KQz8oJ4VaWFsqS2-sg25HMCm60SdSoQpIDlCDSV5J1U`) y asignarle el nombre `DOMUS_STAGING_DB`:
-1. `CAJA 2`
-2. `COBROS`
-3. `COMANDAS`
-4. `CATALOGO`
-5. `INVENTARIO`
-6. `ACCESO`
-7. `ACTIVIDADES`
-8. `REQUESTS` (Ledger transaccional de idempotencia)
+Libros duplicados y verificados en Google Drive (Aislamiento Total de Producción):
+1. **DOMUS-STAGING · SISTEMA OPERATIVO:** `114VSwo3bXyn_audh1LHr4qqjW5aSDSTP_bR_-Iz5dkg`
+   Hojas: `CAJA 2`, `COBROS`, `COMANDAS`, `CATALOGO`, `INVENTARIO`, `ACCESO`, `ACTIVIDADES`, `REQUESTS`
+2. **DOMUS-STAGING · BARRA Y RESURTIDO:** `1NDpuyx6EfCHcoKW9CZ6pwR0oe2JS0aKpTTMa7RdqmlE`
+   Hojas: `BARRA`, `RESURTIDO`, `MERMAS`
 
 ### B. Deployment Separado de Google Apps Script (`DOMUS-STAGING`)
 1. Crear un proyecto independiente en [script.google.com](https://script.google.com) o una implementación separada tipo *Staging*.
-2. Configurar en `Config.gs`:
+2. Configurado en `Config.gs`:
    ```javascript
-   mainSheetId: '<STAGING_SPREADSHEET_ID>'
+   STAGING: {
+     mainSheetId: '114VSwo3bXyn_audh1LHr4qqjW5aSDSTP_bR_-Iz5dkg',
+     opsSheetId: '1NDpuyx6EfCHcoKW9CZ6pwR0oe2JS0aKpTTMa7RdqmlE'
+   }
    ```
 3. Desplegar como Web App:
    - *Ejecutar como:* Usuario que accede o cuenta de servicio staging.

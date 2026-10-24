@@ -9,7 +9,7 @@ Registro formal y auditable de versiones, commits, tags, deployments de Google A
 | Release | Git commit | Git tag | Apps Script deployment ID | Apps Script version | Schema version | Frontend version | Fecha | Responsable | Resultado pruebas | Rollback target |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
 | **v1.0.0-pre-hardening** | `1a89a14` | `production-pre-hardening` | `@exec-prod` | `v1` | `DOMUS-DB-v1` | `1.0.0` | 2026-10-24 | René / SadoTech | ✅ Estable en Producción | N/A (Baseline) |
-| **v1.1.0-stabilization** | En progreso (`stabilization/backend-v1`) | `staging-stabilization-v1` | `DOMUS-STAGING` (Pendiente) | `v2-modular` | `DOMUS-DB-v1.1` (incluye hoja `REQUESTS`) | `1.1.0` | 2026-10-24 | Antigravity IDE | 🟡 Pruebas locales 100% PASS; pendiente Staging real (14 pruebas) | `1a89a14` (`production-pre-hardening`) |
+| **v1.1.0-stabilization** | En progreso (`stabilization/backend-v1`) | `staging-stabilization-v1` | `DOMUS-STAGING` (Hojas vinculadas: `114VSwo3...` y `1NDpuyx6...`) | `v2-modular` | `DOMUS-DB-v1.1` (incluye hoja `REQUESTS`) | `1.1.0` | 2026-10-24 | Antigravity IDE | 🟡 Pruebas locales 100% PASS; pendiente Staging real (14 pruebas) | `1a89a14` (`production-pre-hardening`) |
 
 ---
 

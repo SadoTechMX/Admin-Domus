@@ -18,9 +18,8 @@ const ENVIRONMENTS = Object.freeze({
   }),
   STAGING: Object.freeze({
     name: 'STAGING',
-    // Los IDs de Staging se actualizan al duplicar los libros en Drive o mediante ScriptProperties
-    mainSheetId: '', // DOMUS-STAGING · SISTEMA OPERATIVO
-    opsSheetId: ''   // DOMUS-STAGING · BARRA Y RESURTIDO
+    mainSheetId: '114VSwo3bXyn_audh1LHr4qqjW5aSDSTP_bR_-Iz5dkg', // DOMUS-STAGING · SISTEMA OPERATIVO
+    opsSheetId: '1NDpuyx6EfCHcoKW9CZ6pwR0oe2JS0aKpTTMa7RdqmlE'    // DOMUS-STAGING · BARRA Y RESURTIDO
   })
 });
 
