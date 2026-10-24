@@ -53,6 +53,8 @@ function doPost(e) {
       result = comandasSimpleResolver(args[0], args[1]);
     } else if (action === 'comandasSimpleEntrar') {
       result = comandasSimpleEntrar(args[0]);
+    } else if (action === 'sincronizarCartaConCatalogoDOMUS') {
+      result = sincronizarCartaConCatalogoDOMUS();
     } else {
       throw new Error('Acción no soportada: ' + action);
     }
@@ -225,3 +227,89 @@ function comandasSimpleDatos(token) {
     issues: []
   };
 }
+
+/**
+ * Sincroniza la Carta Oficial Definitiva (120 productos con precios Solar y Lunar)
+ * desde la hoja '1F5PrL19pRabjbgkI035Q2bf2np5Xy3MUL1KdZgMnOHQ'
+ * directamente hacia las hojas 'CATALOGO' e 'INVENTARIO' del libro maestro '1KQz8oJ4VaWFsqS2-sg25HMCm60SdSoQpIDlCDSV5J1U'
+ */
+function sincronizarCartaConCatalogoDOMUS() {
+  const sourceId = '1F5PrL19pRabjbgkI035Q2bf2np5Xy3MUL1KdZgMnOHQ';
+  const targetId = CONFIG.mainSheetId; // 1KQz8oJ4VaWFsqS2-sg25HMCm60SdSoQpIDlCDSV5J1U
+
+  const sSource = SpreadsheetApp.openById(sourceId);
+  const sTarget = SpreadsheetApp.openById(targetId);
+
+  // Leer la pestaña de Carta Oficial
+  let sheetSource = null;
+  const sheets = sSource.getSheets();
+  for (let s of sheets) {
+    if (s.getName().toUpperCase().includes('CARTA') || s.getSheetId() === 926692473) {
+      sheetSource = s;
+      break;
+    }
+  }
+  if (!sheetSource) sheetSource = sheets[0];
+
+  const raw = sheetSource.getDataRange().getValues();
+  let headerIndex = -1;
+  for (let i = 0; i < raw.length; i++) {
+    if (raw[i][1] && String(raw[i][1]).toUpperCase().includes('PRODUCTO')) {
+      headerIndex = i;
+      break;
+    }
+  }
+
+  if (headerIndex < 0) throw new Error('No se encontró la cabecera de productos en la Carta Oficial.');
+
+  const rows = raw.slice(headerIndex + 1);
+  const catalogRows = [];
+  const inventoryRows = [];
+
+  rows.forEach(r => {
+    const cat = String(r[0] || '').trim();
+    const name = String(r[1] || '').trim();
+    if (!name) return;
+
+    const rawSolar = String(r[2] || '').replace(/[$,]/g, '').trim();
+    const rawLunar = String(r[3] || '').replace(/[$,]/g, '').trim();
+    const priceSolar = parseFloat(rawSolar) || 0;
+    const priceLunar = parseFloat(rawLunar) || priceSolar;
+    const provider = String(r[4] || 'DOMUS').trim();
+    const sku = String(r[5] || '').trim();
+
+    const dest = (cat.includes('ALIMENTOS') || cat.includes('CANNA') || cat.includes('COMIDA')) ? 'Cocina' : 'Barra';
+
+    // Fila para CATALOGO (columnas A a S)
+    const catRow = [
+      name, cat, priceSolar, 0, provider, '', sku, dest, 'Sí',
+      '', '', '', '', '', '', 'Sí', priceSolar, priceLunar, 'Sí'
+    ];
+    catalogRows.push(catRow);
+
+    // Fila para INVENTARIO: SKU, Nombre, Categoria, Proveedor, Unidad, Stock Inicial, Reservado, Disponible, Destino
+    inventoryRows.push([
+      sku, name, cat, provider, 'Unidad', 50, 0, 50, dest
+    ]);
+  });
+
+  // Escribir en CATALOGO a partir de fila 7
+  const sheetCat = sTarget.getSheetByName('CATALOGO');
+  if (sheetCat) {
+    sheetCat.getRange(7, 1, catalogRows.length, catalogRows[0].length).setValues(catalogRows);
+  }
+
+  // Escribir en INVENTARIO a partir de fila 7
+  const sheetInv = sTarget.getSheetByName('INVENTARIO');
+  if (sheetInv) {
+    sheetInv.getRange(7, 1, inventoryRows.length, inventoryRows[0].length).setValues(inventoryRows);
+  }
+
+  SpreadsheetApp.flush();
+  return {
+    ok: true,
+    total: catalogRows.length,
+    message: 'Se sincronizaron con éxito ' + catalogRows.length + ' productos en CATALOGO e INVENTARIO de DOMUS.'
+  };
+}
+
