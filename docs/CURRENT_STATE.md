@@ -22,9 +22,10 @@
 | **Idempotencia + Payload Binding** | `Idempotency.gs`, `Api.gs` | `LOCAL_TESTED` | SHA-256 canónico y rechazo 409 verificado localmente. Pendiente pruebas 1 y 2 en Staging. |
 | **Ledger Transaccional (`REQUESTS`)** | `Idempotency.gs`, Sheets | `LOCAL_TESTED` | Estructura de 8 columnas y persistencia en 3 capas verificada. Pendiente validar en Sheets real. |
 | **Mutex Outbox (Web Locks API)** | `js/app.js` | `LOCAL_TESTED` | W3C Web Locks con lease fallback y BroadcastChannel verificado localmente. Pendiente prueba 5 en Staging. |
+| **Fase 0.5: Ticketing & Access Commerce** | `Access.gs`, `Events.gs`, `index.html`, `js/app.js` | `LOCAL_TESTED` | Canales (Boletera, Preventa, Taquilla, Cortesía), guardarropa desacoplado y modelo 22 campos verificado en `test_phase0_5_accesos.py` (ADR-005). |
 | **Entorno de Staging (14 Pruebas)** | `STAGING_PLAN.md` | `IMPLEMENTED` | Plan y criterios de aceptación definidos. Pendiente duplicación de Sheets y deploy de Apps Script. |
-| **Fase 1: Apertura / Turnos / Corte X / Z** | N/A | `PLANNING` | Bloqueado formalmente hasta GO de Fase 0 en Staging. |
-| **Merge a Producción (`main`)** | `main` | `BLOCKED` | Requiere todas las 14 pruebas en `STAGING_VERIFIED` y SLA P95 < 5.0s. |
+| **Fase 1: Apertura / Turnos / Corte X / Z** | N/A | `PLANNING` | Bloqueado formalmente hasta GO de Fase 0 y 0.5 en Staging. |
+| **Merge a Producción (`main`)** | `main` | `BLOCKED` | Requiere todas las pruebas en `STAGING_VERIFIED` y SLA P95 < 5.0s. |
 
 ---
 
