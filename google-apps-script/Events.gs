@@ -34,7 +34,7 @@ function registrarNuevoEvento(evento) {
       parseFloat(evento.priceGeneral) || 0,
       parseFloat(evento.pricePareja) || 0,
       parseFloat(evento.priceTrio) || 0,
-      parseFloat(evento.priceGuardarropa) || 50,
+      (evento.priceGuardarropa !== undefined && evento.priceGuardarropa !== null && evento.priceGuardarropa !== '') ? (Number(evento.priceGuardarropa) || 0) : 50,
       parseInt(evento.capacity, 10) || 150,
       'DOMUS',
       'Bruto',

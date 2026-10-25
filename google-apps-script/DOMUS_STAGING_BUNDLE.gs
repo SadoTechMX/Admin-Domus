@@ -4,7 +4,7 @@
  * Generado para el entorno DOMUS-STAGING (Hotfix Pre-Evento 24 Oct 2026)
  * Main Sheet: 114VSwo3bXyn_audh1LHr4qqjW5aSDSTP_bR_-Iz5dkg
  * Ops Sheet:  1NDpuyx6EfCHcoKW9CZ6pwR0oe2JS0aKpTTMa7RdqmlE
- * Branch: hotfix/event-2026-10-24
+ * Branch: hotfix/kds-formula-ledger
  * ============================================================================
  */
 
@@ -1114,106 +1114,62 @@ function comandasSimpleAccion(token, body) {
       sComandas.getRange(targetRow, 8).setValue('Entregada');
       sComandas.getRange(targetRow, 14).setValue('Entregada por ' + operator);
 
-      // Decremento físico de inventario en hoja INVENTARIO (ADR-004)
+      // Certificación de entrega física (ADR-004):
+      // El decremento de inventario se gobierna de forma reactiva por fórmulas en Google Sheets:
+      // KDS marca 'Entregada' en COMANDAS -> CAJA 2 Col X detecta entrega -> CAJA 2 Col V calcula unidades consumidas
+      // -> INVENTARIO Col G (SUMIF) acumula salidas -> INVENTARIO Col H recalcula existencia esperada (D + E - F - G).
+      // KDS NUNCA debe sobrescribir con setValue() las columnas G/H de INVENTARIO para preservar las fórmulas vivas.
       let invMovement = null;
-      const sInv = m.getSheetByName('INVENTARIO');
-      if (sInv) {
-        const lastRow = sInv.getLastRow();
-        const numRows = Math.max(1, lastRow - 6);
-        const invValues = sInv.getRange(7, 1, numRows, 9).getValues();
+      try {
+        const sInv = m.getSheetByName('INVENTARIO');
+        if (sInv) {
+          const lastRow = sInv.getLastRow();
+          if (lastRow >= 7) {
+            const numRows = lastRow - 6;
+            // Estructura real de PRODUCCIÓN: Col A = Producto/variante, Col H = Existencia esperada (Fórmula)
+            const invData = sInv.getRange(7, 1, numRows, 8).getValues();
+            const targetProdRaw = String(targetItem.product || '').trim();
 
-        const targetSkuRaw = String(targetItem.sku || '').trim().toUpperCase();
-        const targetProdRaw = String(targetItem.product || '').trim();
+            const normalizeStr = s => String(s || '').toLowerCase()
+              .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+              .replace(/[·—–-]/g, ' ')
+              .replace(/\s+/g, ' ')
+              .trim();
+            const targetNorm = normalizeStr(targetProdRaw);
 
-        // 1. Alias de SKU explícitamente autorizados (bidireccionales)
-        const SKU_ALIASES = {
-          'VICTORIA-473': 'CARTA-VICTORIA-473',
-          'CARTA-VICTORIA-473': 'VICTORIA-473',
-          'MODELO-473': 'CARTA-MODELO-473',
-          'CARTA-MODELO-473': 'MODELO-473',
-          'BAR-CB-LATA': 'CARTA-BAR-CB-LATA',
-          'CARTA-BAR-CB-LATA': 'BAR-CB-LATA'
+            let matchedIdx = -1;
+            for (let j = 0; j < invData.length; j++) {
+              const invProdNorm = normalizeStr(invData[j][0]);
+              if (invProdNorm && (invProdNorm === targetNorm || targetNorm.startsWith(invProdNorm))) {
+                matchedIdx = j;
+                break;
+              }
+            }
+
+            if (matchedIdx !== -1) {
+              invMovement = {
+                status: 'FORMULA_PROPAGATED',
+                product: String(invData[matchedIdx][0] || targetProdRaw),
+                expectedStock: invData[matchedIdx][7],
+                row: matchedIdx + 7,
+                qty: Number(targetItem.qty || 1)
+              };
+            } else {
+              invMovement = {
+                status: 'FORMULA_LEDGER_NOT_RESOLVED',
+                product: targetProdRaw,
+                qty: Number(targetItem.qty || 1)
+              };
+            }
+          }
+        }
+      } catch (e) {
+        console.warn('[KDS INVENTARIO READ-ONLY] ' + e.message);
+        invMovement = {
+          status: 'FORMULA_LEDGER_NOT_RESOLVED',
+          product: String(targetItem.product || ''),
+          error: e.message
         };
-        const targetAlias = SKU_ALIASES[targetSkuRaw] || '';
-
-        // Función de normalización estricta de nombres para descarte de colisiones
-        const normalizeStr = s => String(s || '').toLowerCase()
-          .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-          .replace(/[·—–-]/g, ' ')
-          .replace(/\s+/g, ' ')
-          .trim();
-
-        const targetNorm = normalizeStr(targetProdRaw);
-
-        let matchRowIdx = -1;
-        let matchedInvRow = null;
-
-        // Prioridad 1: SKU exacto
-        if (targetSkuRaw) {
-          for (let j = 0; j < invValues.length; j++) {
-            const invSku = String(invValues[j][0] || '').trim().toUpperCase();
-            if (invSku && invSku === targetSkuRaw) {
-              matchRowIdx = j + 7;
-              matchedInvRow = invValues[j];
-              break;
-            }
-          }
-        }
-
-        // Prioridad 2: Alias de SKU explícitamente autorizado
-        if (matchRowIdx === -1 && targetAlias) {
-          for (let j = 0; j < invValues.length; j++) {
-            const invSku = String(invValues[j][0] || '').trim().toUpperCase();
-            if (invSku && invSku === targetAlias) {
-              matchRowIdx = j + 7;
-              matchedInvRow = invValues[j];
-              break;
-            }
-          }
-        }
-
-        // Prioridad 3: Nombre exacto normalizado (coincidencia idéntica completa, NUNCA substring laxo)
-        if (matchRowIdx === -1 && targetNorm) {
-          for (let j = 0; j < invValues.length; j++) {
-            const invNameNorm = normalizeStr(invValues[j][1]);
-            if (invNameNorm && invNameNorm === targetNorm) {
-              matchRowIdx = j + 7;
-              matchedInvRow = invValues[j];
-              break;
-            }
-          }
-        }
-
-        // Si se localizó la fila inequívoca:
-        if (matchRowIdx !== -1 && matchedInvRow) {
-          const invSku = String(matchedInvRow[0] || '').trim();
-          const invName = String(matchedInvRow[1] || '').trim();
-          const currentInitial = Number(matchedInvRow[5]) || 0;
-          const currentOut = Number(matchedInvRow[6]) || 0;
-          const qty = Number(targetItem.qty || 1);
-          const newOut = currentOut + qty;
-          const newDisp = Math.max(0, currentInitial - newOut);
-          sInv.getRange(matchRowIdx, 7).setValue(newOut);
-          sInv.getRange(matchRowIdx, 8).setValue(newDisp);
-          invMovement = {
-            sku: invSku,
-            product: invName,
-            row: matchRowIdx,
-            qty: qty,
-            previousOut: currentOut,
-            newOut: newOut,
-            available: newDisp
-          };
-        } else {
-          // Prioridad 4: Si no existe coincidencia inequívoca, INVENTORY_ITEM_NOT_FOUND y NO descontar nada
-          console.warn(`[KDS INVENTARIO] Item no localizado en INVENTARIO: SKU='${targetSkuRaw}', Producto='${targetProdRaw}'. No se descontó ninguna fila.`);
-          invMovement = {
-            status: 'INVENTORY_ITEM_NOT_FOUND',
-            sku: targetSkuRaw,
-            product: targetProdRaw,
-            discounted: false
-          };
-        }
       }
 
       SpreadsheetApp.flush();
@@ -2126,7 +2082,7 @@ function registrarNuevoEvento(evento) {
       parseFloat(evento.priceGeneral) || 0,
       parseFloat(evento.pricePareja) || 0,
       parseFloat(evento.priceTrio) || 0,
-      parseFloat(evento.priceGuardarropa) || 50,
+      (evento.priceGuardarropa !== undefined && evento.priceGuardarropa !== null && evento.priceGuardarropa !== '') ? (Number(evento.priceGuardarropa) || 0) : 50,
       parseInt(evento.capacity, 10) || 150,
       'DOMUS',
       'Bruto',

@@ -3,15 +3,15 @@
 > [!NOTE]
 > Este archivo resume el estado técnico del sistema. La fuente de verdad para el commit activo siempre es el comando `git rev-parse HEAD`.
 
-* **Fecha de Último Handoff:** 2026-10-24 23:30 UTC-6
-* **Decisión Ejecutiva Operativa:** **RELEASE v1.1.1 AUTORIZADO (HOTFIX FORZA).** Gates A–N aprobados al 100%.
-* **Tag Oficial:** `v1.1.1` (Commit `75168f1`)
-* **Rama `main` (Producción):** Alineada en `v1.1.1`
-* **Rama de Hotfix:** `hotfix/event-2026-10-24` (Commit `96ad547`)
+* **Fecha de Último Handoff:** 2026-10-25 00:00 UTC-6
+* **Decisión Ejecutiva Operativa:** **RELEASE v1.1.2 AUTORIZADO (HOTFIX KDS FORMULA LEDGER).** Protección absoluta de fórmulas operativas en `INVENTARIO`.
+* **Tag Oficial:** `v1.1.2`
+* **Rama `main` (Producción):** Preparada para fast-forward a `v1.1.2`
+* **Rama de Hotfix:** `hotfix/kds-formula-ledger`
 * **Rama de Fase 1 (Turnos y Cortes):** Aislada en `feature/phase-1-shifts-cuts` (Commit `881a71c`)
 * **Estado de Working Tree:** `clean`
 * **Entorno de PRODUCCIÓN Oficial:**
-  - Versión Activa en Producción: **Versión 21** (24 oct 2026, Release v1.1.1)
+  - Versión Activa en Producción: **Versión 21** (24 oct 2026, Release v1.1.1) -> Próxima actualización a bundle v1.1.2
   - Versión Rollback Garantizada: **Versión 12** (23 oct 2026, 10:58 p.m.)
   - Deployment Web App Oficial (Conservado): `https://script.google.com/macros/s/AKfycbysBaRA2_oZIOqU10G4E_MHiC8FUR3dCnqj2DlLG91iNJXP3GkZZ7BK0Na1FAJ1thZk/exec`
   - Libros Oficiales:
@@ -19,7 +19,7 @@
     - Ops: `1DiwPa1cVe33xCYkIiYoHhP015RsEOjHXBFe2iU2RVCc` (*DOMUS · BARRA Y RESURTIDO*)
 * **Entorno de STAGING Oficial:**
   - Proyecto Apps Script: `DOMUS - Caja simple` (`1VFG72NoaQlca_czsgSgQmbnAIGOqyaAzqMlXVTdtsU-YZy6Xt35pHYPh`)
-  - Web App Deployment: `https://script.google.com/macros/s/AKfycbysBaRA2_oZIOqU10G4E_MHiC8FUR3dCnqj2DlLG91iNJXP3GkZZ7BK0Na1FAJ1thZk/exec` (Versión 20)
+  - Web App Deployment: `https://script.google.com/macros/s/AKfycbysBaRA2_oZIOqU10G4E_MHiC8FUR3dCnqj2DlLG91iNJXP3GkZZ7BK0Na1FAJ1thZk/exec`
   - Libros Staging:
     - Main: `114VSwo3bXyn_audh1LHr4qqjW5aSDSTP_bR_-Iz5dkg`
     - Ops: `1NDpuyx6EfCHcoKW9CZ6pwR0oe2JS0aKpTTMa7RdqmlE`
@@ -103,4 +103,33 @@
 
 > [!NOTE]
 > **Deuda Técnica Registrada (Post-Evento):**
-> Las fórmulas de control en la hoja `INVENTARIO` que contienen `$A$7:$A$306` se conservan operativas durante el evento sin bloquear el servicio, y serán migradas a rangos dinámicos abiertos en la primera ventana de mantenimiento post-evento.
+> 1. Las fórmulas de control en la hoja `INVENTARIO` que contienen `$A$7:$A$306` se conservan operativas durante el evento sin bloquear el servicio, y serán migradas a rangos dinámicos abiertos en la primera ventana de mantenimiento post-evento.
+> 2. `posExpandCart_()`: el fallback que acepta datos enviados por cliente cuando no encuentra un producto en catálogo debe reemplazarse post-evento con rechazo estricto `PRODUCT_NOT_FOUND`.
+
+---
+
+## 🛡️ Hotfix Quirúrgico: Preservación del Circuito Reactivo por Fórmulas & Release v1.1.2 (2026-10-25)
+
+* **Diagnóstico Canónico:**
+  La hoja de PRODUCCIÓN `INVENTARIO` no es un ledger plano, sino un **circuito reactivo gobernado por fórmulas**:
+  - `A = Producto / variante` | `B = Familia` | `C = Unidad` | `D = Inicial real` | `E = Entradas recibidas` | `F = Merma` | `G = Entregado por comandas (Fórmula SUMIF)` | `H = Existencia esperada (Fórmula D+E-F-G)` | `I = Conteo físico`.
+  - Circuito: `KDS: COMANDAS Col 8 = Entregada` ➔ `CAJA 2 Col X detecta entrega` ➔ `CAJA 2 Col V calcula Unidades consumidas` ➔ `INVENTARIO Col G acumula por SUMIF` ➔ `INVENTARIO Col H recalcula D+E-F-G`.
+  - Incompatibilidad corregida: `KDS.gs` intentaba escribir directamente con `.setValue()` en columnas G y H usando un esquema obsoleto (asumiendo A=SKU, B=Nombre, F=Inicial, G=Salidas, H=Disponible). Dicha mutación destruía las fórmulas operativas.
+* **Acción Quirúrgica Ejecutada:**
+  - `KDS.gs`: Eliminado todo `.setValue()` sobre columnas G y H de `INVENTARIO`. Se suprimió el recálculo manual de salidas y disponibles.
+  - Certificación de entrega física: KDS escribe únicamente en `COMANDAS` (Col 8 = `'Entregada'`, Col 14 = `'Entregada por...'`).
+  - Respuesta KDS: Modo solo lectura de `INVENTARIO` para auditoría (`FORMULA_PROPAGATED` o `FORMULA_LEDGER_NOT_RESOLVED`), sin mutación ni fallo en la entrega.
+  - `Events.gs`: Corrección del bug `parseFloat(evento.priceGuardarropa) || 50` para evaluar semántica nullish segura (`0 !== undefined ? 0 : 50`).
+* **Reglas Operativas Estrictas Durante el Evento:**
+  - ⛔ PROHIBIDO ejecutar `sincronizarCartaConCatalogoDOMUS()` (reconstruye con esquema antiguo e inventa stock 50).
+  - ⛔ PROHIBIDO ejecutar `registrarNuevoProducto()` (inventa stock 50 con `parseInt(prod.stock, 10) || 50`).
+  - ⛔ PROHIBIDO crear nuevos eventos con `registrarNuevoEvento()` durante el evento.
+* **Resultados de Verificación (`tests/test_kds_formula_ledger.py`):**
+  - `CHECK_1_FORMULAS_INITIAL`: ✅ **PASS** (Col G y H inician con `formulaValue`).
+  - `CHECK_4_FORMULAS_PRESERVED`: ✅ **PASS** (Col G y H se mantienen como `formulaValue` tras entrega).
+  - `CHECK_5_REACTIVE_PROPAGATION`: ✅ **PASS** (`COMANDAS` ➔ `CAJA 2` X, V ➔ `INVENTARIO` G, H recalcula reactivamente).
+  - `CHECK_6_ROWS_PAST_306`: ✅ **PASS** (Nachos libres y Tacos de la parrilla en filas > 306 acumulan por fórmula).
+  - `CHECK_7_IDEMPOTENCY`: ✅ **PASS** (Reintento de entrega con mismo `requestId` no duplica consumos).
+  - `CHECK_8_ANTI_DOUBLE_DELIVERY`: ✅ **PASS** (Segunda entrega explícita rechazada).
+  - `CHECK_9_EVENTS_WARDROBE_ZERO`: ✅ **PASS** (`priceGuardarropa: 0` evaluado a $0.00).
+
