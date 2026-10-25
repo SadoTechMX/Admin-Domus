@@ -3,15 +3,17 @@
 > [!NOTE]
 > Este archivo resume el estado técnico del sistema. La fuente de verdad para el commit activo siempre es el comando `git rev-parse HEAD`.
 
-* **Fecha de Último Handoff:** 2026-10-24 20:25 UTC-6
-* **Decisión Ejecutiva Operativa:** **OPERACIÓN EN PRODUCCIÓN CON VERSIÓN 12.** Riesgo técnico cero; despliegue de Versión 13 pospuesto para después del evento.
-* **Rama de Hotfix (Aislada y Certificada en Staging):** `hotfix/event-2026-10-24` (Commit `043c3ef`)
-* **Rama `main` (Producción):** Congelada en `v1.1.0` (Commit `73316a1`)
+* **Fecha de Último Handoff:** 2026-10-24 23:30 UTC-6
+* **Decisión Ejecutiva Operativa:** **RELEASE v1.1.1 AUTORIZADO (HOTFIX FORZA).** Gates A–N aprobados al 100%.
+* **Tag Oficial:** `v1.1.1` (Commit `75168f1`)
+* **Rama `main` (Producción):** Alineada en `v1.1.1`
+* **Rama de Hotfix:** `hotfix/event-2026-10-24` (Commit `96ad547`)
 * **Rama de Fase 1 (Turnos y Cortes):** Aislada en `feature/phase-1-shifts-cuts` (Commit `881a71c`)
 * **Estado de Working Tree:** `clean`
 * **Entorno de PRODUCCIÓN Oficial:**
   - Proyecto Apps Script: `DOMUS - Caja y barra` (`1A4i6kAnpaHQ_0ReGkiT3rvidUA_bc8hvRlIepD20YLIypW8AY0yH0FXj`)
-  - Versión Activa en Producción: **Versión 12** (23 oct 2026, 10:58 p.m.)
+  - Versión Rollback Garantizada: **Versión 12** (23 oct 2026, 10:58 p.m.)
+  - Nueva Versión Desplegable: **Versión v1.1.1 (Bundle compilado DOMUS_PRODUCTION_BUNDLE.gs)**
   - Libros Oficiales:
     - Main: `1KQz8oJ4VaWFsqS2-sg25HMCm60SdSoQpIDlCDSV5J1U` (*DOMUS · SISTEMA OPERATIVO*)
     - Ops: `1DiwPa1cVe33xCYkIiYoHhP015RsEOjHXBFe2iU2RVCc` (*DOMUS · BARRA Y RESURTIDO*)
@@ -77,3 +79,28 @@
 | **Búsqueda Cannábica** | `PROD_DEPLOYED` | El buscador de Caja detecta palabras clave (`canna`, `cannabico`, `alitas`, `hamburguesa`, `boneless`, `treats`, etc.) y despliega los productos de alimentos cannábicos. |
 | **Ruteo de Comandas KDS** | `PROD_DEPLOYED` | Todos los alimentos Canna Treats se asignan inequívocamente a `Cocina`, manteniendo la Barra libre de sobrecarga de alimentos. |
 | **Distintivo Visual (Badge)** | `PROD_DEPLOYED` | Badge verde esmeralda `🌿 Menú Cannábico · Canna Treats` con borde y hover dinámico. |
+
+---
+
+## ⚡ Hotfix Quirúrgico Forza & Release v1.1.1 (2026-10-24)
+
+| Gate | Descripción | Resultado | Detalle de Verificación |
+| :---: | :--- | :---: | :--- |
+| **A** | Fila inventario >306 localizable | ✅ **PASS** | Producto `Papas misioneras` localizado en fila 315 (> 306) con rango dinámico `getLastRow()`. |
+| **B** | Entrega producto >306 descuenta 1 | ✅ **PASS** | Fila 316 (`Papas gajo`) descuenta exactamente 1 unidad física al entregar en KDS (Salidas: 0->1, Disp: 25->24). |
+| **C** | Idempotencia en KDS (mismo requestId) | ✅ **PASS** | Reintento con requestId idéntico no descuenta dos veces. Mantiene ejecución atómica única. |
+| **D** | Victoria 473 descuenta Victoria 473 | ✅ **PASS** | SKU `VICTORIA-473` mapea exclusivamente a fila 102 (`CARTA-VICTORIA-473`). |
+| **E** | Modelo 473 descuenta Modelo 473 | ✅ **PASS** | SKU `MODELO-473` mapea exclusivamente a fila 126 (`CARTA-MODELO-473`). |
+| **F** | Carta Blanca descuenta Carta Blanca | ✅ **PASS** | SKU `CARTA-BAR-CB-LATA` mapea a fila 78 (`BAR-CB-LATA`). |
+| **G** | Victoria 473 nunca toca Victoria 710 | ✅ **PASS** | Cero colisión: Victoria 710 ml (fila 20) permanece invariable con salidas=0. |
+| **H** | Modelo 473 nunca toca Modelo 710/genérico | ✅ **PASS** | Cero colisión: Modelo 710 ml permanece invariable con salidas=0. |
+| **I** | SKU desconocida no descuenta nada | ✅ **PASS** | Retorna `INVENTORY_ITEM_NOT_FOUND`, loguea advertencia y no altera ninguna celda. |
+| **J** | FORZA guardarropa devuelve $0 | ✅ **PASS** | `priceGuardarropa: 0` evaluado con semántica nullish segura. No cobra ni recauda guardarropa DOMUS. |
+| **K** | Boletera FORZA sin cover DOMUS | ✅ **PASS** | Cover en puerta DOMUS = $0. Asistencia validada registra obligación comercial ($150/asistente vs $3,000 anticipo). |
+| **L** | Productos sin SKU fuera de POS | ✅ **PASS** | SIPA, Modelo Negra, Alitas 12 pzas, Hamburguesa pan de muerto permanecen aislados. |
+| **M** | Cannábicos no autorizados deshabilitados | ✅ **PASS** | Waffle BDSM, Guacannabis, Pan de muerto con Nutella permanecen fuera de carta. |
+| **N** | Caja/KDS normales operativos | ✅ **PASS** | Ping `HEALTHY`, 147 productos activos en catálogo, KDS y sesiones RBAC operativos. |
+
+> [!NOTE]
+> **Deuda Técnica Registrada (Post-Evento):**
+> Las fórmulas de control en la hoja `INVENTARIO` que contienen `$A$7:$A$306` se conservan operativas durante el evento sin bloquear el servicio, y serán migradas a rangos dinámicos abiertos en la primera ventana de mantenimiento post-evento.
