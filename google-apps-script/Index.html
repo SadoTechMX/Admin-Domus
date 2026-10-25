@@ -5842,8 +5842,15 @@ html, body {
           const forza = (STATE.eventsList || []).find(e => e.name && e.name.includes('Forza'));
           STATE.activeActivity = forza ? forza.name : (STATE.eventsList[0] ? STATE.eventsList[0].name : 'Forza · sábado');
         }
-        if (data.recentAccess && data.recentAccess.length) {
-          STATE.recentAccessList = data.recentAccess.filter(isRealAccessRecord);
+        if (data.recentAccess) {
+          const backendRecords = data.recentAccess.filter(isRealAccessRecord);
+          const backendIds = new Set(backendRecords.map(r => r.id || r.rowId));
+          // Preservar los registros registrados localmente en esta puerta que aún no figuren en la respuesta de red
+          const localOnly = (STATE.recentAccessList || []).filter(r => r && r.id && !backendIds.has(r.id) && isRealAccessRecord(r));
+          STATE.recentAccessList = [...localOnly, ...backendRecords];
+          try {
+            localStorage.setItem('domus_custom_access', JSON.stringify(STATE.recentAccessList.slice(0, 50)));
+          } catch (e) {}
         }
         updateAccesosBadge();
         renderAccesosView();
@@ -7178,8 +7185,17 @@ html, body {
     // Backend call con Idempotencia
     callBackend('accesoSimpleRegistrar', [newRecord], res => {
       if (res && res.rowId) {
+        const oldId = newRecord.id;
         newRecord.id = res.rowId;
+        newRecord.rowId = res.rowId;
         if (res.ticketGuardarropa) newRecord.ticketGuardarropa = res.ticketGuardarropa;
+        const foundIdx = (STATE.recentAccessList || []).findIndex(r => r.id === oldId);
+        if (foundIdx !== -1) {
+          STATE.recentAccessList[foundIdx] = newRecord;
+        }
+        try {
+          localStorage.setItem('domus_custom_access', JSON.stringify(STATE.recentAccessList.slice(0, 50)));
+        } catch (e) {}
       }
       toast(`Acceso registrado exitosamente: Folio ${newRecord.id}`, 'ok');
       playChime('success');
