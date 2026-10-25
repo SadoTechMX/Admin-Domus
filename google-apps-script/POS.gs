@@ -22,14 +22,18 @@ function cajaSimpleDatos() {
     if (r[0] && r[8] === 'Sí') {
       const price = r[15] ? r[phase === 'Solar' ? 16 : 17] : r[2];
       if (typeof price === 'number' && price >= 0) {
+        const sku = String(r[6] || '');
+        const provider = String(r[4] || '');
+        const isCanna = sku.toUpperCase().indexOf('CT') === 0 || provider.toLowerCase().indexOf('canna') !== -1;
         products.push({
           name: String(r[0]),
-          group: String(r[1] || 'General'),
+          group: isCanna ? 'Menú Cannábico' : String(r[1] || 'General'),
           price: price,
           priceSolar: r[15] ? Number(r[16]) : Number(r[2]),
           priceLunar: r[15] ? Number(r[17]) : Number(r[2]),
-          destination: String(r[7] || (r[1] === 'Alimentos' ? 'Cocina' : 'Barra')),
-          sku: String(r[6] || '')
+          destination: String(r[7] || (isCanna ? 'Cocina' : (r[1] === 'Alimentos' ? 'Cocina' : 'Barra'))),
+          sku: sku,
+          provider: isCanna ? 'Canna Treats' : provider
         });
       }
     }
