@@ -3450,7 +3450,7 @@
 
     const btnConfirm = $('btnConfirmAccess');
     if (btnConfirm) {
-      btnConfirm.disabled = false;
+      btnConfirm.disabled = isRegisteringAccess;
       btnConfirm.onclick = () => confirmAccessAndRegister();
     }
   }
@@ -3757,15 +3757,44 @@
     updateAccesosBadge();
   }
 
+  let isRegisteringAccess = false;
+
   function confirmAccessAndRegister() {
-    // Generar folio atómico previo para fallbacks
-    const randNum = Math.floor(1000 + Math.random() * 9000);
-    const rowId = `A-${randNum}`;
+    if (isRegisteringAccess) {
+      console.warn('Registro de acceso bloqueado: debounce activo.');
+      return;
+    }
 
     let customer = ($('accessCustomerName') ? $('accessCustomerName').value : '').trim();
     if (!customer) {
-      customer = `Asistente ${rowId}`;
+      toast('⚠️ Por favor ingresa el nombre o alias del asistente antes de confirmar.', 'warn');
+      if ($('accessCustomerName')) $('accessCustomerName').focus();
+      return;
     }
+
+    isRegisteringAccess = true;
+    const btnConfirm = $('btnConfirmAccess');
+    if (btnConfirm) {
+      btnConfirm.disabled = true;
+      btnConfirm.dataset.origText = btnConfirm.textContent;
+      btnConfirm.textContent = '⏳ Registrando...';
+    }
+
+    const unlockBtn = () => {
+      isRegisteringAccess = false;
+      if (btnConfirm) {
+        btnConfirm.disabled = false;
+        if (btnConfirm.dataset.origText) btnConfirm.textContent = btnConfirm.dataset.origText;
+        updateAccessSummary();
+      }
+    };
+
+    // Auto-desbloqueo de seguridad a los 1.5s
+    setTimeout(unlockBtn, 1500);
+
+    // Generar folio atómico previo para fallbacks
+    const randNum = Math.floor(1000 + Math.random() * 9000);
+    const rowId = `A-${randNum}`;
 
     const channel = STATE.accessSalesChannel || 'BOLETERA_EXTERNA';
     const phone = ($('accessCustomerPhone') ? $('accessCustomerPhone').value : '').trim();
@@ -3858,6 +3887,7 @@
 
     // Backend call con Idempotencia
     callBackend('accesoSimpleRegistrar', [newRecord], res => {
+      unlockBtn();
       if (res && res.rowId) {
         const oldId = newRecord.id;
         newRecord.id = res.rowId;
@@ -3875,6 +3905,7 @@
       playChime('success');
       syncBackendData();
     }, err => {
+      unlockBtn();
       console.warn('Registro local de acceso (modo offline o sincronización diferida):', err);
       toast(`Acceso registrado localmente: Folio ${newRecord.id}`, 'ok');
       playChime('success');
@@ -4571,10 +4602,7 @@
       $('accessCashReceived').addEventListener('input', updateAccessSummary);
     }
 
-    // Confirm Access & Register Button
-    if ($('btnConfirmAccess')) {
-      $('btnConfirmAccess').addEventListener('click', confirmAccessAndRegister);
-    }
+    // Confirm Access & Register Button (gestionado dinámicamente en renderAccesosView para evitar listeners duplicados)
 
     // Operations Tabs
     if ($('tabBtnAccessLog')) $('tabBtnAccessLog').addEventListener('click', () => setAccessTab('log'));
