@@ -80,7 +80,7 @@ const CONFIG = Object.freeze({
   managers: typeof D !== 'undefined' && D.managers ? D.managers : ['direccion@domusccc.net', 'sadotechfet@gmail.com'],
   
   // Operadores Autorizados del Club
-  staff: ['René', 'Miguel', 'Mike', 'Meaw', 'Wall E', 'Iván', 'Kas', 'Steven', 'Angel'],
+  staff: ['René', 'Miguel', 'Mike', 'Taichi Mike', 'Meaw', 'Wall E', 'Iván', 'Kas', 'Steven', 'Angel'],
   
   // Parámetros de Sesión y Seguridad
   sessionDurationHours: 12,
