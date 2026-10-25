@@ -59,7 +59,7 @@ function getActiveEnvironment_() {
 
   // Por seguridad en branch de aislamiento, si los IDs de Staging están configurados se usa STAGING
   if (ENVIRONMENTS.STAGING.mainSheetId && ENVIRONMENTS.STAGING.opsSheetId) {
-    return ENVIRONMENTS.STAGING;
+    return ENVIRONMENTS.PRODUCTION;
   }
 
   return ENVIRONMENTS.PRODUCTION;
