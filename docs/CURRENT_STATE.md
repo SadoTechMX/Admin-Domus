@@ -3,17 +3,24 @@
 > [!NOTE]
 > Este archivo resume el estado técnico del sistema. La fuente de verdad para el commit activo siempre es el comando `git rev-parse HEAD`.
 
-* **Fecha de Último Handoff:** 2026-10-24 05:45 UTC-6
-* **Rama Activa:** `main` (Producción)
-* **Release:** `v1.1.0` (Tag `v1.1.0` publicado en origin)
-* **LAST_VERIFIED_COMMIT:** `5736e91` (Release v1.1.0 desplegada y verificada en Producción)
-* **HEAD Activo:** `5736e91`
-* **Estado de Working Tree al Handoff:** `clean`
-* **Remote Git:** `https://github.com/SadoTechMX/Admin-Domus.git` (Limpio, autenticación delegada a Git Credential Manager / Keychain)
-* **URL Activa de Producción:** `https://script.google.com/macros/s/AKfycbysBaRA2_oZIOqU10G4E_MHiC8FUR3dCnqj2DlLG91iNJXP3GkZZ7BK0Na1FAJ1thZk/exec` (Apps Script Versión 18)
-* **Libros Oficiales de Producción:**
-  - Main: `1KQz8oJ4VaWFsqS2-sg25HMCm60SdSoQpIDlCDSV5J1U` (*DOMUS · SISTEMA OPERATIVO*)
-  - Ops: `1DiwPa1cVe33xCYkIiYoHhP015RsEOjHXBFe2iU2RVCc` (*DOMUS · BARRA Y RESURTIDO*)
+* **Fecha de Último Handoff:** 2026-10-24 20:25 UTC-6
+* **Decisión Ejecutiva Operativa:** **OPERACIÓN EN PRODUCCIÓN CON VERSIÓN 12.** Riesgo técnico cero; despliegue de Versión 13 pospuesto para después del evento.
+* **Rama de Hotfix (Aislada y Certificada en Staging):** `hotfix/event-2026-10-24` (Commit `043c3ef`)
+* **Rama `main` (Producción):** Congelada en `v1.1.0` (Commit `73316a1`)
+* **Rama de Fase 1 (Turnos y Cortes):** Aislada en `feature/phase-1-shifts-cuts` (Commit `881a71c`)
+* **Estado de Working Tree:** `clean`
+* **Entorno de PRODUCCIÓN Oficial:**
+  - Proyecto Apps Script: `DOMUS - Caja y barra` (`1A4i6kAnpaHQ_0ReGkiT3rvidUA_bc8hvRlIepD20YLIypW8AY0yH0FXj`)
+  - Versión Activa en Producción: **Versión 12** (23 oct 2026, 10:58 p.m.)
+  - Libros Oficiales:
+    - Main: `1KQz8oJ4VaWFsqS2-sg25HMCm60SdSoQpIDlCDSV5J1U` (*DOMUS · SISTEMA OPERATIVO*)
+    - Ops: `1DiwPa1cVe33xCYkIiYoHhP015RsEOjHXBFe2iU2RVCc` (*DOMUS · BARRA Y RESURTIDO*)
+* **Entorno de STAGING Oficial:**
+  - Proyecto Apps Script: `DOMUS - Caja simple` (`1VFG72NoaQlca_czsgSgQmbnAIGOqyaAzqMlXVTdtsU-YZy6Xt35pHYPh`)
+  - Web App Deployment: `https://script.google.com/macros/s/AKfycbysBaRA2_oZIOqU10G4E_MHiC8FUR3dCnqj2DlLG91iNJXP3GkZZ7BK0Na1FAJ1thZk/exec` (Versión 20)
+  - Libros Staging:
+    - Main: `114VSwo3bXyn_audh1LHr4qqjW5aSDSTP_bR_-Iz5dkg`
+    - Ops: `1NDpuyx6EfCHcoKW9CZ6pwR0oe2JS0aKpTTMa7RdqmlE`
 
 ---
 
