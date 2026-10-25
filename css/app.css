@@ -1756,7 +1756,8 @@ html, body {
   }
 }
 
-.entry-type-btn {
+.entry-type-btn,
+.entry-type-card {
   background: var(--bg-surface-elevated);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
@@ -1768,23 +1769,30 @@ html, body {
   cursor: pointer;
   transition: all var(--transition-fast);
   color: var(--text-secondary);
+  user-select: none;
 }
 
-.entry-type-btn:hover {
+.entry-type-btn:hover,
+.entry-type-card:hover {
   border-color: var(--gold-primary);
   color: var(--text-primary);
+  background: rgba(212, 175, 55, 0.08);
 }
 
-.entry-type-btn.active {
-  background: rgba(212, 175, 55, 0.15);
+.entry-type-btn.active,
+.entry-type-card.selected,
+.entry-type-card.active {
+  background: rgba(212, 175, 55, 0.18);
   border-color: var(--gold-primary);
   color: var(--gold-primary);
-  box-shadow: 0 0 10px rgba(212, 175, 55, 0.2);
+  box-shadow: 0 0 10px rgba(212, 175, 55, 0.25);
 }
 
-.entry-type-name {
+.entry-type-name,
+.entry-type-title {
   font-size: 0.8rem;
   font-weight: 700;
+  text-align: center;
 }
 
 .entry-type-price {
