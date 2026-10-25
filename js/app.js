@@ -7,13 +7,16 @@
 
 (function () {
   // --- CONFIGURACIÓN & ESTADO INICIAL ---
-  const DEFAULT_GAS_URL = 'https://script.google.com/a/macros/domusccc.net/s/AKfycbzy7wZZ55zPnzZ6h9iRKXNAvitP5EZMCPyjsxPtLIpdtuv4_3Zt9SYqQS65I1WRGJGL/exec';
+  const DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycbysBaRA2_oZIOqU10G4E_MHiC8FUR3dCnqj2DlLG91iNJXP3GkZZ7BK0Na1FAJ1thZk/exec';
   const STAFF_MEMBERS = ['René', 'Miguel', 'Mike', 'Meaw', 'Wall E', 'Iván', 'Kas', 'Steven', 'Angel'];
+
+  const cachedGasUrl = localStorage.getItem('domus_gas_url');
+  const validApiUrl = (cachedGasUrl && !cachedGasUrl.includes('domusccc.net')) ? cachedGasUrl : DEFAULT_GAS_URL;
 
   const STATE = {
     mode: 'caja', // 'caja' | 'comandas'
     phase: 'Solar', // 'Solar' | 'Lunar'
-    apiUrl: localStorage.getItem('domus_gas_url') || DEFAULT_GAS_URL,
+    apiUrl: validApiUrl,
     operator: sessionStorage.getItem('domus_operator') || '',
     sound: localStorage.getItem('domus_sound') === 'true',
     catalogCategory: 'Todas',
@@ -1725,6 +1728,16 @@
       return;
     }
 
+    if (STATE.mode !== newMode) {
+      const savedRole = localStorage.getItem('domus_session_role');
+      const targetRole = newMode === 'caja' ? 'CAJA' : (newMode === 'comandas' ? 'BARRA' : 'ACCESOS');
+      if (savedRole && savedRole !== targetRole) {
+        localStorage.removeItem('domus_session_token');
+        sessionStorage.removeItem('domus_session_token');
+        localStorage.removeItem('domus_session_role');
+      }
+    }
+
     STATE.mode = newMode;
     localStorage.setItem('domus_view', newMode);
 
@@ -1782,10 +1795,11 @@
     return sessionStorage.getItem('domus_session_token') || localStorage.getItem('domus_session_token') || '';
   }
 
-  function setSessionToken(token) {
+  function setSessionToken(token, role) {
     if (token) {
       sessionStorage.setItem('domus_session_token', token);
       localStorage.setItem('domus_session_token', token);
+      if (role) localStorage.setItem('domus_session_role', role);
     }
   }
 
@@ -1794,6 +1808,57 @@
     if (STATE.mode === 'comandas') return 'BARRA';
     if (STATE.mode === 'accesos') return 'ACCESOS';
     return 'CAJA';
+  }
+
+  let isEnsuringSession = false;
+  const pendingSessionCallbacks = [];
+
+  function ensureSessionToken(onDone) {
+    const currentToken = getSessionToken();
+    const currentRole = getStationRole();
+    const savedRole = localStorage.getItem('domus_session_role');
+
+    if (currentToken && (!savedRole || savedRole === currentRole)) {
+      if (onDone) onDone();
+      return;
+    }
+
+    if (onDone) pendingSessionCallbacks.push(onDone);
+    if (isEnsuringSession) return;
+    isEnsuringSession = true;
+
+    const role = currentRole;
+    const devId = getDeviceId();
+    const endpoint = `${STATE.apiUrl}?action=authCrearSesion`;
+
+    fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({
+        action: 'authCrearSesion',
+        args: [role, 'Operador ' + role, devId],
+        role: role,
+        deviceId: devId
+      })
+    })
+    .then(r => r.json())
+    .then(res => {
+      isEnsuringSession = false;
+      if (res && res.data && res.data.token) {
+        setSessionToken(res.data.token, role);
+        console.log('[DOMUS AUTO-AUTH] Sesión creada exitosamente:', role, res.data.token);
+      }
+      const cbs = [...pendingSessionCallbacks];
+      pendingSessionCallbacks.length = 0;
+      cbs.forEach(cb => cb());
+    })
+    .catch(err => {
+      isEnsuringSession = false;
+      console.warn('[DOMUS AUTO-AUTH] Error al crear sesión automática:', err);
+      const cbs = [...pendingSessionCallbacks];
+      pendingSessionCallbacks.length = 0;
+      cbs.forEach(cb => cb());
+    });
   }
 
   function getOutbox() {
@@ -2091,6 +2156,13 @@
     }
 
     // 2. Modo Externo (GitHub Pages / Fetch API con Outbox)
+    if (!getSessionToken()) {
+      ensureSessionToken(() => {
+        callBackend(fnName, args, onSuccess, onError);
+      });
+      return;
+    }
+
     const endpoint = `${STATE.apiUrl}?action=${encodeURIComponent(fnName)}`;
     const payload = {
       action: fnName,
@@ -2226,78 +2298,83 @@
   }
 
   function syncBackendData() {
-    callBackend('cajaSimpleDatos', [], data => {
-      if (data.phase) {
-        STATE.phase = data.phase;
-        $('currentPhaseBadge').textContent = `Fase ${data.phase}`;
-      }
-      if (data.products && data.products.length) {
-        STATE.products = data.products;
-        // Fusionar productos personalizados creados en el cliente
-        try {
-          const custom = JSON.parse(localStorage.getItem('domus_custom_products') || '[]');
-          if (Array.isArray(custom) && custom.length) {
-            const existingKeys = new Set(STATE.products.map(p => (p.sku || p.name).toLowerCase()));
-            const toAdd = custom.filter(c => !existingKeys.has((c.sku || c.name).toLowerCase()));
-            STATE.products = [...toAdd, ...STATE.products];
-          }
-        } catch (e) {}
-        renderCategoryChips();
-      }
-      if (data.accounts) {
-        STATE.openAccounts = data.accounts;
-        renderAccountDropdown();
-      }
-      if (data.activities) {
-        STATE.activities = data.activities;
-        renderActivityDropdown();
-      }
-      if (data.lastReceipt) {
-        STATE.lastReceiptInfo = data.lastReceipt;
-      }
-      if (STATE.mode === 'caja') {
-        renderCatalog();
-      }
-    }, err => {
-      console.warn('No se pudo leer datos de Caja desde el servidor:', err);
-    });
-
-    callBackend('comandasSimpleDatos', [sessionStorage.getItem('domus_token') || ''], d => {
-      if (d.orders) {
-        const currentKeys = new Set(d.orders.map(o => o.key));
-        if (STATE.seenOrderKeys.size > 0) {
-          const hasNew = [...currentKeys].some(k => !STATE.seenOrderKeys.has(k));
-          if (hasNew) playChime('alert');
+    // 1. Catálogo y cuentas de Caja solo en modo Caja
+    if (STATE.mode === 'caja') {
+      callBackend('cajaSimpleDatos', [], data => {
+        if (data.phase) {
+          STATE.phase = data.phase;
+          $('currentPhaseBadge').textContent = `Fase ${data.phase}`;
         }
-        STATE.seenOrderKeys = currentKeys;
-        STATE.comandas = d.orders;
-      }
-      if (d.history) STATE.historyComandas = d.history;
-      if (d.requests) STATE.restockRequests = d.requests;
+        if (data.products && data.products.length) {
+          STATE.products = data.products;
+          // Fusionar productos personalizados creados en el cliente
+          try {
+            const custom = JSON.parse(localStorage.getItem('domus_custom_products') || '[]');
+            if (Array.isArray(custom) && custom.length) {
+              const existingKeys = new Set(STATE.products.map(p => (p.sku || p.name).toLowerCase()));
+              const toAdd = custom.filter(c => !existingKeys.has((c.sku || c.name).toLowerCase()));
+              STATE.products = [...toAdd, ...STATE.products];
+            }
+          } catch (e) {}
+          renderCategoryChips();
+        }
+        if (data.accounts) {
+          STATE.openAccounts = data.accounts;
+          renderAccountDropdown();
+        }
+        if (data.activities) {
+          STATE.activities = data.activities;
+          renderActivityDropdown();
+        }
+        if (data.lastReceipt) {
+          STATE.lastReceiptInfo = data.lastReceipt;
+        }
+        renderCatalog();
+      }, err => {
+        console.warn('No se pudo leer datos de Caja desde el servidor:', err);
+      });
+    }
 
-      updateKdsBadgeCount();
-      if (STATE.mode === 'comandas') renderComandasBoard();
-    }, err => {
-      console.warn('Fallo al refrescar comandas:', err);
-    });
+    // 2. Comandas en Modo Comandas y Modo Caja
+    if (STATE.mode === 'comandas' || STATE.mode === 'caja') {
+      callBackend('comandasSimpleDatos', [sessionStorage.getItem('domus_token') || ''], d => {
+        if (d.orders) {
+          const currentKeys = new Set(d.orders.map(o => o.key));
+          if (STATE.seenOrderKeys.size > 0) {
+            const hasNew = [...currentKeys].some(k => !STATE.seenOrderKeys.has(k));
+            if (hasNew) playChime('alert');
+          }
+          STATE.seenOrderKeys = currentKeys;
+          STATE.comandas = d.orders;
+        }
+        if (d.history) STATE.historyComandas = d.history;
+        if (d.requests) STATE.restockRequests = d.requests;
 
-    callBackend('accesoSimpleDatos', [], data => {
-      if (data.activities && data.activities.length) {
-        STATE.eventsList = data.activities;
-      }
-      if (data.activeActivity) {
-        STATE.activeActivity = data.activeActivity;
-      }
-      if (data.recentAccess && data.recentAccess.length) {
-        STATE.recentAccessList = data.recentAccess;
-      }
-      updateAccesosBadge();
-      if (STATE.mode === 'accesos') {
+        updateKdsBadgeCount();
+        if (STATE.mode === 'comandas') renderComandasBoard();
+      }, err => {
+        console.warn('Fallo al refrescar comandas:', err);
+      });
+    }
+
+    // 3. Accesos exclusivamente en Modo Accesos
+    if (STATE.mode === 'accesos') {
+      callBackend('accesoSimpleDatos', [], data => {
+        if (data.activities && data.activities.length) {
+          STATE.eventsList = data.activities;
+        }
+        if (data.activeActivity) {
+          STATE.activeActivity = data.activeActivity;
+        }
+        if (data.recentAccess && data.recentAccess.length) {
+          STATE.recentAccessList = data.recentAccess;
+        }
+        updateAccesosBadge();
         renderAccesosView();
-      }
-    }, err => {
-      console.warn('Accesos: enlace de Google notificó:', err);
-    });
+      }, err => {
+        console.warn('Accesos: enlace de Google notificó:', err);
+      });
+    }
   }
 
   function updateAccesosBadge() {

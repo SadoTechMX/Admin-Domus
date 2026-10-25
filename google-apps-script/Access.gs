@@ -216,6 +216,55 @@ function accesoSimpleRegistrar(payload) {
       }
     }
 
+    // Guardrail pre-evento: Validación de tarifa y acuerdo comercial autorizado (ADR-005)
+    const requiresDoorAdmissionCharge = (salesChannel === ACCESS_SALES_CHANNELS.TAQUILLA_DOMUS || salesChannel === ACCESS_SALES_CHANNELS.TRANSFERENCIA_DIRECTA) && ticketTypeId !== 'SOLO_GUARDARROPA' && ticketTypeId !== 'GUARDARROPA';
+
+    if (requiresDoorAdmissionCharge) {
+      const sAct = m.getSheetByName('ACTIVIDADES');
+      let matchedAct = null;
+      if (sAct && sAct.getLastRow() >= 7) {
+        const rawActs = sAct.getRange('A7:M' + sAct.getLastRow()).getValues();
+        matchedAct = rawActs.find(r => String(r[0] || '').trim().toLowerCase() === activity.toLowerCase());
+      }
+
+      if (!matchedAct) {
+        const err = new Error(`EVENT_PRICING_NOT_CONFIRMED: El evento "${activity}" no existe en ACTIVIDADES o no cuenta con programación oficial.`);
+        err.status = 400;
+        err.code = 'EVENT_PRICING_NOT_CONFIRMED';
+        throw err;
+      }
+
+      const actStatus = String(matchedAct[11] || '').trim().toLowerCase();
+      if (actStatus === 'por validar' || actStatus === 'pendiente' || actStatus === 'no confirmado') {
+        const err = new Error(`EVENT_PRICING_NOT_CONFIRMED: El acuerdo comercial del evento "${activity}" está "${matchedAct[11]}". No se pueden cobrar entradas en taquilla hasta que Dirección apruebe las tarifas oficiales.`);
+        err.status = 400;
+        err.code = 'EVENT_PRICING_NOT_CONFIRMED';
+        throw err;
+      }
+
+      // Validar precio oficial del tipo de boleto
+      let officialPrice = 0;
+      if (ticketTypeId === 'General') officialPrice = parseFloat(matchedAct[4]) || 0;
+      else if (ticketTypeId === 'Pareja') officialPrice = parseFloat(matchedAct[5]) || 0;
+      else if (ticketTypeId === 'Trío') officialPrice = parseFloat(matchedAct[6]) || 0;
+      else {
+        try {
+          if (matchedAct[12] && String(matchedAct[12]).trim().startsWith('[')) {
+            const customs = JSON.parse(matchedAct[12]);
+            const foundCustom = customs.find(c => c.id === ticketTypeId || c.name === ticketTypeId);
+            if (foundCustom) officialPrice = parseFloat(foundCustom.price) || 0;
+          }
+        } catch (e) {}
+      }
+
+      if (officialPrice <= 0 && faceValue <= 0) {
+        const err = new Error(`EVENT_PRICING_NOT_CONFIRMED: El tipo de boleto "${ticketTypeId}" para el evento "${activity}" no tiene una tarifa válida autorizada.`);
+        err.status = 400;
+        err.code = 'EVENT_PRICING_NOT_CONFIRMED';
+        throw err;
+      }
+    }
+
     // 1. Cálculo financiero estricto de puerta:
     let ticketDoorCharge = 0;
     let paymentStatus = ACCESS_PAYMENT_STATUS.CONFIRMADA;
