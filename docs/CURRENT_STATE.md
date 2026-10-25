@@ -140,4 +140,20 @@
   4. **Exención de Cortesías:** Al seleccionar canal `CORTESIA`, `faceValue = $0.00`, eximiéndolas del cálculo.
   5. **Métricas en Vivo:** El KPI de taquilla refleja en tiempo real la cuota total acumulada para DOMUS: `Cuota DOMUS ($150 × N)`, lista para contrastarse contra el anticipo de $3,000 MXN.
 
+---
+
+## ✏️ Edición y Eliminación Manual de Registros de Acceso (2026-10-25 03:30 UTC-6)
+* **Commit:** `7307d70`
+* **Estado:** `PROD_DEPLOYED`
+* **Funcionalidad Implementada:**
+  1. **Botón Eliminar (`🗑️`):** Permite purgar registros duplicados o accidentales (como folios fantasma). Descuenta al asistente del aforo y del cálculo de cuota de liquidación en tiempo real. Persiste en `localStorage` (`domus_deleted_access_ids`) para que el polling de red no vuelva a resucitar los registros eliminados.
+  2. **Botón Editar (`✏️`):** Abre el modal de edición (`editAccessModal`) para modificar en caliente:
+     - Nombre / Alias del asistente.
+     - Teléfono de contacto.
+     - Asistentes amparados (1, 2 o 3 personas).
+     - Canal de ingreso: Cambiar entre Lista / Boletera Externa ($150 para DOMUS) y Cortesía ($0 para DOMUS).
+     - Validación estricta de Cortesía: Exige campo de quién autorizó (`courtesyAuth`, ej. Steven / Dirección) y motivo.
+  3. **Distintivos Visuales en Tabla:** Badges directos para identificar inmediatamente `⭐ Cortesía ($0)` vs `📋 Lista ($150)` y autorización respectiva.
+
+
 
