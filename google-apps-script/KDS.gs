@@ -51,9 +51,9 @@ function comandasSimpleDatos(token) {
       const item = JSON.parse(row[0]);
       if (!item) return;
       const clientItem = toClientItem(item);
-      if (clientItem.state === 'Entregada' || clientItem.state === 'Cancelada') {
+      if (clientItem.state === 'Entregada') {
         history.push(clientItem);
-      } else {
+      } else if (clientItem.state !== 'Cancelada') {
         orders.push(clientItem);
       }
     } catch (err) {
