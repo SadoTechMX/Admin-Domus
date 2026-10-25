@@ -14,10 +14,19 @@ import json
 import urllib.request
 import urllib.error
 
+from pathlib import Path
+
+# Cargar guardrails de protección de producción
+try:
+    from .guardrails import verify_write_target, PRODUCTION_DEPLOYMENT_ID, PRODUCTION_MAIN_SHEET_ID
+except ImportError:
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from guardrails import verify_write_target, PRODUCTION_DEPLOYMENT_ID, PRODUCTION_MAIN_SHEET_ID
+
 DEPLOYMENT_CURRENT = {
     "version": "v1.1.0-hardened",
-    "deploymentId": "AKfycbysBaRA2_oZIOqU10G4E_MHiC8FUR3dCnqj2DlLG91iNJXP3GkZZ7BK0Na1FAJ1thZk",
-    "url": "https://script.google.com/macros/s/AKfycbysBaRA2_oZIOqU10G4E_MHiC8FUR3dCnqj2DlLG91iNJXP3GkZZ7BK0Na1FAJ1thZk/exec"
+    "deploymentId": "AKfycbzLkId5CWpQp3kBuY6UM5r6zhmyVyxmP1R80SfQidL83qXi_tUueRGd4P20Nc0tRYNH",
+    "url": "https://script.google.com/macros/s/AKfycbzLkId5CWpQp3kBuY6UM5r6zhmyVyxmP1R80SfQidL83qXi_tUueRGd4P20Nc0tRYNH/exec"
 }
 
 DEPLOYMENT_BASELINE = {

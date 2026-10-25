@@ -21,6 +21,14 @@ import urllib.request
 import urllib.error
 import urllib.parse
 import argparse
+from pathlib import Path
+
+# Cargar guardrails de protección de producción
+try:
+    from .guardrails import verify_write_target, PRODUCTION_DEPLOYMENT_ID, PRODUCTION_MAIN_SHEET_ID
+except ImportError:
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from guardrails import verify_write_target, PRODUCTION_DEPLOYMENT_ID, PRODUCTION_MAIN_SHEET_ID
 
 EXPECTED_STAGING_MAIN = "114VSwo3bXyn_audh1LHr4qqjW5aSDSTP_bR_-Iz5dkg"
 EXPECTED_STAGING_OPS = "1NDpuyx6EfCHcoKW9CZ6pwR0oe2JS0aKpTTMa7RdqmlE"
@@ -28,6 +36,8 @@ EXPECTED_STAGING_OPS = "1NDpuyx6EfCHcoKW9CZ6pwR0oe2JS0aKpTTMa7RdqmlE"
 class DomusClient:
     def __init__(self, base_url):
         self.base_url = base_url.strip()
+        if PRODUCTION_DEPLOYMENT_ID in self.base_url:
+            raise RuntimeError("WRITE TEST BLOCKED IN PRODUCTION: Prohibido ejecutar test de mutación contra producción.")
 
     def get(self, action, params=None):
         query = f"?action={action}"
@@ -95,6 +105,13 @@ def run_extended_tests(url):
     ping_res, lat_ping = client.get("ping")
     assert ping_res.get("ok") is True, f"Ping falló: {ping_res}"
     data = ping_res.get("data", {})
+
+    if data.get("environment") == "PRODUCTION":
+        raise RuntimeError("WRITE TEST BLOCKED IN PRODUCTION: El endpoint reporta entorno 'PRODUCTION'.")
+
+    if data.get("mainSheetId") == "1KQz8oJ4VaWFsqS2-sg25HMCm60SdSoQpIDlCDSV5J1U":
+        raise RuntimeError("WRITE TEST BLOCKED IN PRODUCTION: Main Sheet es la base de datos de PRODUCCIÓN.")
+
     assert data.get("environment") == "STAGING", f"No es STAGING: {data.get('environment')}"
     assert data.get("mainSheetId") == EXPECTED_STAGING_MAIN, f"Main Sheet ID incorrecto: {data.get('mainSheetId')}"
     assert data.get("opsSheetId") == EXPECTED_STAGING_OPS, f"Ops Sheet ID incorrecto: {data.get('opsSheetId')}"

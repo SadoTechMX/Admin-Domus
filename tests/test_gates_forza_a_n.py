@@ -46,6 +46,10 @@ def test_gates_a_to_n(staging_url):
 
     assert ping_data.get("ok") is True, f"Ping falló: {ping_data}"
     env_info = ping_data.get("data", {})
+    if env_info.get("environment") == "PRODUCTION":
+        raise RuntimeError("WRITE TEST BLOCKED IN PRODUCTION: El endpoint reporta entorno 'PRODUCTION'.")
+    if env_info.get("mainSheetId") == "1KQz8oJ4VaWFsqS2-sg25HMCm60SdSoQpIDlCDSV5J1U":
+        raise RuntimeError("WRITE TEST BLOCKED IN PRODUCTION: Main Sheet es la base de datos de PRODUCCIÓN.")
     assert env_info.get("environment") == "STAGING", f"¡ALERTA! El entorno NO es STAGING: {env_info}"
     assert env_info.get("mainSheetId") == "114VSwo3bXyn_audh1LHr4qqjW5aSDSTP_bR_-Iz5dkg", "mainSheetId no coincide con STAGING"
     assert env_info.get("opsSheetId") == "1NDpuyx6EfCHcoKW9CZ6pwR0oe2JS0aKpTTMa7RdqmlE", "opsSheetId no coincide con STAGING"
