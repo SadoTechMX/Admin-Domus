@@ -8,7 +8,7 @@
 (function () {
   // --- CONFIGURACIÓN & ESTADO INICIAL ---
   const DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycbysBaRA2_oZIOqU10G4E_MHiC8FUR3dCnqj2DlLG91iNJXP3GkZZ7BK0Na1FAJ1thZk/exec';
-  const STAFF_MEMBERS = ['René', 'Miguel', 'Mike', 'Meaw', 'Wall E', 'Iván', 'Kas', 'Steven', 'Angel'];
+  const STAFF_MEMBERS = ['René', 'Miguel', 'Mike', 'Taichi Mike', 'Meaw', 'Wall E', 'Iván', 'Kas', 'Steven', 'Angel'];
 
   const cachedGasUrl = localStorage.getItem('domus_gas_url');
   const validApiUrl = (cachedGasUrl && !cachedGasUrl.includes('domusccc.net')) ? cachedGasUrl : DEFAULT_GAS_URL;
