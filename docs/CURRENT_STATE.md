@@ -67,5 +67,13 @@
 | **C. TRANSFERENCIA (No Verificada)** | `A-5030` | 0 filas en `COBROS` (`PENDIENTE_VERIFICACION`) | $150.00 | $0.00 | ✅ **PASS** |
 | **C. TRANSFERENCIA (Conciliada)** | `A-5031` | 1 fila en `COBROS` (`CONFIRMADA`, $150) | $150.00 | $150.00 | ✅ **PASS** |
 | **D. CORTESIA** | `A-5032` | 0 filas en `COBROS` (Autorización: "Dirección") | $200.00 | $0.00 | ✅ **PASS** |
+---
 
+## 🌿 Hotfix Operacional: Menú Cannábico / Canna Treats (2026-10-24)
 
+| Componente | Estado | Detalle |
+| :--- | :---: | :--- |
+| **Pestaña `🌿 Menú Cannábico` en POS** | `PROD_DEPLOYED` | Chip permanente y prominente situado entre `Todas` y `Barra`. Filtra los 22 productos Canna Treats (SKUs CT01 a CT22). |
+| **Búsqueda Cannábica** | `PROD_DEPLOYED` | El buscador de Caja detecta palabras clave (`canna`, `cannabico`, `alitas`, `hamburguesa`, `boneless`, `treats`, etc.) y despliega los productos de alimentos cannábicos. |
+| **Ruteo de Comandas KDS** | `PROD_DEPLOYED` | Todos los alimentos Canna Treats se asignan inequívocamente a `Cocina`, manteniendo la Barra libre de sobrecarga de alimentos. |
+| **Distintivo Visual (Badge)** | `PROD_DEPLOYED` | Badge verde esmeralda `🌿 Menú Cannábico · Canna Treats` con borde y hover dinámico. |
