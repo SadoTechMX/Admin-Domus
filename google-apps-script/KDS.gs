@@ -147,30 +147,101 @@ function comandasSimpleAccion(token, body) {
       let invMovement = null;
       const sInv = m.getSheetByName('INVENTARIO');
       if (sInv) {
-        const invValues = sInv.getRange(7, 1, 300, 9).getValues();
-        for (let j = 0; j < invValues.length; j++) {
-          const invSku = String(invValues[j][0] || '').trim();
-          const invName = String(invValues[j][1] || '').trim();
-          if ((targetItem.sku && invSku === targetItem.sku) ||
-              (invName && (invName === targetItem.product || targetItem.product.startsWith(invName) || targetItem.product.includes(invName)))) {
-            const rowIdx = j + 7;
-            const currentInitial = Number(invValues[j][5]) || 0;
-            const currentOut = Number(invValues[j][6]) || 0;
-            const qty = Number(targetItem.qty || 1);
-            const newOut = currentOut + qty;
-            const newDisp = Math.max(0, currentInitial - newOut);
-            sInv.getRange(rowIdx, 7).setValue(newOut);
-            sInv.getRange(rowIdx, 8).setValue(newDisp);
-            invMovement = {
-              sku: invSku,
-              product: invName,
-              qty: qty,
-              previousOut: currentOut,
-              newOut: newOut,
-              available: newDisp
-            };
-            break;
+        const lastRow = sInv.getLastRow();
+        const numRows = Math.max(1, lastRow - 6);
+        const invValues = sInv.getRange(7, 1, numRows, 9).getValues();
+
+        const targetSkuRaw = String(targetItem.sku || '').trim().toUpperCase();
+        const targetProdRaw = String(targetItem.product || '').trim();
+
+        // 1. Alias de SKU explícitamente autorizados (bidireccionales)
+        const SKU_ALIASES = {
+          'VICTORIA-473': 'CARTA-VICTORIA-473',
+          'CARTA-VICTORIA-473': 'VICTORIA-473',
+          'MODELO-473': 'CARTA-MODELO-473',
+          'CARTA-MODELO-473': 'MODELO-473',
+          'BAR-CB-LATA': 'CARTA-BAR-CB-LATA',
+          'CARTA-BAR-CB-LATA': 'BAR-CB-LATA'
+        };
+        const targetAlias = SKU_ALIASES[targetSkuRaw] || '';
+
+        // Función de normalización estricta de nombres para descarte de colisiones
+        const normalizeStr = s => String(s || '').toLowerCase()
+          .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+          .replace(/[·—–-]/g, ' ')
+          .replace(/\s+/g, ' ')
+          .trim();
+
+        const targetNorm = normalizeStr(targetProdRaw);
+
+        let matchRowIdx = -1;
+        let matchedInvRow = null;
+
+        // Prioridad 1: SKU exacto
+        if (targetSkuRaw) {
+          for (let j = 0; j < invValues.length; j++) {
+            const invSku = String(invValues[j][0] || '').trim().toUpperCase();
+            if (invSku && invSku === targetSkuRaw) {
+              matchRowIdx = j + 7;
+              matchedInvRow = invValues[j];
+              break;
+            }
           }
+        }
+
+        // Prioridad 2: Alias de SKU explícitamente autorizado
+        if (matchRowIdx === -1 && targetAlias) {
+          for (let j = 0; j < invValues.length; j++) {
+            const invSku = String(invValues[j][0] || '').trim().toUpperCase();
+            if (invSku && invSku === targetAlias) {
+              matchRowIdx = j + 7;
+              matchedInvRow = invValues[j];
+              break;
+            }
+          }
+        }
+
+        // Prioridad 3: Nombre exacto normalizado (coincidencia idéntica completa, NUNCA substring laxo)
+        if (matchRowIdx === -1 && targetNorm) {
+          for (let j = 0; j < invValues.length; j++) {
+            const invNameNorm = normalizeStr(invValues[j][1]);
+            if (invNameNorm && invNameNorm === targetNorm) {
+              matchRowIdx = j + 7;
+              matchedInvRow = invValues[j];
+              break;
+            }
+          }
+        }
+
+        // Si se localizó la fila inequívoca:
+        if (matchRowIdx !== -1 && matchedInvRow) {
+          const invSku = String(matchedInvRow[0] || '').trim();
+          const invName = String(matchedInvRow[1] || '').trim();
+          const currentInitial = Number(matchedInvRow[5]) || 0;
+          const currentOut = Number(matchedInvRow[6]) || 0;
+          const qty = Number(targetItem.qty || 1);
+          const newOut = currentOut + qty;
+          const newDisp = Math.max(0, currentInitial - newOut);
+          sInv.getRange(matchRowIdx, 7).setValue(newOut);
+          sInv.getRange(matchRowIdx, 8).setValue(newDisp);
+          invMovement = {
+            sku: invSku,
+            product: invName,
+            row: matchRowIdx,
+            qty: qty,
+            previousOut: currentOut,
+            newOut: newOut,
+            available: newDisp
+          };
+        } else {
+          // Prioridad 4: Si no existe coincidencia inequívoca, INVENTORY_ITEM_NOT_FOUND y NO descontar nada
+          console.warn(`[KDS INVENTARIO] Item no localizado en INVENTARIO: SKU='${targetSkuRaw}', Producto='${targetProdRaw}'. No se descontó ninguna fila.`);
+          invMovement = {
+            status: 'INVENTORY_ITEM_NOT_FOUND',
+            sku: targetSkuRaw,
+            product: targetProdRaw,
+            discounted: false
+          };
         }
       }
 

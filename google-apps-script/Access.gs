@@ -47,7 +47,13 @@ function accesoSimpleDatos() {
       const pGen = typeof r[4] === 'number' ? r[4] : (parseFloat(r[4]) || 0);
       const pPar = typeof r[5] === 'number' ? r[5] : (parseFloat(r[5]) || 0);
       const pTrio = typeof r[6] === 'number' ? r[6] : (parseFloat(r[6]) || 0);
-      const pGua = typeof r[7] === 'number' ? r[7] : (parseFloat(r[7]) || 50);
+      let pGua = 50;
+      if (typeof r[7] === 'number') {
+        pGua = r[7];
+      } else if (r[7] !== '' && r[7] !== null && r[7] !== undefined) {
+        const parsed = parseFloat(r[7]);
+        pGua = isNaN(parsed) ? 50 : parsed;
+      }
 
       // Tipos de boletos del evento (estándar + personalizados en notas col M)
       let customTicketTypes = [];
@@ -195,7 +201,7 @@ function accesoSimpleRegistrar(payload) {
     
     const wardrobeQty = Math.max(0, parseInt(payload.wardrobeQty, 10) || 0);
     const wardrobeNotes = String(payload.wardrobeNotes || '').trim();
-    const wardrobeUnitPrice = parseFloat(payload.wardrobeUnitPrice) || 50;
+    const wardrobeUnitPrice = (payload.wardrobeUnitPrice !== undefined && payload.wardrobeUnitPrice !== null && payload.wardrobeUnitPrice !== '') ? Number(payload.wardrobeUnitPrice) : 50;
     const wardrobeAmount = wardrobeQty * wardrobeUnitPrice;
 
     const ticketProvider = String(payload.ticketProvider || (salesChannel === ACCESS_SALES_CHANNELS.BOLETERA_EXTERNA ? 'Boletera' : 'DOMUS')).trim();

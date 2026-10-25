@@ -42,7 +42,7 @@
     kdsSearch: '',
 
     // Accesos, Eventos y Guardarropa
-    activeActivity: 'Sensorama fetish y kinky',
+    activeActivity: 'Forza · sábado',
     eventsList: [],
     recentAccessList: [],
     accessSelectedType: 'General',
@@ -50,6 +50,9 @@
     accessPaymentMethod: 'Efectivo',
     accessSearch: '',
     accessTab: 'log', // 'log' | 'wardrobe' | 'events'
+    openingFloat: 600,
+    openingFloatProvider: 'Steven',
+    openingFloatConcept: 'Fondo inicial / fondo de cambio',
     
     // Conexión
     isNativeGas: !!(window.google && google.script && google.script.run),
@@ -1340,6 +1343,50 @@
         "provider": "Canna Treats"
     },
     {
+        "name": "Pelones",
+        "group": "Canna Treats",
+        "officialCat": "ALIMENTOS · CANNA TREATS",
+        "price": 120.0,
+        "priceSolar": 120.0,
+        "priceLunar": 120.0,
+        "destination": "Cocina",
+        "sku": "CT-PELONES",
+        "provider": "Canna Treats"
+    },
+    {
+        "name": "Galletas grandes",
+        "group": "Canna Treats",
+        "officialCat": "ALIMENTOS · CANNA TREATS",
+        "price": 100.0,
+        "priceSolar": 100.0,
+        "priceLunar": 100.0,
+        "destination": "Cocina",
+        "sku": "CT-GALLETA-GDE",
+        "provider": "Canna Treats"
+    },
+    {
+        "name": "Galletas pequeñas",
+        "group": "Canna Treats",
+        "officialCat": "ALIMENTOS · CANNA TREATS",
+        "price": 80.0,
+        "priceSolar": 80.0,
+        "priceLunar": 80.0,
+        "destination": "Cocina",
+        "sku": "CT-GALLETA-PEQ",
+        "provider": "Canna Treats"
+    },
+    {
+        "name": "Chocolates",
+        "group": "Canna Treats",
+        "officialCat": "ALIMENTOS · CANNA TREATS",
+        "price": 80.0,
+        "priceSolar": 80.0,
+        "priceLunar": 80.0,
+        "destination": "Cocina",
+        "sku": "CT-CHOCOLATES",
+        "provider": "Canna Treats"
+    },
+    {
         "name": "MUFFINS",
         "group": "Cocina",
         "officialCat": "ALIMENTOS ANDY",
@@ -1545,10 +1592,39 @@
     }
   ];
 
+  // Configuración Operativa Especial FORZA 24/10/2026
+  const FORZA_CONFIG = Object.freeze({
+    organizer: 'FORZA',
+    openingFloat: 600,
+    openingFloatProvider: 'Steven',
+    openingFloatConcept: 'Fondo inicial / fondo de cambio',
+    advance: 3000,
+    feePerAttendee: 150,
+    doorCoverDomus: 0,
+    wardrobeDomus: 0
+  });
+
   // Eventos y Actividades Base (para Demo / Offline)
   const DEFAULT_EVENTS = [
+    {
+      name: 'Forza · sábado',
+      date: '2026-10-24',
+      type: 'Club nocturno',
+      organizer: 'FORZA',
+      priceGeneral: 0,
+      pricePareja: 0,
+      priceTrio: 0,
+      priceGuardarropa: 0,
+      capacity: 200,
+      status: 'Confirmado',
+      salesChannel: 'BOLETERA_EXTERNA',
+      ticketProvider: 'FORZA',
+      advance: 3000,
+      forzaFeePerAttendee: 150,
+      agreement: 'Confirmado',
+      notes: 'Boletera externa y guardarropa gestionados por FORZA ($0 DOMUS). Asistencia genera $150/asistente liquidable vs $3,000 anticipo.'
+    },
     { name: 'Sensorama fetish y kinky', date: '2026-10-25', type: 'Fiesta temática', organizer: 'DOMUS', priceGeneral: 150, pricePareja: 260, priceTrio: 360, priceGuardarropa: 50, capacity: 150, status: 'Confirmado' },
-    { name: 'Forza · sábado', date: '2026-10-24', type: 'Club nocturno', organizer: 'DOMUS', priceGeneral: 120, pricePareja: 200, priceTrio: 280, priceGuardarropa: 50, capacity: 200, status: 'Confirmado' },
     { name: 'Chilangoticas · Haunted', date: '2026-10-23', type: 'Fiesta Drag / Performance', organizer: 'Chilangoticas', priceGeneral: 100, pricePareja: 180, priceTrio: 250, priceGuardarropa: 50, capacity: 180, status: 'Confirmado' },
     { name: 'Videojuegos y películas · miércoles', date: '2026-10-21', type: 'Social / Gaming', organizer: 'DOMUS', priceGeneral: 80, pricePareja: 150, priceTrio: 200, priceGuardarropa: 50, capacity: 120, status: 'Confirmado' },
     { name: 'Evento de Steven · registro obligatorio', date: '2026-10-20', type: 'Comunidad / Privado', organizer: 'Steven', priceGeneral: 0, pricePareja: 0, priceTrio: 0, priceGuardarropa: 50, capacity: 100, status: 'Confirmado' },
@@ -2437,6 +2513,7 @@
     const name = String(p.name || '').toLowerCase();
     if (name.includes('canna')) return true;
     const cannaNames = [
+      'pelones', 'galletas grandes', 'galletas pequeñas', 'galletas pequenas', 'chocolates',
       'hamburguesa kinki', 'la dominatrix', 'trío de jochis', 'trio de jochis',
       'boneless', 'alitas sumisas', 'sado nachos', 'nachos libres',
       'bastones de castigo', 'papas misioneras', 'papas gajo', 'misioneritas',
@@ -3270,15 +3347,15 @@
     }
     if (!ev) {
       ev = {
-        name: STATE.activeActivity || 'Sensorama fetish y kinky',
+        name: STATE.activeActivity || 'Forza · sábado',
         date: new Date().toISOString().slice(0, 10),
-        type: 'Fiesta temática',
-        organizer: 'DOMUS',
-        priceGeneral: 150,
-        pricePareja: 260,
-        priceTrio: 360,
-        priceGuardarropa: 50,
-        capacity: 150,
+        type: 'Club nocturno',
+        organizer: 'FORZA',
+        priceGeneral: 0,
+        pricePareja: 0,
+        priceTrio: 0,
+        priceGuardarropa: 0,
+        capacity: 200,
         status: 'Confirmado'
       };
     }
@@ -3405,7 +3482,7 @@
       });
     });
 
-    const pGua = ev.priceGuardarropa !== undefined ? Number(ev.priceGuardarropa) : 50;
+    const pGua = (ev.priceGuardarropa !== undefined && ev.priceGuardarropa !== null && ev.priceGuardarropa !== '') ? Number(ev.priceGuardarropa) : 50;
     if ($('wardrobeUnitPriceText')) {
       $('wardrobeUnitPriceText').textContent = `$${pGua.toFixed(2)} c/u`;
     }
@@ -3487,7 +3564,7 @@
     }
 
     // Cobro de guardarropa desacoplado
-    const pGua = Number(ev.priceGuardarropa) || 50;
+    const pGua = (ev.priceGuardarropa !== undefined && ev.priceGuardarropa !== null && ev.priceGuardarropa !== '') ? Number(ev.priceGuardarropa) : 50;
     const wardrobeCost = (STATE.accessWardrobeQty || 0) * pGua;
     const doorTotal = doorEntryCharge + wardrobeCost;
     const commercialTotal = faceValue + wardrobeCost;
@@ -3615,6 +3692,8 @@
       paymentStatus = 'CONFIRMADA';
     }
 
+    const ev = getActiveEvent();
+    const pGua = (ev.priceGuardarropa !== undefined && ev.priceGuardarropa !== null && ev.priceGuardarropa !== '') ? Number(ev.priceGuardarropa) : 50;
     const { faceValue, persons, doorEntryCharge, wardrobeCost, doorTotal, commercialTotal } = calculateAccessSubtotal();
 
     // Generate atomic folio & wardrobe ticket
@@ -3641,7 +3720,7 @@
       doorEntryCharge: doorEntryCharge,
       wardrobeQty: wardrobeQty,
       wardrobeNotes: wardrobeNotes,
-      wardrobeUnitPrice: 50,
+      wardrobeUnitPrice: pGua,
       wardrobeAmount: wardrobeCost,
       doorCollected: doorTotal,
       commercialTotal: commercialTotal,
@@ -4381,6 +4460,12 @@
     loadInitialData();
   });
 
+  // Arqueo de Caja / Cierre: Efectivo esperado = $600 + cobros reales efectivo - retiros - devoluciones - gastos autorizados
+  function calculateExpectedCashArqueo(cashCollected = 0, withdrawals = 0, refunds = 0, expenses = 0) {
+    const openingFloat = STATE.openingFloat || 600;
+    return openingFloat + Number(cashCollected) - Number(withdrawals) - Number(refunds) - Number(expenses);
+  }
+
   // Exportar helpers globales para llamadas inline en HTML
   window.__domusApp = {
     updateQty: updateCartQty,
@@ -4392,7 +4477,8 @@
     resolveRestock: resolveRestock,
     reprintAccessTicket: reprintAccessTicket,
     returnWardrobe: returnWardrobeItems,
-    setActiveEvent: changeActiveEvent
+    setActiveEvent: changeActiveEvent,
+    calculateExpectedCashArqueo: calculateExpectedCashArqueo
   };
 
 })();

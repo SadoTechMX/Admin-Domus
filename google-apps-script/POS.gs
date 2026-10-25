@@ -14,7 +14,10 @@ function cajaSimpleDatos() {
   const m = SpreadsheetApp.openById(CONFIG.mainSheetId);
   const s = m.getSheetByName('CAJA 2');
   const phase = String(s.getRange('F2').getValue()) || 'Solar';
-  const cat = m.getSheetByName('CATALOGO').getRange('A7:T306').getValues();
+  const sheetCat = m.getSheetByName('CATALOGO');
+  const lastRowCat = sheetCat ? sheetCat.getLastRow() : 6;
+  const numRowsCat = Math.max(1, lastRowCat - 6);
+  const cat = sheetCat ? sheetCat.getRange(7, 1, numRowsCat, 20).getValues() : [];
 
   // Filtrar catálogo activo
   const products = [];
@@ -124,7 +127,10 @@ function cajaSimpleRegistrarCore_(p) {
     throw new Error('Cambió la carta a Fase ' + phase + '. Por favor actualiza antes de cobrar.');
   }
 
-  const cat = m.getSheetByName('CATALOGO').getRange('A7:T306').getValues();
+  const sheetCat = m.getSheetByName('CATALOGO');
+  const lastRowCat = sheetCat ? sheetCat.getLastRow() : 6;
+  const numRowsCat = Math.max(1, lastRowCat - 6);
+  const cat = sheetCat ? sheetCat.getRange(7, 1, numRowsCat, 20).getValues() : [];
   const canCourtesy = CONFIG.managers.includes(who.toLowerCase()) || p.courtesyAuthorized;
   const units = posExpandCart_(p.items || [], cat, phase, canCourtesy);
 
