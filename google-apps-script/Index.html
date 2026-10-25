@@ -5934,6 +5934,21 @@ const DEFAULT_CATALOG = [
 
         const endpoint = `${STATE.apiUrl}?action=${encodeURIComponent(item.action)}`;
         const itemRole = item.role || getStationRole();
+        
+        let sToken = getSessionToken(itemRole);
+        if (!sToken) {
+          try {
+            await new Promise(resolve => ensureSessionToken(resolve, itemRole));
+            sToken = getSessionToken(itemRole);
+          } catch (e) {}
+        }
+
+        if (item.action === 'cajaSimpleRegistrar' && item.args && item.args[0]) {
+          if (!item.args[0].paid && !item.args[0].credit) {
+            item.args[0].credit = 'Amigo';
+          }
+        }
+
         const payload = {
           action: item.action,
           args: item.args,
@@ -5941,7 +5956,7 @@ const DEFAULT_CATALOG = [
           deviceId: item.deviceId,
           operator: item.operatorId,
           role: itemRole,
-          sessionToken: getSessionToken(itemRole)
+          sessionToken: sToken
         };
 
         try {
@@ -5960,6 +5975,8 @@ const DEFAULT_CATALOG = [
             toast(`Operación sincronizada exitosamente con Google Sheets.`, 'ok');
             playChime('success');
             updateSyncPill('ok');
+            updateOutboxUI();
+            syncBackendData();
           } else {
             const errorMsg = (json && (json.error || json.message)) || 'Error en servidor';
             const errorCode = json && (json.code || json.status);
@@ -8336,6 +8353,12 @@ const DEFAULT_CATALOG = [
     const btnRetryOutbox = $('btnOutboxRetry');
     if (btnRetryOutbox) {
       btnRetryOutbox.addEventListener('click', () => {
+        const queue = getOutbox().map(it => {
+          it.status = 'RETRY';
+          it.attempts = 0;
+          return it;
+        });
+        saveOutbox(queue);
         toast('Reintentando sincronización de Outbox…', 'ok');
         processOutbox();
       });
