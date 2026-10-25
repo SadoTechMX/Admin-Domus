@@ -17,8 +17,18 @@ import time
 import json
 import urllib.request
 import urllib.error
+from pathlib import Path
+
+# Cargar guardrails de protección de producción
+try:
+    from .guardrails import verify_write_target, PRODUCTION_DEPLOYMENT_ID, PRODUCTION_MAIN_SHEET_ID
+except ImportError:
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from guardrails import verify_write_target, PRODUCTION_DEPLOYMENT_ID, PRODUCTION_MAIN_SHEET_ID
 
 def post(url, action, args=[], role="CAJA", token="", request_id=None, device_id="TEST-GATE2-DEV"):
+    if PRODUCTION_DEPLOYMENT_ID in str(url):
+        raise RuntimeError("WRITE TEST BLOCKED IN PRODUCTION: Intento de POST contra deployment de producción.")
     req_body = {
         "action": action,
         "requestId": request_id or f"REQ-GATE2-{int(time.time()*1000)}",
@@ -51,6 +61,13 @@ def run_gate2(url):
     print("📦 DOMUS OS · GATE 2: TIMEOUT EN ENTREGA E INVENTARIO (CASO 13)")
     print(f"Target URL: {url}")
     print("=" * 80)
+
+    # GUARDRAIL CRÍTICO OBLIGATORIO: Validar aislamiento de STAGING antes de cualquier mutación
+    env_data = verify_write_target(url)
+    if env_data.get("environment") == "PRODUCTION":
+        raise RuntimeError("WRITE TEST BLOCKED IN PRODUCTION: El endpoint reporta entorno PRODUCTION.")
+    if env_data.get("mainSheetId") == PRODUCTION_MAIN_SHEET_ID:
+        raise RuntimeError(f"WRITE TEST BLOCKED: Target sheet is PRODUCTION ({PRODUCTION_MAIN_SHEET_ID})")
 
     # 1. Sesiones RBAC
     print("\n[Paso 1] Autenticando sesiones RBAC para CAJA y KDS...")
@@ -168,6 +185,12 @@ def run_gate2(url):
     return True
 
 if __name__ == "__main__":
-    target = sys.argv[1] if len(sys.argv) > 1 else "https://script.google.com/macros/s/AKfycbysBaRA2_oZIOqU10G4E_MHiC8FUR3dCnqj2DlLG91iNJXP3GkZZ7BK0Na1FAJ1thZk/exec"
+    if len(sys.argv) < 2:
+        print("🚨 ERROR: Debes proporcionar la URL del endpoint STAGING como argumento.")
+        print("Uso: python3 tests/test_gate2_kds_inventory_retry.py <STAGING_URL>")
+        sys.exit(1)
+    target = sys.argv[1].strip()
+    if PRODUCTION_DEPLOYMENT_ID in target:
+        raise RuntimeError("WRITE TEST BLOCKED IN PRODUCTION: Prohibido ejecutar test de mutación contra producción.")
     success = run_gate2(target)
     sys.exit(0 if success else 1)

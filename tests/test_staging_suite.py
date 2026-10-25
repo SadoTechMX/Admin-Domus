@@ -15,6 +15,14 @@ import urllib.error
 import urllib.parse
 import argparse
 from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
+
+# Cargar guardrails de protección de producción
+try:
+    from .guardrails import verify_write_target, PRODUCTION_DEPLOYMENT_ID, PRODUCTION_MAIN_SHEET_ID
+except ImportError:
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from guardrails import verify_write_target, PRODUCTION_DEPLOYMENT_ID, PRODUCTION_MAIN_SHEET_ID
 
 EXPECTED_STAGING_MAIN = "114VSwo3bXyn_audh1LHr4qqjW5aSDSTP_bR_-Iz5dkg"
 EXPECTED_STAGING_OPS = "1NDpuyx6EfCHcoKW9CZ6pwR0oe2JS0aKpTTMa7RdqmlE"
@@ -100,14 +108,20 @@ def run_tests(url):
     print(f"Main Sheet ID:     {main_id}")
     print(f"Ops Sheet ID:      {ops_id}")
 
+    if env == "PRODUCTION":
+        raise RuntimeError("WRITE TEST BLOCKED IN PRODUCTION: El endpoint reporta entorno 'PRODUCTION'.")
+
+    if main_id == "1KQz8oJ4VaWFsqS2-sg25HMCm60SdSoQpIDlCDSV5J1U":
+        raise RuntimeError("WRITE TEST BLOCKED IN PRODUCTION: Main Sheet es la base de datos de PRODUCCIÓN.")
+
     if env != "STAGING":
         print(f"🚨 ALERTA CRÍTICA: El backend reporta entorno '{env}', NO 'STAGING'!")
         print("ABORTANDO para proteger Producción.")
-        return False
+        raise RuntimeError(f"WRITE TEST BLOCKED: Entorno '{env}' no autorizado para mutaciones.")
 
     if main_id != EXPECTED_STAGING_MAIN:
         print(f"🚨 ALERTA CRÍTICA: Main Sheet '{main_id}' no coincide con Staging ({EXPECTED_STAGING_MAIN})!")
-        return False
+        raise RuntimeError(f"WRITE TEST BLOCKED: Main Sheet '{main_id}' fuera del aislamiento de Staging.")
 
     print("✅ Aislamiento confirmado: El backend está conectado estrictamente a DOMUS-STAGING.")
 

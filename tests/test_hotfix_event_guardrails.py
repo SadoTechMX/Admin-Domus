@@ -12,10 +12,23 @@ import json
 import time
 import urllib.request
 import urllib.error
+from pathlib import Path
 
-STAGING_URL = "https://script.google.com/macros/s/AKfycbysBaRA2_oZIOqU10G4E_MHiC8FUR3dCnqj2DlLG91iNJXP3GkZZ7BK0Na1FAJ1thZk/exec"
-if len(sys.argv) > 1 and sys.argv[1].startswith("http"):
-    STAGING_URL = sys.argv[1]
+# Cargar guardrails de protección de producción
+try:
+    from .guardrails import verify_write_target, PRODUCTION_DEPLOYMENT_ID, PRODUCTION_MAIN_SHEET_ID
+except ImportError:
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from guardrails import verify_write_target, PRODUCTION_DEPLOYMENT_ID, PRODUCTION_MAIN_SHEET_ID
+
+if len(sys.argv) < 2 or not sys.argv[1].startswith("http"):
+    print("🚨 ERROR: Debes proporcionar la URL del endpoint STAGING como argumento.")
+    print("Uso: python3 tests/test_hotfix_event_guardrails.py <STAGING_URL>")
+    sys.exit(1)
+
+STAGING_URL = sys.argv[1].strip()
+if PRODUCTION_DEPLOYMENT_ID in STAGING_URL:
+    raise RuntimeError("WRITE TEST BLOCKED IN PRODUCTION: Prohibido ejecutar test de mutación contra producción.")
 
 def post_rpc(action, args=None, token=None, role="ADMIN", device_id="TEST-HOTFIX-DEV", request_id=None):
     payload = {
@@ -52,6 +65,13 @@ def run_tests():
     print("🛡️ DOMUS OS · SUITE DE VALIDACIÓN DEL HOTFIX PRE-EVENTO (STAGING)")
     print(f"Target URL: {STAGING_URL}")
     print("=" * 80)
+
+    # GUARDRAIL CRÍTICO OBLIGATORIO: Validar aislamiento de STAGING antes de cualquier mutación
+    env_data = verify_write_target(STAGING_URL)
+    if env_data.get("environment") == "PRODUCTION":
+        raise RuntimeError("WRITE TEST BLOCKED IN PRODUCTION: El endpoint reporta entorno PRODUCTION.")
+    if env_data.get("mainSheetId") == PRODUCTION_MAIN_SHEET_ID:
+        raise RuntimeError(f"WRITE TEST BLOCKED: Target sheet is PRODUCTION ({PRODUCTION_MAIN_SHEET_ID})")
 
     # 0. Autenticar Admin
     ses = post_rpc("authCrearSesion", ["ADMIN", "Gerente René", "ACCESOS", "GAVETA_ACCESOS"])
