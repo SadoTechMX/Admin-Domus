@@ -11,9 +11,10 @@
 * **Rama de Fase 1 (Turnos y Cortes):** Aislada en `feature/phase-1-shifts-cuts` (Commit `881a71c`)
 * **Estado de Working Tree:** `clean`
 * **Entorno de PRODUCCIÓN Oficial:**
-  - Versión Activa en Producción: **Versión 21** (24 oct 2026, Release v1.1.1) -> Próxima actualización a bundle v1.1.2
+  - Versión Activa en Producción: **Versión 22** (25 oct 2026, Release v1.1.2)
   - Versión Rollback Garantizada: **Versión 12** (23 oct 2026, 10:58 p.m.)
   - Deployment Web App Oficial (Conservado): `https://script.google.com/macros/s/AKfycbysBaRA2_oZIOqU10G4E_MHiC8FUR3dCnqj2DlLG91iNJXP3GkZZ7BK0Na1FAJ1thZk/exec`
+  - Version Library ID: `https://script.google.com/macros/library/d/1VFG72NoaQlca_czsgSgQmbnAIGOqyaAzqMlXVTdtsU-YZy6Xt35pHYPh/22`
   - Libros Oficiales:
     - Main: `1KQz8oJ4VaWFsqS2-sg25HMCm60SdSoQpIDlCDSV5J1U` (*DOMUS · SISTEMA OPERATIVO*)
     - Ops: `1DiwPa1cVe33xCYkIiYoHhP015RsEOjHXBFe2iU2RVCc` (*DOMUS · BARRA Y RESURTIDO*)
