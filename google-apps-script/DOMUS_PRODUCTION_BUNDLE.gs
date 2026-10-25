@@ -1,18 +1,17 @@
 /**
  * ============================================================================
  * DOMUS OS · PRODUCTION UNIFIED BACKEND BUNDLE (DOMUS_PRODUCTION_BUNDLE.gs)
- * Generado EXCLUSIVAMENTE para el entorno de PRODUCCIÓN
+ * Generado para el entorno DOMUS-PRODUCTION (Hotfix Pre-Evento 24 Oct 2026)
  * Main Sheet: 1KQz8oJ4VaWFsqS2-sg25HMCm60SdSoQpIDlCDSV5J1U
  * Ops Sheet:  1DiwPa1cVe33xCYkIiYoHhP015RsEOjHXBFe2iU2RVCc
- * Release:    v1.1.0
- * Commit:     d8bf1d9
+ * Branch: hotfix/event-2026-10-24
  * ============================================================================
  */
 
 'use strict';
 
 
-// ==================== START OF Config.gs (PRODUCTION) ====================
+// ==================== START OF Config.gs ====================
 
 /**
  * ============================================================================
@@ -73,7 +72,10 @@ function getActiveEnvironment_() {
   }
 
   // Por seguridad en branch de aislamiento, si los IDs de Staging están configurados se usa STAGING
-  // En bundle de producción, el entorno predeterminado es invariablemente PRODUCTION
+  if (ENVIRONMENTS.STAGING.mainSheetId && ENVIRONMENTS.STAGING.opsSheetId) {
+    return ENVIRONMENTS.STAGING;
+  }
+
   return ENVIRONMENTS.PRODUCTION;
 }
 
@@ -112,7 +114,7 @@ const CONFIG = Object.freeze({
 // ==================== END OF Config.gs ====================
 
 
-// ==================== START OF Auth.gs (PRODUCTION) ====================
+// ==================== START OF Auth.gs ====================
 
 /**
  * ============================================================================
@@ -243,7 +245,7 @@ function authValidateAction(action, sessionToken, clientClaimedRole, clientDevic
 // ==================== END OF Auth.gs ====================
 
 
-// ==================== START OF Idempotency.gs (PRODUCTION) ====================
+// ==================== START OF Idempotency.gs ====================
 
 /**
  * ============================================================================
@@ -600,7 +602,7 @@ function idempotentExecute_(requestId, action, payload, deviceId, fn) {
 // ==================== END OF Idempotency.gs ====================
 
 
-// ==================== START OF POS.gs (PRODUCTION) ====================
+// ==================== START OF POS.gs ====================
 
 /**
  * ============================================================================
@@ -956,7 +958,7 @@ function posExpandCart_(items, cat, phase, canCourtesy) {
 // ==================== END OF POS.gs ====================
 
 
-// ==================== START OF KDS.gs (PRODUCTION) ====================
+// ==================== START OF KDS.gs ====================
 
 /**
  * ============================================================================
@@ -1203,7 +1205,7 @@ function comandasSimpleEntrar(token) {
 // ==================== END OF KDS.gs ====================
 
 
-// ==================== START OF Inventory.gs (PRODUCTION) ====================
+// ==================== START OF Inventory.gs ====================
 
 /**
  * ============================================================================
@@ -1384,7 +1386,7 @@ function sincronizarJujutsuShi() {
 // ==================== END OF Inventory.gs ====================
 
 
-// ==================== START OF Access.gs (PRODUCTION) ====================
+// ==================== START OF Access.gs ====================
 
 /**
  * ============================================================================
@@ -1603,6 +1605,55 @@ function accesoSimpleRegistrar(payload) {
       }
     }
 
+    // Guardrail pre-evento: Validación de tarifa y acuerdo comercial autorizado (ADR-005)
+    const requiresDoorAdmissionCharge = (salesChannel === ACCESS_SALES_CHANNELS.TAQUILLA_DOMUS || salesChannel === ACCESS_SALES_CHANNELS.TRANSFERENCIA_DIRECTA) && ticketTypeId !== 'SOLO_GUARDARROPA' && ticketTypeId !== 'GUARDARROPA';
+
+    if (requiresDoorAdmissionCharge) {
+      const sAct = m.getSheetByName('ACTIVIDADES');
+      let matchedAct = null;
+      if (sAct && sAct.getLastRow() >= 7) {
+        const rawActs = sAct.getRange('A7:M' + sAct.getLastRow()).getValues();
+        matchedAct = rawActs.find(r => String(r[0] || '').trim().toLowerCase() === activity.toLowerCase());
+      }
+
+      if (!matchedAct) {
+        const err = new Error(`EVENT_PRICING_NOT_CONFIRMED: El evento "${activity}" no existe en ACTIVIDADES o no cuenta con programación oficial.`);
+        err.status = 400;
+        err.code = 'EVENT_PRICING_NOT_CONFIRMED';
+        throw err;
+      }
+
+      const actStatus = String(matchedAct[11] || '').trim().toLowerCase();
+      if (actStatus === 'por validar' || actStatus === 'pendiente' || actStatus === 'no confirmado') {
+        const err = new Error(`EVENT_PRICING_NOT_CONFIRMED: El acuerdo comercial del evento "${activity}" está "${matchedAct[11]}". No se pueden cobrar entradas en taquilla hasta que Dirección apruebe las tarifas oficiales.`);
+        err.status = 400;
+        err.code = 'EVENT_PRICING_NOT_CONFIRMED';
+        throw err;
+      }
+
+      // Validar precio oficial del tipo de boleto
+      let officialPrice = 0;
+      if (ticketTypeId === 'General') officialPrice = parseFloat(matchedAct[4]) || 0;
+      else if (ticketTypeId === 'Pareja') officialPrice = parseFloat(matchedAct[5]) || 0;
+      else if (ticketTypeId === 'Trío') officialPrice = parseFloat(matchedAct[6]) || 0;
+      else {
+        try {
+          if (matchedAct[12] && String(matchedAct[12]).trim().startsWith('[')) {
+            const customs = JSON.parse(matchedAct[12]);
+            const foundCustom = customs.find(c => c.id === ticketTypeId || c.name === ticketTypeId);
+            if (foundCustom) officialPrice = parseFloat(foundCustom.price) || 0;
+          }
+        } catch (e) {}
+      }
+
+      if (officialPrice <= 0 && faceValue <= 0) {
+        const err = new Error(`EVENT_PRICING_NOT_CONFIRMED: El tipo de boleto "${ticketTypeId}" para el evento "${activity}" no tiene una tarifa válida autorizada.`);
+        err.status = 400;
+        err.code = 'EVENT_PRICING_NOT_CONFIRMED';
+        throw err;
+      }
+    }
+
     // 1. Cálculo financiero estricto de puerta:
     let ticketDoorCharge = 0;
     let paymentStatus = ACCESS_PAYMENT_STATUS.CONFIRMADA;
@@ -1810,7 +1861,7 @@ function accesoCambiarActividad(payload) {
 // ==================== END OF Access.gs ====================
 
 
-// ==================== START OF Payments.gs (PRODUCTION) ====================
+// ==================== START OF Payments.gs ====================
 
 /**
  * ============================================================================
@@ -1870,7 +1921,7 @@ function recordPaymentTransaction_(m, payload) {
 // ==================== END OF Payments.gs ====================
 
 
-// ==================== START OF Accounts.gs (PRODUCTION) ====================
+// ==================== START OF Accounts.gs ====================
 
 /**
  * ============================================================================
@@ -1951,7 +2002,7 @@ function reopenCashAccount_(ticket, who, reason) {
 // ==================== END OF Accounts.gs ====================
 
 
-// ==================== START OF Events.gs (PRODUCTION) ====================
+// ==================== START OF Events.gs ====================
 
 /**
  * ============================================================================
@@ -2009,7 +2060,7 @@ function registrarNuevoEvento(evento) {
 // ==================== END OF Events.gs ====================
 
 
-// ==================== START OF Api.gs (PRODUCTION) ====================
+// ==================== START OF Api.gs ====================
 
 /**
  * ============================================================================

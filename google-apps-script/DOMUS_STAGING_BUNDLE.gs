@@ -1,10 +1,10 @@
 /**
  * ============================================================================
  * DOMUS OS · STAGING UNIFIED BACKEND BUNDLE (DOMUS_STAGING_BUNDLE.gs)
- * Generado para el entorno DOMUS-STAGING
+ * Generado para el entorno DOMUS-STAGING (Hotfix Pre-Evento 24 Oct 2026)
  * Main Sheet: 114VSwo3bXyn_audh1LHr4qqjW5aSDSTP_bR_-Iz5dkg
  * Ops Sheet:  1NDpuyx6EfCHcoKW9CZ6pwR0oe2JS0aKpTTMa7RdqmlE
- * Branch: stabilization/backend-v1
+ * Branch: hotfix/event-2026-10-24
  * ============================================================================
  */
 
@@ -52,7 +52,7 @@ function getActiveEnvironment_() {
       const propEnv = props.getProperty('DOMUS_ENV');
       
       if (propEnv === 'PRODUCTION') {
-        return ENVIRONMENTS.PRODUCTION;
+        return ENVIRONMENTS.STAGING;
       }
 
       if (propEnv === 'STAGING') {
@@ -76,14 +76,14 @@ function getActiveEnvironment_() {
     return ENVIRONMENTS.STAGING;
   }
 
-  return ENVIRONMENTS.PRODUCTION;
+  return ENVIRONMENTS.STAGING;
 }
 
 const ACTIVE_ENV = getActiveEnvironment_();
 
 const CONFIG = Object.freeze({
   // Entorno activo
-  environment: ACTIVE_ENV.name,
+  environment: 'STAGING',
   isStaging: ACTIVE_ENV.name === 'STAGING',
   
   // Identificadores de Google Sheets
@@ -1602,6 +1602,55 @@ function accesoSimpleRegistrar(payload) {
         if (alreadyUsed) {
           throw new Error('Boleto ya utilizado previamente. Folio: ' + externalTicketId);
         }
+      }
+    }
+
+    // Guardrail pre-evento: Validación de tarifa y acuerdo comercial autorizado (ADR-005)
+    const requiresDoorAdmissionCharge = (salesChannel === ACCESS_SALES_CHANNELS.TAQUILLA_DOMUS || salesChannel === ACCESS_SALES_CHANNELS.TRANSFERENCIA_DIRECTA) && ticketTypeId !== 'SOLO_GUARDARROPA' && ticketTypeId !== 'GUARDARROPA';
+
+    if (requiresDoorAdmissionCharge) {
+      const sAct = m.getSheetByName('ACTIVIDADES');
+      let matchedAct = null;
+      if (sAct && sAct.getLastRow() >= 7) {
+        const rawActs = sAct.getRange('A7:M' + sAct.getLastRow()).getValues();
+        matchedAct = rawActs.find(r => String(r[0] || '').trim().toLowerCase() === activity.toLowerCase());
+      }
+
+      if (!matchedAct) {
+        const err = new Error(`EVENT_PRICING_NOT_CONFIRMED: El evento "${activity}" no existe en ACTIVIDADES o no cuenta con programación oficial.`);
+        err.status = 400;
+        err.code = 'EVENT_PRICING_NOT_CONFIRMED';
+        throw err;
+      }
+
+      const actStatus = String(matchedAct[11] || '').trim().toLowerCase();
+      if (actStatus === 'por validar' || actStatus === 'pendiente' || actStatus === 'no confirmado') {
+        const err = new Error(`EVENT_PRICING_NOT_CONFIRMED: El acuerdo comercial del evento "${activity}" está "${matchedAct[11]}". No se pueden cobrar entradas en taquilla hasta que Dirección apruebe las tarifas oficiales.`);
+        err.status = 400;
+        err.code = 'EVENT_PRICING_NOT_CONFIRMED';
+        throw err;
+      }
+
+      // Validar precio oficial del tipo de boleto
+      let officialPrice = 0;
+      if (ticketTypeId === 'General') officialPrice = parseFloat(matchedAct[4]) || 0;
+      else if (ticketTypeId === 'Pareja') officialPrice = parseFloat(matchedAct[5]) || 0;
+      else if (ticketTypeId === 'Trío') officialPrice = parseFloat(matchedAct[6]) || 0;
+      else {
+        try {
+          if (matchedAct[12] && String(matchedAct[12]).trim().startsWith('[')) {
+            const customs = JSON.parse(matchedAct[12]);
+            const foundCustom = customs.find(c => c.id === ticketTypeId || c.name === ticketTypeId);
+            if (foundCustom) officialPrice = parseFloat(foundCustom.price) || 0;
+          }
+        } catch (e) {}
+      }
+
+      if (officialPrice <= 0 && faceValue <= 0) {
+        const err = new Error(`EVENT_PRICING_NOT_CONFIRMED: El tipo de boleto "${ticketTypeId}" para el evento "${activity}" no tiene una tarifa válida autorizada.`);
+        err.status = 400;
+        err.code = 'EVENT_PRICING_NOT_CONFIRMED';
+        throw err;
       }
     }
 
