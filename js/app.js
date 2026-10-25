@@ -4603,7 +4603,11 @@
     returnWardrobe: returnWardrobeItems,
     setActiveEvent: changeActiveEvent,
     confirmAccess: confirmAccessAndRegister,
-    calculateExpectedCashArqueo: calculateExpectedCashArqueo
+    calculateExpectedCashArqueo: calculateExpectedCashArqueo,
+    selectEntryType: setAccessEntryType,
+    setSalesChannel: setAccessSalesChannel,
+    setWardrobeQty: setWardrobeQty,
+    setPaymentMethod: setAccessPaymentMethod
   };
 
 })();

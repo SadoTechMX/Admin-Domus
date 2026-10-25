@@ -11,7 +11,9 @@
 
   <!-- Favicon / Branding -->
   <link rel="icon" type="image/png" href="assets/LOGO DOMUS-01.png" />
-  <link rel="apple-touch-icon" href="assets/LOGO DOMUS-01.png" />
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
 
   <!-- Stylesheet -->
   <style>
@@ -2197,8 +2199,8 @@ html, body {
     <div class="header-actions">
       <!-- Sync Status Pill -->
       <div class="connection-status" id="connectionPill" title="Estado de sincronización con Google">
-        <span class="status-dot" id="statusDot"></span>
-        <span id="syncLabel">Conectando…</span>
+        <span class="status-dot ok" id="statusDot"></span>
+        <span id="syncLabel">Conectado</span>
       </div>
 
       <!-- Staff Member Selector -->
@@ -2409,7 +2411,12 @@ html, body {
         <div class="accesos-event-picker">
           <span class="event-picker-label">📅 Actividad / Evento:</span>
           <select id="accessActivitySelect" class="event-select-styled" title="Selecciona el evento en curso">
-            <!-- Rendered dynamically -->
+            <option value="Forza · sábado" selected>Forza · sábado (2026-10-24) - Club nocturno</option>
+            <option value="Sensorama fetish y kinky">Sensorama fetish y kinky (2026-10-25) - Fiesta temática</option>
+            <option value="Chilangoticas · Haunted">Chilangoticas · Haunted (2026-10-23) - Fiesta Drag / Performance</option>
+            <option value="Videojuegos y películas · miércoles">Videojuegos y películas · miércoles (2026-10-21) - Social / Gaming</option>
+            <option value="Evento de Steven · registro obligatorio">Evento de Steven · registro obligatorio (2026-10-20) - Comunidad / Privado</option>
+            <option value="Operación diaria">Operación diaria (2026-10-24) - Club general</option>
           </select>
           <button type="button" class="btn-new-event" id="btnOpenNewEventModal"
             title="Programar o configurar un evento con sus tarifas">
@@ -2497,7 +2504,21 @@ html, body {
           <div class="input-group">
             <label>2. Tipo de Boleto & Tarifa (<span id="activeEventTicketCountText">Evento Activo</span>): *</label>
             <div class="entry-types-grid" id="entryTypesContainer">
-              <!-- Rendered dynamically based on active event tariffs -->
+              <div class="entry-type-btn entry-type-card active selected" data-entry-type="General" data-price="0" data-persons="1" role="button" tabindex="0">
+                <div class="entry-type-icon">👤</div>
+                <div class="entry-type-title">General (1 Asistente)</div>
+                <div class="entry-type-price">$0.00</div>
+              </div>
+              <div class="entry-type-btn entry-type-card" data-entry-type="Pareja" data-price="0" data-persons="2" role="button" tabindex="0">
+                <div class="entry-type-icon">👥</div>
+                <div class="entry-type-title">Pareja (2 Asistentes)</div>
+                <div class="entry-type-price">$0.00</div>
+              </div>
+              <div class="entry-type-btn entry-type-card" data-entry-type="Trío" data-price="0" data-persons="3" role="button" tabindex="0">
+                <div class="entry-type-icon">🧑‍🤝‍🧑</div>
+                <div class="entry-type-title">Trío (3 Asistentes)</div>
+                <div class="entry-type-price">$0.00</div>
+              </div>
             </div>
           </div>
 
@@ -7908,7 +7929,11 @@ html, body {
     returnWardrobe: returnWardrobeItems,
     setActiveEvent: changeActiveEvent,
     confirmAccess: confirmAccessAndRegister,
-    calculateExpectedCashArqueo: calculateExpectedCashArqueo
+    calculateExpectedCashArqueo: calculateExpectedCashArqueo,
+    selectEntryType: setAccessEntryType,
+    setSalesChannel: setAccessSalesChannel,
+    setWardrobeQty: setWardrobeQty,
+    setPaymentMethod: setAccessPaymentMethod
   };
 
 })();
