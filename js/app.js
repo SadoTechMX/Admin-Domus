@@ -53,6 +53,8 @@
     openingFloat: 600,
     openingFloatProvider: 'Steven',
     openingFloatConcept: 'Fondo inicial / fondo de cambio',
+    deletedAccessIds: new Set(JSON.parse(localStorage.getItem('domus_deleted_access_ids') || '[]')),
+    editedAccessMap: JSON.parse(localStorage.getItem('domus_edited_access_map') || '{}'),
     
     // Conexión
     isNativeGas: !!(window.google && google.script && google.script.run),
@@ -2409,7 +2411,9 @@
       }
       const savedAccess = JSON.parse(localStorage.getItem('domus_custom_access') || '[]');
       if (Array.isArray(savedAccess) && savedAccess.length) {
-        STATE.recentAccessList = [...savedAccess, ...STATE.recentAccessList];
+        STATE.recentAccessList = [...savedAccess, ...STATE.recentAccessList]
+          .filter(r => r && r.id && !STATE.deletedAccessIds.has(r.id))
+          .map(r => (STATE.editedAccessMap[r.id] ? { ...r, ...STATE.editedAccessMap[r.id] } : r));
       }
     } catch (e) {}
 
@@ -2517,10 +2521,21 @@
           STATE.activeActivity = forza ? forza.name : (STATE.eventsList[0] ? STATE.eventsList[0].name : 'Forza · sábado');
         }
         if (data.recentAccess) {
-          const backendRecords = data.recentAccess.filter(isRealAccessRecord);
+          const backendRecords = data.recentAccess
+            .filter(isRealAccessRecord)
+            .filter(r => !STATE.deletedAccessIds.has(r.id || r.rowId))
+            .map(r => {
+              const id = r.id || r.rowId;
+              if (STATE.editedAccessMap[id]) {
+                return { ...r, ...STATE.editedAccessMap[id] };
+              }
+              return r;
+            });
           const backendIds = new Set(backendRecords.map(r => r.id || r.rowId));
           // Preservar los registros registrados localmente en esta puerta que aún no figuren en la respuesta de red
-          const localOnly = (STATE.recentAccessList || []).filter(r => r && r.id && !backendIds.has(r.id) && isRealAccessRecord(r));
+          const localOnly = (STATE.recentAccessList || [])
+            .filter(r => r && r.id && !backendIds.has(r.id) && !STATE.deletedAccessIds.has(r.id) && isRealAccessRecord(r))
+            .map(r => (STATE.editedAccessMap[r.id] ? { ...r, ...STATE.editedAccessMap[r.id] } : r));
           STATE.recentAccessList = [...localOnly, ...backendRecords];
           try {
             localStorage.setItem('domus_custom_access', JSON.stringify(STATE.recentAccessList.slice(0, 50)));
@@ -4059,14 +4074,26 @@
           <td style="font-size: 0.82rem; color: var(--text-muted);">${escapeHtml(timeOnly)}</td>
           <td>
             <strong>${escapeHtml(r.customer)}</strong>
+            ${r.salesChannel === 'CORTESIA' 
+              ? '<span class="badge-cortesia" style="font-size: 0.65rem; padding: 2px 6px; margin-left: 5px; border-radius: 4px;">⭐ Cortesía ($0)</span>' 
+              : (r.salesChannel === 'LISTA' || r.salesChannel === 'BOLETERA_EXTERNA' 
+                  ? '<span class="badge-preventa" style="font-size: 0.65rem; padding: 2px 6px; margin-left: 5px; border-radius: 4px;">📋 Lista ($150)</span>' 
+                  : '')}
+            ${r.courtesyAuth ? `<div style="font-size: 0.72rem; color: var(--amber-400);">⭐ Aut: ${escapeHtml(r.courtesyAuth)}</div>` : ''}
             ${r.phone ? `<div style="font-size: 0.75rem; color: var(--text-muted);">📞 ${escapeHtml(r.phone)}</div>` : ''}
           </td>
           <td>${typeBadge}</td>
           <td>${guaBadge}</td>
           <td><strong style="color: var(--emerald-400);">$${amountPaid.toFixed(2)}</strong></td>
           <td style="font-size: 0.82rem;">${escapeHtml(r.paymentMethod || r.method || 'Efectivo')}</td>
-          <td>
-            <button type="button" class="btn-table-action" onclick="window.__domusApp.reprintAccessTicket('${r.id}')" title="Reimprimir Comprobante de Entrada">
+          <td style="white-space: nowrap;">
+            <button type="button" class="btn-table-action" onclick="window.__domusApp.editAccessRecord('${escapeHtml(r.id)}')" title="Editar asistente / canal / cortesía" style="color: var(--amber-400); margin-right: 4px;">
+              ✏️
+            </button>
+            <button type="button" class="btn-table-action" onclick="window.__domusApp.deleteAccessRecord('${escapeHtml(r.id)}')" title="Eliminar / descartar registro" style="color: var(--rose-400); margin-right: 4px;">
+              🗑️
+            </button>
+            <button type="button" class="btn-table-action" onclick="window.__domusApp.reprintAccessTicket('${escapeHtml(r.id)}')" title="Reimprimir Comprobante de Entrada">
               🖨️
             </button>
           </td>
@@ -4685,8 +4712,170 @@
     if ($('btnCloseAccessReceipt')) $('btnCloseAccessReceipt').addEventListener('click', closeAccessReceiptModal);
     if ($('btnDismissAccessReceipt')) $('btnDismissAccessReceipt').addEventListener('click', closeAccessReceiptModal);
     if ($('btnPrintAccessReceipt')) $('btnPrintAccessReceipt').addEventListener('click', () => window.print());
+
+    // Modals: Edit Access Record
+    if ($('btnCloseEditAccessModal')) $('btnCloseEditAccessModal').addEventListener('click', closeEditAccessModal);
+    if ($('btnCancelEditAccess')) $('btnCancelEditAccess').addEventListener('click', closeEditAccessModal);
+    if ($('btnSaveEditAccess')) $('btnSaveEditAccess').addEventListener('click', saveEditAccessRecord);
+    if ($('btnDeleteAccessFromModal')) {
+      $('btnDeleteAccessFromModal').addEventListener('click', () => {
+        const id = $('editAccessId').value;
+        closeEditAccessModal();
+        deleteAccessRecord(id);
+      });
+    }
+    if ($('editAccessChannel')) $('editAccessChannel').addEventListener('change', updateEditAccessModalSummary);
+    if ($('editAccessPersons')) $('editAccessPersons').addEventListener('change', updateEditAccessModalSummary);
   }
 
+  // --- CONTROLADOR DE EDICIÓN Y ELIMINACIÓN DE REGISTROS DE ACCESO ---
+
+  function openEditAccessModal(id) {
+    const rec = (STATE.recentAccessList || []).find(r => r.id === id);
+    if (!rec) {
+      toast(`No se encontró el registro ${id}`, 'warn');
+      return;
+    }
+
+    if ($('editAccessId')) $('editAccessId').value = rec.id;
+    if ($('editAccessFolioLabel')) $('editAccessFolioLabel').textContent = rec.id;
+    if ($('editAccessTimeLabel')) $('editAccessTimeLabel').textContent = (rec.date || '').split(' ')[1] || rec.date || '';
+    if ($('editAccessCustomer')) $('editAccessCustomer').value = rec.customer || '';
+    if ($('editAccessPhone')) $('editAccessPhone').value = rec.phone || '';
+    if ($('editAccessPersons')) $('editAccessPersons').value = String(rec.persons || 1);
+
+    const channel = rec.salesChannel || (rec.entryType === 'Cortesía' ? 'CORTESIA' : 'BOLETERA_EXTERNA');
+    if ($('editAccessChannel')) $('editAccessChannel').value = channel;
+
+    if ($('editAccessCourtesyAuth')) $('editAccessCourtesyAuth').value = rec.courtesyAuth || '';
+    if ($('editAccessCourtesyReason')) $('editAccessCourtesyReason').value = '';
+
+    updateEditAccessModalSummary();
+    if ($('editAccessModal')) $('editAccessModal').classList.add('open');
+  }
+
+  function closeEditAccessModal() {
+    if ($('editAccessModal')) $('editAccessModal').classList.remove('open');
+  }
+
+  function updateEditAccessModalSummary() {
+    const ev = getActiveEvent();
+    const isForza = (ev.name || '').toLowerCase().includes('forza') || (ev.organizer || '').toUpperCase() === 'FORZA';
+    const channel = $('editAccessChannel') ? $('editAccessChannel').value : 'BOLETERA_EXTERNA';
+    const persons = parseInt($('editAccessPersons') ? $('editAccessPersons').value : '1', 10) || 1;
+    const isCourtesy = channel === 'CORTESIA';
+
+    if ($('editAccessCourtesySection')) {
+      $('editAccessCourtesySection').classList.toggle('hidden', !isCourtesy);
+    }
+
+    const summaryEl = $('editAccessSummaryText');
+    if (summaryEl) {
+      if (isForza) {
+        if (isCourtesy) {
+          summaryEl.innerHTML = `<span style="color: var(--amber-400); font-weight: 700;">⭐ Cortesía Autorizada:</span> Exenta de cuota ($0 para DOMUS) · $0 en puerta.`;
+        } else {
+          const totalFee = 150 * persons;
+          summaryEl.innerHTML = `<span style="color: var(--emerald-400); font-weight: 700;">✓ Cuota DOMUS FORZA:</span> Genera $150 × ${persons} = <strong>$${totalFee.toFixed(2)} MXN</strong> para DOMUS (liquidación) · $0 en puerta.`;
+        }
+      } else {
+        summaryEl.innerHTML = `Canal: <strong>${escapeHtml(channel)}</strong> (${persons} personas).`;
+      }
+    }
+  }
+
+  function saveEditAccessRecord() {
+    const id = $('editAccessId') ? $('editAccessId').value : '';
+    const idx = (STATE.recentAccessList || []).findIndex(r => r.id === id);
+    if (idx === -1) {
+      toast('Registro no encontrado.', 'error');
+      return;
+    }
+
+    const rec = STATE.recentAccessList[idx];
+    const newName = ($('editAccessCustomer') ? $('editAccessCustomer').value : '').trim();
+    if (!newName) {
+      toast('⚠️ Por favor ingresa el nombre o alias del asistente.', 'warn');
+      if ($('editAccessCustomer')) $('editAccessCustomer').focus();
+      return;
+    }
+
+    const channel = $('editAccessChannel') ? $('editAccessChannel').value : 'BOLETERA_EXTERNA';
+    const persons = parseInt($('editAccessPersons') ? $('editAccessPersons').value : '1', 10) || 1;
+    const phone = ($('editAccessPhone') ? $('editAccessPhone').value : '').trim();
+    let courtesyAuth = ($('editAccessCourtesyAuth') ? $('editAccessCourtesyAuth').value : '').trim();
+    const courtesyReason = ($('editAccessCourtesyReason') ? $('editAccessCourtesyReason').value : '').trim();
+
+    if (channel === 'CORTESIA' && !courtesyAuth) {
+      toast('⚠️ Para cortesías, debes indicar quién autorizó (ej. Steven / Dirección).', 'warn');
+      if ($('editAccessCourtesyAuth')) $('editAccessCourtesyAuth').focus();
+      return;
+    }
+    if (channel === 'CORTESIA' && courtesyReason) {
+      courtesyAuth = `${courtesyAuth} · ${courtesyReason}`;
+    }
+
+    const isForza = (rec.activity || STATE.activeActivity || '').toLowerCase().includes('forza');
+    let faceValue = 0;
+    if (isForza) {
+      faceValue = (channel === 'CORTESIA') ? 0 : (150 * persons);
+    } else {
+      faceValue = (rec.faceValue || 0);
+    }
+    const commercialTotal = faceValue + (rec.wardrobeCost || rec.wardrobeAmount || 0);
+
+    // Actualizar campos del registro
+    rec.customer = newName;
+    rec.phone = phone;
+    rec.salesChannel = channel;
+    rec.entryType = (channel === 'CORTESIA' ? 'Cortesía' : (persons === 2 ? 'Pareja' : (persons === 3 ? 'Trío' : 'General')));
+    rec.ticketTypeId = rec.entryType;
+    rec.persons = persons;
+    rec.packages = persons;
+    rec.courtesyAuth = (channel === 'CORTESIA' ? courtesyAuth : '');
+    rec.faceValue = faceValue;
+    rec.commercialTotal = commercialTotal;
+    rec.totalCommercial = commercialTotal;
+    rec.entryCost = (channel === 'TAQUILLA_DOMUS' && !isForza ? faceValue : 0);
+    rec.doorCollected = (channel === 'TAQUILLA_DOMUS' && !isForza ? faceValue : 0);
+    rec.paid = rec.doorCollected;
+
+    // Persistir override en cache local
+    STATE.editedAccessMap[id] = { ...rec };
+    try {
+      localStorage.setItem('domus_edited_access_map', JSON.stringify(STATE.editedAccessMap));
+      localStorage.setItem('domus_custom_access', JSON.stringify(STATE.recentAccessList.slice(0, 50)));
+    } catch (e) {}
+
+    closeEditAccessModal();
+    updateAccesosKpis();
+    updateAccesosBadge();
+    renderAccessLogTable();
+    toast(`✓ Registro ${id} actualizado correctamente.`, 'ok');
+  }
+
+  function deleteAccessRecord(id) {
+    const rec = (STATE.recentAccessList || []).find(r => r.id === id);
+    const name = rec ? rec.customer : id;
+    if (!confirm(`¿Eliminar definitivamente el registro ${id} (${name})?\n\nEsta acción lo descontará del aforo y de la liquidación de accesos.`)) {
+      return;
+    }
+
+    STATE.deletedAccessIds.add(id);
+    try {
+      localStorage.setItem('domus_deleted_access_ids', JSON.stringify(Array.from(STATE.deletedAccessIds)));
+    } catch (e) {}
+
+    STATE.recentAccessList = (STATE.recentAccessList || []).filter(r => r.id !== id);
+    try {
+      localStorage.setItem('domus_custom_access', JSON.stringify(STATE.recentAccessList.slice(0, 50)));
+    } catch (e) {}
+
+    updateAccesosKpis();
+    updateAccesosBadge();
+    renderAccessLogTable();
+    toast(`🗑️ Registro ${id} (${name}) eliminado y descontado del aforo.`, 'ok');
+  }
 
   // --- INICIALIZAR APP ---
   document.addEventListener('DOMContentLoaded', () => {
@@ -4730,7 +4919,9 @@
     selectEntryType: setAccessEntryType,
     setSalesChannel: setAccessSalesChannel,
     setWardrobeQty: setWardrobeQty,
-    setPaymentMethod: setAccessPaymentMethod
+    setPaymentMethod: setAccessPaymentMethod,
+    editAccessRecord: openEditAccessModal,
+    deleteAccessRecord: deleteAccessRecord
   };
 
 })();
