@@ -1622,7 +1622,12 @@
       advance: 3000,
       forzaFeePerAttendee: 150,
       agreement: 'Confirmado',
-      notes: 'Boletera externa y guardarropa gestionados por FORZA ($0 DOMUS). Asistencia genera $150/asistente liquidable vs $3,000 anticipo.'
+      notes: 'Boletera externa y guardarropa gestionados por FORZA ($0 DOMUS). Asistencia genera $150/asistente liquidable vs $3,000 anticipo.',
+      ticketTypes: [
+        { id: 'General', name: 'General (1 Asistente)', price: 0, persons: 1 },
+        { id: 'Pareja', name: 'Pareja (2 Asistentes)', price: 0, persons: 2 },
+        { id: 'Trío', name: 'Trío (3 Asistentes)', price: 0, persons: 3 }
+      ]
     },
     { name: 'Sensorama fetish y kinky', date: '2026-10-25', type: 'Fiesta temática', organizer: 'DOMUS', priceGeneral: 150, pricePareja: 260, priceTrio: 360, priceGuardarropa: 50, capacity: 150, status: 'Confirmado' },
     { name: 'Chilangoticas · Haunted', date: '2026-10-23', type: 'Fiesta Drag / Performance', organizer: 'Chilangoticas', priceGeneral: 100, pricePareja: 180, priceTrio: 250, priceGuardarropa: 50, capacity: 180, status: 'Confirmado' },
@@ -2343,10 +2348,13 @@
 
     STATE.comandas = [...DEFAULT_ORDERS];
 
-    // Inicializar eventos y accesos
+    // Inicializar eventos y accesos (preservando evento nocturno activo de jornada en vivo)
     STATE.eventsList = [...DEFAULT_EVENTS];
     STATE.recentAccessList = [...DEFAULT_ACCESS_RECORDS];
-    STATE.activeActivity = STATE.eventsList[0] ? STATE.eventsList[0].name : 'Sensorama fetish y kinky';
+    const savedActiveAct = localStorage.getItem('domus_active_event');
+    STATE.activeActivity = (savedActiveAct && savedActiveAct !== 'Operación diaria')
+      ? savedActiveAct 
+      : 'Forza · sábado';
 
     try {
       const savedEvents = JSON.parse(localStorage.getItem('domus_custom_events') || '[]');
@@ -2356,10 +2364,6 @@
       const savedAccess = JSON.parse(localStorage.getItem('domus_custom_access') || '[]');
       if (Array.isArray(savedAccess) && savedAccess.length) {
         STATE.recentAccessList = [...savedAccess, ...STATE.recentAccessList];
-      }
-      const savedActiveAct = localStorage.getItem('domus_active_event');
-      if (savedActiveAct) {
-        STATE.activeActivity = savedActiveAct;
       }
     } catch (e) {}
 
@@ -2456,8 +2460,15 @@
         if (data.activities && data.activities.length) {
           STATE.eventsList = data.activities;
         }
+        // REGLA DE ORO DE GOBERNANZA:
+        // Si el backend devuelve activeActivity válido, USARLO incondicionalmente
+        // aunque su fecha sea el día calendario anterior (evento nocturno sobre medianoche).
         if (data.activeActivity) {
           STATE.activeActivity = data.activeActivity;
+          localStorage.setItem('domus_active_event', data.activeActivity);
+        } else if (!STATE.activeActivity) {
+          const forza = (STATE.eventsList || []).find(e => e.name && e.name.includes('Forza'));
+          STATE.activeActivity = forza ? forza.name : (STATE.eventsList[0] ? STATE.eventsList[0].name : 'Forza · sábado');
         }
         if (data.recentAccess && data.recentAccess.length) {
           STATE.recentAccessList = data.recentAccess;
@@ -3342,13 +3353,17 @@
 
   function getActiveEvent() {
     let ev = (STATE.eventsList || []).find(e => e.name === STATE.activeActivity);
+    if (!ev) {
+      // Priorizar evento nocturno de jornada en curso (Forza) antes de saltar al siguiente día
+      ev = (STATE.eventsList || []).find(e => e.name && e.name.includes('Forza'));
+    }
     if (!ev && STATE.eventsList && STATE.eventsList.length > 0) {
       ev = STATE.eventsList[0];
     }
     if (!ev) {
       ev = {
         name: STATE.activeActivity || 'Forza · sábado',
-        date: new Date().toISOString().slice(0, 10),
+        date: '2026-10-24',
         type: 'Club nocturno',
         organizer: 'FORZA',
         priceGeneral: 0,
@@ -3356,7 +3371,13 @@
         priceTrio: 0,
         priceGuardarropa: 0,
         capacity: 200,
-        status: 'Confirmado'
+        status: 'Confirmado',
+        salesChannel: 'BOLETERA_EXTERNA',
+        ticketTypes: [
+          { id: 'General', name: 'General (1 Asistente)', price: 0, persons: 1 },
+          { id: 'Pareja', name: 'Pareja (2 Asistentes)', price: 0, persons: 2 },
+          { id: 'Trío', name: 'Trío (3 Asistentes)', price: 0, persons: 3 }
+        ]
       };
     }
     return ev;
@@ -3366,6 +3387,7 @@
     renderAccessActivitySelector();
     renderAccessChannels();
     renderEntryTypesGrid();
+    renderWardrobeSelector();
     updateAccesosKpis();
     updateAccessSummary();
     renderAccessTab();
@@ -3383,14 +3405,17 @@
       const isSelected = ev.name === STATE.activeActivity;
       return `<option value="${escapeHtml(ev.name)}" ${isSelected ? 'selected' : ''}>${escapeHtml(ev.name)} (${ev.date || 'Hoy'}) - ${escapeHtml(ev.type || 'Evento')}</option>`;
     }).join('');
+
+    select.value = STATE.activeActivity;
   }
 
   function renderAccessChannels() {
     const container = $('salesChannelContainer');
     if (!container) return;
 
+    const ev = getActiveEvent();
     if (!STATE.accessSalesChannel) {
-      STATE.accessSalesChannel = 'TAQUILLA_DOMUS';
+      STATE.accessSalesChannel = (ev && ev.salesChannel) ? ev.salesChannel : (ev && ev.name.includes('Forza') ? 'BOLETERA_EXTERNA' : 'TAQUILLA_DOMUS');
     }
 
     container.querySelectorAll('.channel-btn').forEach(btn => {
@@ -3432,9 +3457,9 @@
     if (!container) return;
 
     const ev = getActiveEvent();
-    const pGen = ev.priceGeneral !== undefined ? Number(ev.priceGeneral) : 150;
-    const pPar = ev.pricePareja !== undefined ? Number(ev.pricePareja) : 260;
-    const pTrio = ev.priceTrio !== undefined ? Number(ev.priceTrio) : 360;
+    const pGen = (ev.priceGeneral !== undefined && ev.priceGeneral !== null && ev.priceGeneral !== '') ? Number(ev.priceGeneral) : 0;
+    const pPar = (ev.pricePareja !== undefined && ev.pricePareja !== null && ev.pricePareja !== '') ? Number(ev.pricePareja) : 0;
+    const pTrio = (ev.priceTrio !== undefined && ev.priceTrio !== null && ev.priceTrio !== '') ? Number(ev.priceTrio) : 0;
 
     // Tipos de boletos pertenecientes al evento
     let types = [];
@@ -3442,7 +3467,7 @@
       types = ev.ticketTypes.map(t => ({
         id: t.id || t.name,
         label: t.name || t.id,
-        price: Number(t.price) || 0,
+        price: (t.price !== undefined && t.price !== null && t.price !== '') ? Number(t.price) : 0,
         persons: Number(t.persons) || 1,
         icon: t.icon || (t.persons === 2 ? '👥' : (t.persons >= 3 ? '🧑‍🤝‍🧑' : '👤'))
       }));
@@ -3451,7 +3476,7 @@
         { id: 'General', label: 'General (1 Pers)', price: pGen, persons: 1, icon: '👤' },
         { id: 'Pareja', label: 'Pareja (2 Pers)', price: pPar, persons: 2, icon: '👥' },
         { id: 'Trío', label: 'Trío (3 Pers)', price: pTrio, persons: 3, icon: '🧑‍🤝‍🧑' },
-        { id: 'VIP', label: 'VIP (Acceso Preferente)', price: pGen * 1.5, persons: 1, icon: '⭐' }
+        { id: 'VIP', label: 'VIP (Acceso Preferente)', price: pGen > 0 ? (pGen * 1.5) : 0, persons: 1, icon: '⭐' }
       ];
     }
 
@@ -3467,7 +3492,7 @@
       const isSelected = STATE.accessSelectedType === t.id;
       const priceText = `$${t.price.toFixed(2)}`;
       return `
-        <div class="entry-type-card ${isSelected ? 'selected' : ''}" data-entry-type="${t.id}" data-price="${t.price}" data-persons="${t.persons}">
+        <div class="entry-type-btn entry-type-card ${isSelected ? 'active selected' : ''}" data-entry-type="${escapeHtml(t.id)}" data-price="${t.price}" data-persons="${t.persons}" role="button" tabindex="0">
           <div class="entry-type-icon">${t.icon}</div>
           <div class="entry-type-title">${escapeHtml(t.label)}</div>
           <div class="entry-type-price">${priceText}</div>
@@ -3475,14 +3500,21 @@
       `;
     }).join('');
 
-    container.querySelectorAll('.entry-type-card').forEach(card => {
+    container.querySelectorAll('.entry-type-card, .entry-type-btn').forEach(card => {
       card.addEventListener('click', () => {
         const type = card.getAttribute('data-entry-type');
         setAccessEntryType(type);
       });
+      card.addEventListener('keydown', e => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          const type = card.getAttribute('data-entry-type');
+          setAccessEntryType(type);
+        }
+      });
     });
 
-    const pGua = (ev.priceGuardarropa !== undefined && ev.priceGuardarropa !== null && ev.priceGuardarropa !== '') ? Number(ev.priceGuardarropa) : 50;
+    const pGua = (ev.priceGuardarropa !== undefined && ev.priceGuardarropa !== null && ev.priceGuardarropa !== '') ? Number(ev.priceGuardarropa) : 0;
     if ($('wardrobeUnitPriceText')) {
       $('wardrobeUnitPriceText').textContent = `$${pGua.toFixed(2)} c/u`;
     }
@@ -3493,23 +3525,29 @@
 
     const container = $('entryTypesContainer');
     if (container) {
-      container.querySelectorAll('.entry-type-card').forEach(card => {
-        card.classList.toggle('selected', card.getAttribute('data-entry-type') === type);
+      container.querySelectorAll('.entry-type-card, .entry-type-btn').forEach(card => {
+        const matches = card.getAttribute('data-entry-type') === type;
+        card.classList.toggle('selected', matches);
+        card.classList.toggle('active', matches);
       });
     }
 
     updateAccessSummary();
   }
 
+  function renderWardrobeSelector() {
+    const group = $('wardrobeSelectorGroup');
+    if (!group) return;
+    const qty = STATE.accessWardrobeQty || 0;
+    group.querySelectorAll('.wardrobe-btn').forEach(btn => {
+      const bQty = parseInt(btn.getAttribute('data-qty'), 10);
+      btn.classList.toggle('active', bQty === qty);
+    });
+  }
+
   function setWardrobeQty(qty) {
     STATE.accessWardrobeQty = qty;
-    const group = $('wardrobeSelectorGroup');
-    if (group) {
-      group.querySelectorAll('.wardrobe-btn').forEach(btn => {
-        const bQty = parseInt(btn.getAttribute('data-qty'), 10);
-        btn.classList.toggle('active', bQty === qty);
-      });
-    }
+    renderWardrobeSelector();
 
     const notesWrapper = $('wardrobeNotesWrapper');
     if (notesWrapper) {
@@ -3536,35 +3574,39 @@
 
   function calculateAccessSubtotal() {
     const ev = getActiveEvent();
-    const channel = STATE.accessSalesChannel || 'TAQUILLA_DOMUS';
+    const channel = STATE.accessSalesChannel || 'BOLETERA_EXTERNA';
     
     // Obtener tarifa nominal del tipo de boleto
     let faceValue = 0;
     let persons = 1;
-    const selectedCard = document.querySelector(`.entry-type-card[data-entry-type="${STATE.accessSelectedType}"]`);
+    const selectedCard = document.querySelector(`.entry-type-card[data-entry-type="${STATE.accessSelectedType}"], .entry-type-btn[data-entry-type="${STATE.accessSelectedType}"]`);
     if (selectedCard) {
       faceValue = parseFloat(selectedCard.getAttribute('data-price')) || 0;
       persons = parseInt(selectedCard.getAttribute('data-persons'), 10) || 1;
     } else {
-      if (STATE.accessSelectedType === 'Pareja') { faceValue = Number(ev.pricePareja) || 260; persons = 2; }
-      else if (STATE.accessSelectedType === 'Trío') { faceValue = Number(ev.priceTrio) || 360; persons = 3; }
-      else { faceValue = Number(ev.priceGeneral) || 150; persons = 1; }
+      if (STATE.accessSelectedType === 'Pareja') {
+        faceValue = (ev.pricePareja !== undefined && ev.pricePareja !== null && ev.pricePareja !== '') ? Number(ev.pricePareja) : 0;
+        persons = 2;
+      } else if (STATE.accessSelectedType === 'Trío') {
+        faceValue = (ev.priceTrio !== undefined && ev.priceTrio !== null && ev.priceTrio !== '') ? Number(ev.priceTrio) : 0;
+        persons = 3;
+      } else {
+        faceValue = (ev.priceGeneral !== undefined && ev.priceGeneral !== null && ev.priceGeneral !== '') ? Number(ev.priceGeneral) : 0;
+        persons = 1;
+      }
     }
 
     // Cobro de entrada en puerta según canal
     let doorEntryCharge = 0;
     if (channel === 'TAQUILLA_DOMUS') {
       doorEntryCharge = faceValue;
-    } else if (channel === 'TRANSFERENCIA_DIRECTA') {
-      const transferStatus = $('accessTransferStatus') ? $('accessTransferStatus').value : 'PENDIENTE_VERIFICACION';
-      doorEntryCharge = (transferStatus === 'CONFIRMADA') ? 0 : 0; // Si ya transfirió, no se cobra efectivo en puerta
     } else {
-      // BOLETERA_EXTERNA, PREVENTA_DOMUS, CORTESIA, LISTA
+      // BOLETERA_EXTERNA, TRANSFERENCIA_DIRECTA, PREVENTA_DOMUS, CORTESIA, LISTA
       doorEntryCharge = 0;
     }
 
-    // Cobro de guardarropa desacoplado
-    const pGua = (ev.priceGuardarropa !== undefined && ev.priceGuardarropa !== null && ev.priceGuardarropa !== '') ? Number(ev.priceGuardarropa) : 50;
+    // Cobro de guardarropa desacoplado ($0 para FORZA)
+    const pGua = (ev.priceGuardarropa !== undefined && ev.priceGuardarropa !== null && ev.priceGuardarropa !== '') ? Number(ev.priceGuardarropa) : 0;
     const wardrobeCost = (STATE.accessWardrobeQty || 0) * pGua;
     const doorTotal = doorEntryCharge + wardrobeCost;
     const commercialTotal = faceValue + wardrobeCost;
@@ -3581,14 +3623,21 @@
     if ($('summaryWardrobeAmount')) $('summaryWardrobeAmount').textContent = `$${wardrobeCost.toFixed(2)}`;
     if ($('summaryTotalAdmission')) $('summaryTotalAdmission').textContent = `$${doorTotal.toFixed(2)}`;
 
-    // Dinamismo del botón de acción principal
+    // Dinamismo del botón de acción principal (siempre habilitado)
     const btnConfirm = $('btnConfirmAccess');
     if (btnConfirm) {
+      btnConfirm.disabled = false;
       if (doorTotal > 0) {
         btnConfirm.textContent = `✓ Cobrar $${doorTotal.toFixed(2)} y Emitir Tickets`;
         btnConfirm.classList.remove('btn-neutral-action');
       } else {
-        btnConfirm.textContent = `✓ Validar Entrada (${STATE.accessSalesChannel === 'CORTESIA' ? 'Cortesía $0' : 'Ya Pagada'})`;
+        const channel = STATE.accessSalesChannel;
+        let label = 'Ya Pagada';
+        if (channel === 'BOLETERA_EXTERNA') label = 'Boletera Externa · $0 en Puerta';
+        else if (channel === 'CORTESIA') label = 'Cortesía $0';
+        else if (channel === 'LISTA') label = 'Lista / Invitado $0';
+        else if (channel === 'PREVENTA_DOMUS') label = 'Preventa Validada';
+        btnConfirm.textContent = `✓ Validar Entrada (${label})`;
       }
     }
 
@@ -3597,7 +3646,10 @@
     const changeDisplay = $('accessCashChangeText');
     if (cashInput && changeDisplay) {
       const received = parseFloat(cashInput.value) || 0;
-      if (received > 0 && received >= doorTotal) {
+      if (doorTotal === 0) {
+        changeDisplay.textContent = '$0.00';
+        changeDisplay.style.color = 'var(--emerald-400)';
+      } else if (received > 0 && received >= doorTotal) {
         changeDisplay.textContent = `$${(received - doorTotal).toFixed(2)}`;
         changeDisplay.style.color = 'var(--emerald-400)';
       } else if (received > 0 && received < doorTotal) {
@@ -3826,12 +3878,21 @@
     }
 
     tbody.innerHTML = records.map(r => {
-      const typeBadge = `<span class="badge-entry-type ${getEntryTypeBadgeClass(r.entryType)}">${escapeHtml(r.entryType)}</span>`;
+      const entryType = r.entryType || r.ticketTypeId || 'General';
+      const typeBadge = `<span class="badge-entry-type ${getEntryTypeBadgeClass(entryType)}">${escapeHtml(entryType)}</span>`;
+      const isReturned = !!(r.devuelto || r.wardrobeReturned);
       const guaBadge = r.ticketGuardarropa
-        ? `<span class="badge-wardrobe-ticket ${r.devuelto ? 'returned' : ''}">🧥 ${escapeHtml(r.ticketGuardarropa)} (${r.wardrobeQty})</span>`
+        ? `<span class="badge-wardrobe-ticket ${isReturned ? 'returned' : ''}">🧥 ${escapeHtml(r.ticketGuardarropa)} (${r.wardrobeQty || 1})</span>`
         : '<span style="color: var(--text-muted); font-size: 0.8rem;">---</span>';
 
       const timeOnly = (r.date || '').split(' ')[1] || r.date || '';
+      const amountPaid = (r.paid !== undefined && r.paid !== null && r.paid !== '') 
+        ? Number(r.paid) 
+        : ((r.amountPaidAtDoor !== undefined && r.amountPaidAtDoor !== null && r.amountPaidAtDoor !== '') 
+            ? Number(r.amountPaidAtDoor) 
+            : ((r.doorCollected !== undefined && r.doorCollected !== null && r.doorCollected !== '') 
+                ? Number(r.doorCollected) 
+                : Number(r.totalAmount || 0)));
 
       return `
         <tr>
@@ -3843,8 +3904,8 @@
           </td>
           <td>${typeBadge}</td>
           <td>${guaBadge}</td>
-          <td><strong style="color: var(--emerald-400);">$${Number(r.paid !== undefined ? r.paid : r.totalAmount).toFixed(2)}</strong></td>
-          <td style="font-size: 0.82rem;">${escapeHtml(r.method || 'Efectivo')}</td>
+          <td><strong style="color: var(--emerald-400);">$${amountPaid.toFixed(2)}</strong></td>
+          <td style="font-size: 0.82rem;">${escapeHtml(r.paymentMethod || r.method || 'Efectivo')}</td>
           <td>
             <button type="button" class="btn-table-action" onclick="window.__domusApp.reprintAccessTicket('${r.id}')" title="Reimprimir Comprobante de Entrada">
               🖨️
@@ -3965,7 +4026,14 @@
     localStorage.setItem('domus_active_event', eventName);
     toast(`Evento activo de turno: ${eventName}`, 'ok');
 
-    callBackend('accesoCambiarActividad', [eventName], res => {
+    const ev = getActiveEvent();
+    if (ev && ev.salesChannel) {
+      STATE.accessSalesChannel = ev.salesChannel;
+    } else if (eventName.includes('Forza')) {
+      STATE.accessSalesChannel = 'BOLETERA_EXTERNA';
+    }
+
+    callBackend('accesoCambiarActividad', [{ activity: eventName }], res => {
       // Backend updated
     }, err => console.warn('Cambio de evento local:', err));
 
