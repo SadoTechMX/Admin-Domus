@@ -1657,6 +1657,16 @@
       .replace(/'/g, '&#039;');
   }
 
+  function isRealAccessRecord(r) {
+    if (!r) return false;
+    // Un registro real tiene fecha válida o nombre de cliente real (no fila de plantilla vacía de la hoja)
+    const hasDate = !!(r.date && String(r.date).trim() !== '');
+    const hasCustomer = !!(r.customer && String(r.customer).trim() !== '' && String(r.customer).trim().toLowerCase() !== 'anónimo');
+    const hasPayment = Number(r.paid || r.doorCollected || r.amountPaidAtDoor || 0) > 0;
+    const hasExternal = !!(r.externalTicketId && String(r.externalTicketId).trim() !== '');
+    return hasDate || hasCustomer || hasPayment || hasExternal;
+  }
+
   // --- AUDIO SYNTHESIZER ---
   function playChime(kind = 'alert') {
     if (!STATE.sound) return;
@@ -2386,7 +2396,7 @@
 
     // Inicializar eventos y accesos (preservando evento nocturno activo de jornada en vivo)
     STATE.eventsList = [...DEFAULT_EVENTS];
-    STATE.recentAccessList = [...DEFAULT_ACCESS_RECORDS];
+    STATE.recentAccessList = [];
     const savedActiveAct = localStorage.getItem('domus_active_event');
     STATE.activeActivity = (savedActiveAct && savedActiveAct !== 'Operación diaria')
       ? savedActiveAct 
@@ -2507,7 +2517,7 @@
           STATE.activeActivity = forza ? forza.name : (STATE.eventsList[0] ? STATE.eventsList[0].name : 'Forza · sábado');
         }
         if (data.recentAccess && data.recentAccess.length) {
-          STATE.recentAccessList = data.recentAccess;
+          STATE.recentAccessList = data.recentAccess.filter(isRealAccessRecord);
         }
         updateAccesosBadge();
         renderAccesosView();
@@ -2520,7 +2530,10 @@
   function updateAccesosBadge() {
     const badge = $('accessActiveCountBadge');
     if (!badge) return;
-    const activeCount = STATE.recentAccessList.reduce((acc, r) => acc + (r.packages || 1), 0);
+    const activeAct = STATE.activeActivity;
+    const activeCount = (STATE.recentAccessList || [])
+      .filter(r => isRealAccessRecord(r) && (!activeAct || r.activity === activeAct))
+      .reduce((acc, r) => acc + (Number(r.persons) || Number(r.packages) || 1), 0);
     badge.textContent = activeCount;
   }
 
@@ -3705,13 +3718,18 @@
   }
 
   function updateAccesosKpis() {
-    const records = STATE.recentAccessList || [];
+    const activeAct = STATE.activeActivity;
+    // Filtrar únicamente registros reales del evento en curso
+    const records = (STATE.recentAccessList || []).filter(r => {
+      if (!isRealAccessRecord(r)) return false;
+      return !activeAct || r.activity === activeAct;
+    });
     
-    // 1. Total Attendance (aforo real acumulado)
+    // 1. Total Attendance (aforo real acumulado para este evento)
     const totalAttendance = records.reduce((sum, r) => sum + (Number(r.persons) || Number(r.packages) || 1), 0);
     if ($('kpiTotalAttendance')) $('kpiTotalAttendance').textContent = totalAttendance;
 
-    // 2. Active Wardrobe (prendas en custodia)
+    // 2. Active Wardrobe (prendas en custodia para este evento)
     const activeWardrobe = records.reduce((sum, r) => {
       if (!r.wardrobeReturned && !r.devuelto && Number(r.wardrobeQty) > 0) {
         return sum + Number(r.wardrobeQty);
@@ -3896,19 +3914,24 @@
     const tbody = $('accessLogTableBody');
     if (!tbody) return;
 
+    const activeAct = STATE.activeActivity;
     const q = (STATE.accessSearch || '').toLowerCase().trim();
     const records = (STATE.recentAccessList || []).filter(r => {
-      if (!q) return true;
-      const haystack = `${r.id} ${r.customer} ${r.phone} ${r.email} ${r.entryType} ${r.method} ${r.ticketGuardarropa || ''}`.toLowerCase();
-      return haystack.includes(q);
+      if (!isRealAccessRecord(r)) return false;
+      if (q) {
+        const haystack = `${r.id} ${r.customer} ${r.phone} ${r.email} ${r.entryType} ${r.method} ${r.activity || ''} ${r.ticketGuardarropa || ''}`.toLowerCase();
+        return haystack.includes(q);
+      }
+      return !activeAct || r.activity === activeAct;
     });
 
     if (records.length === 0) {
       tbody.innerHTML = `
         <tr>
-          <td colspan="8" style="text-align: center; color: var(--text-muted); padding: 32px 16px;">
-            <div style="font-size: 2rem; margin-bottom: 8px;">📋</div>
-            No se encontraron registros de acceso hoy.
+          <td colspan="8" style="text-align: center; color: var(--text-muted); padding: 36px 16px;">
+            <div style="font-size: 2.2rem; margin-bottom: 8px;">🎟️</div>
+            <strong style="color: var(--text-primary); font-size: 1rem;">No hay ingresos registrados todavía para ${escapeHtml(activeAct || 'este evento')}</strong>
+            <p style="font-size: 0.82rem; margin-top: 6px; color: var(--text-secondary);">El aforo actual es 0. Registra o valida el primer boleto usando el formulario de la izquierda.</p>
           </td>
         </tr>
       `;
@@ -3970,20 +3993,25 @@
     const tbody = $('wardrobeTableBody');
     if (!tbody) return;
 
+    const activeAct = STATE.activeActivity;
     const q = (STATE.accessSearch || '').toLowerCase().trim();
     const records = (STATE.recentAccessList || []).filter(r => {
+      if (!isRealAccessRecord(r)) return false;
       if (!r.ticketGuardarropa || Number(r.wardrobeQty) <= 0) return false;
-      if (!q) return true;
-      const haystack = `${r.ticketGuardarropa} ${r.customer} ${r.wardrobeNotes || ''}`.toLowerCase();
-      return haystack.includes(q);
+      if (q) {
+        const haystack = `${r.ticketGuardarropa} ${r.customer} ${r.wardrobeNotes || ''} ${r.activity || ''}`.toLowerCase();
+        return haystack.includes(q);
+      }
+      return !activeAct || r.activity === activeAct;
     });
 
     if (records.length === 0) {
       tbody.innerHTML = `
         <tr>
-          <td colspan="6" style="text-align: center; color: var(--text-muted); padding: 32px 16px;">
-            <div style="font-size: 2rem; margin-bottom: 8px;">🧥</div>
-            No hay prendas registradas en el guardarropa actualmente.
+          <td colspan="6" style="text-align: center; color: var(--text-muted); padding: 36px 16px;">
+            <div style="font-size: 2.2rem; margin-bottom: 8px;">🧥</div>
+            <strong style="color: var(--text-primary); font-size: 1rem;">No hay prendas en guardarropa para ${escapeHtml(activeAct || 'este evento')}</strong>
+            <p style="font-size: 0.82rem; margin-top: 6px; color: var(--text-secondary);">Las prendas en custodia aparecerán aquí conforme se registren con su ticket.</p>
           </td>
         </tr>
       `;
