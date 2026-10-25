@@ -54,8 +54,8 @@ def run_formula_ledger_audit():
             self.caja2 = []
 
         def setup_inventario_item(self, row, prod_name, inicial=50):
-            # Col G formula: =SUMIF('CAJA 2'!C:C, A{row}, 'CAJA 2'!V:V)
-            # Col H formula: =D{row}+E{row}-F{row}-G{row}
+            # Col G formula real de PRODUCCIÓN: =IF(A{row}="","",SUMIF('CAJA 2'!$G$7:$G,A{row},'CAJA 2'!$V$7:$V))
+            # Col H formula real de PRODUCCIÓN: =IF(A{row}="","",D{row}+E{row}-F{row}-G{row})
             self.inventario[row] = {
                 "A": SheetCell(value=prod_name),
                 "B": SheetCell(value="Alimentos"),
@@ -63,8 +63,8 @@ def run_formula_ledger_audit():
                 "D": SheetCell(value=float(inicial)),
                 "E": SheetCell(value=0.0),
                 "F": SheetCell(value=0.0),
-                "G": SheetCell(value=0.0, formula=f'=SUMIF(\'CAJA 2\'!C:C, A{row}, \'CAJA 2\'!V:V)'),
-                "H": SheetCell(value=float(inicial), formula=f'=D{row}+E{row}-F{row}-G{row}'),
+                "G": SheetCell(value=0.0, formula=f'=IF(A{row}="","",SUMIF(\'CAJA 2\'!$G$7:$G,A{row},\'CAJA 2\'!$V$7:$V))'),
+                "H": SheetCell(value=float(inicial), formula=f'=IF(A{row}="","",D{row}+E{row}-F{row}-G{row})'),
                 "I": SheetCell(value=float(inicial))
             }
 
@@ -72,12 +72,16 @@ def run_formula_ledger_audit():
             row_idx = len(self.caja2) + 7
             order = {
                 "ticket": ticket_id,
-                "C": SheetCell(value=prod_name),
-                "T": SheetCell(value=float(qty)),
+                # Col G: Producto (Criterio real de búsqueda en CAJA 2)
+                "G": SheetCell(value=prod_name),
+                # Col K: Cantidad vendida
+                "K": SheetCell(value=float(qty)),
+                # Col U: Clave inventario / SKU
+                "U": SheetCell(value=f"SKU-{prod_name}"),
                 # Col X formula: =IFERROR(VLOOKUP(ticket, COMANDAS!A:H, 8, FALSE), "Pendiente")
                 "X": SheetCell(value="Pendiente", formula=f'=IFERROR(VLOOKUP("{ticket_id}", COMANDAS!A:H, 8, FALSE), "Pendiente")'),
-                # Col V formula: =IF(X{row}="Entregada", T{row}, 0)
-                "V": SheetCell(value=0.0, formula=f'=IF(X{row_idx}="Entregada", T{row_idx}, 0)')
+                # Col V formula: =IF(OR(X{row}="Entregada",X{row}="Entregado"), K{row}, 0)
+                "V": SheetCell(value=0.0, formula=f'=IF(OR(X{row_idx}="Entregada",X{row_idx}="Entregado"), K{row_idx}, 0)')
             }
             self.caja2.append(order)
 
@@ -115,17 +119,17 @@ def run_formula_ledger_audit():
                 else:
                     c_row["X"].value = "Pendiente"
 
-                # Col V: =IF(X="Entregada", T, 0)
-                if c_row["X"].value == "Entregada":
-                    c_row["V"].value = c_row["T"].value
+                # Col V: =IF(OR(X="Entregada",X="Entregado"), K, 0)
+                if c_row["X"].value in ("Entregada", "Entregado"):
+                    c_row["V"].value = c_row["K"].value
                 else:
                     c_row["V"].value = 0.0
 
             # 2. Recalcular INVENTARIO Col G y Col H
             for row_num, inv_row in self.inventario.items():
                 pname = inv_row["A"].value
-                # SUMIF('CAJA 2'!C:C, pname, 'CAJA 2'!V:V)
-                sum_delivered = sum(c["V"].value for c in self.caja2 if c["C"].value == pname)
+                # SUMIF('CAJA 2'!$G$7:$G, pname, 'CAJA 2'!$V$7:$V)
+                sum_delivered = sum(c["V"].value for c in self.caja2 if c["G"].value == pname)
                 inv_row["G"].value = sum_delivered
 
                 # Col H: D + E - F - G

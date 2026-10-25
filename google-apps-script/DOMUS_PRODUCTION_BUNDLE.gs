@@ -1,7 +1,7 @@
 /**
  * ============================================================================
  * DOMUS OS · PRODUCTION UNIFIED BACKEND BUNDLE (DOMUS_PRODUCTION_BUNDLE.gs)
- * Generado para el entorno DOMUS-PRODUCTION (Hotfix Pre-Evento 24 Oct 2026)
+ * Generado para el entorno DOMUS-PRODUCTION
  * Main Sheet: 1KQz8oJ4VaWFsqS2-sg25HMCm60SdSoQpIDlCDSV5J1U
  * Ops Sheet:  1DiwPa1cVe33xCYkIiYoHhP015RsEOjHXBFe2iU2RVCc
  * Branch: hotfix/kds-formula-ledger
@@ -1904,64 +1904,62 @@ function accesoCambiarActividad(payload) {
 // ==================== END OF Access.gs ====================
 
 
-// ==================== START OF Payments.gs ====================
+// ==================== START OF Events.gs ====================
 
 /**
  * ============================================================================
- * DOMUS OS · PAYMENTS & CONCILIATION (Payments.gs)
- * Registro de transacciones en COBROS, validación de medios de pago y folios
+ * DOMUS OS · EVENTS & CALENDAR MANAGEMENT (Events.gs)
+ * Programación de eventos en ACTIVIDADES y definición de tarifas de admisión
  * ============================================================================
  */
 
 
 /**
- * Registra un cobro asentado en la hoja maestra COBROS
+ * Registra una nueva actividad o evento con su estructura tarifaria autorizada
  */
-function recordPaymentTransaction_(m, payload) {
-  const sCobros = m.getSheetByName('COBROS');
-  if (!sCobros) throw new Error('Hoja COBROS no encontrada.');
+function registrarNuevoEvento(evento) {
+  if (!evento || !evento.name) throw new Error('El nombre del evento es requerido.');
 
-  const folio = payload.folio || ('REC-' + Date.now().toString(36).toUpperCase());
-  const now = new Date();
-  const nextRow = Math.max(sCobros.getLastRow() + 1, 7);
+  return withLock_(CONFIG.lockTimeoutMs, () => {
+    const m = SpreadsheetApp.openById(CONFIG.mainSheetId);
+    const sAct = m.getSheetByName('ACTIVIDADES');
+    if (!sAct) throw new Error('Hoja ACTIVIDADES no encontrada.');
 
-  const rowData = [
-    folio,
-    now,
-    payload.origin || 'Caja',
-    payload.ticket || '',
-    payload.method || 'Efectivo',
-    Number(payload.amount) || 0,
-    payload.method === 'Efectivo' ? 0 : '',
-    payload.customer || 'Público General',
-    payload.tag || ('PAGO:' + folio),
-    '',
-    payload.method === 'Transferencia' ? 'Borrador' : 'Confirmado',
-    payload.operator || 'Caja',
-    Number(payload.amount) || 0,
-    Number(payload.amount) || 0,
-    '',
-    payload.activity || 'Visita general DOMUS',
-    0, 0, 0, 'SISTEMA-WEB',
-    '', '', '', '', '', '', '',
-    payload.detailsJson || '',
-    Number(payload.tip) || 0,
-    payload.received !== undefined && payload.received !== null ? Number(payload.received) : '',
-    payload.change !== undefined && payload.change !== null ? Number(payload.change) : ''
-  ];
+    const rowIdx = Math.max(sAct.getLastRow() + 1, 7);
+    
+    // Serializar tipos de boletos personalizados si se proporcionan
+    let notesVal = evento.notes || '';
+    if (Array.isArray(evento.ticketTypes) && evento.ticketTypes.length > 0) {
+      notesVal = JSON.stringify(evento.ticketTypes);
+    }
 
-  sCobros.getRange(nextRow, 1, 1, rowData.length).setValues([rowData]);
-  SpreadsheetApp.flush();
+    const rowData = [
+      evento.name,
+      evento.date ? new Date(evento.date + 'T12:00:00') : new Date(),
+      evento.type || 'CLUB_NOCTURNO',
+      evento.organizer || 'DOMUS',
+      parseFloat(evento.priceGeneral) || 0,
+      parseFloat(evento.pricePareja) || 0,
+      parseFloat(evento.priceTrio) || 0,
+      (evento.priceGuardarropa !== undefined && evento.priceGuardarropa !== null && evento.priceGuardarropa !== '') ? (Number(evento.priceGuardarropa) || 0) : 50,
+      parseInt(evento.capacity, 10) || 150,
+      'DOMUS',
+      'Bruto',
+      'Confirmado',
+      notesVal
+    ];
 
-  return {
-    folio: folio,
-    amount: Number(payload.amount) || 0,
-    method: payload.method,
-    date: now
-  };
+    sAct.getRange(rowIdx, 1, 1, rowData.length).setValues([rowData]);
+    SpreadsheetApp.flush();
+
+    return {
+      ok: true,
+      message: `Evento "${evento.name}" programado con éxito en ACTIVIDADES.`
+    };
+  });
 }
 
-// ==================== END OF Payments.gs ====================
+// ==================== END OF Events.gs ====================
 
 
 // ==================== START OF Accounts.gs ====================
@@ -2043,64 +2041,6 @@ function reopenCashAccount_(ticket, who, reason) {
 }
 
 // ==================== END OF Accounts.gs ====================
-
-
-// ==================== START OF Events.gs ====================
-
-/**
- * ============================================================================
- * DOMUS OS · EVENTS & CALENDAR MANAGEMENT (Events.gs)
- * Programación de eventos en ACTIVIDADES y definición de tarifas de admisión
- * ============================================================================
- */
-
-
-/**
- * Registra una nueva actividad o evento con su estructura tarifaria autorizada
- */
-function registrarNuevoEvento(evento) {
-  if (!evento || !evento.name) throw new Error('El nombre del evento es requerido.');
-
-  return withLock_(CONFIG.lockTimeoutMs, () => {
-    const m = SpreadsheetApp.openById(CONFIG.mainSheetId);
-    const sAct = m.getSheetByName('ACTIVIDADES');
-    if (!sAct) throw new Error('Hoja ACTIVIDADES no encontrada.');
-
-    const rowIdx = Math.max(sAct.getLastRow() + 1, 7);
-    
-    // Serializar tipos de boletos personalizados si se proporcionan
-    let notesVal = evento.notes || '';
-    if (Array.isArray(evento.ticketTypes) && evento.ticketTypes.length > 0) {
-      notesVal = JSON.stringify(evento.ticketTypes);
-    }
-
-    const rowData = [
-      evento.name,
-      evento.date ? new Date(evento.date + 'T12:00:00') : new Date(),
-      evento.type || 'CLUB_NOCTURNO',
-      evento.organizer || 'DOMUS',
-      parseFloat(evento.priceGeneral) || 0,
-      parseFloat(evento.pricePareja) || 0,
-      parseFloat(evento.priceTrio) || 0,
-      (evento.priceGuardarropa !== undefined && evento.priceGuardarropa !== null && evento.priceGuardarropa !== '') ? (Number(evento.priceGuardarropa) || 0) : 50,
-      parseInt(evento.capacity, 10) || 150,
-      'DOMUS',
-      'Bruto',
-      'Confirmado',
-      notesVal
-    ];
-
-    sAct.getRange(rowIdx, 1, 1, rowData.length).setValues([rowData]);
-    SpreadsheetApp.flush();
-
-    return {
-      ok: true,
-      message: `Evento "${evento.name}" programado con éxito en ACTIVIDADES.`
-    };
-  });
-}
-
-// ==================== END OF Events.gs ====================
 
 
 // ==================== START OF Api.gs ====================
@@ -2252,6 +2192,14 @@ function doPost(e) {
         result = idempotentExecute_(requestId, action, null, deviceId, () => sincronizarJujutsuShi());
         break;
 
+      // --- STAGING MANAGEMENT & AUDIT ---
+      case 'stagingAlignInventory':
+        result = stagingAlignInventoryToProduction();
+        break;
+      case 'stagingAuditFormulaLedger':
+        result = stagingAuditFormulaLedgerLive();
+        break;
+
       default:
         throw new Error('Acción no soportada en API DOMUS: ' + action);
     }
@@ -2290,6 +2238,10 @@ function handleApiGetRequest_(action, params) {
       data = accesoSimpleDatos();
     } else if (action === 'cajaSimpleEstado') {
       data = cajaSimpleEstado(params.id || '');
+    } else if (action === 'stagingAuditFormulaLedger') {
+      data = stagingAuditFormulaLedgerLive();
+    } else if (action === 'stagingAlignInventory') {
+      data = stagingAlignInventoryToProduction();
     } else if (action === 'ping' || action === 'health') {
       data = {
         status: 'HEALTHY',

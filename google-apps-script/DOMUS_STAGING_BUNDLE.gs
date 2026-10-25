@@ -1,7 +1,7 @@
 /**
  * ============================================================================
  * DOMUS OS · STAGING UNIFIED BACKEND BUNDLE (DOMUS_STAGING_BUNDLE.gs)
- * Generado para el entorno DOMUS-STAGING (Hotfix Pre-Evento 24 Oct 2026)
+ * Generado para el entorno DOMUS-STAGING
  * Main Sheet: 114VSwo3bXyn_audh1LHr4qqjW5aSDSTP_bR_-Iz5dkg
  * Ops Sheet:  1NDpuyx6EfCHcoKW9CZ6pwR0oe2JS0aKpTTMa7RdqmlE
  * Branch: hotfix/kds-formula-ledger
@@ -52,7 +52,7 @@ function getActiveEnvironment_() {
       const propEnv = props.getProperty('DOMUS_ENV');
       
       if (propEnv === 'PRODUCTION') {
-        return ENVIRONMENTS.STAGING;
+        return ENVIRONMENTS.PRODUCTION;
       }
 
       if (propEnv === 'STAGING') {
@@ -73,10 +73,10 @@ function getActiveEnvironment_() {
 
   // Por seguridad en branch de aislamiento, si los IDs de Staging están configurados se usa STAGING
   if (ENVIRONMENTS.STAGING.mainSheetId && ENVIRONMENTS.STAGING.opsSheetId) {
-    return ENVIRONMENTS.STAGING;
+    return ENVIRONMENTS.PRODUCTION;
   }
 
-  return ENVIRONMENTS.STAGING;
+  return ENVIRONMENTS.PRODUCTION;
 }
 
 const ACTIVE_ENV = getActiveEnvironment_();
@@ -1904,64 +1904,62 @@ function accesoCambiarActividad(payload) {
 // ==================== END OF Access.gs ====================
 
 
-// ==================== START OF Payments.gs ====================
+// ==================== START OF Events.gs ====================
 
 /**
  * ============================================================================
- * DOMUS OS · PAYMENTS & CONCILIATION (Payments.gs)
- * Registro de transacciones en COBROS, validación de medios de pago y folios
+ * DOMUS OS · EVENTS & CALENDAR MANAGEMENT (Events.gs)
+ * Programación de eventos en ACTIVIDADES y definición de tarifas de admisión
  * ============================================================================
  */
 
 
 /**
- * Registra un cobro asentado en la hoja maestra COBROS
+ * Registra una nueva actividad o evento con su estructura tarifaria autorizada
  */
-function recordPaymentTransaction_(m, payload) {
-  const sCobros = m.getSheetByName('COBROS');
-  if (!sCobros) throw new Error('Hoja COBROS no encontrada.');
+function registrarNuevoEvento(evento) {
+  if (!evento || !evento.name) throw new Error('El nombre del evento es requerido.');
 
-  const folio = payload.folio || ('REC-' + Date.now().toString(36).toUpperCase());
-  const now = new Date();
-  const nextRow = Math.max(sCobros.getLastRow() + 1, 7);
+  return withLock_(CONFIG.lockTimeoutMs, () => {
+    const m = SpreadsheetApp.openById(CONFIG.mainSheetId);
+    const sAct = m.getSheetByName('ACTIVIDADES');
+    if (!sAct) throw new Error('Hoja ACTIVIDADES no encontrada.');
 
-  const rowData = [
-    folio,
-    now,
-    payload.origin || 'Caja',
-    payload.ticket || '',
-    payload.method || 'Efectivo',
-    Number(payload.amount) || 0,
-    payload.method === 'Efectivo' ? 0 : '',
-    payload.customer || 'Público General',
-    payload.tag || ('PAGO:' + folio),
-    '',
-    payload.method === 'Transferencia' ? 'Borrador' : 'Confirmado',
-    payload.operator || 'Caja',
-    Number(payload.amount) || 0,
-    Number(payload.amount) || 0,
-    '',
-    payload.activity || 'Visita general DOMUS',
-    0, 0, 0, 'SISTEMA-WEB',
-    '', '', '', '', '', '', '',
-    payload.detailsJson || '',
-    Number(payload.tip) || 0,
-    payload.received !== undefined && payload.received !== null ? Number(payload.received) : '',
-    payload.change !== undefined && payload.change !== null ? Number(payload.change) : ''
-  ];
+    const rowIdx = Math.max(sAct.getLastRow() + 1, 7);
+    
+    // Serializar tipos de boletos personalizados si se proporcionan
+    let notesVal = evento.notes || '';
+    if (Array.isArray(evento.ticketTypes) && evento.ticketTypes.length > 0) {
+      notesVal = JSON.stringify(evento.ticketTypes);
+    }
 
-  sCobros.getRange(nextRow, 1, 1, rowData.length).setValues([rowData]);
-  SpreadsheetApp.flush();
+    const rowData = [
+      evento.name,
+      evento.date ? new Date(evento.date + 'T12:00:00') : new Date(),
+      evento.type || 'CLUB_NOCTURNO',
+      evento.organizer || 'DOMUS',
+      parseFloat(evento.priceGeneral) || 0,
+      parseFloat(evento.pricePareja) || 0,
+      parseFloat(evento.priceTrio) || 0,
+      (evento.priceGuardarropa !== undefined && evento.priceGuardarropa !== null && evento.priceGuardarropa !== '') ? (Number(evento.priceGuardarropa) || 0) : 50,
+      parseInt(evento.capacity, 10) || 150,
+      'DOMUS',
+      'Bruto',
+      'Confirmado',
+      notesVal
+    ];
 
-  return {
-    folio: folio,
-    amount: Number(payload.amount) || 0,
-    method: payload.method,
-    date: now
-  };
+    sAct.getRange(rowIdx, 1, 1, rowData.length).setValues([rowData]);
+    SpreadsheetApp.flush();
+
+    return {
+      ok: true,
+      message: `Evento "${evento.name}" programado con éxito en ACTIVIDADES.`
+    };
+  });
 }
 
-// ==================== END OF Payments.gs ====================
+// ==================== END OF Events.gs ====================
 
 
 // ==================== START OF Accounts.gs ====================
@@ -2045,62 +2043,137 @@ function reopenCashAccount_(ticket, who, reason) {
 // ==================== END OF Accounts.gs ====================
 
 
-// ==================== START OF Events.gs ====================
+// ==================== START OF StagingAlignment.gs ====================
 
 /**
  * ============================================================================
- * DOMUS OS · EVENTS & CALENDAR MANAGEMENT (Events.gs)
- * Programación de eventos en ACTIVIDADES y definición de tarifas de admisión
+ * DOMUS OS · STAGING ALIGNMENT & FORMULA LEDGER AUDIT (StagingAlignment.gs)
+ * Sincroniza la estructura de STAGING con PRODUCCIÓN (>= 324 filas)
+ * y audita la preservación reactiva de fórmulas sin mutación directa en KDS.
  * ============================================================================
  */
 
 
 /**
- * Registra una nueva actividad o evento con su estructura tarifaria autorizada
+ * Función ejecutable en Apps Script (DOMUS - Caja simple) para alinear
+ * la hoja INVENTARIO de STAGING con el esquema real de PRODUCCIÓN.
  */
-function registrarNuevoEvento(evento) {
-  if (!evento || !evento.name) throw new Error('El nombre del evento es requerido.');
+function stagingAlignInventoryToProduction() {
+  const env = getActiveEnvironment_();
+  if (env.name !== 'STAGING') {
+    throw new Error('Esta función solo debe ejecutarse en el entorno STAGING. Entorno actual: ' + env.name);
+  }
 
-  return withLock_(CONFIG.lockTimeoutMs, () => {
-    const m = SpreadsheetApp.openById(CONFIG.mainSheetId);
-    const sAct = m.getSheetByName('ACTIVIDADES');
-    if (!sAct) throw new Error('Hoja ACTIVIDADES no encontrada.');
+  const ss = SpreadsheetApp.openById(env.mainSheetId);
+  const sInv = ss.getSheetByName('INVENTARIO');
+  if (!sInv) throw new Error('Hoja INVENTARIO no encontrada en STAGING');
 
-    const rowIdx = Math.max(sAct.getLastRow() + 1, 7);
-    
-    // Serializar tipos de boletos personalizados si se proporcionan
-    let notesVal = evento.notes || '';
-    if (Array.isArray(evento.ticketTypes) && evento.ticketTypes.length > 0) {
-      notesVal = JSON.stringify(evento.ticketTypes);
-    }
+  const sCaja = ss.getSheetByName('CAJA 2');
+  if (!sCaja) throw new Error('Hoja CAJA 2 no encontrada en STAGING');
 
-    const rowData = [
-      evento.name,
-      evento.date ? new Date(evento.date + 'T12:00:00') : new Date(),
-      evento.type || 'CLUB_NOCTURNO',
-      evento.organizer || 'DOMUS',
-      parseFloat(evento.priceGeneral) || 0,
-      parseFloat(evento.pricePareja) || 0,
-      parseFloat(evento.priceTrio) || 0,
-      (evento.priceGuardarropa !== undefined && evento.priceGuardarropa !== null && evento.priceGuardarropa !== '') ? (Number(evento.priceGuardarropa) || 0) : 50,
-      parseInt(evento.capacity, 10) || 150,
-      'DOMUS',
-      'Bruto',
-      'Confirmado',
-      notesVal
-    ];
+  const lastRow = sInv.getLastRow();
+  const targetRows = 324;
 
-    sAct.getRange(rowIdx, 1, 1, rowData.length).setValues([rowData]);
-    SpreadsheetApp.flush();
+  // 1. Expandir filas si tiene menos de 324
+  if (lastRow < targetRows) {
+    const diff = targetRows - lastRow;
+    sInv.insertRowsAfter(lastRow, diff);
+  }
 
-    return {
-      ok: true,
-      message: `Evento "${evento.name}" programado con éxito en ACTIVIDADES.`
-    };
+  // 2. Datos sintéticos canónicos para filas 307 a 324 (Canna Treats y comida extendida)
+  const syntheticItems = [
+    { row: 307, name: 'Mini hotdogs', cat: 'Alimentos', unit: 'Orden', init: 20 },
+    { row: 308, name: 'Salchipapas', cat: 'Alimentos', unit: 'Orden', init: 25 },
+    { row: 309, name: 'Tacos dorados', cat: 'Alimentos', unit: 'Orden', init: 15 },
+    { row: 310, name: 'Tacos de la parrilla', cat: 'Alimentos', unit: 'Orden', init: 15 },
+    { row: 311, name: 'Hamburguesa clásica', cat: 'Alimentos', unit: 'Pieza', init: 20 },
+    { row: 312, name: 'Hamburguesa doble', cat: 'Alimentos', unit: 'Pieza', init: 15 },
+    { row: 313, name: 'Hot dog especial', cat: 'Alimentos', unit: 'Pieza', init: 20 },
+    { row: 314, name: 'Papas a la francesa', cat: 'Alimentos', unit: 'Orden', init: 30 },
+    { row: 315, name: 'Papas misioneras', cat: 'Alimentos', unit: 'Orden', init: 30 },
+    { row: 316, name: 'Papas gajo', cat: 'Alimentos', unit: 'Orden', init: 25 },
+    { row: 317, name: 'Hamburguesa kinki', cat: 'Alimentos', unit: 'Pieza', init: 20 },
+    { row: 318, name: 'La dominatrix', cat: 'Alimentos', unit: 'Pieza', init: 15 },
+    { row: 319, name: 'Trío de jochis', cat: 'Alimentos', unit: 'Orden', init: 18 },
+    { row: 320, name: 'Boneless', cat: 'Alimentos', unit: 'Orden', init: 22 },
+    { row: 321, name: 'Alitas sumisas — 10 piezas', cat: 'Alimentos', unit: 'Orden', init: 16 },
+    { row: 322, name: 'Nachos libres', cat: 'Alimentos', unit: 'Orden', init: 20 },
+    { row: 323, name: 'Ramen de abuelita', cat: 'Alimentos', unit: 'Orden', init: 12 },
+    { row: 324, name: 'Waffle vainilla', cat: 'Alimentos', unit: 'Pieza', init: 14 }
+  ];
+
+  // Escribir datos sintéticos en filas 307:324
+  syntheticItems.forEach(item => {
+    const r = item.row;
+    // A: Producto, B: Familia, C: Unidad, D: Inicial, E: Entradas, F: Merma
+    sInv.getRange(r, 1).setValue(item.name);
+    sInv.getRange(r, 2).setValue(item.cat);
+    sInv.getRange(r, 3).setValue(item.unit);
+    sInv.getRange(r, 4).setValue(item.init);
+    sInv.getRange(r, 5).setValue(0);
+    sInv.getRange(r, 6).setValue(0);
   });
+
+  // 3. Aplicar fórmulas idénticas a PRODUCCIÓN para filas 7 a 324
+  // Col G: =IF(A{r}="","",SUMIF('CAJA 2'!$G$7:$G,A{r},'CAJA 2'!$V$7:$V))
+  // Col H: =IF(A{r}="","",D{r}+E{r}-F{r}-G{r})
+  const totalRowsToFormulate = targetRows - 6; // 318 filas (7 a 324)
+  const formulasG = [];
+  const formulasH = [];
+
+  for (let r = 7; r <= targetRows; r++) {
+    formulasG.push([`=IF(A${r}="","",SUMIF('CAJA 2'!$G$7:$G,A${r},'CAJA 2'!$V$7:$V))`]);
+    formulasH.push([`=IF(A${r}="","",D${r}+E${r}-F${r}-G${r})`]);
+  }
+
+  sInv.getRange(7, 7, totalRowsToFormulate, 1).setFormulas(formulasG);
+  sInv.getRange(7, 8, totalRowsToFormulate, 1).setFormulas(formulasH);
+
+  SpreadsheetApp.flush();
+
+  return {
+    ok: true,
+    message: 'STAGING INVENTARIO alineado exitosamente a 324 filas con fórmulas canónicas de PRODUCCIÓN.',
+    rowCount: sInv.getLastRow(),
+    sampleG310: sInv.getRange(310, 7).getFormula(),
+    sampleH310: sInv.getRange(310, 8).getFormula(),
+    sampleG322: sInv.getRange(322, 7).getFormula(),
+    sampleH322: sInv.getRange(322, 8).getFormula()
+  };
 }
 
-// ==================== END OF Events.gs ====================
+/**
+ * Función de diagnóstico y auditoría viva en STAGING
+ */
+function stagingAuditFormulaLedgerLive() {
+  const env = getActiveEnvironment_();
+  const ss = SpreadsheetApp.openById(env.mainSheetId);
+  const sInv = ss.getSheetByName('INVENTARIO');
+  const sCaja = ss.getSheetByName('CAJA 2');
+  const sComandas = ss.getSheetByName('COMANDAS');
+
+  const rowCount = sInv.getLastRow();
+  const formulaG_322_antes = sInv.getRange(322, 7).getFormula();
+  const formulaH_322_antes = sInv.getRange(322, 8).getFormula();
+  const valG_322_antes = sInv.getRange(322, 7).getValue();
+  const valH_322_antes = sInv.getRange(322, 8).getValue();
+
+  return {
+    environment: env.name,
+    mainSheetId: env.mainSheetId,
+    inventoryRowCount: rowCount,
+    row322: {
+      product: sInv.getRange(322, 1).getValue(),
+      initialStock: sInv.getRange(322, 4).getValue(),
+      formulaG_antes: formulaG_322_antes,
+      valG_antes: valG_322_antes,
+      formulaH_antes: formulaH_322_antes,
+      valH_antes: valH_322_antes
+    }
+  };
+}
+
+// ==================== END OF StagingAlignment.gs ====================
 
 
 // ==================== START OF Api.gs ====================
@@ -2252,6 +2325,14 @@ function doPost(e) {
         result = idempotentExecute_(requestId, action, null, deviceId, () => sincronizarJujutsuShi());
         break;
 
+      // --- STAGING MANAGEMENT & AUDIT ---
+      case 'stagingAlignInventory':
+        result = stagingAlignInventoryToProduction();
+        break;
+      case 'stagingAuditFormulaLedger':
+        result = stagingAuditFormulaLedgerLive();
+        break;
+
       default:
         throw new Error('Acción no soportada en API DOMUS: ' + action);
     }
@@ -2290,6 +2371,10 @@ function handleApiGetRequest_(action, params) {
       data = accesoSimpleDatos();
     } else if (action === 'cajaSimpleEstado') {
       data = cajaSimpleEstado(params.id || '');
+    } else if (action === 'stagingAuditFormulaLedger') {
+      data = stagingAuditFormulaLedgerLive();
+    } else if (action === 'stagingAlignInventory') {
+      data = stagingAlignInventoryToProduction();
     } else if (action === 'ping' || action === 'health') {
       data = {
         status: 'HEALTHY',

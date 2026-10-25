@@ -146,6 +146,14 @@ function doPost(e) {
         result = idempotentExecute_(requestId, action, null, deviceId, () => sincronizarJujutsuShi());
         break;
 
+      // --- STAGING MANAGEMENT & AUDIT ---
+      case 'stagingAlignInventory':
+        result = stagingAlignInventoryToProduction();
+        break;
+      case 'stagingAuditFormulaLedger':
+        result = stagingAuditFormulaLedgerLive();
+        break;
+
       default:
         throw new Error('Acción no soportada en API DOMUS: ' + action);
     }
@@ -184,6 +192,10 @@ function handleApiGetRequest_(action, params) {
       data = accesoSimpleDatos();
     } else if (action === 'cajaSimpleEstado') {
       data = cajaSimpleEstado(params.id || '');
+    } else if (action === 'stagingAuditFormulaLedger') {
+      data = stagingAuditFormulaLedgerLive();
+    } else if (action === 'stagingAlignInventory') {
+      data = stagingAlignInventoryToProduction();
     } else if (action === 'ping' || action === 'health') {
       data = {
         status: 'HEALTHY',
