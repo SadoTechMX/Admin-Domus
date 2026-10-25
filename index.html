@@ -724,6 +724,18 @@
             <span class="change-amount" id="changeAmountText">$0.00</span>
           </div>
         </div>
+
+        <div class="input-group" style="margin-top: 12px;">
+          <label for="creditAuthorizationSelect">Autorización para pagar después:</label>
+          <select id="creditAuthorizationSelect">
+            <option value="">Selecciona una autorización explícita</option>
+            <option value="Amigo">Amigo</option>
+            <option value="Creador de proyecto">Creador de proyecto</option>
+          </select>
+          <small style="color: var(--text-muted); display: block; margin-top: 4px;">
+            Sólo se usa al elegir “Enviar (Pagar después)”. No se asigna crédito automáticamente.
+          </small>
+        </div>
       </div>
 
       <div class="modal-footer">
@@ -1272,7 +1284,7 @@
         <div class="toast-container" id="toastContainer" aria-live="polite"></div>
 
         <!-- Script -->
-        <script src="js/app.js?v=20261025-13"></script>
+        <script src="js/app.js?v=20261025-13b"></script>
 </body>
 
 </html>
