@@ -977,6 +977,7 @@ function posExpandCart_(items, cat, phase, canCourtesy) {
  * ============================================================================
  */
 
+'use strict';
 
 /**
  * Consulta de comandas activas, historial reciente y solicitudes de resurtido
@@ -987,34 +988,57 @@ function comandasSimpleDatos(token) {
   const sComandas = m.getSheetByName('COMANDAS');
   const oResurtido = o ? o.getSheetByName('RESURTIDO') : null;
 
-  // 1. Leer comandas activas desde la columna M (JSON maestro)
+  // 1. Leer comandas activas + historial desde la columna M (JSON maestro).
+  // La columna M es la fuente de verdad del KDS; H/N se mantienen como espejo humano.
   const masterRaw = sComandas.getRange(7, 13, 500, 1).getValues();
   const orders = [];
-  masterRaw.forEach((row, i) => {
-    if (row[0]) {
-      try {
-        const item = JSON.parse(row[0]);
-        if (item && item.state !== 'Entregada' && item.state !== 'Cancelada') {
-          orders.push({
-            key: 'DCS-' + item.row + '-' + (item.batch || item.id),
-            version: String(item.version || '1'),
-            id: item.id || ('C2-' + item.row),
-            ticket: item.ticket,
-            batch: item.batch || item.id,
-            alias: item.alias || 'Cliente',
-            product: item.product,
-            notes: item.notes || '',
-            destination: item.destination || 'Barra',
-            state: item.state || 'Pendiente',
-            responsible: item.responsible || item.preparedBy || '',
-            sent: item.sent ? new Date(item.sent).getTime() : Date.now(),
-            credit: !!item.credit,
-            incident: item.incident || ''
-          });
-        }
-      } catch (err) {}
+  const history = [];
+  const now = Date.now();
+
+  const toClientItem = item => ({
+    key: 'DCS-' + item.row + '-' + (item.batch || item.id),
+    version: String(item.version || '1'),
+    id: item.id || ('C2-' + item.row),
+    ticket: item.ticket || '',
+    batch: item.batch || item.id,
+    alias: item.alias || 'Cliente',
+    product: item.product || '',
+    notes: item.notes || '',
+    destination: item.destination || 'Barra',
+    state: item.state || 'Pendiente',
+    responsible: item.responsible || item.preparedBy || '',
+    sent: item.sent ? new Date(item.sent).getTime() : now,
+    claimed: item.claimed ? new Date(item.claimed).getTime() : null,
+    ready: item.ready ? new Date(item.ready).getTime() : null,
+    delivered: item.delivered ? new Date(item.delivered).getTime() : null,
+    deliveredBy: item.deliveredBy || '',
+    cancelled: item.cancelled ? new Date(item.cancelled).getTime() : null,
+    credit: !!item.credit,
+    incident: item.incident || ''
+  });
+
+  masterRaw.forEach(row => {
+    if (!row[0]) return;
+    try {
+      const item = JSON.parse(row[0]);
+      if (!item) return;
+      const clientItem = toClientItem(item);
+      if (clientItem.state === 'Entregada' || clientItem.state === 'Cancelada') {
+        history.push(clientItem);
+      } else {
+        orders.push(clientItem);
+      }
+    } catch (err) {
+      console.warn('[KDS] JSON inválido en COMANDAS!M:', err);
     }
   });
+
+  // Activas: las más antiguas primero. Historial: entrega/cancelación más reciente primero.
+  orders.sort((a, b) => (a.sent || 0) - (b.sent || 0));
+  history.sort((a, b) =>
+    (b.delivered || b.cancelled || b.sent || 0) -
+    (a.delivered || a.cancelled || a.sent || 0)
+  );
 
   // 2. Leer resurtidos abiertos
   const requests = [];
@@ -1033,12 +1057,12 @@ function comandasSimpleDatos(token) {
   }
 
   return {
-    version: 'Comandas Simple 2.0',
+    version: 'Comandas Simple 2.1',
     at: Date.now(),
     mirrorSync: 'Conectado a Google Sheets',
     team: CONFIG.staff,
     orders: orders,
-    history: [],
+    history: history.slice(0, 100),
     requests: requests,
     issues: []
   };
@@ -1082,8 +1106,13 @@ function comandasSimpleAccion(token, body) {
     const operator = String(body.operator || 'Operador').trim();
 
     if (action === 'TOMAR') {
+      if (targetItem.state !== 'Pendiente') {
+        throw new Error(`INVALID_KDS_TRANSITION: TOMAR requiere estado Pendiente; estado actual: ${targetItem.state}.`);
+      }
+
       // Reclamar lote completo
       const batchId = targetItem.batch;
+      const claimedAt = new Date().toISOString();
       for (let i = 0; i < masterRaw.length; i++) {
         if (masterRaw[i][0]) {
           try {
@@ -1091,25 +1120,36 @@ function comandasSimpleAccion(token, body) {
             if (it.batch === batchId && it.state === 'Pendiente') {
               it.state = 'En preparación';
               it.responsible = operator;
+              it.claimed = claimedAt;
               it.version = String(Number(it.version || 1) + 1);
               sComandas.getRange(i + 7, 13).setValue(JSON.stringify(it));
+              sComandas.getRange(i + 7, 8).setValue('Preparando');
               sComandas.getRange(i + 7, 14).setValue('En preparación (' + operator + ')');
             }
           } catch (e) {}
         }
       }
     } else if (action === 'LISTA') {
+      if (targetItem.state !== 'En preparación') {
+        throw new Error(`INVALID_KDS_TRANSITION: LISTA requiere estado En preparación; estado actual: ${targetItem.state}.`);
+      }
       targetItem.state = 'Lista';
+      targetItem.ready = new Date().toISOString();
       targetItem.version = String(Number(targetItem.version || 1) + 1);
       sComandas.getRange(targetRow, 13).setValue(JSON.stringify(targetItem));
+      sComandas.getRange(targetRow, 8).setValue('Lista');
       sComandas.getRange(targetRow, 14).setValue('Lista para entrega');
     } else if (action === 'ENTREGAR') {
       if (targetItem.state === 'Entregada') {
         throw new Error(`La comanda '${body.key}' (${targetItem.product}) ya fue entregada previamente.`);
       }
+      if (targetItem.state !== 'Lista') {
+        throw new Error(`INVALID_KDS_TRANSITION: ENTREGAR requiere estado Lista; estado actual: ${targetItem.state}.`);
+      }
       targetItem.state = 'Entregada';
       targetItem.delivered = new Date().toISOString();
       targetItem.deliveredBy = operator;
+      targetItem.version = String(Number(targetItem.version || 1) + 1);
       sComandas.getRange(targetRow, 13).setValue(JSON.stringify(targetItem));
       sComandas.getRange(targetRow, 8).setValue('Entregada');
       sComandas.getRange(targetRow, 14).setValue('Entregada por ' + operator);
