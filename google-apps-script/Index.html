@@ -2216,7 +2216,7 @@ html, body {
     <!-- Header Actions & Controls -->
     <div class="header-actions">
       <!-- Sync Status Pill -->
-      <div class="connection-status" id="connectionPill" title="Estado de sincronización con Google">
+      <div class="connection-status" id="connectionPill" title="Backend: PRODUCTION (AKfycbysBa...)">
         <span class="status-dot ok" id="statusDot"></span>
         <span id="syncLabel">Conectado</span>
       </div>
@@ -2883,6 +2883,18 @@ html, body {
             <span class="change-amount" id="changeAmountText">$0.00</span>
           </div>
         </div>
+
+        <div class="input-group" style="margin-top: 12px;">
+          <label for="creditAuthorizationSelect">Autorización para pagar después:</label>
+          <select id="creditAuthorizationSelect">
+            <option value="">Selecciona una autorización explícita</option>
+            <option value="Amigo">Amigo</option>
+            <option value="Creador de proyecto">Creador de proyecto</option>
+          </select>
+          <small style="color: var(--text-muted); display: block; margin-top: 4px;">
+            Sólo se usa al elegir “Enviar (Pagar después)”. No se asigna crédito automáticamente.
+          </small>
+        </div>
       </div>
 
       <div class="modal-footer">
@@ -3441,16 +3453,34 @@ html, body {
 
 (function () {
   // --- CONFIGURACIÓN & ESTADO INICIAL ---
-  const DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycbysBaRA2_oZIOqU10G4E_MHiC8FUR3dCnqj2DlLG91iNJXP3GkZZ7BK0Na1FAJ1thZk/exec';
+  const OFFICIAL_PRODUCTION_ENDPOINT = 'https://script.google.com/macros/s/AKfycbysBaRA2_oZIOqU10G4E_MHiC8FUR3dCnqj2DlLG91iNJXP3GkZZ7BK0Na1FAJ1thZk/exec';
+  const STAGING_ENDPOINT = 'https://script.google.com/macros/s/AKfycbzLkId5CWpQp3kBuY6UM5r6zhmyVyxmP1R80SfQidL83qXi_tUueRGd4P20Nc0tRYNH/exec';
   const STAFF_MEMBERS = ['René', 'Miguel', 'Mike', 'Taichi Mike', 'Meaw', 'Wall E', 'Iván', 'Kas', 'Steven', 'Angel'];
 
-  const cachedGasUrl = localStorage.getItem('domus_gas_url');
-  const validApiUrl = (cachedGasUrl && !cachedGasUrl.includes('domusccc.net')) ? cachedGasUrl : DEFAULT_GAS_URL;
+  // Determinar entorno de ejecución (Issue #1: Bloqueo estricto del endpoint productivo)
+  const _urlParams = new URLSearchParams(window.location.search);
+  const _isStagingExplicit = _urlParams.get('env') === 'staging';
+  const _isLocalDev = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') && !_urlParams.has('env');
+  const isStagingEnv = _isStagingExplicit || (_isLocalDev && _urlParams.get('env') !== 'production');
+
+  // En producción oficial (Caja, Comandas, Accesos), el endpoint está bloqueado.
+  // localStorage.domus_gas_url NO puede alterar el backend productivo bajo ninguna circunstancia.
+  let validApiUrl = OFFICIAL_PRODUCTION_ENDPOINT;
+  let isProductionLocked = true;
+
+  if (isStagingEnv) {
+    const cachedGasUrl = localStorage.getItem('domus_gas_url');
+    validApiUrl = (cachedGasUrl && !cachedGasUrl.includes('domusccc.net')) ? cachedGasUrl : STAGING_ENDPOINT;
+    isProductionLocked = false;
+  }
 
   const STATE = {
     mode: 'caja', // 'caja' | 'comandas'
     phase: 'Lunar', // 'Solar' | 'Lunar'
     apiUrl: validApiUrl,
+    isProductionLocked: isProductionLocked,
+    backendEnvironment: isProductionLocked ? 'PRODUCTION' : 'STAGING',
+    endpointDeploymentId: 'AKfycbysBaRA2_oZIOqU10G4E_MHiC8FUR3dCnqj2DlLG91iNJXP3GkZZ7BK0Na1FAJ1thZk',
     operator: sessionStorage.getItem('domus_operator') || '',
     sound: localStorage.getItem('domus_sound') === 'true',
     catalogCategory: 'Todas',
@@ -5621,8 +5651,18 @@ const DEFAULT_CATALOG = [
 
   // --- RUTA Y NAVEGACIÓN ---
   function initRouting() {
+    // Limpieza de URLs si se pegó formato de markdown o corchetes accidentales
+    if (window.location.search && (window.location.search.includes(']') || window.location.search.includes('%5D') || window.location.search.includes('('))) {
+      try {
+        let cleanSearch = window.location.search.split(']')[0].split('%5D')[0].split('(')[0];
+        window.history.replaceState({}, document.title, window.location.pathname + cleanSearch);
+      } catch (e) {}
+    }
     const params = new URLSearchParams(window.location.search);
-    const vista = params.get('vista');
+    let vista = params.get('vista') || '';
+    if (vista.includes(']')) vista = vista.split(']')[0];
+    if (vista.includes('%5D')) vista = vista.split('%5D')[0];
+    if (vista.includes('(')) vista = vista.split('(')[0];
     if (vista === 'caja') {
       if (isCajaAuthorized()) {
         setMode('caja', false);
@@ -5834,6 +5874,11 @@ const DEFAULT_CATALOG = [
   }
 
   function enqueueOutbox(action, args, type = 'MUTATION') {
+    // Protección estricta (Issue #1): nunca encolar una orden de caja sin productos
+    if (action === 'cajaSimpleRegistrar' && (!args || !args[0] || !args[0].items || !args[0].items.length)) {
+      console.warn('[OUTBOX] Rechazado intento de encolar orden de caja vacía sin productos.');
+      return null;
+    }
     const queue = getOutbox();
     const existingReq = (args && args[0] && (args[0].id || args[0].requestId)) ? (args[0].id || args[0].requestId) : null;
     const reqId = existingReq || ('REQ-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8).toUpperCase());
@@ -5862,6 +5907,102 @@ const DEFAULT_CATALOG = [
     queue.push(item);
     saveOutbox(queue);
     return item;
+  }
+
+  /**
+   * Clasificador centralizado de fallos de mutación (Issue #1):
+   * - 'REQUIRES_REVIEW': Errores deterministas, validación, negocio, permisos, 409 idempotencia, datos incorrectos.
+   *   JAMÁS deben reintentarse automáticamente ni por el botón de reintento.
+   * - 'RETRY': Errores estrictamente transitorios (red, timeout, 502/503/504).
+   */
+  function classifyMutationFailure(error) {
+    if (!error) return 'RETRY';
+    const msg = (typeof error === 'string' ? error : (error.message || error.error || '')).toLowerCase();
+    const code = error.code || error.status;
+
+    // 1. Errores Deterministas / Validación / Negocio -> REQUIRES_REVIEW
+    if (
+      code === 409 ||
+      code === 'IDEMPOTENCY_KEY_REUSED' ||
+      msg.includes('idempotency_key_reused') ||
+      msg.includes('infringen las reglas de validación') ||
+      msg.includes('validación de datos') ||
+      msg.includes('reglas de validación') ||
+      msg.includes('product_not_found') ||
+      msg.includes('producto no encontrado') ||
+      msg.includes('event_pricing_not_confirmed') ||
+      msg.includes('tarifa de evento no confirmada') ||
+      msg.includes('acceso denegado') ||
+      msg.includes('violación de seguridad') ||
+      msg.includes('violacion') ||
+      msg.includes('discrepa') ||
+      msg.includes('rol') ||
+      msg.includes('inválido') ||
+      msg.includes('invalido') ||
+      msg.includes('cambió la carta') ||
+      msg.includes('fase') ||
+      msg.includes('no hay filas libres') ||
+      msg.includes('pedido vacío') ||
+      (code >= 400 && code < 500 && code !== 408 && code !== 429)
+    ) {
+      return 'REQUIRES_REVIEW';
+    }
+
+    // 2. Errores estrictamente transitorios -> RETRY
+    if (
+      msg.includes('timeout') ||
+      msg.includes('timed out') ||
+      msg.includes('network') ||
+      msg.includes('failed to fetch') ||
+      msg.includes('aborterror') ||
+      msg.includes('load failed') ||
+      msg.includes('sin conexión') ||
+      code === 408 ||
+      code === 429 ||
+      code === 502 ||
+      code === 503 ||
+      code === 504 ||
+      (code >= 500 && code <= 599)
+    ) {
+      return 'RETRY';
+    }
+
+    // Por defecto, cualquier fallo que no sea explícitamente de conectividad se envía a revisión
+    return 'REQUIRES_REVIEW';
+  }
+
+  /**
+   * Migración segura de operaciones Outbox a v13 (Issue #1 - FASE 1.E):
+   * Cuarentena sin eliminación de elementos con errores deterministas.
+   */
+  function migrateLegacyOutbox_() {
+    try {
+      const queue = getOutbox();
+      let modified = false;
+      const updatedQueue = queue.map(item => {
+        if (item.status === 'LOCAL_PENDING' || item.status === 'RETRY') {
+          const err = item.lastError || '';
+          const hasEmptyItems = item.action === 'cajaSimpleRegistrar' && (!item.args || !item.args[0] || !item.args[0].items || !item.args[0].items.length);
+          const hasRecordedError = String(err).trim().length > 0;
+          const isDeterministic = hasEmptyItems || (hasRecordedError && classifyMutationFailure(err) === 'REQUIRES_REVIEW');
+
+          if (isDeterministic) {
+            console.warn(`[OUTBOX MIGRATION v13] Migrando item determinista a REQUIRES_REVIEW: ${item.requestId} (${err || 'Empty items'})`);
+            item.status = 'REQUIRES_REVIEW';
+            item.quarantineReason = err || 'v13: Operación previa vacía o con error determinista';
+            item.quarantinedAt = new Date().toISOString();
+            modified = true;
+          }
+        }
+        return item;
+      });
+
+      if (modified) {
+        saveOutbox(updatedQueue);
+      }
+    } catch (e) {
+      console.warn('[OUTBOX] Error al migrar outbox histórico:', e);
+    }
   }
 
   /**
@@ -5927,6 +6068,16 @@ const DEFAULT_CATALOG = [
         }
 
         const item = pendingItems[0];
+
+        // Issue #1: Validación de orden vacía en cola sin mutar ni purgar silentemente
+        if (item.action === 'cajaSimpleRegistrar' && (!item.args || !item.args[0] || !item.args[0].items || !item.args[0].items.length)) {
+          console.warn('[OUTBOX] Operación vacía detectada. Marcando en REQUIRES_REVIEW:', item.requestId);
+          item.status = 'REQUIRES_REVIEW';
+          item.lastError = 'Operación de caja sin productos en el pedido.';
+          saveOutbox(getOutbox().map(q => q.requestId === item.requestId ? item : q));
+          continue;
+        }
+
         item.status = 'SYNCING';
         item.attempts = (item.attempts || 0) + 1;
         item.lastAttempt = new Date().toISOString();
@@ -5943,12 +6094,8 @@ const DEFAULT_CATALOG = [
           } catch (e) {}
         }
 
-        if (item.action === 'cajaSimpleRegistrar' && item.args && item.args[0]) {
-          if (!item.args[0].paid && !item.args[0].credit) {
-            item.args[0].credit = 'Amigo';
-          }
-        }
-
+        // Issue #1: PROHIBICIÓN TOTAL DE INFERIR O MUTAR CREDIT = 'Amigo'.
+        // El payload original se preserva íntegramente sin añadir ni cambiar ningún campo.
         const payload = {
           action: item.action,
           args: item.args,
@@ -5979,35 +6126,26 @@ const DEFAULT_CATALOG = [
             syncBackendData();
           } else {
             const errorMsg = (json && (json.error || json.message)) || 'Error en servidor';
-            const errorCode = json && (json.code || json.status);
+            const classification = classifyMutationFailure({ message: errorMsg, code: json && (json.code || json.status) });
 
-            // Manejo específico de 409 IDEMPOTENCY_KEY_REUSED o permisos
-            if (errorCode === 'IDEMPOTENCY_KEY_REUSED' || errorCode === 409 || errorMsg.includes('IDEMPOTENCY_KEY_REUSED')) {
-              item.status = 'REQUIRES_REVIEW';
-              item.lastError = `Conflicto de Idempotencia: ${errorMsg}`;
+            item.lastError = errorMsg;
+            item.status = classification;
+
+            if (classification === 'REQUIRES_REVIEW') {
               saveOutbox(getOutbox().map(q => q.requestId === item.requestId ? item : q));
-              toast(`⚠️ Alerta: El requestId fue rechazado por discrepancia de datos.`, 'error');
-              break;
-            } else if (errorMsg.includes('Acceso denegado') || errorMsg.includes('inválido')) {
-              item.status = 'REQUIRES_REVIEW';
-              item.lastError = errorMsg;
-              saveOutbox(getOutbox().map(q => q.requestId === item.requestId ? item : q));
-              toast(`Permiso requerido: ${errorMsg}`, 'error');
+              toast(`🛑 Operación puesta en cuarentena para revisión: ${errorMsg}`, 'warn');
               break;
             } else {
-              item.status = 'RETRY';
-              item.lastError = errorMsg;
               saveOutbox(getOutbox().map(q => q.requestId === item.requestId ? item : q));
-              // Error transitorio, pausar bucle para no saturar
               break;
             }
           }
         } catch (fetchErr) {
-          item.status = 'RETRY';
+          const classification = classifyMutationFailure(fetchErr);
+          item.status = classification;
           item.lastError = fetchErr.message || String(fetchErr);
           saveOutbox(getOutbox().map(q => q.requestId === item.requestId ? item : q));
           updateSyncPill('error');
-          // Sin conexión o timeout: detener el bucle para reintentar cuando haya red
           break;
         }
       }
@@ -6036,14 +6174,26 @@ const DEFAULT_CATALOG = [
   function updateOutboxUI() {
     const banner = $('outboxBanner');
     const text = $('outboxStatusText');
+    const btnRetry = $('btnOutboxRetry');
     const queue = getOutbox();
-    const pending = queue.filter(q => q.status !== 'CONFIRMED' && q.status !== 'REQUIRES_REVIEW');
+    const pending = queue.filter(q => q.status === 'LOCAL_PENDING' || q.status === 'RETRY' || q.status === 'SYNCING');
+    const inReview = queue.filter(q => q.status === 'REQUIRES_REVIEW');
 
     if (!banner || !text) return;
 
-    if (pending.length > 0) {
+    if (pending.length > 0 || inReview.length > 0) {
       banner.classList.remove('hidden');
-      text.textContent = `⚠️ MODO LOCAL · ${pending.length} operación(es) pendiente(s) de sincronizar en Outbox`;
+      const messages = [];
+      if (pending.length > 0) {
+        messages.push(`⚠️ MODO LOCAL · ${pending.length} operación(es) pendiente(s) de sincronizar`);
+      }
+      if (inReview.length > 0) {
+        messages.push(`🛑 ${inReview.length} operación(es) en revisión manual / cuarentena`);
+      }
+      text.textContent = messages.join(' | ');
+      if (btnRetry) {
+        btnRetry.style.display = pending.length > 0 ? 'inline-block' : 'none';
+      }
     } else {
       banner.classList.add('hidden');
     }
@@ -6169,7 +6319,12 @@ const DEFAULT_CATALOG = [
     .then(json => {
       STATE.isSyncing = false;
       STATE.lastSyncTimestamp = Date.now();
-      if (!json.ok && json.error) throw new Error(json.error);
+      if (!json.ok) {
+        const backendError = new Error((json && (json.error || json.message)) || 'Error en servidor');
+        backendError.code = json && json.code;
+        backendError.status = json && json.status;
+        throw backendError;
+      }
 
       updateSyncPill('ok');
       const data = json.data !== undefined ? json.data : json;
@@ -6181,24 +6336,33 @@ const DEFAULT_CATALOG = [
       STATE.lastSyncTimestamp = Date.now();
       updateSyncPill('error');
 
-      // Encolar de forma segura en Outbox
+      // Encolar de forma segura en Outbox (si no fue descartado por validación de orden vacía)
       const item = enqueueOutbox(fnName, args, 'MUTATION');
-      item.lastError = err.message || String(err);
-      item.status = 'RETRY';
-      saveOutbox(getOutbox());
+      if (item) {
+        const classification = classifyMutationFailure(err);
+        item.lastError = err.message || String(err);
+        item.status = classification;
+        saveOutbox(getOutbox().map(q => q.requestId === item.requestId ? item : q));
 
-      toast(`⚠️ Sin conexión con Google Sheets. Operación guardada de forma segura en Outbox local (${reqId}).`, 'warn');
-      if (onSuccess) {
-        onSuccess({
-          ok: true,
-          localOutbox: true,
-          status: 'LOCAL_PENDING',
-          requestId: reqId,
-          rowId: reqId,
-          id: reqId,
-          ticket: reqId,
-          message: `Guardado en Outbox local (${reqId}). Se sincronizará automáticamente al volver la señal.`
-        });
+        if (classification === 'REQUIRES_REVIEW') {
+          toast(`🛑 Operación en revisión manual. No se registró como venta: ${item.lastError}`, 'warn');
+          if (onError) onError(err);
+          return;
+        }
+
+        toast(`⚠️ Sin conexión con Google Sheets. Operación guardada en Outbox local (${reqId}).`, 'warn');
+        if (onSuccess) {
+          onSuccess({
+            ok: true,
+            localOutbox: true,
+            status: 'RETRY',
+            requestId: reqId,
+            rowId: reqId,
+            id: reqId,
+            ticket: reqId,
+            message: `Guardado en Outbox local (${reqId}). Se sincronizará automáticamente al volver la señal.`
+          });
+        }
       }
     });
   }
@@ -6229,14 +6393,8 @@ const DEFAULT_CATALOG = [
   // --- CARGA INICIAL DE DATOS ---
   function loadInitialData() {
     STATE.products = [...DEFAULT_CATALOG];
-    // Auto-purgar registros huérfanos o fallidos del Outbox
-    try {
-      const queue = getOutbox();
-      const validQueue = queue.filter(q => q.status !== 'CONFIRMED' && q.status !== 'REQUIRES_REVIEW');
-      if (validQueue.length !== queue.length) {
-        saveOutbox(validQueue);
-      }
-    } catch (e) {}
+    // Migración segura de operaciones Outbox a v13 (conservando historial en cuarentena)
+    migrateLegacyOutbox_();
 
     STATE.comandas = [...DEFAULT_ORDERS];
 
@@ -6724,6 +6882,8 @@ const DEFAULT_CATALOG = [
     $('cashDueInput').value = total.toFixed(2);
     $('cashReceivedInput').value = '';
     $('cashTipInput').value = '0';
+    STATE.accountType = '';
+    if ($('creditAuthorizationSelect')) $('creditAuthorizationSelect').value = '';
     updateChangeDisplay();
 
     // Resetear a Efectivo
@@ -6774,10 +6934,28 @@ const DEFAULT_CATALOG = [
   }
 
   function confirmPaymentAndDispatch(isPaid) {
+    if (!STATE.cart || !STATE.cart.length) {
+      toast('El pedido está vacío. Haz clic en los productos para agregarlos al carrito antes de cobrar o enviar.', 'warn');
+      return;
+    }
     const customer = $('customerNameInput').value.trim() || 'Cliente Mostrador';
     const total = calculateCartTotal();
     const received = parseFloat($('cashReceivedInput').value) || 0;
     const tip = parseFloat($('cashTipInput').value) || 0;
+
+    let explicitCredit = '';
+    if (!isPaid) {
+      const creditSelect = $('creditAuthorizationSelect');
+      explicitCredit = creditSelect ? String(creditSelect.value || '') : '';
+      if (!['Amigo', 'Creador de proyecto'].includes(explicitCredit)) {
+        toast('Para enviar un pedido sin cobrar debes seleccionar una autorización de crédito explícita.', 'error');
+        if (creditSelect) creditSelect.focus();
+        return;
+      }
+      STATE.accountType = explicitCredit;
+    } else {
+      STATE.accountType = '';
+    }
 
     if (isPaid && activePaymentMethod === 'Efectivo' && received + 0.001 < total + tip) {
       toast('El efectivo recibido es insuficiente para cubrir la cuenta.', 'error');
@@ -6796,7 +6974,7 @@ const DEFAULT_CATALOG = [
       method: isPaid ? activePaymentMethod : '',
       received: isPaid && activePaymentMethod === 'Efectivo' ? received : null,
       tip: isPaid && activePaymentMethod === 'Efectivo' ? tip : 0,
-      credit: isPaid ? '' : (STATE.accountType || 'Amigo'),
+      credit: isPaid ? '' : explicitCredit,
       items: STATE.cart.map(i => ({
         name: i.name,
         price: i.price,
@@ -6829,6 +7007,8 @@ const DEFAULT_CATALOG = [
       clearCart();
       $('customerNameInput').value = '';
       STATE.selectedAccountTicket = '';
+      STATE.accountType = '';
+      if ($('creditAuthorizationSelect')) $('creditAuthorizationSelect').value = '';
       syncBackendData();
     }, err => {
       toast(`Error al registrar: ${err.message || String(err)}`, 'error');
@@ -7159,11 +7339,16 @@ const DEFAULT_CATALOG = [
   }
 
   function saveConfig() {
-    const url = $('gasApiUrlInput').value.trim();
-    if (url) {
-      STATE.apiUrl = url;
-      localStorage.setItem('domus_gas_url', url);
-      STATE.isDemoMode = false;
+    if (STATE.isProductionLocked) {
+      toast('🔒 El backend está bloqueado en PRODUCCIÓN oficial (AKfycbysBa...).', 'warn');
+      if ($('gasApiUrlInput')) $('gasApiUrlInput').value = OFFICIAL_PRODUCTION_ENDPOINT;
+    } else {
+      const url = $('gasApiUrlInput').value.trim();
+      if (url) {
+        STATE.apiUrl = url;
+        localStorage.setItem('domus_gas_url', url);
+        STATE.isDemoMode = false;
+      }
     }
     const newPin = $('newCajaPasswordInput') ? $('newCajaPasswordInput').value.trim() : '';
     if (newPin) {
@@ -8349,28 +8534,39 @@ const DEFAULT_CATALOG = [
       renderCart();
     });
 
-    // Refresh Button
+    // Botón Reintentar Outbox (Issue #1 - FASE 1.G):
+    // Reintentar ÚNICAMENTE LOCAL_PENDING y RETRY. NUNCA REQUIRES_REVIEW ni CONFIRMED.
     const btnRetryOutbox = $('btnOutboxRetry');
     if (btnRetryOutbox) {
       btnRetryOutbox.addEventListener('click', () => {
+        let retriedCount = 0;
         const queue = getOutbox().map(it => {
-          it.status = 'RETRY';
-          it.attempts = 0;
+          if (it.status === 'RETRY' || it.status === 'LOCAL_PENDING') {
+            it.status = 'RETRY';
+            it.attempts = 0;
+            retriedCount++;
+          }
           return it;
         });
         saveOutbox(queue);
-        toast('Reintentando sincronización de Outbox…', 'ok');
-        processOutbox();
+        if (retriedCount > 0) {
+          toast(`Reintentando ${retriedCount} operación(es) transitorias pendientes…`, 'ok');
+          processOutbox();
+        } else {
+          toast('No hay operaciones transitorias pendientes para reintentar.', 'info');
+        }
       });
     }
 
     const btnClearOutbox = $('btnOutboxClear');
     if (btnClearOutbox) {
       btnClearOutbox.addEventListener('click', () => {
-        saveOutbox([]);
+        const queue = getOutbox();
+        const reviewItems = queue.filter(q => q.status === 'REQUIRES_REVIEW');
+        saveOutbox(reviewItems); // Issue #1: REQUIRES_REVIEW debe persistir y no ser purgado
         updateOutboxUI();
         updateSyncPill('ok');
-        toast('Cola de Outbox limpiada.', 'ok');
+        toast('Operaciones pendientes descartadas. Los registros en revisión manual se conservan.', 'ok');
       });
     }
 
