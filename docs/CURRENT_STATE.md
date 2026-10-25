@@ -122,3 +122,22 @@
   2. Se agregó guardia de debounce `isRegisteringAccess` con deshabilitación visual del botón (`"⏳ Registrando..."`, 1.5s de bloqueo).
   3. Validación de campo: si el nombre del asistente está en blanco, no se registra y se alerta al operador mediante toast (`"⚠️ Por favor ingresa el nombre o alias del asistente antes de confirmar"`).
 
+---
+
+## 🎟️ Liquidación Automática FORZA: Cuota de $150 por Asistente (2026-10-25 03:18 UTC-6)
+* **Commit:** `f027f77`
+* **Estado:** `PROD_DEPLOYED`
+* **Acuerdo Comercial Oficial:** Cada asistente registrado bajo la lista o boletera de FORZA (`BOLETERA_EXTERNA`, `LISTA`) genera **$150.00 MXN para DOMUS**. El asistente entra con **$0.00 en puerta**. Las cortesías autorizadas (`CORTESIA`) están exentas ($0.00 para DOMUS).
+* **Automatización en el Sistema:**
+  1. **Asignación Automática de Cuota:** Al seleccionar `Forza · sábado` en el canal de venta externo o lista, el sistema asigna automáticamente `faceValue = $150.00` por persona ($300 Pareja, $450 Trío) y `commercialTotal = $150.00`.
+  2. **Cobro en Puerta DOMUS en Cero:** `doorEntryCharge = $0.00` y `doorTotal = $0.00`. No se genera cobro físico al asistente ni se escribe en `COBROS`.
+  3. **Registro Transaccional en `ACCESO`:**
+     - Columna J (`faceValue`): `$150.00`
+     - Columna N (`totalCommercialValue`): `$150.00`
+     - Columna O (`amountPaidAtDoor`): `$0.00`
+     - Columna T (`salesChannel`): `BOLETERA_EXTERNA` / `LISTA`
+     - Columna H / Z (`persons`): Aforo real validado.
+  4. **Exención de Cortesías:** Al seleccionar canal `CORTESIA`, `faceValue = $0.00`, eximiéndolas del cálculo.
+  5. **Métricas en Vivo:** El KPI de taquilla refleja en tiempo real la cuota total acumulada para DOMUS: `Cuota DOMUS ($150 × N)`, lista para contrastarse contra el anticipo de $3,000 MXN.
+
+
