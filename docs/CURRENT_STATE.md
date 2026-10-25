@@ -109,3 +109,16 @@
 > [!NOTE]
 > **Deuda Técnica Registrada (Post-Evento):**
 > Las fórmulas de control en la hoja `INVENTARIO` que contienen `$A$7:$A$306` se conservan operativas durante el evento sin bloquear el servicio, y serán migradas a rangos dinámicos abiertos en la primera ventana de mantenimiento post-evento.
+
+---
+
+## 🛡️ Hotfix Accesos: Anti-duplicados y Debounce (2026-10-25 03:05 UTC-6)
+* **Commit:** `89ed892`
+* **Estado:** `PROD_DEPLOYED`
+* **Problema Triageado:** Al confirmar acceso de un cliente (ej. *irvin gonzales*, *fernando*), el sistema generaba dos filas en la misma fracción de segundo: el registro legítimo con su nombre y un registro fantasma nombrado `"Asistente A-xxxx"`.
+* **Causa Raíz Identificada:** Existencia de doble listener sobre `#btnConfirmAccess` (`onclick` en HTML/JS + `addEventListener` en `setupEventListeners`). La primera ejecución registraba al cliente y reseteaba el campo de texto a `""`; la segunda ejecución se ejecutaba inmediatamente en el mismo clic, leía el campo vacío y activaba el fallback automático de respaldo `Asistente ${rowId}`.
+* **Acciones Implementadas:**
+  1. Se eliminó el `addEventListener` redundante y el `onclick` en HTML, dejando un único manejador atómico en `renderAccesosView()`.
+  2. Se agregó guardia de debounce `isRegisteringAccess` con deshabilitación visual del botón (`"⏳ Registrando..."`, 1.5s de bloqueo).
+  3. Validación de campo: si el nombre del asistente está en blanco, no se registra y se alerta al operador mediante toast (`"⚠️ Por favor ingresa el nombre o alias del asistente antes de confirmar"`).
+
