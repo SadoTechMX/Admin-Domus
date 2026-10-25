@@ -155,5 +155,23 @@
      - Validación estricta de Cortesía: Exige campo de quién autorizó (`courtesyAuth`, ej. Steven / Dirección) y motivo.
   3. **Distintivos Visuales en Tabla:** Badges directos para identificar inmediatamente `⭐ Cortesía ($0)` vs `📋 Lista ($150)` y autorización respectiva.
 
+---
 
-
+## 🍽️ Homologación Canónica de Carta Oficial · Solar / Lunar (2026-10-25 04:00 UTC-6)
+* **Fuente Canónica:** Google Spreadsheet `1F5PrL19pRabjbgkI035Q2bf2np5Xy3MUL1KdZgMnOHQ` · Pestaña `CARTA SOLAR LUNAR` (`gid=926692473`)
+* **Estado:** `PROD_DEPLOYED`
+* **Principios Clave Aplicados:**
+  1. **Separación de Proveedor vs Cannabis:** `Canna Treats` es estrictamente una línea gastronómica/proveedor. NO define cannabis. Se rige por el atributo booleano explícito `containsCannabis = (CONTIENE CANNABIS? === 'SI')`.
+  2. **23 Alimentos Regulares de Canna Treats:** Hamburguesas, alitas, papas misioneras, gajo, boneless, etc. operan con `containsCannabis = false` y se asignan a `Cocina / Alimentos Cocina`, liberando el chip cannábico.
+  3. **18 Productos con Cannabis Autorizados:** 14 de Canna Treats (Greenburgesa, Espagueti verde, Monchis pizza 420, Guacanabis, Wafle BDSM, Cheescake, Canabites, Pelon, etc.) y 4 de ANDY (Muffins, Chocolates 2 dosis, Chocolates 4 dosis, Chocolates Vagina).
+  4. **Desagregación Limpia de Barra:** Se eliminó la bolsa única de 92 items y se organizaron chips dedicados para:
+     - `Cervezas` (14 items)
+     - `Cheladas y Micheladas` (21 items)
+     - `Cócteles` (26 items)
+     - `Refrescos y Aguas` (17 items)
+     - `Cafetería` (12 items)
+     - `Shots` (3 items)
+     - `Alimentos Cocina` (23 items)
+     - `Sushi Jujutsu-shi` (9 items)
+     - `🌿 Menú Cannábico` (18 items infusionados)
+  5. **Precios Solar vs Lunar:** 73 productos con tarifas dinámicas alternables al toque del botón de Fase. Cero divergencias de precio (100% verificado contra la Carta Oficial).

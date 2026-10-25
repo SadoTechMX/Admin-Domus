@@ -67,1479 +67,1866 @@
   };
 
   // --- CATÁLOGO BASE REAL DE DOMUS (PARA DEMO/OFFLINE) ---
-  const DEFAULT_CATALOG = [
-    {
-        "name": "Brebaje Americano · Taza 300 ml",
-        "group": "Cafetería",
-        "officialCat": "CAFÉ / BEBIDAS DE LA CASA",
-        "price": 40.0,
-        "priceSolar": 40.0,
-        "priceLunar": 40.0,
-        "destination": "Barra",
-        "sku": "B02",
-        "provider": "DOMUS"
-    },
-    {
-        "name": "Café de la Casa · Taza 300 ml",
-        "group": "Cafetería",
-        "officialCat": "CAFÉ / BEBIDAS DE LA CASA",
-        "price": 40.0,
-        "priceSolar": 40.0,
-        "priceLunar": 40.0,
-        "destination": "Barra",
-        "sku": "B10",
-        "provider": "DOMUS"
-    },
-    {
-        "name": "Cáliz de Espuma · Taza 240 ml",
-        "group": "Cafetería",
-        "officialCat": "CAFÉ / BEBIDAS DE LA CASA",
-        "price": 60.0,
-        "priceSolar": 60.0,
-        "priceLunar": 60.0,
-        "destination": "Barra",
-        "sku": "B04",
-        "provider": "DOMUS"
-    },
-    {
-        "name": "Espresso adicional · Adicional de espresso",
-        "group": "Cafetería",
-        "officialCat": "CAFÉ / BEBIDAS DE LA CASA",
-        "price": 20.0,
-        "priceSolar": 20.0,
-        "priceLunar": 20.0,
-        "destination": "Barra",
-        "sku": "EX1",
-        "provider": "DOMUS"
-    },
-    {
-        "name": "Estrella Latte · Taza 300 ml",
-        "group": "Cafetería",
-        "officialCat": "CAFÉ / BEBIDAS DE LA CASA",
-        "price": 60.0,
-        "priceSolar": 60.0,
-        "priceLunar": 60.0,
-        "destination": "Barra",
-        "sku": "B03",
-        "provider": "DOMUS"
-    },
-    {
-        "name": "Leche de Brujo · Vaso 400 ml con hielo",
-        "group": "Cafetería",
-        "officialCat": "CAFÉ / BEBIDAS DE LA CASA",
-        "price": 50.0,
-        "priceSolar": 50.0,
-        "priceLunar": 50.0,
-        "destination": "Barra",
-        "sku": "B09",
-        "provider": "DOMUS"
-    },
-    {
-        "name": "Limonada de la Casa · Vaso 400 ml con hielo",
-        "group": "Cafetería",
-        "officialCat": "CAFÉ / BEBIDAS DE LA CASA",
-        "price": 40.0,
-        "priceSolar": 40.0,
-        "priceLunar": 40.0,
-        "destination": "Barra",
-        "sku": "B11",
-        "provider": "DOMUS"
-    },
-    {
-        "name": "Luna Negra · Vaso 400 ml con hielo",
-        "group": "Cafetería",
-        "officialCat": "CAFÉ / BEBIDAS DE LA CASA",
-        "price": 60.0,
-        "priceSolar": 60.0,
-        "priceLunar": 60.0,
-        "destination": "Barra",
-        "sku": "B05",
-        "provider": "DOMUS"
-    },
-    {
-        "name": "Oro Negro · Espresso 36–40 ml",
-        "group": "Cafetería",
-        "officialCat": "CAFÉ / BEBIDAS DE LA CASA",
-        "price": 40.0,
-        "priceSolar": 40.0,
-        "priceLunar": 40.0,
-        "destination": "Barra",
-        "sku": "B01",
-        "provider": "DOMUS"
-    },
-    {
-        "name": "Té Chai · Taza 300 ml",
-        "group": "Cafetería",
-        "officialCat": "CAFÉ / BEBIDAS DE LA CASA",
-        "price": 60.0,
-        "priceSolar": 60.0,
-        "priceLunar": 60.0,
-        "destination": "Barra",
-        "sku": "B06",
-        "provider": "DOMUS"
-    },
-    {
-        "name": "Té Herbal · Taza 300 ml",
-        "group": "Cafetería",
-        "officialCat": "CAFÉ / BEBIDAS DE LA CASA",
-        "price": 40.0,
-        "priceSolar": 40.0,
-        "priceLunar": 40.0,
-        "destination": "Barra",
-        "sku": "B08",
-        "provider": "DOMUS"
-    },
-    {
-        "name": "Xocolatl · Taza 300 ml",
-        "group": "Cafetería",
-        "officialCat": "CAFÉ / BEBIDAS DE LA CASA",
-        "price": 60.0,
-        "priceSolar": 60.0,
-        "priceLunar": 60.0,
-        "destination": "Barra",
-        "sku": "B07",
-        "provider": "DOMUS"
-    },
-    {
-        "name": "Agua mineral",
-        "group": "Bebidas",
-        "officialCat": "REFRESCOS / AGUAS / MEZCLADORES",
-        "price": 45.0,
-        "priceSolar": 45.0,
-        "priceLunar": 50.0,
-        "destination": "Barra",
-        "sku": "BAR-023-MINERAL",
-        "provider": "DOMUS"
-    },
-    {
-        "name": "Agua natural · Botella 500 ml",
-        "group": "Bebidas",
-        "officialCat": "REFRESCOS / AGUAS / MEZCLADORES",
-        "price": 30.0,
-        "priceSolar": 30.0,
-        "priceLunar": 50.0,
-        "destination": "Barra",
-        "sku": "R01",
-        "provider": "DOMUS"
-    },
-    {
-        "name": "Agua quina",
-        "group": "Bebidas",
-        "officialCat": "REFRESCOS / AGUAS / MEZCLADORES",
-        "price": 50.0,
-        "priceSolar": 50.0,
-        "priceLunar": 50.0,
-        "destination": "Barra",
-        "sku": "BAR-023-QUINA",
-        "provider": "DOMUS"
-    },
-    {
-        "name": "Clamato preparado · 1 litro",
-        "group": "Bebidas",
-        "officialCat": "REFRESCOS / AGUAS / MEZCLADORES",
-        "price": 100.0,
-        "priceSolar": 100.0,
-        "priceLunar": 120.0,
-        "destination": "Barra",
-        "sku": "BAR-CLAM-SERV-L",
-        "provider": "DOMUS"
-    },
-    {
-        "name": "Clamato preparado · 500 ml",
-        "group": "Bebidas",
-        "officialCat": "REFRESCOS / AGUAS / MEZCLADORES",
-        "price": 60.0,
-        "priceSolar": 60.0,
-        "priceLunar": 80.0,
-        "destination": "Barra",
-        "sku": "BAR-CLAM-SERV",
-        "provider": "DOMUS"
-    },
-    {
-        "name": "Coca-Cola · 355 ml",
-        "group": "Bebidas",
-        "officialCat": "REFRESCOS / AGUAS / MEZCLADORES",
-        "price": 45.0,
-        "priceSolar": 45.0,
-        "priceLunar": 50.0,
-        "destination": "Barra",
-        "sku": "BAR-022-COCA",
-        "provider": "DOMUS"
-    },
-    {
-        "name": "Jugo de arándano · 1 litro",
-        "group": "Bebidas",
-        "officialCat": "REFRESCOS / AGUAS / MEZCLADORES",
-        "price": 100.0,
-        "priceSolar": 100.0,
-        "priceLunar": 120.0,
-        "destination": "Barra",
-        "sku": "BAR-024-ARANDANO-L",
-        "provider": "DOMUS"
-    },
-    {
-        "name": "Jugo de arándano · 500 ml",
-        "group": "Bebidas",
-        "officialCat": "REFRESCOS / AGUAS / MEZCLADORES",
-        "price": 45.0,
-        "priceSolar": 45.0,
-        "priceLunar": 50.0,
-        "destination": "Barra",
-        "sku": "BAR-024-ARANDANO",
-        "provider": "DOMUS"
-    },
-    {
-        "name": "Jugo de naranja · 1 litro",
-        "group": "Bebidas",
-        "officialCat": "REFRESCOS / AGUAS / MEZCLADORES",
-        "price": 100.0,
-        "priceSolar": 100.0,
-        "priceLunar": 120.0,
-        "destination": "Barra",
-        "sku": "BAR-024-NARANJA-L",
-        "provider": "DOMUS"
-    },
-    {
-        "name": "Jugo de naranja · 500 ml",
-        "group": "Bebidas",
-        "officialCat": "REFRESCOS / AGUAS / MEZCLADORES",
-        "price": 45.0,
-        "priceSolar": 45.0,
-        "priceLunar": 50.0,
-        "destination": "Barra",
-        "sku": "BAR-024-NARANJA",
-        "provider": "DOMUS"
-    },
-    {
-        "name": "Jugo de piña · 1 litro",
-        "group": "Bebidas",
-        "officialCat": "REFRESCOS / AGUAS / MEZCLADORES",
-        "price": 100.0,
-        "priceSolar": 100.0,
-        "priceLunar": 120.0,
-        "destination": "Barra",
-        "sku": "BAR-024-PINA-L",
-        "provider": "DOMUS"
-    },
-    {
-        "name": "Jugo de piña · 500 ml",
-        "group": "Bebidas",
-        "officialCat": "REFRESCOS / AGUAS / MEZCLADORES",
-        "price": 45.0,
-        "priceSolar": 45.0,
-        "priceLunar": 50.0,
-        "destination": "Barra",
-        "sku": "BAR-024-PINA",
-        "provider": "DOMUS"
-    },
-    {
-        "name": "Sidral",
-        "group": "Bebidas",
-        "officialCat": "REFRESCOS / AGUAS / MEZCLADORES",
-        "price": 45.0,
-        "priceSolar": 45.0,
-        "priceLunar": 50.0,
-        "destination": "Barra",
-        "sku": "BAR-022-SIDRAL",
-        "provider": "DOMUS"
-    },
-    {
-        "name": "Sprite",
-        "group": "Bebidas",
-        "officialCat": "REFRESCOS / AGUAS / MEZCLADORES",
-        "price": 45.0,
-        "priceSolar": 45.0,
-        "priceLunar": 50.0,
-        "destination": "Barra",
-        "sku": "BAR-022-SPRITE",
-        "provider": "DOMUS"
-    },
-    {
-        "name": "Squirt · Botella",
-        "group": "Bebidas",
-        "officialCat": "REFRESCOS / AGUAS / MEZCLADORES",
-        "price": 45.0,
-        "priceSolar": 45.0,
-        "priceLunar": 50.0,
-        "destination": "Barra",
-        "sku": "BAR-022-SQUIRT",
-        "provider": "DOMUS"
-    },
-    {
-        "name": "Volt Blue · Lata",
-        "group": "Bebidas",
-        "officialCat": "REFRESCOS / AGUAS / MEZCLADORES",
-        "price": 45.0,
-        "priceSolar": 45.0,
-        "priceLunar": 80.0,
-        "destination": "Barra",
-        "sku": "BAR-VOLT-BLUE",
-        "provider": "DOMUS"
-    },
-    {
-        "name": "Volt Yellow · Lata",
-        "group": "Bebidas",
-        "officialCat": "REFRESCOS / AGUAS / MEZCLADORES",
-        "price": 45.0,
-        "priceSolar": 45.0,
-        "priceLunar": 80.0,
-        "destination": "Barra",
-        "sku": "BAR-VOLT-YELLOW",
-        "provider": "DOMUS"
-    },
-    {
-        "name": "Caguama Corona Mega · Botella 1.2 L",
-        "group": "Cervezas",
-        "officialCat": "CERVEZAS",
-        "price": 120.0,
-        "priceSolar": 120.0,
-        "priceLunar": 120.0,
-        "destination": "Barra",
-        "sku": "N03",
-        "provider": "DOMUS"
-    },
-    {
-        "name": "Caguama Victoria Mega · Botella 1.2 L",
-        "group": "Cervezas",
-        "officialCat": "CERVEZAS",
-        "price": 120.0,
-        "priceSolar": 120.0,
-        "priceLunar": 120.0,
-        "destination": "Barra",
-        "sku": "N02",
-        "provider": "DOMUS"
-    },
-    {
-        "name": "Carta Blanca · Lata",
-        "group": "Cervezas",
-        "officialCat": "CERVEZAS",
-        "price": 50.0,
-        "priceSolar": 50.0,
-        "priceLunar": 70.0,
-        "destination": "Barra",
-        "sku": "BAR-CB-LATA",
-        "provider": "DOMUS"
-    },
-    {
-        "name": "Alemana Black · lata",
-        "group": "Cervezas",
-        "officialCat": "CERVEZAS",
-        "price": 100.0,
-        "priceSolar": 100.0,
-        "priceLunar": 100.0,
-        "destination": "Barra",
-        "sku": "BAR-001",
-        "provider": "Felssloschen · Mariam Reyes"
-    },
-    {
-        "name": "Alemana Bock · lata",
-        "group": "Cervezas",
-        "officialCat": "CERVEZAS",
-        "price": 100.0,
-        "priceSolar": 100.0,
-        "priceLunar": 100.0,
-        "destination": "Barra",
-        "sku": "BAR-001",
-        "provider": "Felssloschen · Mariam Reyes"
-    },
-    {
-        "name": "Onírica Viena · lata",
-        "group": "Cervezas",
-        "officialCat": "CERVEZAS",
-        "price": 90.0,
-        "priceSolar": 90.0,
-        "priceLunar": 100.0,
-        "destination": "Barra",
-        "sku": "BAR-002",
-        "provider": "Onírica Cervecería"
-    },
-    {
-        "name": "Onírica IPA · lata",
-        "group": "Cervezas",
-        "officialCat": "CERVEZAS",
-        "price": 90.0,
-        "priceSolar": 90.0,
-        "priceLunar": 100.0,
-        "destination": "Barra",
-        "sku": "BAR-002",
-        "provider": "Onírica Cervecería"
-    },
-    {
-        "name": "Onírica Lager · lata",
-        "group": "Cervezas",
-        "officialCat": "CERVEZAS",
-        "price": 90.0,
-        "priceSolar": 90.0,
-        "priceLunar": 100.0,
-        "destination": "Barra",
-        "sku": "BAR-002",
-        "provider": "Onírica Cervecería"
-    },
-    {
-        "name": "Corona · Cerveza 710 ml",
-        "group": "Cervezas",
-        "officialCat": "CERVEZAS",
-        "price": 85.0,
-        "priceSolar": 85.0,
-        "priceLunar": 100.0,
-        "destination": "Barra",
-        "sku": "R02",
-        "provider": "DOMUS"
-    },
-    {
-        "name": "Corona Extra · Lata 473 ml",
-        "group": "Cervezas",
-        "officialCat": "CERVEZAS",
-        "price": 50.0,
-        "priceSolar": 50.0,
-        "priceLunar": 70.0,
-        "destination": "Barra",
-        "sku": "N04",
-        "provider": "DOMUS"
-    },
-    {
-        "name": "Modelo Especial · Cerveza 710 ml",
-        "group": "Cervezas",
-        "officialCat": "CERVEZAS",
-        "price": 85.0,
-        "priceSolar": 85.0,
-        "priceLunar": 100.0,
-        "destination": "Barra",
-        "sku": "R03",
-        "provider": "DOMUS"
-    },
-    {
-        "name": "Modelo Especial · lata 473 ml",
-        "group": "Cervezas",
-        "officialCat": "CERVEZAS",
-        "price": 50.0,
-        "priceSolar": 50.0,
-        "priceLunar": 70.0,
-        "destination": "Barra",
-        "sku": "MODELO-473",
-        "provider": "DOMUS"
-    },
-    {
-        "name": "Victoria · 473 ml",
-        "group": "Cervezas",
-        "officialCat": "CERVEZAS",
-        "price": 50.0,
-        "priceSolar": 50.0,
-        "priceLunar": 70.0,
-        "destination": "Barra",
-        "sku": "VICTORIA-473",
-        "provider": "DOMUS"
-    },
-    {
-        "name": "Victoria · Cerveza 710 ml",
-        "group": "Cervezas",
-        "officialCat": "CERVEZAS",
-        "price": 85.0,
-        "priceSolar": 85.0,
-        "priceLunar": 100.0,
-        "destination": "Barra",
-        "sku": "R04",
-        "provider": "DOMUS"
-    },
-    {
-        "name": "Chelada LIMON/SAL · Vaso 1 L  · Corona · Vaso 1 L; 710 ml cerveza",
-        "group": "Cheladas",
-        "officialCat": "CHELADAS / MICHELADAS",
-        "price": 100.0,
-        "priceSolar": 100.0,
-        "priceLunar": 150.0,
-        "destination": "Barra",
-        "sku": "M12-CORONA",
-        "provider": "DOMUS"
-    },
-    {
-        "name": "Chelada ·LIMON/SAL  Vaso 1 L  · Modelo Especial · Vaso 1 L; 710 ml cerveza",
-        "group": "Cheladas",
-        "officialCat": "CHELADAS / MICHELADAS",
-        "price": 100.0,
-        "priceSolar": 100.0,
-        "priceLunar": 150.0,
-        "destination": "Barra",
-        "sku": "M12-MODELO",
-        "provider": "DOMUS"
-    },
-    {
-        "name": "Chelada ·LIMON/SAL  Vaso 1 L · Victoria · Vaso 1 L; 710 ml cerveza",
-        "group": "Cheladas",
-        "officialCat": "CHELADAS / MICHELADAS",
-        "price": 100.0,
-        "priceSolar": 100.0,
-        "priceLunar": 150.0,
-        "destination": "Barra",
-        "sku": "M12-VICTORIA",
-        "provider": "DOMUS"
-    },
-    {
-        "name": "Chelada ·LIMON/SAL  Vaso 500 ml · Corona · Vaso 500 ml; 355 ml cerveza",
-        "group": "Cheladas",
-        "officialCat": "CHELADAS / MICHELADAS",
-        "price": 70.0,
-        "priceSolar": 70.0,
-        "priceLunar": 110.0,
-        "destination": "Barra",
-        "sku": "M11-CORONA",
-        "provider": "DOMUS"
-    },
-    {
-        "name": "Chelada ·LIMON/SAL  Vaso 500 ml· Modelo Especial · Vaso 500 ml; 355 ml cerveza",
-        "group": "Cheladas",
-        "officialCat": "CHELADAS / MICHELADAS",
-        "price": 70.0,
-        "priceSolar": 70.0,
-        "priceLunar": 110.0,
-        "destination": "Barra",
-        "sku": "M11-MODELO",
-        "provider": "DOMUS"
-    },
-    {
-        "name": "Chelada ·LIMON/SAL  Vaso 500 ml · Victoria · Vaso 500 ml; 355 ml cerveza",
-        "group": "Cheladas",
-        "officialCat": "CHELADAS / MICHELADAS",
-        "price": 70.0,
-        "priceSolar": 70.0,
-        "priceLunar": 110.0,
-        "destination": "Barra",
-        "sku": "M11-VICTORIA",
-        "provider": "DOMUS"
-    },
-    {
-        "name": "Michelada clásica · Vaso 1 L · Corona · Vaso 1 L; 710 ml cerveza",
-        "group": "Cheladas",
-        "officialCat": "CHELADAS / MICHELADAS",
-        "price": 100.0,
-        "priceSolar": 100.0,
-        "priceLunar": 150.0,
-        "destination": "Barra",
-        "sku": "M22-CORONA",
-        "provider": "DOMUS"
-    },
-    {
-        "name": "Michelada clásica · Vaso 1 L · Modelo Especial · Vaso 1 L; 710 ml cerveza",
-        "group": "Cheladas",
-        "officialCat": "CHELADAS / MICHELADAS",
-        "price": 100.0,
-        "priceSolar": 100.0,
-        "priceLunar": 150.0,
-        "destination": "Barra",
-        "sku": "M22-MODELO",
-        "provider": "DOMUS"
-    },
-    {
-        "name": "Michelada clásica · Vaso 1 L · Victoria · Vaso 1 L; 710 ml cerveza",
-        "group": "Cheladas",
-        "officialCat": "CHELADAS / MICHELADAS",
-        "price": 100.0,
-        "priceSolar": 100.0,
-        "priceLunar": 150.0,
-        "destination": "Barra",
-        "sku": "M22-VICTORIA",
-        "provider": "DOMUS"
-    },
-    {
-        "name": "Michelada clásica · Vaso 500 ml  · Corona · Vaso 500 ml; 355 ml cerveza",
-        "group": "Cheladas",
-        "officialCat": "CHELADAS / MICHELADAS",
-        "price": 80.0,
-        "priceSolar": 80.0,
-        "priceLunar": 100.0,
-        "destination": "Barra",
-        "sku": "M21-CORONA",
-        "provider": "DOMUS"
-    },
-    {
-        "name": "Michelada clásica · Vaso 500 ml  · Modelo Especial · Vaso 500 ml; 355 ml cerveza",
-        "group": "Cheladas",
-        "officialCat": "CHELADAS / MICHELADAS",
-        "price": 80.0,
-        "priceSolar": 80.0,
-        "priceLunar": 100.0,
-        "destination": "Barra",
-        "sku": "M21-MODELO",
-        "provider": "DOMUS"
-    },
-    {
-        "name": "Michelada clásica · Vaso 500 ml · Victoria · Vaso 500 ml; 355 ml cerveza",
-        "group": "Cheladas",
-        "officialCat": "CHELADAS / MICHELADAS",
-        "price": 80.0,
-        "priceSolar": 80.0,
-        "priceLunar": 100.0,
-        "destination": "Barra",
-        "sku": "M21-VICTORIA",
-        "provider": "DOMUS"
-    },
-    {
-        "name": "Michelada con Clamato · Vaso 1 L  Corona · Vaso 1 L; 710 ml cerveza",
-        "group": "Cheladas",
-        "officialCat": "CHELADAS / MICHELADAS",
-        "price": 110.0,
-        "priceSolar": 110.0,
-        "priceLunar": 160.0,
-        "destination": "Barra",
-        "sku": "M32-CORONA",
-        "provider": "DOMUS"
-    },
-    {
-        "name": "Michelada con Clamato · Vaso 1 L · Modelo Especial · Vaso 1 L; 710 ml cerveza",
-        "group": "Cheladas",
-        "officialCat": "CHELADAS / MICHELADAS",
-        "price": 110.0,
-        "priceSolar": 110.0,
-        "priceLunar": 160.0,
-        "destination": "Barra",
-        "sku": "M32-MODELO",
-        "provider": "DOMUS"
-    },
-    {
-        "name": "Michelada con Clamato · Vaso 1L· Victoria · Vaso 1 L; 710 ml cerveza",
-        "group": "Cheladas",
-        "officialCat": "CHELADAS / MICHELADAS",
-        "price": 110.0,
-        "priceSolar": 110.0,
-        "priceLunar": 160.0,
-        "destination": "Barra",
-        "sku": "M32-VICTORIA",
-        "provider": "DOMUS"
-    },
-    {
-        "name": "Michelada con Clamato · Vaso 500 ml  · Corona · Vaso 500 ml; 355 ml cerveza",
-        "group": "Cheladas",
-        "officialCat": "CHELADAS / MICHELADAS",
-        "price": 90.0,
-        "priceSolar": 90.0,
-        "priceLunar": 110.0,
-        "destination": "Barra",
-        "sku": "M31-CORONA",
-        "provider": "DOMUS"
-    },
-    {
-        "name": "Michelada con Clamato · Vaso 500 ml · Modelo Especial · Vaso 500 ml; 355 ml cerveza",
-        "group": "Cheladas",
-        "officialCat": "CHELADAS / MICHELADAS",
-        "price": 90.0,
-        "priceSolar": 90.0,
-        "priceLunar": 110.0,
-        "destination": "Barra",
-        "sku": "M31-MODELO",
-        "provider": "DOMUS"
-    },
-    {
-        "name": "Michelada con Clamato · Vaso 500 ml  · Victoria · Vaso 500 ml; 355 ml cerveza",
-        "group": "Cheladas",
-        "officialCat": "CHELADAS / MICHELADAS",
-        "price": 90.0,
-        "priceSolar": 90.0,
-        "priceLunar": 110.0,
-        "destination": "Barra",
-        "sku": "M31-VICTORIA",
-        "provider": "DOMUS"
-    },
-    {
-        "name": "Vaso preparado chelada · Recargo por vaso de 500 ml; sin cerveza · Vaso 500 ml sin cerveza",
-        "group": "Cheladas",
-        "officialCat": "CHELADAS / MICHELADAS",
-        "price": 20.0,
-        "priceSolar": 20.0,
-        "priceLunar": 20.0,
-        "destination": "Barra",
-        "sku": "P1",
-        "provider": "DOMUS"
-    },
-    {
-        "name": "Vaso preparado michelada clásica · Recargo por vaso de 500 ml; sin cerveza · Vaso 500 ml sin cerveza",
-        "group": "Cheladas",
-        "officialCat": "CHELADAS / MICHELADAS",
-        "price": 30.0,
-        "priceSolar": 30.0,
-        "priceLunar": 30.0,
-        "destination": "Barra",
-        "sku": "P2",
-        "provider": "DOMUS"
-    },
-    {
-        "name": "Vaso preparado michelada con clamato · Recargo por vaso de 500 ml; sin cerveza · Vaso 500 ml sin cerveza",
-        "group": "Cheladas",
-        "officialCat": "CHELADAS / MICHELADAS",
-        "price": 40.0,
-        "priceSolar": 40.0,
-        "priceLunar": 40.0,
-        "destination": "Barra",
-        "sku": "P3",
-        "provider": "DOMUS"
-    },
-    {
-        "name": "Azulito · Vaso 1 L con hielo",
-        "group": "Coctelería",
-        "officialCat": "CÓCTELES 500 ML / 1 L",
-        "price": 120.0,
-        "priceSolar": 120.0,
-        "priceLunar": 170.0,
-        "destination": "Barra",
-        "sku": "E22",
-        "provider": "DOMUS"
-    },
-    {
-        "name": "Azulito · Vaso 500 ml con hielo",
-        "group": "Coctelería",
-        "officialCat": "CÓCTELES 500 ML / 1 L",
-        "price": 110.0,
-        "priceSolar": 110.0,
-        "priceLunar": 150.0,
-        "destination": "Barra",
-        "sku": "E21",
-        "provider": "DOMUS"
-    },
-    {
-        "name": "Cuba · Vaso 1 L con hielo",
-        "group": "Coctelería",
-        "officialCat": "CÓCTELES 500 ML / 1 L",
-        "price": 120.0,
-        "priceSolar": 120.0,
-        "priceLunar": 170.0,
-        "destination": "Barra",
-        "sku": "L12",
-        "provider": "DOMUS"
-    },
-    {
-        "name": "Cuba · Vaso 500 ml con hielo",
-        "group": "Coctelería",
-        "officialCat": "CÓCTELES 500 ML / 1 L",
-        "price": 110.0,
-        "priceSolar": 110.0,
-        "priceLunar": 150.0,
-        "destination": "Barra",
-        "sku": "L11",
-        "provider": "DOMUS"
-    },
-    {
-        "name": "Eyaculada · ron, coco y piña · Vaso 1 L con hielo",
-        "group": "Coctelería",
-        "officialCat": "CÓCTELES 500 ML / 1 L",
-        "price": 120.0,
-        "priceSolar": 120.0,
-        "priceLunar": 170.0,
-        "destination": "Barra",
-        "sku": "E62",
-        "provider": "DOMUS"
-    },
-    {
-        "name": "Eyaculada · ron, coco y piña · Vaso 500 ml con hielo",
-        "group": "Coctelería",
-        "officialCat": "CÓCTELES 500 ML / 1 L",
-        "price": 110.0,
-        "priceSolar": 110.0,
-        "priceLunar": 150.0,
-        "destination": "Barra",
-        "sku": "E61",
-        "provider": "DOMUS"
-    },
-    {
-        "name": "Gin de pepino · Vaso 1 L con hielo",
-        "group": "Coctelería",
-        "officialCat": "CÓCTELES 500 ML / 1 L",
-        "price": 120.0,
-        "priceSolar": 120.0,
-        "priceLunar": 170.0,
-        "destination": "Barra",
-        "sku": "E72",
-        "provider": "DOMUS"
-    },
-    {
-        "name": "Gin de pepino · Vaso 500 ml con hielo",
-        "group": "Coctelería",
-        "officialCat": "CÓCTELES 500 ML / 1 L",
-        "price": 110.0,
-        "priceSolar": 110.0,
-        "priceLunar": 150.0,
-        "destination": "Barra",
-        "sku": "E71",
-        "provider": "DOMUS"
-    },
-    {
-        "name": "Gin tonic · Vaso 1 L con hielo",
-        "group": "Coctelería",
-        "officialCat": "CÓCTELES 500 ML / 1 L",
-        "price": 120.0,
-        "priceSolar": 120.0,
-        "priceLunar": 180.0,
-        "destination": "Barra",
-        "sku": "E42",
-        "provider": "DOMUS"
-    },
-    {
-        "name": "Gin tonic · Vaso 500 ml con hielo",
-        "group": "Coctelería",
-        "officialCat": "CÓCTELES 500 ML / 1 L",
-        "price": 110.0,
-        "priceSolar": 110.0,
-        "priceLunar": 160.0,
-        "destination": "Barra",
-        "sku": "E41",
-        "provider": "DOMUS"
-    },
-    {
-        "name": "Lunar · tinto dulce · Vaso 1 L con hielo",
-        "group": "Coctelería",
-        "officialCat": "CÓCTELES 500 ML / 1 L",
-        "price": 120.0,
-        "priceSolar": 120.0,
-        "priceLunar": 170.0,
-        "destination": "Barra",
-        "sku": "E52",
-        "provider": "DOMUS"
-    },
-    {
-        "name": "Lunar · tinto dulce · Vaso 500 ml con hielo",
-        "group": "Coctelería",
-        "officialCat": "CÓCTELES 500 ML / 1 L",
-        "price": 110.0,
-        "priceSolar": 110.0,
-        "priceLunar": 150.0,
-        "destination": "Barra",
-        "sku": "E51",
-        "provider": "DOMUS"
-    },
-    {
-        "name": "Mezcal con mineral · Vaso 1 L con hielo",
-        "group": "Coctelería",
-        "officialCat": "CÓCTELES 500 ML / 1 L",
-        "price": 120.0,
-        "priceSolar": 120.0,
-        "priceLunar": 180.0,
-        "destination": "Barra",
-        "sku": "E102",
-        "provider": "DOMUS"
-    },
-    {
-        "name": "Mezcal con mineral · Vaso 500 ml con hielo",
-        "group": "Coctelería",
-        "officialCat": "CÓCTELES 500 ML / 1 L",
-        "price": 110.0,
-        "priceSolar": 110.0,
-        "priceLunar": 160.0,
-        "destination": "Barra",
-        "sku": "E101",
-        "provider": "DOMUS"
-    },
-    {
-        "name": "Mojito de mezcal · Vaso 1 L con hielo",
-        "group": "Coctelería",
-        "officialCat": "CÓCTELES 500 ML / 1 L",
-        "price": 120.0,
-        "priceSolar": 120.0,
-        "priceLunar": 180.0,
-        "destination": "Barra",
-        "sku": "E32",
-        "provider": "DOMUS"
-    },
-    {
-        "name": "Mojito de mezcal · Vaso 500 ml con hielo",
-        "group": "Coctelería",
-        "officialCat": "CÓCTELES 500 ML / 1 L",
-        "price": 110.0,
-        "priceSolar": 110.0,
-        "priceLunar": 160.0,
-        "destination": "Barra",
-        "sku": "E31",
-        "provider": "DOMUS"
-    },
-    {
-        "name": "Paloma · Vaso 1 L con hielo",
-        "group": "Coctelería",
-        "officialCat": "CÓCTELES 500 ML / 1 L",
-        "price": 120.0,
-        "priceSolar": 120.0,
-        "priceLunar": 170.0,
-        "destination": "Barra",
-        "sku": "L22",
-        "provider": "DOMUS"
-    },
-    {
-        "name": "Paloma · Vaso 500 ml con hielo",
-        "group": "Coctelería",
-        "officialCat": "CÓCTELES 500 ML / 1 L",
-        "price": 110.0,
-        "priceSolar": 110.0,
-        "priceLunar": 150.0,
-        "destination": "Barra",
-        "sku": "L21",
-        "provider": "DOMUS"
-    },
-    {
-        "name": "Perla Negra · Vaso 1 L con hielo",
-        "group": "Coctelería",
-        "officialCat": "CÓCTELES 500 ML / 1 L",
-        "price": 170.0,
-        "priceSolar": 170.0,
-        "priceLunar": 220.0,
-        "destination": "Barra",
-        "sku": "E82",
-        "provider": "DOMUS"
-    },
-    {
-        "name": "Perla Negra · Vaso 500 ml con hielo",
-        "group": "Coctelería",
-        "officialCat": "CÓCTELES 500 ML / 1 L",
-        "price": 130.0,
-        "priceSolar": 130.0,
-        "priceLunar": 180.0,
-        "destination": "Barra",
-        "sku": "E81",
-        "provider": "DOMUS"
-    },
-    {
-        "name": "Solar · vodka y frutas · Vaso 1 L con hielo",
-        "group": "Coctelería",
-        "officialCat": "CÓCTELES 500 ML / 1 L",
-        "price": 120.0,
-        "priceSolar": 120.0,
-        "priceLunar": 170.0,
-        "destination": "Barra",
-        "sku": "E12",
-        "provider": "DOMUS"
-    },
-    {
-        "name": "Solar · vodka y frutas · Vaso 500 ml con hielo",
-        "group": "Coctelería",
-        "officialCat": "CÓCTELES 500 ML / 1 L",
-        "price": 110.0,
-        "priceSolar": 110.0,
-        "priceLunar": 150.0,
-        "destination": "Barra",
-        "sku": "E11",
-        "provider": "DOMUS"
-    },
-    {
-        "name": "Vodka limón · Vaso 1 L con hielo",
-        "group": "Coctelería",
-        "officialCat": "CÓCTELES 500 ML / 1 L",
-        "price": 120.0,
-        "priceSolar": 120.0,
-        "priceLunar": 170.0,
-        "destination": "Barra",
-        "sku": "L32",
-        "provider": "DOMUS"
-    },
-    {
-        "name": "Vodka limón · Vaso 500 ml con hielo",
-        "group": "Coctelería",
-        "officialCat": "CÓCTELES 500 ML / 1 L",
-        "price": 110.0,
-        "priceSolar": 110.0,
-        "priceLunar": 150.0,
-        "destination": "Barra",
-        "sku": "L31",
-        "provider": "DOMUS"
-    },
-    {
-        "name": "Whisky con cola · Vaso 1 L con hielo",
-        "group": "Coctelería",
-        "officialCat": "CÓCTELES 500 ML / 1 L",
-        "price": 120.0,
-        "priceSolar": 120.0,
-        "priceLunar": 170.0,
-        "destination": "Barra",
-        "sku": "E92",
-        "provider": "DOMUS"
-    },
-    {
-        "name": "Whisky con cola · Vaso 500 ml con hielo",
-        "group": "Coctelería",
-        "officialCat": "CÓCTELES 500 ML / 1 L",
-        "price": 110.0,
-        "priceSolar": 110.0,
-        "priceLunar": 150.0,
-        "destination": "Barra",
-        "sku": "E91",
-        "provider": "DOMUS"
-    },
-    {
-        "name": "SHOT MEZCAL 45ML",
-        "group": "Shots",
-        "officialCat": "SHOT 45ML",
-        "price": 100.0,
-        "priceSolar": 100.0,
-        "priceLunar": 160.0,
-        "destination": "Barra",
-        "sku": "K03",
-        "provider": "DOMUS"
-    },
-    {
-        "name": "SHOT GIN 45ML",
-        "group": "Shots",
-        "officialCat": "SHOT 45ML",
-        "price": 100.0,
-        "priceSolar": 100.0,
-        "priceLunar": 160.0,
-        "destination": "Barra",
-        "sku": "K01",
-        "provider": "DOMUS"
-    },
-    {
-        "name": "SHOT VODKA, TEQ, RON, WHISKY 45ML",
-        "group": "Shots",
-        "officialCat": "SHOT 45ML",
-        "price": 100.0,
-        "priceSolar": 100.0,
-        "priceLunar": 130.0,
-        "destination": "Barra",
-        "sku": "K02",
-        "provider": "DOMUS"
-    },
-    {
-        "name": "Aderezo adicional",
-        "group": "Canna Treats",
-        "officialCat": "ALIMENTOS · CANNA TREATS",
-        "price": 20.0,
-        "priceSolar": 20.0,
-        "priceLunar": 20.0,
-        "destination": "Cocina",
-        "sku": "CT10",
-        "provider": "Canna Treats"
-    },
-    {
-        "name": "Alitas sumisas — 10 piezas",
-        "group": "Canna Treats",
-        "officialCat": "ALIMENTOS · CANNA TREATS",
-        "price": 200.0,
-        "priceSolar": 200.0,
-        "priceLunar": 200.0,
-        "destination": "Cocina",
-        "sku": "CT15b",
-        "provider": "Canna Treats"
-    },
-    {
-        "name": "Alitas sumisas — 6 piezas",
-        "group": "Canna Treats",
-        "officialCat": "ALIMENTOS · CANNA TREATS",
-        "price": 130.0,
-        "priceSolar": 130.0,
-        "priceLunar": 130.0,
-        "destination": "Cocina",
-        "sku": "CT15a",
-        "provider": "Canna Treats"
-    },
-    {
-        "name": "Bastones de castigo",
-        "group": "Canna Treats",
-        "officialCat": "ALIMENTOS · CANNA TREATS",
-        "price": 120.0,
-        "priceSolar": 120.0,
-        "priceLunar": 120.0,
-        "destination": "Cocina",
-        "sku": "CT04",
-        "provider": "Canna Treats"
-    },
-    {
-        "name": "Boneless",
-        "group": "Canna Treats",
-        "officialCat": "ALIMENTOS · CANNA TREATS",
-        "price": 150.0,
-        "priceSolar": 150.0,
-        "priceLunar": 150.0,
-        "destination": "Cocina",
-        "sku": "CT14",
-        "provider": "Canna Treats"
-    },
-    {
-        "name": "Espaghetti",
-        "group": "Canna Treats",
-        "officialCat": "ALIMENTOS · CANNA TREATS",
-        "price": 50.0,
-        "priceSolar": 50.0,
-        "priceLunar": 50.0,
-        "destination": "Cocina",
-        "sku": "CT20",
-        "provider": "Canna Treats"
-    },
-    {
-        "name": "Gajitos",
-        "group": "Canna Treats",
-        "officialCat": "ALIMENTOS · CANNA TREATS",
-        "price": 50.0,
-        "priceSolar": 50.0,
-        "priceLunar": 50.0,
-        "destination": "Cocina",
-        "sku": "CT08",
-        "provider": "Canna Treats"
-    },
-    {
-        "name": "Guacamole regular",
-        "group": "Canna Treats",
-        "officialCat": "ALIMENTOS · CANNA TREATS",
-        "price": 50.0,
-        "priceSolar": 50.0,
-        "priceLunar": 50.0,
-        "destination": "Cocina",
-        "sku": "CT05",
-        "provider": "Canna Treats"
-    },
-    {
-        "name": "Hamburguesa Kinki",
-        "group": "Canna Treats",
-        "officialCat": "ALIMENTOS · CANNA TREATS",
-        "price": 150.0,
-        "priceSolar": 150.0,
-        "priceLunar": 150.0,
-        "destination": "Cocina",
-        "sku": "CT11",
-        "provider": "Canna Treats"
-    },
-    {
-        "name": "La Dominatrix",
-        "group": "Canna Treats",
-        "officialCat": "ALIMENTOS · CANNA TREATS",
-        "price": 200.0,
-        "priceSolar": 200.0,
-        "priceLunar": 200.0,
-        "destination": "Cocina",
-        "sku": "CT12",
-        "provider": "Canna Treats"
-    },
-    {
-        "name": "Misioneritas",
-        "group": "Canna Treats",
-        "officialCat": "ALIMENTOS · CANNA TREATS",
-        "price": 30.0,
-        "priceSolar": 30.0,
-        "priceLunar": 30.0,
-        "destination": "Cocina",
-        "sku": "CT07",
-        "provider": "Canna Treats"
-    },
-    {
-        "name": "Nachos libres",
-        "group": "Canna Treats",
-        "officialCat": "ALIMENTOS · CANNA TREATS",
-        "price": 80.0,
-        "priceSolar": 80.0,
-        "priceLunar": 80.0,
-        "destination": "Cocina",
-        "sku": "CT16",
-        "provider": "Canna Treats"
-    },
-    {
-        "name": "Orden de pajitas",
-        "group": "Canna Treats",
-        "officialCat": "ALIMENTOS · CANNA TREATS",
-        "price": 20.0,
-        "priceSolar": 20.0,
-        "priceLunar": 20.0,
-        "destination": "Cocina",
-        "sku": "CT06",
-        "provider": "Canna Treats"
-    },
-    {
-        "name": "Orden de queso",
-        "group": "Canna Treats",
-        "officialCat": "ALIMENTOS · CANNA TREATS",
-        "price": 30.0,
-        "priceSolar": 30.0,
-        "priceLunar": 30.0,
-        "destination": "Cocina",
-        "sku": "CT09",
-        "provider": "Canna Treats"
-    },
-    {
-        "name": "Orgía de botanas",
-        "group": "Canna Treats",
-        "officialCat": "ALIMENTOS · CANNA TREATS",
-        "price": 40.0,
-        "priceSolar": 40.0,
-        "priceLunar": 40.0,
-        "destination": "Cocina",
-        "sku": "CT01",
-        "provider": "Canna Treats"
-    },
-    {
-        "name": "Papas gajo",
-        "group": "Canna Treats",
-        "officialCat": "ALIMENTOS · CANNA TREATS",
-        "price": 80.0,
-        "priceSolar": 80.0,
-        "priceLunar": 80.0,
-        "destination": "Cocina",
-        "sku": "CT03",
-        "provider": "Canna Treats"
-    },
-    {
-        "name": "Papas misioneras",
-        "group": "Canna Treats",
-        "officialCat": "ALIMENTOS · CANNA TREATS",
-        "price": 60.0,
-        "priceSolar": 60.0,
-        "priceLunar": 60.0,
-        "destination": "Cocina",
-        "sku": "CT02",
-        "provider": "Canna Treats"
-    },
-    {
-        "name": "Ramen de abuelita",
-        "group": "Canna Treats",
-        "officialCat": "ALIMENTOS · CANNA TREATS",
-        "price": 100.0,
-        "priceSolar": 100.0,
-        "priceLunar": 100.0,
-        "destination": "Cocina",
-        "sku": "CT19",
-        "provider": "Canna Treats"
-    },
-    {
-        "name": "Sado nachos",
-        "group": "Canna Treats",
-        "officialCat": "ALIMENTOS · CANNA TREATS",
-        "price": 130.0,
-        "priceSolar": 130.0,
-        "priceLunar": 130.0,
-        "destination": "Cocina",
-        "sku": "CT17",
-        "provider": "Canna Treats"
-    },
-    {
-        "name": "Sado sampler — sin infusión",
-        "group": "Canna Treats",
-        "officialCat": "ALIMENTOS · CANNA TREATS",
-        "price": 350.0,
-        "priceSolar": 350.0,
-        "priceLunar": 350.0,
-        "destination": "Cocina",
-        "sku": "CT22",
-        "provider": "Canna Treats"
-    },
-    {
-        "name": "Tacos de la parrilla",
-        "group": "Canna Treats",
-        "officialCat": "ALIMENTOS · CANNA TREATS",
-        "price": 50.0,
-        "priceSolar": 50.0,
-        "priceLunar": 50.0,
-        "destination": "Cocina",
-        "sku": "CT18",
-        "provider": "Canna Treats"
-    },
-    {
-        "name": "Trío de jochis",
-        "group": "Canna Treats",
-        "officialCat": "ALIMENTOS · CANNA TREATS",
-        "price": 130.0,
-        "priceSolar": 130.0,
-        "priceLunar": 130.0,
-        "destination": "Cocina",
-        "sku": "CT13",
-        "provider": "Canna Treats"
-    },
-    {
-        "name": "Waffle vainilla",
-        "group": "Canna Treats",
-        "officialCat": "ALIMENTOS · CANNA TREATS",
-        "price": 80.0,
-        "priceSolar": 80.0,
-        "priceLunar": 80.0,
-        "destination": "Cocina",
-        "sku": "CT21",
-        "provider": "Canna Treats"
-    },
-    {
-        "name": "Pelones",
-        "group": "Canna Treats",
-        "officialCat": "ALIMENTOS · CANNA TREATS",
-        "price": 120.0,
-        "priceSolar": 120.0,
-        "priceLunar": 120.0,
-        "destination": "Cocina",
-        "sku": "CT-PELONES",
-        "provider": "Canna Treats"
-    },
-    {
-        "name": "Galletas grandes",
-        "group": "Canna Treats",
-        "officialCat": "ALIMENTOS · CANNA TREATS",
-        "price": 100.0,
-        "priceSolar": 100.0,
-        "priceLunar": 100.0,
-        "destination": "Cocina",
-        "sku": "CT-GALLETA-GDE",
-        "provider": "Canna Treats"
-    },
-    {
-        "name": "Galletas pequeñas",
-        "group": "Canna Treats",
-        "officialCat": "ALIMENTOS · CANNA TREATS",
-        "price": 80.0,
-        "priceSolar": 80.0,
-        "priceLunar": 80.0,
-        "destination": "Cocina",
-        "sku": "CT-GALLETA-PEQ",
-        "provider": "Canna Treats"
-    },
-    {
-        "name": "Chocolates",
-        "group": "Canna Treats",
-        "officialCat": "ALIMENTOS · CANNA TREATS",
-        "price": 80.0,
-        "priceSolar": 80.0,
-        "priceLunar": 80.0,
-        "destination": "Cocina",
-        "sku": "CT-CHOCOLATES",
-        "provider": "Canna Treats"
-    },
-    {
-        "name": "MUFFINS",
-        "group": "Cocina",
-        "officialCat": "ALIMENTOS ANDY",
-        "price": 150.0,
-        "priceSolar": 150.0,
-        "priceLunar": 150.0,
-        "destination": "Cocina",
-        "sku": "CT45",
-        "provider": "ANDY"
-    },
-    {
-        "name": "CHOCOLATES 2 DOSIS",
-        "group": "Cocina",
-        "officialCat": "ALIMENTOS ANDY",
-        "price": 100.0,
-        "priceSolar": 100.0,
-        "priceLunar": 100.0,
-        "destination": "Cocina",
-        "sku": "CT46",
-        "provider": "ANDY"
-    },
-    {
-        "name": "CHOCOLATES 4 DOSIS",
-        "group": "Cocina",
-        "officialCat": "ALIMENTOS ANDY",
-        "price": 200.0,
-        "priceSolar": 200.0,
-        "priceLunar": 200.0,
-        "destination": "Cocina",
-        "sku": "CT47",
-        "provider": "ANDY"
-    },
-    {
-        "name": "CHOCOLATES VAGINA",
-        "group": "Cocina",
-        "officialCat": "ALIMENTOS ANDY",
-        "price": 150.0,
-        "priceSolar": 150.0,
-        "priceLunar": 150.0,
-        "destination": "Cocina",
-        "sku": "CT48",
-        "provider": "ANDY"
-    },
-    {
-        "name": "Rollo Nobara",
-        "desc": "Zanahoria, aguacate, queso Philadelphia, surimi",
-        "group": "Sushi",
-        "officialCat": "ALIMENTOS JUJUTSU-SHI",
-        "price": 100.0,
-        "priceSolar": 100.0,
-        "priceLunar": 100.0,
-        "destination": "Cocina",
-        "sku": "JJ01",
-        "provider": "JujuTsu-shi"
-    },
-    {
-        "name": "Rollo Itadori",
-        "desc": "Aguacate, Tampico, pollo",
-        "group": "Sushi",
-        "officialCat": "ALIMENTOS JUJUTSU-SHI",
-        "price": 100.0,
-        "priceSolar": 100.0,
-        "priceLunar": 100.0,
-        "destination": "Cocina",
-        "sku": "JJ02",
-        "provider": "JujuTsu-shi"
-    },
-    {
-        "name": "Rollo Megumi",
-        "desc": "Zanahoria, queso Philadelphia, surimi, pepino",
-        "group": "Sushi",
-        "officialCat": "ALIMENTOS JUJUTSU-SHI",
-        "price": 100.0,
-        "priceSolar": 100.0,
-        "priceLunar": 100.0,
-        "destination": "Cocina",
-        "sku": "JJ03",
-        "provider": "JujuTsu-shi"
-    },
-    {
-        "name": "Rollo Maki",
-        "desc": "Tampico, aguacate, queso Philadelphia, pepino",
-        "group": "Sushi",
-        "officialCat": "ALIMENTOS JUJUTSU-SHI",
-        "price": 100.0,
-        "priceSolar": 100.0,
-        "priceLunar": 100.0,
-        "destination": "Cocina",
-        "sku": "JJ04",
-        "provider": "JujuTsu-shi"
-    },
-    {
-        "name": "Rollo Todo",
-        "desc": "Pepino, pollo, queso Philadelphia, surimi",
-        "group": "Sushi",
-        "officialCat": "ALIMENTOS JUJUTSU-SHI",
-        "price": 100.0,
-        "priceSolar": 100.0,
-        "priceLunar": 100.0,
-        "destination": "Cocina",
-        "sku": "JJ05",
-        "provider": "JujuTsu-shi"
-    },
-    {
-        "name": "Rollo Choso",
-        "desc": "Zanahoria, aguacate, queso Philadelphia, surimi, Tampico por fuera",
-        "group": "Sushi",
-        "officialCat": "ALIMENTOS JUJUTSU-SHI",
-        "price": 100.0,
-        "priceSolar": 100.0,
-        "priceLunar": 100.0,
-        "destination": "Cocina",
-        "sku": "JJ06",
-        "provider": "JujuTsu-shi"
-    },
-    {
-        "name": "Rollo Gojo",
-        "desc": "Aguacate, pollo, zanahoria, por fuera queso Philadelphia",
-        "group": "Sushi",
-        "officialCat": "ALIMENTOS JUJUTSU-SHI",
-        "price": 100.0,
-        "priceSolar": 100.0,
-        "priceLunar": 100.0,
-        "destination": "Cocina",
-        "sku": "JJ07",
-        "provider": "JujuTsu-shi"
-    },
-    {
-        "name": "Rollo Sasaki",
-        "desc": "Pepino, zanahoria, aguacate, surimi, por fuera Tampico",
-        "group": "Sushi",
-        "officialCat": "ALIMENTOS JUJUTSU-SHI",
-        "price": 100.0,
-        "priceSolar": 100.0,
-        "priceLunar": 100.0,
-        "destination": "Cocina",
-        "sku": "JJ08",
-        "provider": "JujuTsu-shi"
-    },
-    {
-        "name": "Rollo Rika",
-        "desc": "Pollo, aguacate, surimi, Tampico",
-        "group": "Sushi",
-        "officialCat": "ALIMENTOS JUJUTSU-SHI",
-        "price": 100.0,
-        "priceSolar": 100.0,
-        "priceLunar": 100.0,
-        "destination": "Cocina",
-        "sku": "JJ09",
-        "provider": "JujuTsu-shi"
-    }
+const DEFAULT_CATALOG = [
+  {
+    "name": "Brebaje Americano · Taza 300 ml",
+    "officialCat": "CAFÉ / BEBIDAS DE LA CASA",
+    "group": "Cafetería",
+    "price": 40.0,
+    "priceSolar": 40.0,
+    "priceLunar": 40.0,
+    "destination": "Barra",
+    "sku": "B02",
+    "provider": "DOMUS",
+    "containsCannabis": false,
+    "enabled": true
+  },
+  {
+    "name": "Café de la Casa · Taza 300 ml",
+    "officialCat": "CAFÉ / BEBIDAS DE LA CASA",
+    "group": "Cafetería",
+    "price": 40.0,
+    "priceSolar": 40.0,
+    "priceLunar": 40.0,
+    "destination": "Barra",
+    "sku": "B10",
+    "provider": "DOMUS",
+    "containsCannabis": false,
+    "enabled": true
+  },
+  {
+    "name": "Cáliz de Espuma · Taza 240 ml",
+    "officialCat": "CAFÉ / BEBIDAS DE LA CASA",
+    "group": "Cafetería",
+    "price": 60.0,
+    "priceSolar": 60.0,
+    "priceLunar": 60.0,
+    "destination": "Barra",
+    "sku": "B04",
+    "provider": "DOMUS",
+    "containsCannabis": false,
+    "enabled": true
+  },
+  {
+    "name": "Espresso adicional · Adicional de espresso",
+    "officialCat": "CAFÉ / BEBIDAS DE LA CASA",
+    "group": "Cafetería",
+    "price": 20.0,
+    "priceSolar": 20.0,
+    "priceLunar": 20.0,
+    "destination": "Barra",
+    "sku": "EX1",
+    "provider": "DOMUS",
+    "containsCannabis": false,
+    "enabled": true
+  },
+  {
+    "name": "Estrella Latte · Taza 300 ml",
+    "officialCat": "CAFÉ / BEBIDAS DE LA CASA",
+    "group": "Cafetería",
+    "price": 60.0,
+    "priceSolar": 60.0,
+    "priceLunar": 60.0,
+    "destination": "Barra",
+    "sku": "B03",
+    "provider": "DOMUS",
+    "containsCannabis": false,
+    "enabled": true
+  },
+  {
+    "name": "Leche de Brujo · Vaso 400 ml con hielo",
+    "officialCat": "CAFÉ / BEBIDAS DE LA CASA",
+    "group": "Cafetería",
+    "price": 50.0,
+    "priceSolar": 50.0,
+    "priceLunar": 50.0,
+    "destination": "Barra",
+    "sku": "B09",
+    "provider": "DOMUS",
+    "containsCannabis": false,
+    "enabled": true
+  },
+  {
+    "name": "Limonada de la Casa · Vaso 400 ml con hielo",
+    "officialCat": "CAFÉ / BEBIDAS DE LA CASA",
+    "group": "Cafetería",
+    "price": 40.0,
+    "priceSolar": 40.0,
+    "priceLunar": 40.0,
+    "destination": "Barra",
+    "sku": "B11",
+    "provider": "DOMUS",
+    "containsCannabis": false,
+    "enabled": true
+  },
+  {
+    "name": "Luna Negra · Vaso 400 ml con hielo",
+    "officialCat": "CAFÉ / BEBIDAS DE LA CASA",
+    "group": "Cafetería",
+    "price": 60.0,
+    "priceSolar": 60.0,
+    "priceLunar": 60.0,
+    "destination": "Barra",
+    "sku": "B05",
+    "provider": "DOMUS",
+    "containsCannabis": false,
+    "enabled": true
+  },
+  {
+    "name": "Oro Negro · Espresso 36–40 ml",
+    "officialCat": "CAFÉ / BEBIDAS DE LA CASA",
+    "group": "Cafetería",
+    "price": 40.0,
+    "priceSolar": 40.0,
+    "priceLunar": 40.0,
+    "destination": "Barra",
+    "sku": "B01",
+    "provider": "DOMUS",
+    "containsCannabis": false,
+    "enabled": true
+  },
+  {
+    "name": "Té Chai · Taza 300 ml",
+    "officialCat": "CAFÉ / BEBIDAS DE LA CASA",
+    "group": "Cafetería",
+    "price": 60.0,
+    "priceSolar": 60.0,
+    "priceLunar": 60.0,
+    "destination": "Barra",
+    "sku": "B06",
+    "provider": "DOMUS",
+    "containsCannabis": false,
+    "enabled": true
+  },
+  {
+    "name": "Té Herbal · Taza 300 ml",
+    "officialCat": "CAFÉ / BEBIDAS DE LA CASA",
+    "group": "Cafetería",
+    "price": 40.0,
+    "priceSolar": 40.0,
+    "priceLunar": 40.0,
+    "destination": "Barra",
+    "sku": "B08",
+    "provider": "DOMUS",
+    "containsCannabis": false,
+    "enabled": true
+  },
+  {
+    "name": "Xocolatl · Taza 300 ml",
+    "officialCat": "CAFÉ / BEBIDAS DE LA CASA",
+    "group": "Cafetería",
+    "price": 60.0,
+    "priceSolar": 60.0,
+    "priceLunar": 60.0,
+    "destination": "Barra",
+    "sku": "B07",
+    "provider": "DOMUS",
+    "containsCannabis": false,
+    "enabled": true
+  },
+  {
+    "name": "Agua mineral",
+    "officialCat": "REFRESCOS / AGUAS / MEZCLADORES",
+    "group": "Refrescos y Aguas",
+    "price": 50.0,
+    "priceSolar": 45.0,
+    "priceLunar": 50.0,
+    "destination": "Barra",
+    "sku": "BAR-023-MINERAL",
+    "provider": "DOMUS",
+    "containsCannabis": false,
+    "enabled": true
+  },
+  {
+    "name": "Agua natural · Botella 500 ml",
+    "officialCat": "REFRESCOS / AGUAS / MEZCLADORES",
+    "group": "Refrescos y Aguas",
+    "price": 50.0,
+    "priceSolar": 30.0,
+    "priceLunar": 50.0,
+    "destination": "Barra",
+    "sku": "R01",
+    "provider": "DOMUS",
+    "containsCannabis": false,
+    "enabled": true
+  },
+  {
+    "name": "Agua quina",
+    "officialCat": "REFRESCOS / AGUAS / MEZCLADORES",
+    "group": "Refrescos y Aguas",
+    "price": 50.0,
+    "priceSolar": 50.0,
+    "priceLunar": 50.0,
+    "destination": "Barra",
+    "sku": "BAR-023-QUINA",
+    "provider": "DOMUS",
+    "containsCannabis": false,
+    "enabled": true
+  },
+  {
+    "name": "Clamato preparado · 1 litro",
+    "officialCat": "REFRESCOS / AGUAS / MEZCLADORES",
+    "group": "Refrescos y Aguas",
+    "price": 120.0,
+    "priceSolar": 100.0,
+    "priceLunar": 120.0,
+    "destination": "Barra",
+    "sku": "BAR-CLAM-SERV-L",
+    "provider": "DOMUS",
+    "containsCannabis": false,
+    "enabled": true
+  },
+  {
+    "name": "Clamato preparado · 500 ml",
+    "officialCat": "REFRESCOS / AGUAS / MEZCLADORES",
+    "group": "Refrescos y Aguas",
+    "price": 80.0,
+    "priceSolar": 60.0,
+    "priceLunar": 80.0,
+    "destination": "Barra",
+    "sku": "BAR-CLAM-SERV",
+    "provider": "DOMUS",
+    "containsCannabis": false,
+    "enabled": true
+  },
+  {
+    "name": "Coca-Cola · 355 ml",
+    "officialCat": "REFRESCOS / AGUAS / MEZCLADORES",
+    "group": "Refrescos y Aguas",
+    "price": 50.0,
+    "priceSolar": 45.0,
+    "priceLunar": 50.0,
+    "destination": "Barra",
+    "sku": "BAR-022-COCA",
+    "provider": "DOMUS",
+    "containsCannabis": false,
+    "enabled": true
+  },
+  {
+    "name": "Jugo de arándano · 1 litro",
+    "officialCat": "REFRESCOS / AGUAS / MEZCLADORES",
+    "group": "Refrescos y Aguas",
+    "price": 120.0,
+    "priceSolar": 100.0,
+    "priceLunar": 120.0,
+    "destination": "Barra",
+    "sku": "BAR-024-ARANDANO-L",
+    "provider": "DOMUS",
+    "containsCannabis": false,
+    "enabled": true
+  },
+  {
+    "name": "Jugo de arándano · 500 ml",
+    "officialCat": "REFRESCOS / AGUAS / MEZCLADORES",
+    "group": "Refrescos y Aguas",
+    "price": 50.0,
+    "priceSolar": 45.0,
+    "priceLunar": 50.0,
+    "destination": "Barra",
+    "sku": "BAR-024-ARANDANO",
+    "provider": "DOMUS",
+    "containsCannabis": false,
+    "enabled": true
+  },
+  {
+    "name": "Jugo de naranja · 1 litro",
+    "officialCat": "REFRESCOS / AGUAS / MEZCLADORES",
+    "group": "Refrescos y Aguas",
+    "price": 120.0,
+    "priceSolar": 100.0,
+    "priceLunar": 120.0,
+    "destination": "Barra",
+    "sku": "BAR-024-NARANJA-L",
+    "provider": "DOMUS",
+    "containsCannabis": false,
+    "enabled": true
+  },
+  {
+    "name": "Jugo de naranja · 500 ml",
+    "officialCat": "REFRESCOS / AGUAS / MEZCLADORES",
+    "group": "Refrescos y Aguas",
+    "price": 50.0,
+    "priceSolar": 45.0,
+    "priceLunar": 50.0,
+    "destination": "Barra",
+    "sku": "BAR-024-NARANJA",
+    "provider": "DOMUS",
+    "containsCannabis": false,
+    "enabled": true
+  },
+  {
+    "name": "Jugo de piña · 1 litro",
+    "officialCat": "REFRESCOS / AGUAS / MEZCLADORES",
+    "group": "Refrescos y Aguas",
+    "price": 120.0,
+    "priceSolar": 100.0,
+    "priceLunar": 120.0,
+    "destination": "Barra",
+    "sku": "BAR-024-PINA-L",
+    "provider": "DOMUS",
+    "containsCannabis": false,
+    "enabled": true
+  },
+  {
+    "name": "Jugo de piña · 500 ml",
+    "officialCat": "REFRESCOS / AGUAS / MEZCLADORES",
+    "group": "Refrescos y Aguas",
+    "price": 50.0,
+    "priceSolar": 45.0,
+    "priceLunar": 50.0,
+    "destination": "Barra",
+    "sku": "BAR-024-PINA",
+    "provider": "DOMUS",
+    "containsCannabis": false,
+    "enabled": true
+  },
+  {
+    "name": "Sidral",
+    "officialCat": "REFRESCOS / AGUAS / MEZCLADORES",
+    "group": "Refrescos y Aguas",
+    "price": 50.0,
+    "priceSolar": 45.0,
+    "priceLunar": 50.0,
+    "destination": "Barra",
+    "sku": "BAR-022-SIDRAL",
+    "provider": "DOMUS",
+    "containsCannabis": false,
+    "enabled": true
+  },
+  {
+    "name": "Sprite",
+    "officialCat": "REFRESCOS / AGUAS / MEZCLADORES",
+    "group": "Refrescos y Aguas",
+    "price": 50.0,
+    "priceSolar": 45.0,
+    "priceLunar": 50.0,
+    "destination": "Barra",
+    "sku": "BAR-022-SPRITE",
+    "provider": "DOMUS",
+    "containsCannabis": false,
+    "enabled": true
+  },
+  {
+    "name": "Squirt · Botella",
+    "officialCat": "REFRESCOS / AGUAS / MEZCLADORES",
+    "group": "Refrescos y Aguas",
+    "price": 50.0,
+    "priceSolar": 45.0,
+    "priceLunar": 50.0,
+    "destination": "Barra",
+    "sku": "BAR-022-SQUIRT",
+    "provider": "DOMUS",
+    "containsCannabis": false,
+    "enabled": true
+  },
+  {
+    "name": "Volt Blue · Lata",
+    "officialCat": "REFRESCOS / AGUAS / MEZCLADORES",
+    "group": "Refrescos y Aguas",
+    "price": 80.0,
+    "priceSolar": 45.0,
+    "priceLunar": 80.0,
+    "destination": "Barra",
+    "sku": "BAR-VOLT-BLUE",
+    "provider": "DOMUS",
+    "containsCannabis": false,
+    "enabled": true
+  },
+  {
+    "name": "Volt Yellow · Lata",
+    "officialCat": "REFRESCOS / AGUAS / MEZCLADORES",
+    "group": "Refrescos y Aguas",
+    "price": 80.0,
+    "priceSolar": 45.0,
+    "priceLunar": 80.0,
+    "destination": "Barra",
+    "sku": "BAR-VOLT-YELLOW",
+    "provider": "DOMUS",
+    "containsCannabis": false,
+    "enabled": true
+  },
+  {
+    "name": "Caguama Corona Mega · Botella 1.2 L",
+    "officialCat": "CERVEZAS",
+    "group": "Cervezas",
+    "price": 120.0,
+    "priceSolar": 120.0,
+    "priceLunar": 120.0,
+    "destination": "Barra",
+    "sku": "N03",
+    "provider": "DOMUS",
+    "containsCannabis": false,
+    "enabled": true
+  },
+  {
+    "name": "Caguama Victoria Mega · Botella 1.2 L",
+    "officialCat": "CERVEZAS",
+    "group": "Cervezas",
+    "price": 120.0,
+    "priceSolar": 120.0,
+    "priceLunar": 120.0,
+    "destination": "Barra",
+    "sku": "N02",
+    "provider": "DOMUS",
+    "containsCannabis": false,
+    "enabled": true
+  },
+  {
+    "name": "Carta Blanca · Lata",
+    "officialCat": "CERVEZAS",
+    "group": "Cervezas",
+    "price": 70.0,
+    "priceSolar": 50.0,
+    "priceLunar": 70.0,
+    "destination": "Barra",
+    "sku": "BAR-CB-LATA",
+    "provider": "DOMUS",
+    "containsCannabis": false,
+    "enabled": true
+  },
+  {
+    "name": "Alemana Black · lata",
+    "officialCat": "CERVEZAS",
+    "group": "Cervezas",
+    "price": 100.0,
+    "priceSolar": 100.0,
+    "priceLunar": 100.0,
+    "destination": "Barra",
+    "sku": "BAR-001",
+    "provider": "Felssloschen · Mariam Reyes",
+    "containsCannabis": false,
+    "enabled": true
+  },
+  {
+    "name": "Alemana Bock · lata",
+    "officialCat": "CERVEZAS",
+    "group": "Cervezas",
+    "price": 100.0,
+    "priceSolar": 100.0,
+    "priceLunar": 100.0,
+    "destination": "Barra",
+    "sku": "BAR-001",
+    "provider": "Felssloschen · Mariam Reyes",
+    "containsCannabis": false,
+    "enabled": true
+  },
+  {
+    "name": "Onírica Viena · lata",
+    "officialCat": "CERVEZAS",
+    "group": "Cervezas",
+    "price": 100.0,
+    "priceSolar": 90.0,
+    "priceLunar": 100.0,
+    "destination": "Barra",
+    "sku": "BAR-002",
+    "provider": "Onírica Cervecería",
+    "containsCannabis": false,
+    "enabled": true
+  },
+  {
+    "name": "Onírica IPA · lata",
+    "officialCat": "CERVEZAS",
+    "group": "Cervezas",
+    "price": 100.0,
+    "priceSolar": 90.0,
+    "priceLunar": 100.0,
+    "destination": "Barra",
+    "sku": "BAR-002",
+    "provider": "Onírica Cervecería",
+    "containsCannabis": false,
+    "enabled": true
+  },
+  {
+    "name": "Onírica Lager · lata",
+    "officialCat": "CERVEZAS",
+    "group": "Cervezas",
+    "price": 100.0,
+    "priceSolar": 90.0,
+    "priceLunar": 100.0,
+    "destination": "Barra",
+    "sku": "BAR-002",
+    "provider": "Onírica Cervecería",
+    "containsCannabis": false,
+    "enabled": true
+  },
+  {
+    "name": "Corona · Cerveza 710 ml",
+    "officialCat": "CERVEZAS",
+    "group": "Cervezas",
+    "price": 100.0,
+    "priceSolar": 85.0,
+    "priceLunar": 100.0,
+    "destination": "Barra",
+    "sku": "R02",
+    "provider": "DOMUS",
+    "containsCannabis": false,
+    "enabled": true
+  },
+  {
+    "name": "Corona Extra · Lata 473 ml",
+    "officialCat": "CERVEZAS",
+    "group": "Cervezas",
+    "price": 70.0,
+    "priceSolar": 50.0,
+    "priceLunar": 70.0,
+    "destination": "Barra",
+    "sku": "N04",
+    "provider": "DOMUS",
+    "containsCannabis": false,
+    "enabled": true
+  },
+  {
+    "name": "Modelo Especial · Cerveza 710 ml",
+    "officialCat": "CERVEZAS",
+    "group": "Cervezas",
+    "price": 100.0,
+    "priceSolar": 85.0,
+    "priceLunar": 100.0,
+    "destination": "Barra",
+    "sku": "R03",
+    "provider": "DOMUS",
+    "containsCannabis": false,
+    "enabled": true
+  },
+  {
+    "name": "Modelo Especial · lata 473 ml",
+    "officialCat": "CERVEZAS",
+    "group": "Cervezas",
+    "price": 70.0,
+    "priceSolar": 50.0,
+    "priceLunar": 70.0,
+    "destination": "Barra",
+    "sku": "MODELO-473",
+    "provider": "DOMUS",
+    "containsCannabis": false,
+    "enabled": true
+  },
+  {
+    "name": "Victoria · 473 ml",
+    "officialCat": "CERVEZAS",
+    "group": "Cervezas",
+    "price": 70.0,
+    "priceSolar": 50.0,
+    "priceLunar": 70.0,
+    "destination": "Barra",
+    "sku": "VICTORIA-473",
+    "provider": "DOMUS",
+    "containsCannabis": false,
+    "enabled": true
+  },
+  {
+    "name": "Victoria · Cerveza 710 ml",
+    "officialCat": "CERVEZAS",
+    "group": "Cervezas",
+    "price": 100.0,
+    "priceSolar": 85.0,
+    "priceLunar": 100.0,
+    "destination": "Barra",
+    "sku": "R04",
+    "provider": "DOMUS",
+    "containsCannabis": false,
+    "enabled": true
+  },
+  {
+    "name": "Chelada LIMON/SAL · Vaso 1 L  · Corona · Vaso 1 L; 710 ml cerveza",
+    "officialCat": "CHELADAS / MICHELADAS",
+    "group": "Cheladas y Micheladas",
+    "price": 150.0,
+    "priceSolar": 100.0,
+    "priceLunar": 150.0,
+    "destination": "Barra",
+    "sku": "M12-CORONA",
+    "provider": "DOMUS",
+    "containsCannabis": false,
+    "enabled": true
+  },
+  {
+    "name": "Chelada ·LIMON/SAL  Vaso 1 L  · Modelo Especial · Vaso 1 L; 710 ml cerveza",
+    "officialCat": "CHELADAS / MICHELADAS",
+    "group": "Cheladas y Micheladas",
+    "price": 150.0,
+    "priceSolar": 100.0,
+    "priceLunar": 150.0,
+    "destination": "Barra",
+    "sku": "M12-MODELO",
+    "provider": "DOMUS",
+    "containsCannabis": false,
+    "enabled": true
+  },
+  {
+    "name": "Chelada ·LIMON/SAL  Vaso 1 L · Victoria · Vaso 1 L; 710 ml cerveza",
+    "officialCat": "CHELADAS / MICHELADAS",
+    "group": "Cheladas y Micheladas",
+    "price": 150.0,
+    "priceSolar": 100.0,
+    "priceLunar": 150.0,
+    "destination": "Barra",
+    "sku": "M12-VICTORIA",
+    "provider": "DOMUS",
+    "containsCannabis": false,
+    "enabled": true
+  },
+  {
+    "name": "Chelada ·LIMON/SAL  Vaso 500 ml · Corona · Vaso 500 ml; 355 ml cerveza",
+    "officialCat": "CHELADAS / MICHELADAS",
+    "group": "Cheladas y Micheladas",
+    "price": 110.0,
+    "priceSolar": 70.0,
+    "priceLunar": 110.0,
+    "destination": "Barra",
+    "sku": "M11-CORONA",
+    "provider": "DOMUS",
+    "containsCannabis": false,
+    "enabled": true
+  },
+  {
+    "name": "Chelada ·LIMON/SAL  Vaso 500 ml· Modelo Especial · Vaso 500 ml; 355 ml cerveza",
+    "officialCat": "CHELADAS / MICHELADAS",
+    "group": "Cheladas y Micheladas",
+    "price": 110.0,
+    "priceSolar": 70.0,
+    "priceLunar": 110.0,
+    "destination": "Barra",
+    "sku": "M11-MODELO",
+    "provider": "DOMUS",
+    "containsCannabis": false,
+    "enabled": true
+  },
+  {
+    "name": "Chelada ·LIMON/SAL  Vaso 500 ml · Victoria · Vaso 500 ml; 355 ml cerveza",
+    "officialCat": "CHELADAS / MICHELADAS",
+    "group": "Cheladas y Micheladas",
+    "price": 110.0,
+    "priceSolar": 70.0,
+    "priceLunar": 110.0,
+    "destination": "Barra",
+    "sku": "M11-VICTORIA",
+    "provider": "DOMUS",
+    "containsCannabis": false,
+    "enabled": true
+  },
+  {
+    "name": "Michelada clásica · Vaso 1 L · Corona · Vaso 1 L; 710 ml cerveza",
+    "officialCat": "CHELADAS / MICHELADAS",
+    "group": "Cheladas y Micheladas",
+    "price": 150.0,
+    "priceSolar": 100.0,
+    "priceLunar": 150.0,
+    "destination": "Barra",
+    "sku": "M22-CORONA",
+    "provider": "DOMUS",
+    "containsCannabis": false,
+    "enabled": true
+  },
+  {
+    "name": "Michelada clásica · Vaso 1 L · Modelo Especial · Vaso 1 L; 710 ml cerveza",
+    "officialCat": "CHELADAS / MICHELADAS",
+    "group": "Cheladas y Micheladas",
+    "price": 150.0,
+    "priceSolar": 100.0,
+    "priceLunar": 150.0,
+    "destination": "Barra",
+    "sku": "M22-MODELO",
+    "provider": "DOMUS",
+    "containsCannabis": false,
+    "enabled": true
+  },
+  {
+    "name": "Michelada clásica · Vaso 1 L · Victoria · Vaso 1 L; 710 ml cerveza",
+    "officialCat": "CHELADAS / MICHELADAS",
+    "group": "Cheladas y Micheladas",
+    "price": 150.0,
+    "priceSolar": 100.0,
+    "priceLunar": 150.0,
+    "destination": "Barra",
+    "sku": "M22-VICTORIA",
+    "provider": "DOMUS",
+    "containsCannabis": false,
+    "enabled": true
+  },
+  {
+    "name": "Michelada clásica · Vaso 500 ml  · Corona · Vaso 500 ml; 355 ml cerveza",
+    "officialCat": "CHELADAS / MICHELADAS",
+    "group": "Cheladas y Micheladas",
+    "price": 100.0,
+    "priceSolar": 80.0,
+    "priceLunar": 100.0,
+    "destination": "Barra",
+    "sku": "M21-CORONA",
+    "provider": "DOMUS",
+    "containsCannabis": false,
+    "enabled": true
+  },
+  {
+    "name": "Michelada clásica · Vaso 500 ml  · Modelo Especial · Vaso 500 ml; 355 ml cerveza",
+    "officialCat": "CHELADAS / MICHELADAS",
+    "group": "Cheladas y Micheladas",
+    "price": 100.0,
+    "priceSolar": 80.0,
+    "priceLunar": 100.0,
+    "destination": "Barra",
+    "sku": "M21-MODELO",
+    "provider": "DOMUS",
+    "containsCannabis": false,
+    "enabled": true
+  },
+  {
+    "name": "Michelada clásica · Vaso 500 ml · Victoria · Vaso 500 ml; 355 ml cerveza",
+    "officialCat": "CHELADAS / MICHELADAS",
+    "group": "Cheladas y Micheladas",
+    "price": 100.0,
+    "priceSolar": 80.0,
+    "priceLunar": 100.0,
+    "destination": "Barra",
+    "sku": "M21-VICTORIA",
+    "provider": "DOMUS",
+    "containsCannabis": false,
+    "enabled": true
+  },
+  {
+    "name": "Michelada con Clamato · Vaso 1 L  Corona · Vaso 1 L; 710 ml cerveza",
+    "officialCat": "CHELADAS / MICHELADAS",
+    "group": "Cheladas y Micheladas",
+    "price": 160.0,
+    "priceSolar": 110.0,
+    "priceLunar": 160.0,
+    "destination": "Barra",
+    "sku": "M32-CORONA",
+    "provider": "DOMUS",
+    "containsCannabis": false,
+    "enabled": true
+  },
+  {
+    "name": "Michelada con Clamato · Vaso 1 L · Modelo Especial · Vaso 1 L; 710 ml cerveza",
+    "officialCat": "CHELADAS / MICHELADAS",
+    "group": "Cheladas y Micheladas",
+    "price": 160.0,
+    "priceSolar": 110.0,
+    "priceLunar": 160.0,
+    "destination": "Barra",
+    "sku": "M32-MODELO",
+    "provider": "DOMUS",
+    "containsCannabis": false,
+    "enabled": true
+  },
+  {
+    "name": "Michelada con Clamato · Vaso 1L· Victoria · Vaso 1 L; 710 ml cerveza",
+    "officialCat": "CHELADAS / MICHELADAS",
+    "group": "Cheladas y Micheladas",
+    "price": 160.0,
+    "priceSolar": 110.0,
+    "priceLunar": 160.0,
+    "destination": "Barra",
+    "sku": "M32-VICTORIA",
+    "provider": "DOMUS",
+    "containsCannabis": false,
+    "enabled": true
+  },
+  {
+    "name": "Michelada con Clamato · Vaso 500 ml  · Corona · Vaso 500 ml; 355 ml cerveza",
+    "officialCat": "CHELADAS / MICHELADAS",
+    "group": "Cheladas y Micheladas",
+    "price": 110.0,
+    "priceSolar": 90.0,
+    "priceLunar": 110.0,
+    "destination": "Barra",
+    "sku": "M31-CORONA",
+    "provider": "DOMUS",
+    "containsCannabis": false,
+    "enabled": true
+  },
+  {
+    "name": "Michelada con Clamato · Vaso 500 ml · Modelo Especial · Vaso 500 ml; 355 ml cerveza",
+    "officialCat": "CHELADAS / MICHELADAS",
+    "group": "Cheladas y Micheladas",
+    "price": 110.0,
+    "priceSolar": 90.0,
+    "priceLunar": 110.0,
+    "destination": "Barra",
+    "sku": "M31-MODELO",
+    "provider": "DOMUS",
+    "containsCannabis": false,
+    "enabled": true
+  },
+  {
+    "name": "Michelada con Clamato · Vaso 500 ml  · Victoria · Vaso 500 ml; 355 ml cerveza",
+    "officialCat": "CHELADAS / MICHELADAS",
+    "group": "Cheladas y Micheladas",
+    "price": 110.0,
+    "priceSolar": 90.0,
+    "priceLunar": 110.0,
+    "destination": "Barra",
+    "sku": "M31-VICTORIA",
+    "provider": "DOMUS",
+    "containsCannabis": false,
+    "enabled": true
+  },
+  {
+    "name": "Vaso preparado chelada · Recargo por vaso de 500 ml; sin cerveza · Vaso 500 ml sin cerveza",
+    "officialCat": "CHELADAS / MICHELADAS",
+    "group": "Cheladas y Micheladas",
+    "price": 20.0,
+    "priceSolar": 20.0,
+    "priceLunar": 20.0,
+    "destination": "Barra",
+    "sku": "P1",
+    "provider": "DOMUS",
+    "containsCannabis": false,
+    "enabled": true
+  },
+  {
+    "name": "Vaso preparado michelada clásica · Recargo por vaso de 500 ml; sin cerveza · Vaso 500 ml sin cerveza",
+    "officialCat": "CHELADAS / MICHELADAS",
+    "group": "Cheladas y Micheladas",
+    "price": 30.0,
+    "priceSolar": 30.0,
+    "priceLunar": 30.0,
+    "destination": "Barra",
+    "sku": "P2",
+    "provider": "DOMUS",
+    "containsCannabis": false,
+    "enabled": true
+  },
+  {
+    "name": "Vaso preparado michelada con clamato · Recargo por vaso de 500 ml; sin cerveza · Vaso 500 ml sin cerveza",
+    "officialCat": "CHELADAS / MICHELADAS",
+    "group": "Cheladas y Micheladas",
+    "price": 40.0,
+    "priceSolar": 40.0,
+    "priceLunar": 40.0,
+    "destination": "Barra",
+    "sku": "P3",
+    "provider": "DOMUS",
+    "containsCannabis": false,
+    "enabled": true
+  },
+  {
+    "name": "Azulito · Vaso 1 L con hielo",
+    "officialCat": "CÓCTELES 500 ML / 1 L",
+    "group": "Cócteles",
+    "price": 170.0,
+    "priceSolar": 120.0,
+    "priceLunar": 170.0,
+    "destination": "Barra",
+    "sku": "E22",
+    "provider": "DOMUS",
+    "containsCannabis": false,
+    "enabled": true
+  },
+  {
+    "name": "Azulito · Vaso 500 ml con hielo",
+    "officialCat": "CÓCTELES 500 ML / 1 L",
+    "group": "Cócteles",
+    "price": 150.0,
+    "priceSolar": 110.0,
+    "priceLunar": 150.0,
+    "destination": "Barra",
+    "sku": "E21",
+    "provider": "DOMUS",
+    "containsCannabis": false,
+    "enabled": true
+  },
+  {
+    "name": "Cuba · Vaso 1 L con hielo",
+    "officialCat": "CÓCTELES 500 ML / 1 L",
+    "group": "Cócteles",
+    "price": 170.0,
+    "priceSolar": 120.0,
+    "priceLunar": 170.0,
+    "destination": "Barra",
+    "sku": "L12",
+    "provider": "DOMUS",
+    "containsCannabis": false,
+    "enabled": true
+  },
+  {
+    "name": "Cuba · Vaso 500 ml con hielo",
+    "officialCat": "CÓCTELES 500 ML / 1 L",
+    "group": "Cócteles",
+    "price": 150.0,
+    "priceSolar": 110.0,
+    "priceLunar": 150.0,
+    "destination": "Barra",
+    "sku": "L11",
+    "provider": "DOMUS",
+    "containsCannabis": false,
+    "enabled": true
+  },
+  {
+    "name": "Eyaculada · ron, coco y piña · Vaso 1 L con hielo",
+    "officialCat": "CÓCTELES 500 ML / 1 L",
+    "group": "Cócteles",
+    "price": 170.0,
+    "priceSolar": 120.0,
+    "priceLunar": 170.0,
+    "destination": "Barra",
+    "sku": "E62",
+    "provider": "DOMUS",
+    "containsCannabis": false,
+    "enabled": true
+  },
+  {
+    "name": "Eyaculada · ron, coco y piña · Vaso 500 ml con hielo",
+    "officialCat": "CÓCTELES 500 ML / 1 L",
+    "group": "Cócteles",
+    "price": 150.0,
+    "priceSolar": 110.0,
+    "priceLunar": 150.0,
+    "destination": "Barra",
+    "sku": "E61",
+    "provider": "DOMUS",
+    "containsCannabis": false,
+    "enabled": true
+  },
+  {
+    "name": "Gin de pepino · Vaso 1 L con hielo",
+    "officialCat": "CÓCTELES 500 ML / 1 L",
+    "group": "Cócteles",
+    "price": 170.0,
+    "priceSolar": 120.0,
+    "priceLunar": 170.0,
+    "destination": "Barra",
+    "sku": "E72",
+    "provider": "DOMUS",
+    "containsCannabis": false,
+    "enabled": true
+  },
+  {
+    "name": "Gin de pepino · Vaso 500 ml con hielo",
+    "officialCat": "CÓCTELES 500 ML / 1 L",
+    "group": "Cócteles",
+    "price": 150.0,
+    "priceSolar": 110.0,
+    "priceLunar": 150.0,
+    "destination": "Barra",
+    "sku": "E71",
+    "provider": "DOMUS",
+    "containsCannabis": false,
+    "enabled": true
+  },
+  {
+    "name": "Gin tonic · Vaso 1 L con hielo",
+    "officialCat": "CÓCTELES 500 ML / 1 L",
+    "group": "Cócteles",
+    "price": 180.0,
+    "priceSolar": 120.0,
+    "priceLunar": 180.0,
+    "destination": "Barra",
+    "sku": "E42",
+    "provider": "DOMUS",
+    "containsCannabis": false,
+    "enabled": true
+  },
+  {
+    "name": "Gin tonic · Vaso 500 ml con hielo",
+    "officialCat": "CÓCTELES 500 ML / 1 L",
+    "group": "Cócteles",
+    "price": 160.0,
+    "priceSolar": 110.0,
+    "priceLunar": 160.0,
+    "destination": "Barra",
+    "sku": "E41",
+    "provider": "DOMUS",
+    "containsCannabis": false,
+    "enabled": true
+  },
+  {
+    "name": "Lunar · tinto dulce · Vaso 1 L con hielo",
+    "officialCat": "CÓCTELES 500 ML / 1 L",
+    "group": "Cócteles",
+    "price": 170.0,
+    "priceSolar": 120.0,
+    "priceLunar": 170.0,
+    "destination": "Barra",
+    "sku": "E52",
+    "provider": "DOMUS",
+    "containsCannabis": false,
+    "enabled": true
+  },
+  {
+    "name": "Lunar · tinto dulce · Vaso 500 ml con hielo",
+    "officialCat": "CÓCTELES 500 ML / 1 L",
+    "group": "Cócteles",
+    "price": 150.0,
+    "priceSolar": 110.0,
+    "priceLunar": 150.0,
+    "destination": "Barra",
+    "sku": "E51",
+    "provider": "DOMUS",
+    "containsCannabis": false,
+    "enabled": true
+  },
+  {
+    "name": "Mezcal con mineral · Vaso 1 L con hielo",
+    "officialCat": "CÓCTELES 500 ML / 1 L",
+    "group": "Cócteles",
+    "price": 180.0,
+    "priceSolar": 120.0,
+    "priceLunar": 180.0,
+    "destination": "Barra",
+    "sku": "E102",
+    "provider": "DOMUS",
+    "containsCannabis": false,
+    "enabled": true
+  },
+  {
+    "name": "Mezcal con mineral · Vaso 500 ml con hielo",
+    "officialCat": "CÓCTELES 500 ML / 1 L",
+    "group": "Cócteles",
+    "price": 160.0,
+    "priceSolar": 110.0,
+    "priceLunar": 160.0,
+    "destination": "Barra",
+    "sku": "E101",
+    "provider": "DOMUS",
+    "containsCannabis": false,
+    "enabled": true
+  },
+  {
+    "name": "Mojito de mezcal · Vaso 1 L con hielo",
+    "officialCat": "CÓCTELES 500 ML / 1 L",
+    "group": "Cócteles",
+    "price": 180.0,
+    "priceSolar": 120.0,
+    "priceLunar": 180.0,
+    "destination": "Barra",
+    "sku": "E32",
+    "provider": "DOMUS",
+    "containsCannabis": false,
+    "enabled": true
+  },
+  {
+    "name": "Mojito de mezcal · Vaso 500 ml con hielo",
+    "officialCat": "CÓCTELES 500 ML / 1 L",
+    "group": "Cócteles",
+    "price": 160.0,
+    "priceSolar": 110.0,
+    "priceLunar": 160.0,
+    "destination": "Barra",
+    "sku": "E31",
+    "provider": "DOMUS",
+    "containsCannabis": false,
+    "enabled": true
+  },
+  {
+    "name": "Paloma · Vaso 1 L con hielo",
+    "officialCat": "CÓCTELES 500 ML / 1 L",
+    "group": "Cócteles",
+    "price": 170.0,
+    "priceSolar": 120.0,
+    "priceLunar": 170.0,
+    "destination": "Barra",
+    "sku": "L22",
+    "provider": "DOMUS",
+    "containsCannabis": false,
+    "enabled": true
+  },
+  {
+    "name": "Paloma · Vaso 500 ml con hielo",
+    "officialCat": "CÓCTELES 500 ML / 1 L",
+    "group": "Cócteles",
+    "price": 150.0,
+    "priceSolar": 110.0,
+    "priceLunar": 150.0,
+    "destination": "Barra",
+    "sku": "L21",
+    "provider": "DOMUS",
+    "containsCannabis": false,
+    "enabled": true
+  },
+  {
+    "name": "Perla Negra · Vaso 1 L con hielo",
+    "officialCat": "CÓCTELES 500 ML / 1 L",
+    "group": "Cócteles",
+    "price": 220.0,
+    "priceSolar": 170.0,
+    "priceLunar": 220.0,
+    "destination": "Barra",
+    "sku": "E82",
+    "provider": "DOMUS",
+    "containsCannabis": false,
+    "enabled": true
+  },
+  {
+    "name": "Perla Negra · Vaso 500 ml con hielo",
+    "officialCat": "CÓCTELES 500 ML / 1 L",
+    "group": "Cócteles",
+    "price": 180.0,
+    "priceSolar": 130.0,
+    "priceLunar": 180.0,
+    "destination": "Barra",
+    "sku": "E81",
+    "provider": "DOMUS",
+    "containsCannabis": false,
+    "enabled": true
+  },
+  {
+    "name": "Solar · vodka y frutas · Vaso 1 L con hielo",
+    "officialCat": "CÓCTELES 500 ML / 1 L",
+    "group": "Cócteles",
+    "price": 170.0,
+    "priceSolar": 120.0,
+    "priceLunar": 170.0,
+    "destination": "Barra",
+    "sku": "E12",
+    "provider": "DOMUS",
+    "containsCannabis": false,
+    "enabled": true
+  },
+  {
+    "name": "Solar · vodka y frutas · Vaso 500 ml con hielo",
+    "officialCat": "CÓCTELES 500 ML / 1 L",
+    "group": "Cócteles",
+    "price": 150.0,
+    "priceSolar": 110.0,
+    "priceLunar": 150.0,
+    "destination": "Barra",
+    "sku": "E11",
+    "provider": "DOMUS",
+    "containsCannabis": false,
+    "enabled": true
+  },
+  {
+    "name": "Vodka limón · Vaso 1 L con hielo",
+    "officialCat": "CÓCTELES 500 ML / 1 L",
+    "group": "Cócteles",
+    "price": 170.0,
+    "priceSolar": 120.0,
+    "priceLunar": 170.0,
+    "destination": "Barra",
+    "sku": "L32",
+    "provider": "DOMUS",
+    "containsCannabis": false,
+    "enabled": true
+  },
+  {
+    "name": "Vodka limón · Vaso 500 ml con hielo",
+    "officialCat": "CÓCTELES 500 ML / 1 L",
+    "group": "Cócteles",
+    "price": 150.0,
+    "priceSolar": 110.0,
+    "priceLunar": 150.0,
+    "destination": "Barra",
+    "sku": "L31",
+    "provider": "DOMUS",
+    "containsCannabis": false,
+    "enabled": true
+  },
+  {
+    "name": "Whisky con cola · Vaso 1 L con hielo",
+    "officialCat": "CÓCTELES 500 ML / 1 L",
+    "group": "Cócteles",
+    "price": 170.0,
+    "priceSolar": 120.0,
+    "priceLunar": 170.0,
+    "destination": "Barra",
+    "sku": "E92",
+    "provider": "DOMUS",
+    "containsCannabis": false,
+    "enabled": true
+  },
+  {
+    "name": "Whisky con cola · Vaso 500 ml con hielo",
+    "officialCat": "CÓCTELES 500 ML / 1 L",
+    "group": "Cócteles",
+    "price": 150.0,
+    "priceSolar": 110.0,
+    "priceLunar": 150.0,
+    "destination": "Barra",
+    "sku": "E91",
+    "provider": "DOMUS",
+    "containsCannabis": false,
+    "enabled": true
+  },
+  {
+    "name": "SHOT MEZCAL 45ML",
+    "officialCat": "SHOT 45ML",
+    "group": "Shots",
+    "price": 160.0,
+    "priceSolar": 100.0,
+    "priceLunar": 160.0,
+    "destination": "Barra",
+    "sku": "K03",
+    "provider": "DOMUS",
+    "containsCannabis": false,
+    "enabled": true
+  },
+  {
+    "name": "SHOT GIN 45ML",
+    "officialCat": "SHOT 45ML",
+    "group": "Shots",
+    "price": 160.0,
+    "priceSolar": 100.0,
+    "priceLunar": 160.0,
+    "destination": "Barra",
+    "sku": "K01",
+    "provider": "DOMUS",
+    "containsCannabis": false,
+    "enabled": true
+  },
+  {
+    "name": "SHOT VODKA, TEQ, RON, WHISKY 45ML",
+    "officialCat": "SHOT 45ML",
+    "group": "Shots",
+    "price": 130.0,
+    "priceSolar": 100.0,
+    "priceLunar": 130.0,
+    "destination": "Barra",
+    "sku": "K02",
+    "provider": "DOMUS",
+    "containsCannabis": false,
+    "enabled": true
+  },
+  {
+    "name": "Aderezo adicional",
+    "officialCat": "ALIMENTOS · CANNA TREATS",
+    "group": "Alimentos Cocina",
+    "price": 20.0,
+    "priceSolar": 20.0,
+    "priceLunar": 20.0,
+    "destination": "Cocina",
+    "sku": "CT10",
+    "provider": "Canna Treats",
+    "containsCannabis": false,
+    "enabled": true
+  },
+  {
+    "name": "Alitas sumisas — 10 piezas",
+    "officialCat": "ALIMENTOS · CANNA TREATS",
+    "group": "Alimentos Cocina",
+    "price": 200.0,
+    "priceSolar": 200.0,
+    "priceLunar": 200.0,
+    "destination": "Cocina",
+    "sku": "CT15b",
+    "provider": "Canna Treats",
+    "containsCannabis": false,
+    "enabled": true
+  },
+  {
+    "name": "Alitas sumisas — 6 piezas",
+    "officialCat": "ALIMENTOS · CANNA TREATS",
+    "group": "Alimentos Cocina",
+    "price": 130.0,
+    "priceSolar": 130.0,
+    "priceLunar": 130.0,
+    "destination": "Cocina",
+    "sku": "CT15a",
+    "provider": "Canna Treats",
+    "containsCannabis": false,
+    "enabled": true
+  },
+  {
+    "name": "Bastones de castigo",
+    "officialCat": "ALIMENTOS · CANNA TREATS",
+    "group": "Alimentos Cocina",
+    "price": 120.0,
+    "priceSolar": 120.0,
+    "priceLunar": 120.0,
+    "destination": "Cocina",
+    "sku": "CT04",
+    "provider": "Canna Treats",
+    "containsCannabis": false,
+    "enabled": true
+  },
+  {
+    "name": "Boneless",
+    "officialCat": "ALIMENTOS · CANNA TREATS",
+    "group": "Alimentos Cocina",
+    "price": 150.0,
+    "priceSolar": 150.0,
+    "priceLunar": 150.0,
+    "destination": "Cocina",
+    "sku": "CT14",
+    "provider": "Canna Treats",
+    "containsCannabis": false,
+    "enabled": true
+  },
+  {
+    "name": "Espaghetti",
+    "officialCat": "ALIMENTOS · CANNA TREATS",
+    "group": "Alimentos Cocina",
+    "price": 50.0,
+    "priceSolar": 50.0,
+    "priceLunar": 50.0,
+    "destination": "Cocina",
+    "sku": "CT20",
+    "provider": "Canna Treats",
+    "containsCannabis": false,
+    "enabled": true
+  },
+  {
+    "name": "Gajitos",
+    "officialCat": "ALIMENTOS · CANNA TREATS",
+    "group": "Alimentos Cocina",
+    "price": 50.0,
+    "priceSolar": 50.0,
+    "priceLunar": 50.0,
+    "destination": "Cocina",
+    "sku": "CT08",
+    "provider": "Canna Treats",
+    "containsCannabis": false,
+    "enabled": true
+  },
+  {
+    "name": "Guacamole regular",
+    "officialCat": "ALIMENTOS · CANNA TREATS",
+    "group": "Alimentos Cocina",
+    "price": 50.0,
+    "priceSolar": 50.0,
+    "priceLunar": 50.0,
+    "destination": "Cocina",
+    "sku": "CT05",
+    "provider": "Canna Treats",
+    "containsCannabis": false,
+    "enabled": true
+  },
+  {
+    "name": "Hamburguesa Kinki",
+    "officialCat": "ALIMENTOS · CANNA TREATS",
+    "group": "Alimentos Cocina",
+    "price": 150.0,
+    "priceSolar": 150.0,
+    "priceLunar": 150.0,
+    "destination": "Cocina",
+    "sku": "CT11",
+    "provider": "Canna Treats",
+    "containsCannabis": false,
+    "enabled": true
+  },
+  {
+    "name": "La Dominatrix",
+    "officialCat": "ALIMENTOS · CANNA TREATS",
+    "group": "Alimentos Cocina",
+    "price": 200.0,
+    "priceSolar": 200.0,
+    "priceLunar": 200.0,
+    "destination": "Cocina",
+    "sku": "CT12",
+    "provider": "Canna Treats",
+    "containsCannabis": false,
+    "enabled": true
+  },
+  {
+    "name": "Misioneritas",
+    "officialCat": "ALIMENTOS · CANNA TREATS",
+    "group": "Alimentos Cocina",
+    "price": 30.0,
+    "priceSolar": 30.0,
+    "priceLunar": 30.0,
+    "destination": "Cocina",
+    "sku": "CT07",
+    "provider": "Canna Treats",
+    "containsCannabis": false,
+    "enabled": true
+  },
+  {
+    "name": "Nachos libres",
+    "officialCat": "ALIMENTOS · CANNA TREATS",
+    "group": "Alimentos Cocina",
+    "price": 80.0,
+    "priceSolar": 80.0,
+    "priceLunar": 80.0,
+    "destination": "Cocina",
+    "sku": "CT16",
+    "provider": "Canna Treats",
+    "containsCannabis": false,
+    "enabled": true
+  },
+  {
+    "name": "Orden de pajitas",
+    "officialCat": "ALIMENTOS · CANNA TREATS",
+    "group": "Alimentos Cocina",
+    "price": 20.0,
+    "priceSolar": 20.0,
+    "priceLunar": 20.0,
+    "destination": "Cocina",
+    "sku": "CT06",
+    "provider": "Canna Treats",
+    "containsCannabis": false,
+    "enabled": true
+  },
+  {
+    "name": "Orden de queso",
+    "officialCat": "ALIMENTOS · CANNA TREATS",
+    "group": "Alimentos Cocina",
+    "price": 30.0,
+    "priceSolar": 30.0,
+    "priceLunar": 30.0,
+    "destination": "Cocina",
+    "sku": "CT09",
+    "provider": "Canna Treats",
+    "containsCannabis": false,
+    "enabled": true
+  },
+  {
+    "name": "Orgía de botanas",
+    "officialCat": "ALIMENTOS · CANNA TREATS",
+    "group": "Alimentos Cocina",
+    "price": 40.0,
+    "priceSolar": 40.0,
+    "priceLunar": 40.0,
+    "destination": "Cocina",
+    "sku": "CT01",
+    "provider": "Canna Treats",
+    "containsCannabis": false,
+    "enabled": true
+  },
+  {
+    "name": "Papas gajo",
+    "officialCat": "ALIMENTOS · CANNA TREATS",
+    "group": "Alimentos Cocina",
+    "price": 80.0,
+    "priceSolar": 80.0,
+    "priceLunar": 80.0,
+    "destination": "Cocina",
+    "sku": "CT03",
+    "provider": "Canna Treats",
+    "containsCannabis": false,
+    "enabled": true
+  },
+  {
+    "name": "Papas misioneras",
+    "officialCat": "ALIMENTOS · CANNA TREATS",
+    "group": "Alimentos Cocina",
+    "price": 60.0,
+    "priceSolar": 60.0,
+    "priceLunar": 60.0,
+    "destination": "Cocina",
+    "sku": "CT02",
+    "provider": "Canna Treats",
+    "containsCannabis": false,
+    "enabled": true
+  },
+  {
+    "name": "Ramen de abuelita",
+    "officialCat": "ALIMENTOS · CANNA TREATS",
+    "group": "Alimentos Cocina",
+    "price": 100.0,
+    "priceSolar": 100.0,
+    "priceLunar": 100.0,
+    "destination": "Cocina",
+    "sku": "CT19",
+    "provider": "Canna Treats",
+    "containsCannabis": false,
+    "enabled": true
+  },
+  {
+    "name": "Sado nachos",
+    "officialCat": "ALIMENTOS · CANNA TREATS",
+    "group": "Alimentos Cocina",
+    "price": 130.0,
+    "priceSolar": 130.0,
+    "priceLunar": 130.0,
+    "destination": "Cocina",
+    "sku": "CT17",
+    "provider": "Canna Treats",
+    "containsCannabis": false,
+    "enabled": true
+  },
+  {
+    "name": "Sado sampler — sin infusión",
+    "officialCat": "ALIMENTOS · CANNA TREATS",
+    "group": "Alimentos Cocina",
+    "price": 350.0,
+    "priceSolar": 350.0,
+    "priceLunar": 350.0,
+    "destination": "Cocina",
+    "sku": "CT22",
+    "provider": "Canna Treats",
+    "containsCannabis": false,
+    "enabled": true
+  },
+  {
+    "name": "Tacos de la parrilla",
+    "officialCat": "ALIMENTOS · CANNA TREATS",
+    "group": "Alimentos Cocina",
+    "price": 50.0,
+    "priceSolar": 50.0,
+    "priceLunar": 50.0,
+    "destination": "Cocina",
+    "sku": "CT18",
+    "provider": "Canna Treats",
+    "containsCannabis": false,
+    "enabled": true
+  },
+  {
+    "name": "Trío de jochis",
+    "officialCat": "ALIMENTOS · CANNA TREATS",
+    "group": "Alimentos Cocina",
+    "price": 130.0,
+    "priceSolar": 130.0,
+    "priceLunar": 130.0,
+    "destination": "Cocina",
+    "sku": "CT13",
+    "provider": "Canna Treats",
+    "containsCannabis": false,
+    "enabled": true
+  },
+  {
+    "name": "Waffle vainilla",
+    "officialCat": "ALIMENTOS · CANNA TREATS",
+    "group": "Alimentos Cocina",
+    "price": 80.0,
+    "priceSolar": 80.0,
+    "priceLunar": 80.0,
+    "destination": "Cocina",
+    "sku": "CT21",
+    "provider": "Canna Treats",
+    "containsCannabis": false,
+    "enabled": true
+  },
+  {
+    "name": "MUFFINS",
+    "officialCat": "ALIMENTOS ANDY",
+    "group": "🌿 Menú Cannábico",
+    "price": 150.0,
+    "priceSolar": 150.0,
+    "priceLunar": 150.0,
+    "destination": "Cocina",
+    "sku": "CT45",
+    "provider": "ANDY",
+    "containsCannabis": true,
+    "enabled": true
+  },
+  {
+    "name": "CHOCOLATES 2 DOSIS",
+    "officialCat": "ALIMENTOS ANDY",
+    "group": "🌿 Menú Cannábico",
+    "price": 100.0,
+    "priceSolar": 100.0,
+    "priceLunar": 100.0,
+    "destination": "Cocina",
+    "sku": "CT46",
+    "provider": "ANDY",
+    "containsCannabis": true,
+    "enabled": true
+  },
+  {
+    "name": "CHOCOLATES 4 DOSIS",
+    "officialCat": "ALIMENTOS ANDY",
+    "group": "🌿 Menú Cannábico",
+    "price": 200.0,
+    "priceSolar": 200.0,
+    "priceLunar": 200.0,
+    "destination": "Cocina",
+    "sku": "CT47",
+    "provider": "ANDY",
+    "containsCannabis": true,
+    "enabled": true
+  },
+  {
+    "name": "CHOCOLATES VAGINA",
+    "officialCat": "ALIMENTOS ANDY",
+    "group": "🌿 Menú Cannábico",
+    "price": 150.0,
+    "priceSolar": 150.0,
+    "priceLunar": 150.0,
+    "destination": "Cocina",
+    "sku": "CT48",
+    "provider": "ANDY",
+    "containsCannabis": true,
+    "enabled": true
+  },
+  {
+    "name": "GREENBURGESA FELIZ",
+    "officialCat": "ALIMENTOS · CANNA TREATS",
+    "group": "🌿 Menú Cannábico",
+    "price": 230.0,
+    "priceSolar": 230.0,
+    "priceLunar": 230.0,
+    "destination": "Cocina",
+    "sku": "CT-CAN-01",
+    "provider": "Canna Treats",
+    "containsCannabis": true,
+    "enabled": true
+  },
+  {
+    "name": "ESPAGUETI VERDE",
+    "officialCat": "ALIMENTOS · CANNA TREATS",
+    "group": "🌿 Menú Cannábico",
+    "price": 80.0,
+    "priceSolar": 80.0,
+    "priceLunar": 80.0,
+    "destination": "Cocina",
+    "sku": "CT-CAN-02",
+    "provider": "Canna Treats",
+    "containsCannabis": true,
+    "enabled": true
+  },
+  {
+    "name": "MONCHIS PIZZA 420",
+    "officialCat": "ALIMENTOS · CANNA TREATS",
+    "group": "🌿 Menú Cannábico",
+    "price": 150.0,
+    "priceSolar": 150.0,
+    "priceLunar": 150.0,
+    "destination": "Cocina",
+    "sku": "CT-CAN-03",
+    "provider": "Canna Treats",
+    "containsCannabis": true,
+    "enabled": true
+  },
+  {
+    "name": "GUACANABIS",
+    "officialCat": "ALIMENTOS · CANNA TREATS",
+    "group": "🌿 Menú Cannábico",
+    "price": 80.0,
+    "priceSolar": 80.0,
+    "priceLunar": 80.0,
+    "destination": "Cocina",
+    "sku": "CT-CAN-04",
+    "provider": "Canna Treats",
+    "containsCannabis": true,
+    "enabled": true
+  },
+  {
+    "name": "ORDEN DE GUACANABIS",
+    "officialCat": "ALIMENTOS · CANNA TREATS",
+    "group": "🌿 Menú Cannábico",
+    "price": 120.0,
+    "priceSolar": 120.0,
+    "priceLunar": 120.0,
+    "destination": "Cocina",
+    "sku": "CT-CAN-05",
+    "provider": "Canna Treats",
+    "containsCannabis": true,
+    "enabled": true
+  },
+  {
+    "name": "CANADIP",
+    "officialCat": "ALIMENTOS · CANNA TREATS",
+    "group": "🌿 Menú Cannábico",
+    "price": 50.0,
+    "priceSolar": 50.0,
+    "priceLunar": 50.0,
+    "destination": "Cocina",
+    "sku": "CT-CAN-06",
+    "provider": "Canna Treats",
+    "containsCannabis": true,
+    "enabled": true
+  },
+  {
+    "name": "WAFLE BDSM",
+    "officialCat": "ALIMENTOS · CANNA TREATS",
+    "group": "🌿 Menú Cannábico",
+    "price": 80.0,
+    "priceSolar": 80.0,
+    "priceLunar": 80.0,
+    "destination": "Cocina",
+    "sku": "CT-CAN-07",
+    "provider": "Canna Treats",
+    "containsCannabis": true,
+    "enabled": true
+  },
+  {
+    "name": "CHEESCAKE",
+    "officialCat": "ALIMENTOS · CANNA TREATS",
+    "group": "🌿 Menú Cannábico",
+    "price": 120.0,
+    "priceSolar": 120.0,
+    "priceLunar": 120.0,
+    "destination": "Cocina",
+    "sku": "CT-CAN-08",
+    "provider": "Canna Treats",
+    "containsCannabis": true,
+    "enabled": true
+  },
+  {
+    "name": "CANABITES",
+    "officialCat": "ALIMENTOS · CANNA TREATS",
+    "group": "🌿 Menú Cannábico",
+    "price": 120.0,
+    "priceSolar": 120.0,
+    "priceLunar": 120.0,
+    "destination": "Cocina",
+    "sku": "CT-CAN-09",
+    "provider": "Canna Treats",
+    "containsCannabis": true,
+    "enabled": true
+  },
+  {
+    "name": "GALLETONA",
+    "officialCat": "ALIMENTOS · CANNA TREATS",
+    "group": "🌿 Menú Cannábico",
+    "price": 80.0,
+    "priceSolar": 80.0,
+    "priceLunar": 80.0,
+    "destination": "Cocina",
+    "sku": "CT-CAN-10",
+    "provider": "Canna Treats",
+    "containsCannabis": true,
+    "enabled": true
+  },
+  {
+    "name": "PELON",
+    "officialCat": "ALIMENTOS · CANNA TREATS",
+    "group": "🌿 Menú Cannábico",
+    "price": 120.0,
+    "priceSolar": 120.0,
+    "priceLunar": 120.0,
+    "destination": "Cocina",
+    "sku": "ALI-CAN-001",
+    "provider": "Canna Treats",
+    "containsCannabis": true,
+    "enabled": true
+  },
+  {
+    "name": "GALLETA DUBAI",
+    "officialCat": "ALIMENTOS · CANNA TREATS",
+    "group": "🌿 Menú Cannábico",
+    "price": 120.0,
+    "priceSolar": 120.0,
+    "priceLunar": 120.0,
+    "destination": "Cocina",
+    "sku": "CT-CAN-12",
+    "provider": "Canna Treats",
+    "containsCannabis": true,
+    "enabled": true
+  },
+  {
+    "name": "PAN DE MUERTO",
+    "officialCat": "ALIMENTOS · CANNA TREATS",
+    "group": "🌿 Menú Cannábico",
+    "price": 120.0,
+    "priceSolar": 120.0,
+    "priceLunar": 120.0,
+    "destination": "Cocina",
+    "sku": "CT-CAN-13",
+    "provider": "Canna Treats",
+    "containsCannabis": true,
+    "enabled": true
+  },
+  {
+    "name": "CHOCOLATE AMARGO",
+    "officialCat": "ALIMENTOS · CANNA TREATS",
+    "group": "🌿 Menú Cannábico",
+    "price": 80.0,
+    "priceSolar": 80.0,
+    "priceLunar": 80.0,
+    "destination": "Cocina",
+    "sku": "ALI-CAN-003",
+    "provider": "Canna Treats",
+    "containsCannabis": true,
+    "enabled": true
+  },
+  {
+    "name": "NOBARA",
+    "officialCat": "JUJUTSU-SHI",
+    "group": "Sushi",
+    "price": 100.0,
+    "priceSolar": 100.0,
+    "priceLunar": 100.0,
+    "destination": "Cocina",
+    "sku": "JJ01",
+    "provider": "JujuTsu-shi",
+    "containsCannabis": false,
+    "enabled": true
+  },
+  {
+    "name": "ITADORI",
+    "officialCat": "JUJUTSU-SHI",
+    "group": "Sushi",
+    "price": 100.0,
+    "priceSolar": 100.0,
+    "priceLunar": 100.0,
+    "destination": "Cocina",
+    "sku": "JJ02",
+    "provider": "JujuTsu-shi",
+    "containsCannabis": false,
+    "enabled": true
+  },
+  {
+    "name": "MEGUMI",
+    "officialCat": "JUJUTSU-SHI",
+    "group": "Sushi",
+    "price": 100.0,
+    "priceSolar": 100.0,
+    "priceLunar": 100.0,
+    "destination": "Cocina",
+    "sku": "JJ03",
+    "provider": "JujuTsu-shi",
+    "containsCannabis": false,
+    "enabled": true
+  },
+  {
+    "name": "MAKI",
+    "officialCat": "JUJUTSU-SHI",
+    "group": "Sushi",
+    "price": 100.0,
+    "priceSolar": 100.0,
+    "priceLunar": 100.0,
+    "destination": "Cocina",
+    "sku": "JJ04",
+    "provider": "JujuTsu-shi",
+    "containsCannabis": false,
+    "enabled": true
+  },
+  {
+    "name": "TODO",
+    "officialCat": "JUJUTSU-SHI",
+    "group": "Sushi",
+    "price": 100.0,
+    "priceSolar": 100.0,
+    "priceLunar": 100.0,
+    "destination": "Cocina",
+    "sku": "JJ05",
+    "provider": "JujuTsu-shi",
+    "containsCannabis": false,
+    "enabled": true
+  },
+  {
+    "name": "CHOSO",
+    "officialCat": "JUJUTSU-SHI",
+    "group": "Sushi",
+    "price": 100.0,
+    "priceSolar": 100.0,
+    "priceLunar": 100.0,
+    "destination": "Cocina",
+    "sku": "JJ06",
+    "provider": "JujuTsu-shi",
+    "containsCannabis": false,
+    "enabled": true
+  },
+  {
+    "name": "GOJO",
+    "officialCat": "JUJUTSU-SHI",
+    "group": "Sushi",
+    "price": 100.0,
+    "priceSolar": 100.0,
+    "priceLunar": 100.0,
+    "destination": "Cocina",
+    "sku": "JJ07",
+    "provider": "JujuTsu-shi",
+    "containsCannabis": false,
+    "enabled": true
+  },
+  {
+    "name": "SASAKI",
+    "officialCat": "JUJUTSU-SHI",
+    "group": "Sushi",
+    "price": 100.0,
+    "priceSolar": 100.0,
+    "priceLunar": 100.0,
+    "destination": "Cocina",
+    "sku": "JJ08",
+    "provider": "JujuTsu-shi",
+    "containsCannabis": false,
+    "enabled": true
+  },
+  {
+    "name": "RIKA",
+    "officialCat": "JUJUTSU-SHI",
+    "group": "Sushi",
+    "price": 100.0,
+    "priceSolar": 100.0,
+    "priceLunar": 100.0,
+    "destination": "Cocina",
+    "sku": "JJ09",
+    "provider": "JujuTsu-shi",
+    "containsCannabis": false,
+    "enabled": true
+  }
 ];
 
   // Comandas Demo Iniciales
@@ -2438,30 +2825,45 @@
           $('currentPhaseBadge').textContent = `Fase ${data.phase}`;
         }
         if (data.products && data.products.length) {
-          const backendProducts = data.products.map(p => {
-            if (isCannaProduct(p)) {
-              p.isCanna = true;
-              p.provider = p.provider || 'Canna Treats';
-              p.destination = 'Cocina';
-            }
-            return p;
+          const canonMapByName = new Map(DEFAULT_CATALOG.map(c => [c.name.trim().toLowerCase(), c]));
+          const canonMapBySku = new Map(DEFAULT_CATALOG.filter(c => c.sku).map(c => [c.sku.trim().toLowerCase(), c]));
+
+          const catalogMap = new Map();
+          // Base canónica oficial (143 productos autorizados)
+          DEFAULT_CATALOG.forEach(cp => {
+            catalogMap.set(cp.name.trim().toLowerCase(), { ...cp });
           });
 
-          // Asegurar que productos canónicos de DEFAULT_CATALOG estén presentes
-          const existingKeys = new Set(backendProducts.map(p => (p.sku || p.name).toLowerCase()));
-          const missingDefaults = DEFAULT_CATALOG.filter(dp => !existingKeys.has((dp.sku || dp.name).toLowerCase()));
+          // Enlazar con datos de backend (preservando SKUs u opciones adicionales)
+          data.products.forEach(bp => {
+            const bName = bp.name ? bp.name.trim().toLowerCase() : '';
+            const bSku = bp.sku ? bp.sku.trim().toLowerCase() : '';
+            const canon = canonMapByName.get(bName) || (bSku ? canonMapBySku.get(bSku) : null);
+            if (canon) {
+              const current = catalogMap.get(canon.name.trim().toLowerCase());
+              if (current && bp.sku && !current.sku) {
+                current.sku = bp.sku;
+              }
+            } else if (!bName.includes('— staff')) {
+              // Producto adicional no staff
+              catalogMap.set(bName, bp);
+            }
+          });
 
-          STATE.products = [...backendProducts, ...missingDefaults];
-
-          // Fusionar productos personalizados creados en el cliente
+          // Fusionar productos personalizados creados localmente
           try {
             const custom = JSON.parse(localStorage.getItem('domus_custom_products') || '[]');
             if (Array.isArray(custom) && custom.length) {
-              const currentKeys = new Set(STATE.products.map(p => (p.sku || p.name).toLowerCase()));
-              const toAdd = custom.filter(c => !currentKeys.has((c.sku || c.name).toLowerCase()));
-              STATE.products = [...toAdd, ...STATE.products];
+              custom.forEach(c => {
+                const cKey = (c.name || '').trim().toLowerCase();
+                if (cKey && !catalogMap.has(cKey)) {
+                  catalogMap.set(cKey, c);
+                }
+              });
             }
           } catch (e) {}
+
+          STATE.products = Array.from(catalogMap.values());
           renderCategoryChips();
           renderCatalog();
         }
@@ -2584,59 +2986,47 @@
 
   function isCannaProduct(p) {
     if (!p) return false;
-    const sku = String(p.sku || '').toUpperCase().trim();
-    if (sku.startsWith('CT')) return true;
-    const prov = String(p.provider || '').toLowerCase();
-    if (prov.includes('canna')) return true;
-    const grp = String(p.group || '').toLowerCase();
-    if (grp.includes('canna') || grp.includes('cannáb') || grp.includes('cannab')) return true;
-    const off = String(p.officialCat || '').toLowerCase();
-    if (off.includes('canna')) return true;
-    const name = String(p.name || '').toLowerCase();
-    if (name.includes('canna')) return true;
-    const cannaNames = [
-      'pelones', 'galletas grandes', 'galletas pequeñas', 'galletas pequenas', 'chocolates',
-      'hamburguesa kinki', 'la dominatrix', 'trío de jochis', 'trio de jochis',
-      'boneless', 'alitas sumisas', 'sado nachos', 'nachos libres',
-      'bastones de castigo', 'papas misioneras', 'papas gajo', 'misioneritas',
-      'gajitos', 'orgía de botanas', 'orgia de botanas', 'ramen de abuelita',
-      'sado sampler', 'waffle vainilla', 'waffles de vainilla', 'tacos de la parrilla',
-      'espagueti pomodoro', 'espaghetti', 'orden de pajitas', 'orden de queso', 'guacamole regular'
+    // 1. Autoridad primaria: atributo booleano explícito containsCannabis
+    if (typeof p.containsCannabis === 'boolean') {
+      return p.containsCannabis;
+    }
+    // 2. Si no tiene containsCannabis, contrastar contra la lista explícita autorizada
+    const name = String(p.name || '').toLowerCase().trim();
+    const cannabisExplicitList = [
+      'greenburgesa feliz', 'espagueti verde', 'monchis pizza 420', 'guacanabis',
+      'orden de guacanabis', 'canadip', 'wafle bdsm', 'cheescake', 'canabites',
+      'galletona', 'pelon', 'pelones', 'galleta dubai', 'pan de muerto', 'chocolate amargo',
+      'muffins', 'chocolates 2 dosis', 'chocolates 4 dosis', 'chocolates vagina'
     ];
-    return cannaNames.some(cn => name.includes(cn));
+    return cannabisExplicitList.some(item => name === item || name.includes(item));
   }
 
   function renderCategoryChips() {
     const container = $('categoryChips');
     if (!container) return;
 
-    // Obtener los grupos presentes en el catálogo excluyendo redundancias
-    const groupsSet = new Set();
+    // Pestañas canónicas ordenadas y limpias (Carta Oficial Definitiva)
+    const orderedCategories = [
+      'Todas',
+      '🌿 Menú Cannábico',
+      'Cervezas',
+      'Cheladas y Micheladas',
+      'Cócteles',
+      'Refrescos y Aguas',
+      'Cafetería',
+      'Shots',
+      'Alimentos Cocina',
+      'Sushi'
+    ];
+
+    // Incluir grupos adicionales si existieran
+    const knownGroups = new Set(orderedCategories);
     STATE.products.forEach(p => {
-      if (p.group && p.group !== 'Canna Treats' && p.group !== 'Menú Cannábico' && p.group !== '🌿 Menú Cannábico') {
-        groupsSet.add(p.group);
+      if (p.group && !knownGroups.has(p.group) && p.group !== 'Menú Cannábico' && p.group !== 'Canna Treats' && !p.group.includes('Staff')) {
+        orderedCategories.push(p.group);
+        knownGroups.add(p.group);
       }
     });
-
-    // Pestañas canónicas ordenadas:
-    // 1. Todas
-    // 2. 🌿 Menú Cannábico
-    // 3. Barra
-    // 4. Comida público / Alimentos
-    // 5. Resto de categorías dinámicas
-    const orderedCategories = ['Todas', '🌿 Menú Cannábico'];
-    if (groupsSet.has('Barra')) {
-      orderedCategories.push('Barra');
-      groupsSet.delete('Barra');
-    }
-    if (groupsSet.has('Comida público')) {
-      orderedCategories.push('Comida público');
-      groupsSet.delete('Comida público');
-    } else if (groupsSet.has('Alimentos')) {
-      orderedCategories.push('Alimentos');
-      groupsSet.delete('Alimentos');
-    }
-    groupsSet.forEach(g => orderedCategories.push(g));
 
     container.innerHTML = orderedCategories.map(g => {
       const isCannaChip = g.includes('Cannábico') || g.includes('Canna');
@@ -2677,19 +3067,24 @@
     const filtered = STATE.products.filter(p => {
       const isCanna = isCannaProduct(p);
 
+      // Ocultar productos de staff en el POS público
+      if (p.name && p.name.includes('— Staff') && !query.includes('staff')) {
+        return false;
+      }
+
       let matchCat = false;
       if (STATE.catalogCategory === 'Todas') {
         matchCat = true;
       } else if (isCannaCategory) {
         matchCat = isCanna;
+      } else if (STATE.catalogCategory === 'Alimentos Cocina' || STATE.catalogCategory === 'Alimentos' || STATE.catalogCategory === 'Comida público') {
+        matchCat = (p.group === 'Alimentos Cocina' || p.group === 'Alimentos' || p.group === 'Comida público') && !isCanna;
       } else if (STATE.catalogCategory === 'Cocina') {
-        matchCat = p.destination === 'Cocina' || isCanna || p.group === 'Sushi' || p.group === 'Comida público';
+        matchCat = p.destination === 'Cocina' || p.group === 'Sushi' || p.group === 'Alimentos Cocina';
       } else if (STATE.catalogCategory === 'Sushi') {
         matchCat = p.group === 'Sushi' || (p.provider && p.provider.toLowerCase().includes('jujutsu'));
       } else if (STATE.catalogCategory === 'Barra') {
-        matchCat = (p.destination === 'Barra' || p.group === 'Barra') && !isCanna;
-      } else if (STATE.catalogCategory === 'Comida público' || STATE.catalogCategory === 'Alimentos') {
-        matchCat = p.group === STATE.catalogCategory || isCanna;
+        matchCat = p.destination === 'Barra' && !isCanna;
       } else {
         matchCat = p.group === STATE.catalogCategory;
       }
