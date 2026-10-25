@@ -2405,73 +2405,183 @@ function handleApiGetRequest_(action, params) {
  * ============================================================================
  */
 function conciliarVentaSinteticaGate2() {
+  const EXPECTED_MAIN = '1KQz8oJ4VaWFsqS2-sg25HMCm60SdSoQpIDlCDSV5J1U';
+  const EXPECTED_TICKET = 'CTA-20261025-577718';
+  const EXPECTED_RECEIPT = 'REC-MVNRDXZT';
+  const REVERSAL_FOLIO = 'REC-REV-MVNRDXZT';
+  const EXPECTED_CUSTOMER = 'Cliente Gate 2';
+  const EXPECTED_PRODUCT = 'Orgía de botanas';
+  const EXPECTED_AMOUNT = 40;
+
+  if (CONFIG.environment !== 'PRODUCTION' || CONFIG.mainSheetId !== EXPECTED_MAIN) {
+    throw new Error('RECONCILIATION_TARGET_MISMATCH: esta conciliación sólo puede ejecutarse en el entorno productivo oficial esperado.');
+  }
+
   const m = SpreadsheetApp.openById(CONFIG.mainSheetId);
   return withLock_(CONFIG.lockTimeoutMs, () => {
-    const nowIso = new Date().toISOString();
-    const now = new Date();
-
-    // 1. CAJA 2 fila 30
     const sCaja = m.getSheetByName('CAJA 2') || m.getSheetByName('CAJA');
-    if (sCaja) {
-      sCaja.getRange(30, 16).setValue('Cancelado'); // P30 = Cancelado
-      sCaja.getRange(30, 17).setValue('ANULADA · PRUEBA SINTÉTICA GATE 2 · REC-MVNRDXZT · ' + nowIso); // Q30 = Notas
+    const sComandas = m.getSheetByName('COMANDAS');
+    const sCobros = m.getSheetByName('COBROS');
+    if (!sCaja || !sComandas || !sCobros) {
+      throw new Error('RECONCILIATION_SHEETS_MISSING: faltan CAJA 2, COMANDAS o COBROS.');
     }
 
-    // 2. COMANDAS fila 30
-    const sComandas = m.getSheetByName('COMANDAS');
-    if (sComandas) {
-      const rawJson = sComandas.getRange(30, 13).getValue(); // M30 maestro
-      let item = JSON.parse(rawJson);
+    // PRECHECK estricto: no tocar nada si la fila 30 ya no corresponde exactamente
+    // a la venta sintética accidental Gate 2.
+    const cajaRow = sCaja.getRange(30, 1, 1, 17).getValues()[0];
+    const ticketCaja = String(cajaRow[1] || '');
+    const customerCaja = String(cajaRow[4] || '');
+    const productCaja = String(cajaRow[6] || '');
+    const actionCaja = String(cajaRow[15] || '');
+
+    if (ticketCaja !== EXPECTED_TICKET ||
+        customerCaja !== EXPECTED_CUSTOMER ||
+        productCaja !== EXPECTED_PRODUCT ||
+        !['Enviar', 'Cancelado'].includes(actionCaja)) {
+      throw new Error(
+        'RECONCILIATION_ROW_MISMATCH: CAJA 2 fila 30 no coincide con la transacción sintética esperada.'
+      );
+    }
+
+    const rawJson = String(sComandas.getRange(30, 13).getValue() || '');
+    if (!rawJson) {
+      throw new Error('RECONCILIATION_COMANDA_MISSING: COMANDAS!M30 está vacío.');
+    }
+    let item;
+    try {
+      item = JSON.parse(rawJson);
+    } catch (err) {
+      throw new Error('RECONCILIATION_COMANDA_INVALID_JSON: COMANDAS!M30 no contiene JSON válido.');
+    }
+    if (String(item.ticket || '') !== EXPECTED_TICKET ||
+        String(item.alias || '') !== EXPECTED_CUSTOMER ||
+        String(item.product || '') !== EXPECTED_PRODUCT) {
+      throw new Error('RECONCILIATION_COMANDA_MISMATCH: COMANDAS!M30 no coincide con Gate 2.');
+    }
+    if (item.state === 'Entregada') {
+      throw new Error('RECONCILIATION_ABORTED: la comanda aparece Entregada; revisar inventario antes de conciliar.');
+    }
+
+    // Verificar cobro original y detectar contrapartida existente ANTES de escribir.
+    const lastCobroRow = Math.max(sCobros.getLastRow(), 7);
+    const cobros = sCobros.getRange(7, 1, lastCobroRow - 6, 14).getValues();
+    let originalRow = -1;
+    let reversalRow = -1;
+    let reversalRecord = null;
+
+    cobros.forEach((r, idx) => {
+      const folio = String(r[0] || '');
+      if (folio === EXPECTED_RECEIPT) originalRow = idx + 7;
+      if (folio === REVERSAL_FOLIO) {
+        reversalRow = idx + 7;
+        reversalRecord = r;
+      }
+    });
+
+    if (originalRow < 0) {
+      throw new Error('RECONCILIATION_ORIGINAL_RECEIPT_MISSING: no existe REC-MVNRDXZT.');
+    }
+
+    const original = sCobros.getRange(originalRow, 1, 1, 14).getValues()[0];
+    if (String(original[3] || '') !== EXPECTED_TICKET ||
+        Number(original[5]) !== EXPECTED_AMOUNT ||
+        Number(original[13]) !== EXPECTED_AMOUNT) {
+      throw new Error('RECONCILIATION_ORIGINAL_RECEIPT_MISMATCH: el cobro original no coincide con +$40 del ticket esperado.');
+    }
+
+    // Si ya existe la reversa, validarla y NO crear otra.
+    if (reversalRow > 0) {
+      if (String(reversalRecord[3] || '') !== EXPECTED_TICKET ||
+          Number(reversalRecord[5]) !== -EXPECTED_AMOUNT ||
+          Number(reversalRecord[13]) !== -EXPECTED_AMOUNT) {
+        throw new Error('RECONCILIATION_REVERSAL_CONFLICT: REC-REV-MVNRDXZT existe con datos distintos.');
+      }
+    }
+
+    const now = new Date();
+    const nowIso = now.toISOString();
+
+    // 1. Cancelación auditable de CAJA 2. Idempotente.
+    if (actionCaja !== 'Cancelado') {
+      sCaja.getRange(30, 16).setValue('Cancelado');
+    }
+    const existingNote = String(sCaja.getRange(30, 17).getValue() || '');
+    if (!existingNote.includes(EXPECTED_RECEIPT)) {
+      sCaja.getRange(30, 17).setValue(
+        'ANULADA · PRUEBA SINTÉTICA GATE 2 · ' + EXPECTED_RECEIPT + ' · ' + nowIso
+      );
+    }
+
+    // 2. Cancelación de COMANDAS sin pasar por LISTA/ENTREGAR. Idempotente.
+    if (item.state !== 'Cancelada') {
       item.state = 'Cancelada';
       item.cancelled = nowIso;
       item.cancelledBy = 'Auditoría DOMUS';
       item.reason = 'AUDITORIA_VENTA_SINTETICA_GATE2';
       item.version = String(Number(item.version || 1) + 1);
-
-      sComandas.getRange(30, 13).setValue(JSON.stringify(item)); // M30 actualizado
-      sComandas.getRange(30, 8).setValue(''); // H30 = vacío (cumple regla de validación de Sheets)
-      sComandas.getRange(30, 14).setValue('Cancelada · Auditoría Gate 2'); // N30 espejo
+      sComandas.getRange(30, 13).setValue(JSON.stringify(item));
     }
+    sComandas.getRange(30, 8).clearContent();
+    sComandas.getRange(30, 14).setValue('Cancelada · Auditoría Gate 2');
 
-    // 3. COBROS: nueva fila compensatoria (Inmutabilidad estricta: NO se borra REC-MVNRDXZT)
-    const sCobros = m.getSheetByName('COBROS');
-    let nextRow = -1;
-    if (sCobros) {
-      nextRow = Math.max(sCobros.getLastRow() + 1, 7);
+    // 3. Contrapartida financiera. Crear sólo si no existe.
+    let reversalCreated = false;
+    if (reversalRow < 0) {
+      reversalRow = Math.max(sCobros.getLastRow() + 1, 7);
       const revRow = [
-        'REC-REV-MVNRDXZT',
+        REVERSAL_FOLIO,
         now,
         'Caja',
-        'CTA-20261025-577718',
+        EXPECTED_TICKET,
         'Efectivo',
-        -40.00,
+        -EXPECTED_AMOUNT,
         0,
-        'Cliente Gate 2',
-        'REVERSA:AUDITORIA_GATE2:REC-MVNRDXZT',
+        EXPECTED_CUSTOMER,
+        'REVERSA:AUDITORIA_GATE2:' + EXPECTED_RECEIPT,
         '',
         'Confirmado',
         'Dirección / Auditoría',
-        -40.00,
-        -40.00,
+        -EXPECTED_AMOUNT,
+        -EXPECTED_AMOUNT,
         '',
         'Visita general DOMUS',
         0, 0, 0, 'SISTEMA-WEB',
         '', '', '', '', '', '', '',
-        JSON.stringify([{ name: 'Orgía de botanas', price: -40.00 }]),
+        JSON.stringify([{ name: EXPECTED_PRODUCT, price: -EXPECTED_AMOUNT }]),
         0, '', ''
       ];
-      sCobros.getRange(nextRow, 1, 1, revRow.length).setValues([revRow]);
+      sCobros.getRange(reversalRow, 1, 1, revRow.length).setValues([revRow]);
+      reversalCreated = true;
+    }
+
+    SpreadsheetApp.flush();
+
+    // Verificación postcondición financiera: el ticket debe quedar neto en 0.
+    const refreshedLastRow = Math.max(sCobros.getLastRow(), 7);
+    const refreshed = sCobros.getRange(7, 1, refreshedLastRow - 6, 14).getValues();
+    const netTicketAmount = refreshed.reduce((sum, r) => {
+      return String(r[3] || '') === EXPECTED_TICKET ? sum + (Number(r[13]) || 0) : sum;
+    }, 0);
+
+    if (Math.abs(netTicketAmount) > 0.001) {
+      throw new Error('RECONCILIATION_NET_MISMATCH: el ticket no quedó neto en $0.00; neto=' + netTicketAmount);
     }
 
     return {
       ok: true,
+      idempotent: true,
       cajaRow: 30,
       cajaStatus: 'Cancelado',
       comandaRow: 30,
       comandaState: 'Cancelada',
-      reversalFolio: 'REC-REV-MVNRDXZT',
-      reversalRow: nextRow,
-      amount: -40.00,
+      originalReceipt: EXPECTED_RECEIPT,
+      reversalFolio: REVERSAL_FOLIO,
+      reversalRow: reversalRow,
+      reversalCreated: reversalCreated,
+      originalAmount: EXPECTED_AMOUNT,
+      reversalAmount: -EXPECTED_AMOUNT,
+      netTicketAmount: netTicketAmount,
+      inventoryTouched: false,
       timestamp: nowIso
     };
   });
