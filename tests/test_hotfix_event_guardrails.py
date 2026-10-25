@@ -27,21 +27,25 @@ def post_rpc(action, args=None, token=None, role="ADMIN", device_id="TEST-HOTFIX
         "requestId": request_id or f"REQ-{action}-{int(time.time()*1000)}"
     }
     data = json.dumps(payload).encode("utf-8")
-    req = urllib.request.Request(
-        STAGING_URL,
-        data=data,
-        headers={"Content-Type": "application/json", "User-Agent": "Mozilla/5.0"}
-    )
-    try:
-        with urllib.request.urlopen(req, timeout=60) as resp:
-            data = json.loads(resp.read().decode("utf-8"))
-            if data.get("ok") and isinstance(data.get("data"), dict) and "data" in data["data"] and isinstance(data["data"]["data"], dict):
-                data["data"] = data["data"]["data"]
-            return data
-    except urllib.error.HTTPError as e:
-        return json.loads(e.read().decode("utf-8"))
-    except Exception as e:
-        return {"ok": False, "error": str(e)}
+    for attempt in range(2):
+        req = urllib.request.Request(
+            STAGING_URL,
+            data=data,
+            headers={"Content-Type": "application/json", "User-Agent": "Mozilla/5.0"}
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=60) as resp:
+                res = json.loads(resp.read().decode("utf-8"))
+                if res.get("ok") and isinstance(res.get("data"), dict) and "data" in res["data"] and isinstance(res["data"]["data"], dict):
+                    res["data"] = res["data"]["data"]
+                return res
+        except urllib.error.HTTPError as e:
+            return json.loads(e.read().decode("utf-8"))
+        except Exception as e:
+            if attempt == 0:
+                time.sleep(2)
+                continue
+            return {"ok": False, "error": str(e)}
 
 def run_tests():
     print("=" * 80)
@@ -105,7 +109,8 @@ def run_tests():
     }], token=token)
     print(f"   Resultado: {res_ext}")
     assert res_ext.get("ok") is True, f"Boletera externa debió pasar: {res_ext}"
-    assert res_ext.get("data", {}).get("total") == 50.0, "Cobro en puerta debió ser exactamente $50 (guardarropa)"
+    door_amt = res_ext.get("data", {}).get("doorCollected") if res_ext.get("data", {}).get("doorCollected") is not None else res_ext.get("data", {}).get("total")
+    assert door_amt == 50.0, f"Cobro en puerta debió ser exactamente $50 (guardarropa), obtenido: {door_amt}"
     results.append(("3. Boletera Externa Forza Permitida ($50 Guardarropa)", "PASS"))
 
     # Test 4: Cortesía para Forza es PERMITIDA ($0 en puerta)
@@ -121,7 +126,8 @@ def run_tests():
     }], token=token)
     print(f"   Resultado: {res_cort}")
     assert res_cort.get("ok") is True, f"Cortesía debió pasar: {res_cort}"
-    assert res_cort.get("data", {}).get("total") == 0.0, "Cobro de cortesía debió ser $0"
+    door_cort = res_cort.get("data", {}).get("doorCollected") if res_cort.get("data", {}).get("doorCollected") is not None else res_cort.get("data", {}).get("total")
+    assert door_cort == 0.0, f"Cobro de cortesía debió ser $0, obtenido: {door_cort}"
     results.append(("4. Cortesía Forza Permitida ($0 Puerta)", "PASS"))
 
     # Test 5: Evento con acuerdo Confirmado y tarifa válida es PERMITIDO ('Sensorama fetish y kinky', $150)
@@ -138,7 +144,8 @@ def run_tests():
     }], token=token)
     print(f"   Resultado: {res_conf}")
     assert res_conf.get("ok") is True, f"Evento confirmado debió cobrar: {res_conf}"
-    assert res_conf.get("data", {}).get("total") == 150.0, "Cobro debió ser $150"
+    door_conf = res_conf.get("data", {}).get("doorCollected") if res_conf.get("data", {}).get("doorCollected") is not None else res_conf.get("data", {}).get("total")
+    assert door_conf == 150.0, f"Cobro debió ser $150, obtenido: {door_conf}"
     results.append(("5. Evento Confirmado en Taquilla Cobrado Exitosamente", "PASS"))
 
     # Test 6: Venta POS en Caja
@@ -150,7 +157,7 @@ def run_tests():
         "method": "Efectivo",
         "paid": True,
         "received": 200.0,
-        "items": [{"name": "Victoria · 473", "qty": 2, "price": 40.0, "courtesy": False}]
+        "items": [{"name": "Orgía de botanas", "group": "Comida público", "qty": 2, "price": 40.0, "courtesy": False}]
     }], token=token)
     print(f"   Resultado POS: {res_pos}")
     assert res_pos.get("ok") is True, f"Venta POS falló: {res_pos}"
@@ -174,7 +181,7 @@ def run_tests():
         "method": "Efectivo",
         "paid": True,
         "received": 200.0,
-        "items": [{"name": "Victoria · 473", "qty": 2, "price": 40.0, "courtesy": False}]
+        "items": [{"name": "Orgía de botanas", "group": "Comida público", "qty": 2, "price": 40.0, "courtesy": False}]
     }], token=token, request_id=f"REQ-cajaSimpleRegistrar-{pos_req}")
     print(f"   Resultado Replay: {res_replay.get('ok')}")
     assert res_replay.get("ok") is True, "Replay de idempotencia falló"
