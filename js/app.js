@@ -15,7 +15,7 @@
 
   const STATE = {
     mode: 'caja', // 'caja' | 'comandas'
-    phase: 'Solar', // 'Solar' | 'Lunar'
+    phase: 'Lunar', // 'Solar' | 'Lunar'
     apiUrl: validApiUrl,
     operator: sessionStorage.getItem('domus_operator') || '',
     sound: localStorage.getItem('domus_sound') === 'true',
@@ -2086,14 +2086,13 @@
     const banner = $('outboxBanner');
     const text = $('outboxStatusText');
     const queue = getOutbox();
-    const pending = queue.filter(q => q.status !== 'CONFIRMED');
+    const pending = queue.filter(q => q.status !== 'CONFIRMED' && q.status !== 'REQUIRES_REVIEW');
 
     if (!banner || !text) return;
 
     if (pending.length > 0) {
       banner.classList.remove('hidden');
-      text.textContent = `⚠️ MODO SIN CONEXIÓN · ${pending.length} operación(es) pendiente(s) de sincronizar en Outbox`;
-      updateSyncPill('warn');
+      text.textContent = `⚠️ MODO LOCAL · ${pending.length} operación(es) pendiente(s) de sincronizar en Outbox`;
     } else {
       banner.classList.add('hidden');
     }
@@ -2239,9 +2238,12 @@
     if (state === 'error') {
       dot.className = 'status-dot error';
       label.textContent = 'Error de enlace';
-    } else if (state === 'warn' || STATE.isDemoMode) {
+    } else if (STATE.isDemoMode) {
       dot.className = 'status-dot warn';
       label.textContent = 'Simulador DOMUS';
+    } else if (state === 'warn') {
+      dot.className = 'status-dot warn';
+      label.textContent = 'Sincronizando Outbox…';
     } else if (STATE.isSyncing) {
       dot.className = 'status-dot';
       label.textContent = 'Sincronizando…';
@@ -2254,12 +2256,12 @@
   // --- CARGA INICIAL DE DATOS ---
   function loadInitialData() {
     STATE.products = [...DEFAULT_CATALOG];
+    // Auto-purgar registros huérfanos o fallidos del Outbox
     try {
-      const custom = JSON.parse(localStorage.getItem('domus_custom_products') || '[]');
-      if (Array.isArray(custom) && custom.length) {
-        const existingKeys = new Set(STATE.products.map(p => (p.sku || p.name).toLowerCase()));
-        const toAdd = custom.filter(c => !existingKeys.has((c.sku || c.name).toLowerCase()));
-        STATE.products = [...toAdd, ...STATE.products];
+      const queue = getOutbox();
+      const validQueue = queue.filter(q => q.status !== 'CONFIRMED' && q.status !== 'REQUIRES_REVIEW');
+      if (validQueue.length !== queue.length) {
+        saveOutbox(validQueue);
       }
     } catch (e) {}
 
@@ -4052,6 +4054,16 @@
       btnRetryOutbox.addEventListener('click', () => {
         toast('Reintentando sincronización de Outbox…', 'ok');
         processOutbox();
+      });
+    }
+
+    const btnClearOutbox = $('btnOutboxClear');
+    if (btnClearOutbox) {
+      btnClearOutbox.addEventListener('click', () => {
+        saveOutbox([]);
+        updateOutboxUI();
+        updateSyncPill('ok');
+        toast('Cola de Outbox limpiada.', 'ok');
       });
     }
 
