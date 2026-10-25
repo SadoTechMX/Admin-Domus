@@ -5983,7 +5983,8 @@ const DEFAULT_CATALOG = [
         if (item.status === 'LOCAL_PENDING' || item.status === 'RETRY') {
           const err = item.lastError || '';
           const hasEmptyItems = item.action === 'cajaSimpleRegistrar' && (!item.args || !item.args[0] || !item.args[0].items || !item.args[0].items.length);
-          const isDeterministic = hasEmptyItems || classifyMutationFailure(err) === 'REQUIRES_REVIEW';
+          const hasRecordedError = String(err).trim().length > 0;
+          const isDeterministic = hasEmptyItems || (hasRecordedError && classifyMutationFailure(err) === 'REQUIRES_REVIEW');
 
           if (isDeterministic) {
             console.warn(`[OUTBOX MIGRATION v13] Migrando item determinista a REQUIRES_REVIEW: ${item.requestId} (${err || 'Empty items'})`);
