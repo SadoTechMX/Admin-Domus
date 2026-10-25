@@ -2395,3 +2395,85 @@ function handleApiGetRequest_(action, params) {
 }
 
 // ==================== END OF Api.gs ====================
+
+/**
+ * ============================================================================
+ * DOMUS OS · FUNCIÓN ADMINISTRATIVA DE CONCILIACIÓN AUDITABLE (GATE 2)
+ * Cancela comanda y venta en CAJA 2 fila 30 y COMANDAS fila 30 sin tocar inventario (ADR-004)
+ * y genera el asiento contable compensatorio en COBROS preservando inmutabilidad.
+ * Ejecutable directamente desde el editor de Google Apps Script.
+ * ============================================================================
+ */
+function conciliarVentaSinteticaGate2() {
+  const m = SpreadsheetApp.openById(CONFIG.mainSheetId);
+  return withLock_(CONFIG.lockTimeoutMs, () => {
+    const nowIso = new Date().toISOString();
+    const now = new Date();
+
+    // 1. CAJA 2 fila 30
+    const sCaja = m.getSheetByName('CAJA 2') || m.getSheetByName('CAJA');
+    if (sCaja) {
+      sCaja.getRange(30, 16).setValue('Cancelado'); // P30 = Cancelado
+      sCaja.getRange(30, 17).setValue('ANULADA · PRUEBA SINTÉTICA GATE 2 · REC-MVNRDXZT · ' + nowIso); // Q30 = Notas
+    }
+
+    // 2. COMANDAS fila 30
+    const sComandas = m.getSheetByName('COMANDAS');
+    if (sComandas) {
+      const rawJson = sComandas.getRange(30, 13).getValue(); // M30 maestro
+      let item = JSON.parse(rawJson);
+      item.state = 'Cancelada';
+      item.cancelled = nowIso;
+      item.cancelledBy = 'Auditoría DOMUS';
+      item.reason = 'AUDITORIA_VENTA_SINTETICA_GATE2';
+      item.version = String(Number(item.version || 1) + 1);
+
+      sComandas.getRange(30, 13).setValue(JSON.stringify(item)); // M30 actualizado
+      sComandas.getRange(30, 8).setValue(''); // H30 = vacío (cumple regla de validación de Sheets)
+      sComandas.getRange(30, 14).setValue('Cancelada · Auditoría Gate 2'); // N30 espejo
+    }
+
+    // 3. COBROS: nueva fila compensatoria (Inmutabilidad estricta: NO se borra REC-MVNRDXZT)
+    const sCobros = m.getSheetByName('COBROS');
+    let nextRow = -1;
+    if (sCobros) {
+      nextRow = Math.max(sCobros.getLastRow() + 1, 7);
+      const revRow = [
+        'REC-REV-MVNRDXZT',
+        now,
+        'Caja',
+        'CTA-20261025-577718',
+        'Efectivo',
+        -40.00,
+        0,
+        'Cliente Gate 2',
+        'REVERSA:AUDITORIA_GATE2:REC-MVNRDXZT',
+        '',
+        'Confirmado',
+        'Dirección / Auditoría',
+        -40.00,
+        -40.00,
+        '',
+        'Visita general DOMUS',
+        0, 0, 0, 'SISTEMA-WEB',
+        '', '', '', '', '', '', '',
+        JSON.stringify([{ name: 'Orgía de botanas', price: -40.00 }]),
+        0, '', ''
+      ];
+      sCobros.getRange(nextRow, 1, 1, revRow.length).setValues([revRow]);
+    }
+
+    return {
+      ok: true,
+      cajaRow: 30,
+      cajaStatus: 'Cancelado',
+      comandaRow: 30,
+      comandaState: 'Cancelada',
+      reversalFolio: 'REC-REV-MVNRDXZT',
+      reversalRow: nextRow,
+      amount: -40.00,
+      timestamp: nowIso
+    };
+  });
+}
+
