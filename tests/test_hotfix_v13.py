@@ -82,6 +82,7 @@ def run_suite():
     print("\n[Test 5] Recarga del navegador conserva REQUIRES_REVIEW sin purgado automático...")
     assert "migrateLegacyOutbox_()" in js_content, "Falta llamada a migrateLegacyOutbox_ en inicialización"
     assert "filter(q => q.status !== 'CONFIRMED' && q.status !== 'REQUIRES_REVIEW')" not in js_content, "Se detectó purgado destructivo de REQUIRES_REVIEW en arranque"
+    assert "hasRecordedError && classifyMutationFailure(err) === 'REQUIRES_REVIEW'" in js_content, "La migración no debe cuarentenar pendientes sin evidencia de error determinista"
     print("✅ TEST 5 PASS: REQUIRES_REVIEW persiste y no es purgado al recargar la aplicación.")
     passed += 1
 
