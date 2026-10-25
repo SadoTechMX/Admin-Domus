@@ -184,6 +184,12 @@ function handleApiGetRequest_(action, params) {
       data = accesoSimpleDatos();
     } else if (action === 'cajaSimpleEstado') {
       data = cajaSimpleEstado(params.id || '');
+    } else if (action === 'financeLedgerPreview') {
+      authValidateAction(action, params.token || '', params.role || '', params.deviceId || '');
+      data = financeLedgerPreview_(params);
+    } else if (action === 'financeSummaryPreview') {
+      authValidateAction(action, params.token || '', params.role || '', params.deviceId || '');
+      data = financeSummaryPreview_(params);
     } else if (action === 'ping' || action === 'health') {
       data = {
         status: 'HEALTHY',
