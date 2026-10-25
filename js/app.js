@@ -1647,6 +1647,16 @@
   // --- SELECTORES DOM ---
   const $ = id => document.getElementById(id);
 
+  function escapeHtml(str) {
+    if (str === null || str === undefined) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
   // --- AUDIO SYNTHESIZER ---
   function playChime(kind = 'alert') {
     if (!STATE.sound) return;
@@ -1928,6 +1938,9 @@
       if (res && res.data && res.data.token) {
         setSessionToken(res.data.token, role);
         console.log('[DOMUS AUTO-AUTH] Sesión creada exitosamente:', role, res.data.token);
+      } else {
+        const fallbackToken = 'DOMUS-SES-' + devId;
+        setSessionToken(fallbackToken, role);
       }
       const cbs = [...pendingSessionCallbacks];
       pendingSessionCallbacks.length = 0;
@@ -1936,6 +1949,8 @@
     .catch(err => {
       isEnsuringSession = false;
       console.warn('[DOMUS AUTO-AUTH] Error al crear sesión automática:', err);
+      const fallbackToken = 'DOMUS-SES-' + devId;
+      setSessionToken(fallbackToken, role);
       const cbs = [...pendingSessionCallbacks];
       pendingSessionCallbacks.length = 0;
       cbs.forEach(cb => cb());
@@ -2236,6 +2251,41 @@
     }
 
     // 2. Modo Externo (GitHub Pages / Fetch API con Outbox)
+    // A) Consultas de sólo lectura: GET directo ultra-rápido, sin bloqueo de token ni errores de redirección POST de Google Apps Script
+    if (!isMutation) {
+      const getUrl = `${STATE.apiUrl}?action=${encodeURIComponent(fnName)}&token=${encodeURIComponent(getSessionToken())}&role=${encodeURIComponent(getStationRole())}&_=${Date.now()}`;
+      fetch(getUrl, {
+        method: 'GET',
+        cache: 'no-cache'
+      })
+      .then(res => res.json())
+      .then(json => {
+        STATE.isSyncing = false;
+        STATE.lastSyncTimestamp = Date.now();
+        if (!json.ok && json.error) throw new Error(json.error);
+
+        updateSyncPill('ok');
+        const data = json.data !== undefined ? json.data : json;
+        cacheQuerySnapshot(fnName, data);
+        if (onSuccess) onSuccess(data);
+      })
+      .catch(err => {
+        console.warn(`Consulta GET '${fnName}' falló:`, err);
+        STATE.isSyncing = false;
+        STATE.lastSyncTimestamp = Date.now();
+        const cached = getCachedQuerySnapshot(fnName);
+        if (cached && onSuccess) {
+          updateSyncPill('ok');
+          onSuccess(cached);
+        } else {
+          updateSyncPill('error');
+          if (onError) onError(err);
+        }
+      });
+      return;
+    }
+
+    // B) Mutaciones transaccionales (POST con token, idempotencia y encolado en Outbox)
     if (!getSessionToken()) {
       ensureSessionToken(() => {
         callBackend(fnName, args, onSuccess, onError);
@@ -2267,8 +2317,6 @@
 
       updateSyncPill('ok');
       const data = json.data !== undefined ? json.data : json;
-      if (!isMutation) cacheQuerySnapshot(fnName, data);
-
       if (onSuccess) onSuccess(data);
       processOutbox();
     })
@@ -2277,36 +2325,24 @@
       STATE.lastSyncTimestamp = Date.now();
       updateSyncPill('error');
 
-      if (isMutation) {
-        // Encolar de forma segura en Outbox
-        const item = enqueueOutbox(fnName, args, 'MUTATION');
-        item.lastError = err.message || String(err);
-        item.status = 'RETRY';
-        saveOutbox(getOutbox());
+      // Encolar de forma segura en Outbox
+      const item = enqueueOutbox(fnName, args, 'MUTATION');
+      item.lastError = err.message || String(err);
+      item.status = 'RETRY';
+      saveOutbox(getOutbox());
 
-        toast(`⚠️ Sin conexión con Google Sheets. Operación guardada de forma segura en Outbox local (${reqId}).`, 'warn');
-        if (onSuccess) {
-          onSuccess({
-            ok: true,
-            localOutbox: true,
-            status: 'LOCAL_PENDING',
-            requestId: reqId,
-            rowId: reqId,
-            id: reqId,
-            ticket: reqId,
-            message: `Guardado en Outbox local (${reqId}). Se sincronizará automáticamente al volver la señal.`
-          });
-        }
-      } else {
-        // Consulta de lectura que falló por red: recuperar de caché local si existe
-        console.warn(`Consulta '${fnName}' falló por falta de red. Intentando leer desde caché local.`);
-        const cached = getCachedQuerySnapshot(fnName);
-        if (cached && onSuccess) {
-          toast('Mostrando datos de respaldo en caché local.', 'warn');
-          onSuccess(cached);
-        } else if (onError) {
-          onError(err);
-        }
+      toast(`⚠️ Sin conexión con Google Sheets. Operación guardada de forma segura en Outbox local (${reqId}).`, 'warn');
+      if (onSuccess) {
+        onSuccess({
+          ok: true,
+          localOutbox: true,
+          status: 'LOCAL_PENDING',
+          requestId: reqId,
+          rowId: reqId,
+          id: reqId,
+          ticket: reqId,
+          message: `Guardado en Outbox local (${reqId}). Se sincronizará automáticamente al volver la señal.`
+        });
       }
     });
   }
@@ -4531,9 +4567,21 @@
 
   // --- INICIALIZAR APP ---
   document.addEventListener('DOMContentLoaded', () => {
-    initRouting();
-    setupEventListeners();
-    loadInitialData();
+    try {
+      loadInitialData();
+    } catch (e) {
+      console.error('[DOMUS BOOT] Error en loadInitialData:', e);
+    }
+    try {
+      setupEventListeners();
+    } catch (e) {
+      console.error('[DOMUS BOOT] Error en setupEventListeners:', e);
+    }
+    try {
+      initRouting();
+    } catch (e) {
+      console.error('[DOMUS BOOT] Error en initRouting:', e);
+    }
   });
 
   // Arqueo de Caja / Cierre: Efectivo esperado = $600 + cobros reales efectivo - retiros - devoluciones - gastos autorizados

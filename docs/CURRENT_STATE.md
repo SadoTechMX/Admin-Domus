@@ -3,12 +3,12 @@
 > [!NOTE]
 > Este archivo resume el estado técnico del sistema. La fuente de verdad para el commit activo siempre es el comando `git rev-parse HEAD`.
 
-* **Fecha de Último Handoff:** 2026-10-25 01:10 UTC-6 (Noche 24/10 cruzando medianoche 25/10)
+* **Fecha de Último Handoff:** 2026-10-25 01:48 UTC-6 (Noche 24/10 cruzando medianoche 25/10)
 * **Decisión Ejecutiva Operativa:** **PRODUCCIÓN EN VIVO OPERANDO AL 100%.**
 * **Baseline Backend Vigente:** Apps Script **Versión 22** (`PROD_VERIFIED`, Hotfix KDS formula-ledger + Guardarropa $0)
 * **Versión Rollback Garantizada:** Apps Script **Versión 12** (23 oct 2026, 10:58 p.m.)
-* **Baseline Frontend Vigente (GitHub Pages):** Commit `53aa938` (Hotfix `73b8173` `fix(access): preserve active overnight event after midnight`)
-* **Rama `main` (Producción):** Alineada en commit `53aa938`
+* **Baseline Frontend Vigente (GitHub Pages):** Hotfix Accesos UI (`escapeHtml` def + GET transport + resilient boot)
+* **Rama `main` (Producción):** Alineada con hotfix de enlace y renderizado de Accesos
 * **Estado de Working Tree:** `clean`
 * **Entorno de PRODUCCIÓN Oficial:**
   - Versión Activa en Producción: **Versión 22** (25 oct 2026, Baseline Vigente Oficial)
