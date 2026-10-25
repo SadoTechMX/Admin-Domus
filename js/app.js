@@ -3490,6 +3490,7 @@
   function setAccessSalesChannel(channel) {
     STATE.accessSalesChannel = channel;
     renderAccessChannels();
+    renderEntryTypesGrid();
 
     // Toggle specific detail panels
     const panelBoletera = $('panelBoleteraDetail');
@@ -3519,13 +3520,21 @@
     if (!container) return;
 
     const ev = getActiveEvent();
+    const isForza = (ev.name || '').toLowerCase().includes('forza') || (ev.organizer || '').toUpperCase() === 'FORZA';
+    const isCourtesy = STATE.accessSalesChannel === 'CORTESIA';
     const pGen = (ev.priceGeneral !== undefined && ev.priceGeneral !== null && ev.priceGeneral !== '') ? Number(ev.priceGeneral) : 0;
     const pPar = (ev.pricePareja !== undefined && ev.pricePareja !== null && ev.pricePareja !== '') ? Number(ev.pricePareja) : 0;
     const pTrio = (ev.priceTrio !== undefined && ev.priceTrio !== null && ev.priceTrio !== '') ? Number(ev.priceTrio) : 0;
 
     // Tipos de boletos pertenecientes al evento
     let types = [];
-    if (Array.isArray(ev.ticketTypes) && ev.ticketTypes.length > 0) {
+    if (isForza) {
+      types = [
+        { id: 'General', label: 'General (1 Asistente)', price: isCourtesy ? 0 : 150, persons: 1, icon: '👤', tag: isCourtesy ? '$0.00 (Cortesía)' : '$150.00 DOMUS' },
+        { id: 'Pareja', label: 'Pareja (2 Asistentes)', price: isCourtesy ? 0 : 300, persons: 2, icon: '👥', tag: isCourtesy ? '$0.00 (Cortesía)' : '$300.00 DOMUS' },
+        { id: 'Trío', label: 'Trío (3 Asistentes)', price: isCourtesy ? 0 : 450, persons: 3, icon: '🧑‍🤝‍🧑', tag: isCourtesy ? '$0.00 (Cortesía)' : '$450.00 DOMUS' }
+      ];
+    } else if (Array.isArray(ev.ticketTypes) && ev.ticketTypes.length > 0) {
       types = ev.ticketTypes.map(t => ({
         id: t.id || t.name,
         label: t.name || t.id,
@@ -3552,7 +3561,7 @@
 
     container.innerHTML = types.map(t => {
       const isSelected = STATE.accessSelectedType === t.id;
-      const priceText = `$${t.price.toFixed(2)}`;
+      const priceText = t.tag || `$${t.price.toFixed(2)}`;
       return `
         <div class="entry-type-btn entry-type-card ${isSelected ? 'active selected' : ''}" data-entry-type="${escapeHtml(t.id)}" data-price="${t.price}" data-persons="${t.persons}" role="button" tabindex="0">
           <div class="entry-type-icon">${t.icon}</div>
@@ -3637,33 +3646,47 @@
   function calculateAccessSubtotal() {
     const ev = getActiveEvent();
     const channel = STATE.accessSalesChannel || 'BOLETERA_EXTERNA';
+    const isForza = (ev.name || '').toLowerCase().includes('forza') || (ev.organizer || '').toUpperCase() === 'FORZA';
     
-    // Obtener tarifa nominal del tipo de boleto
-    let faceValue = 0;
+    // Obtener personas según tipo de boleto
     let persons = 1;
     const selectedCard = document.querySelector(`.entry-type-card[data-entry-type="${STATE.accessSelectedType}"], .entry-type-btn[data-entry-type="${STATE.accessSelectedType}"]`);
     if (selectedCard) {
-      faceValue = parseFloat(selectedCard.getAttribute('data-price')) || 0;
       persons = parseInt(selectedCard.getAttribute('data-persons'), 10) || 1;
-    } else {
-      if (STATE.accessSelectedType === 'Pareja') {
-        faceValue = (ev.pricePareja !== undefined && ev.pricePareja !== null && ev.pricePareja !== '') ? Number(ev.pricePareja) : 0;
-        persons = 2;
-      } else if (STATE.accessSelectedType === 'Trío') {
-        faceValue = (ev.priceTrio !== undefined && ev.priceTrio !== null && ev.priceTrio !== '') ? Number(ev.priceTrio) : 0;
-        persons = 3;
+    } else if (STATE.accessSelectedType === 'Pareja') {
+      persons = 2;
+    } else if (STATE.accessSelectedType === 'Trío') {
+      persons = 3;
+    }
+
+    // Obtener tarifa nominal del tipo de boleto / cuota comercial
+    let faceValue = 0;
+    if (isForza) {
+      // Regla de acuerdo FORZA: cada persona en lista o boletera genera $150 para DOMUS; cortesías $0
+      if (channel === 'CORTESIA') {
+        faceValue = 0;
       } else {
-        faceValue = (ev.priceGeneral !== undefined && ev.priceGeneral !== null && ev.priceGeneral !== '') ? Number(ev.priceGeneral) : 0;
-        persons = 1;
+        faceValue = (ev.forzaFeePerAttendee || 150) * persons;
+      }
+    } else {
+      if (selectedCard) {
+        faceValue = parseFloat(selectedCard.getAttribute('data-price')) || 0;
+      } else {
+        if (STATE.accessSelectedType === 'Pareja') {
+          faceValue = (ev.pricePareja !== undefined && ev.pricePareja !== null && ev.pricePareja !== '') ? Number(ev.pricePareja) : 0;
+        } else if (STATE.accessSelectedType === 'Trío') {
+          faceValue = (ev.priceTrio !== undefined && ev.priceTrio !== null && ev.priceTrio !== '') ? Number(ev.priceTrio) : 0;
+        } else {
+          faceValue = (ev.priceGeneral !== undefined && ev.priceGeneral !== null && ev.priceGeneral !== '') ? Number(ev.priceGeneral) : 0;
+        }
       }
     }
 
-    // Cobro de entrada en puerta según canal
+    // Cobro de entrada en puerta según canal ($0 para FORZA y canales externos)
     let doorEntryCharge = 0;
-    if (channel === 'TAQUILLA_DOMUS') {
+    if (channel === 'TAQUILLA_DOMUS' && !isForza) {
       doorEntryCharge = faceValue;
     } else {
-      // BOLETERA_EXTERNA, TRANSFERENCIA_DIRECTA, PREVENTA_DOMUS, CORTESIA, LISTA
       doorEntryCharge = 0;
     }
 
@@ -3673,21 +3696,31 @@
     const doorTotal = doorEntryCharge + wardrobeCost;
     const commercialTotal = faceValue + wardrobeCost;
 
-    return { faceValue, persons, doorEntryCharge, wardrobeCost, doorTotal, commercialTotal };
+    return { faceValue, persons, doorEntryCharge, wardrobeCost, doorTotal, commercialTotal, isForza };
   }
 
   function updateAccessSummary() {
-    const { faceValue, doorEntryCharge, wardrobeCost, doorTotal, commercialTotal } = calculateAccessSubtotal();
+    const { faceValue, persons, doorEntryCharge, wardrobeCost, doorTotal, commercialTotal, isForza } = calculateAccessSubtotal();
 
     if ($('summaryFaceValue')) $('summaryFaceValue').textContent = `$${faceValue.toFixed(2)}`;
+    if ($('summaryFaceValueLabel')) {
+      $('summaryFaceValueLabel').textContent = isForza ? `Cuota DOMUS ($150 × ${persons} pers):` : 'Valor Comercial Boleto:';
+    }
     if ($('summaryDoorEntryAmount')) $('summaryDoorEntryAmount').textContent = `$${doorEntryCharge.toFixed(2)}`;
     if ($('summaryWardrobeQty')) $('summaryWardrobeQty').textContent = STATE.accessWardrobeQty || 0;
     if ($('summaryWardrobeAmount')) $('summaryWardrobeAmount').textContent = `$${wardrobeCost.toFixed(2)}`;
     if ($('summaryTotalAdmission')) $('summaryTotalAdmission').textContent = `$${doorTotal.toFixed(2)}`;
 
+    // Banner de estado de canal
+    if ($('bannerBoleteraText')) {
+      $('bannerBoleteraText').textContent = isForza 
+        ? '✓ Boleto / Lista FORZA · Genera $150 para DOMUS (liquidación de evento) · $0 por cobrar en puerta'
+        : '✓ Boleto pagado externamente · $0 por cobrar en puerta por entrada';
+    }
+
     // Dinamismo del botón de acción principal (siempre habilitado)
     const btnConfirm = $('btnConfirmAccess');
-    if (btnConfirm) {
+    if (btnConfirm && !isRegisteringAccess) {
       btnConfirm.disabled = false;
       if (doorTotal > 0) {
         btnConfirm.textContent = `✓ Cobrar $${doorTotal.toFixed(2)} y Emitir Tickets`;
@@ -3695,9 +3728,9 @@
       } else {
         const channel = STATE.accessSalesChannel;
         let label = 'Ya Pagada';
-        if (channel === 'BOLETERA_EXTERNA') label = 'Boletera Externa · $0 en Puerta';
+        if (channel === 'BOLETERA_EXTERNA') label = isForza ? 'Boletera FORZA · $150 DOMUS · $0 en Puerta' : 'Boletera Externa · $0 en Puerta';
         else if (channel === 'CORTESIA') label = 'Cortesía $0';
-        else if (channel === 'LISTA') label = 'Lista / Invitado $0';
+        else if (channel === 'LISTA') label = isForza ? 'Lista Invitados · $150 DOMUS · $0 en Puerta' : 'Lista / Invitado $0';
         else if (channel === 'PREVENTA_DOMUS') label = 'Preventa Validada';
         btnConfirm.textContent = `✓ Validar Entrada (${label})`;
       }
@@ -3747,12 +3780,30 @@
     if ($('wardrobeBadgeCount')) $('wardrobeBadgeCount').textContent = activeWardrobe;
 
     // 3. Validated Presales & Externas
-    const presales = records.filter(r => r.salesChannel === 'BOLETERA_EXTERNA' || r.salesChannel === 'PREVENTA_DOMUS' || r.entryType === 'Preventa').length;
+    const presales = records.filter(r => r.salesChannel === 'BOLETERA_EXTERNA' || r.salesChannel === 'PREVENTA_DOMUS' || r.entryType === 'Preventa' || r.salesChannel === 'LISTA').length;
     if ($('kpiValidatedPresales')) $('kpiValidatedPresales').textContent = presales;
 
-    // 4. Total Door Revenue (dinero cobrado efectivamente en puerta DOMUS)
+    // 4. Total Door Revenue / Liquidación
     const totalDoorRev = records.reduce((sum, r) => sum + (Number(r.doorCollected !== undefined ? r.doorCollected : (r.amountPaidAtDoor !== undefined ? r.amountPaidAtDoor : r.paid)) || 0), 0);
-    if ($('kpiTotalAdmissionRevenue')) $('kpiTotalAdmissionRevenue').textContent = `$${totalDoorRev.toFixed(2)}`;
+    
+    // Si es FORZA, reflejar en el KPI la cuota acumulada generada para DOMUS ($150 por persona no cortesía)
+    const isForza = (activeAct || '').toLowerCase().includes('forza');
+    if (isForza) {
+      const payableCount = records
+        .filter(r => r.salesChannel !== 'CORTESIA')
+        .reduce((sum, r) => sum + (Number(r.persons) || Number(r.packages) || 1), 0);
+      const feeTotal = payableCount * 150;
+      
+      if ($('kpiTotalAdmissionRevenue')) {
+        $('kpiTotalAdmissionRevenue').textContent = `$${feeTotal.toFixed(2)}`;
+      }
+      if ($('kpiRevenueLabel')) {
+        $('kpiRevenueLabel').textContent = `Cuota DOMUS ($150 × ${payableCount})`;
+      }
+    } else {
+      if ($('kpiTotalAdmissionRevenue')) $('kpiTotalAdmissionRevenue').textContent = `$${totalDoorRev.toFixed(2)}`;
+      if ($('kpiRevenueLabel')) $('kpiRevenueLabel').textContent = 'Taquilla Hoy';
+    }
 
     updateAccesosBadge();
   }

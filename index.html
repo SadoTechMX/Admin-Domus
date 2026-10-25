@@ -313,7 +313,7 @@
             <span class="accesos-kpi-icon">💵</span>
             <div class="accesos-kpi-info">
               <span class="accesos-kpi-val" id="kpiTotalAdmissionRevenue">$0.00</span>
-              <span class="accesos-kpi-lbl">Taquilla Hoy</span>
+              <span class="accesos-kpi-lbl" id="kpiRevenueLabel">Taquilla Hoy</span>
             </div>
           </div>
         </div>
@@ -417,8 +417,7 @@
                 <input type="text" id="accessExternalTicketId" placeholder="Ej. BOL-99482 / QR (Opcional)" />
               </div>
             </div>
-            <div class="channel-status-pill badge-neutral">✓ Boleto pagado externamente · $0 por cobrar en puerta por
-              entrada</div>
+            <div class="channel-status-pill badge-neutral" id="bannerBoleteraText">✓ Boleto pagado externamente · $0 por cobrar en puerta por entrada</div>
           </div>
 
           <!-- B. Transferencia Previa Panel -->
@@ -523,7 +522,7 @@
           <!-- Summary Box -->
           <div class="accesos-summary-box">
             <div class="accesos-summary-row">
-              <span>Valor Comercial Boleto:</span>
+              <span id="summaryFaceValueLabel">Valor Comercial Boleto:</span>
               <strong id="summaryFaceValue">$0.00</strong>
             </div>
             <div class="accesos-summary-row">
@@ -1181,7 +1180,7 @@
         <div class="toast-container" id="toastContainer" aria-live="polite"></div>
 
         <!-- Script -->
-        <script src="js/app.js?v=20261025-07"></script>
+        <script src="js/app.js?v=20261025-08"></script>
 </body>
 
 </html>
