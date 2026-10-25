@@ -2219,13 +2219,8 @@ const DEFAULT_CATALOG = [
     }
 
     if (STATE.mode !== newMode) {
-      const savedRole = localStorage.getItem('domus_session_role');
-      const targetRole = newMode === 'caja' ? 'CAJA' : (newMode === 'comandas' ? 'BARRA' : 'ACCESOS');
-      if (savedRole && savedRole !== targetRole) {
-        localStorage.removeItem('domus_session_token');
-        sessionStorage.removeItem('domus_session_token');
-        localStorage.removeItem('domus_session_role');
-      }
+      STATE.mode = newMode;
+      localStorage.setItem('domus_view', newMode);
     }
 
     STATE.mode = newMode;
@@ -2281,15 +2276,24 @@ const DEFAULT_CATALOG = [
     return devId;
   }
 
-  function getSessionToken() {
-    return sessionStorage.getItem('domus_session_token') || localStorage.getItem('domus_session_token') || '';
+  function getSessionToken(targetRole) {
+    const role = targetRole || getStationRole();
+    return sessionStorage.getItem('domus_session_token_' + role) ||
+           sessionStorage.getItem('domus_session_token') ||
+           localStorage.getItem('domus_session_token_' + role) ||
+           (localStorage.getItem('domus_session_role') === role ? localStorage.getItem('domus_session_token') : '') ||
+           '';
   }
 
   function setSessionToken(token, role) {
     if (token) {
+      const cleanRole = role || getStationRole();
+      sessionStorage.setItem('domus_session_token_' + cleanRole, token);
       sessionStorage.setItem('domus_session_token', token);
+      localStorage.setItem('domus_session_token_' + cleanRole, token);
+      localStorage.setItem('domus_session_role_' + cleanRole, cleanRole);
       localStorage.setItem('domus_session_token', token);
-      if (role) localStorage.setItem('domus_session_role', role);
+      localStorage.setItem('domus_session_role', cleanRole);
     }
   }
 
@@ -2303,10 +2307,10 @@ const DEFAULT_CATALOG = [
   let isEnsuringSession = false;
   const pendingSessionCallbacks = [];
 
-  function ensureSessionToken(onDone) {
-    const currentToken = getSessionToken();
-    const currentRole = getStationRole();
-    const savedRole = localStorage.getItem('domus_session_role');
+  function ensureSessionToken(onDone, targetRole) {
+    const currentRole = targetRole || getStationRole();
+    const currentToken = getSessionToken(currentRole);
+    const savedRole = localStorage.getItem('domus_session_role_' + currentRole) || localStorage.getItem('domus_session_role');
 
     if (currentToken && (!savedRole || savedRole === currentRole)) {
       if (onDone) onDone();
@@ -2338,7 +2342,7 @@ const DEFAULT_CATALOG = [
         setSessionToken(res.data.token, role);
         console.log('[DOMUS AUTO-AUTH] Sesión creada exitosamente:', role, res.data.token);
       } else {
-        const fallbackToken = 'DOMUS-SES-' + devId;
+        const fallbackToken = 'DOMUS-SES-' + role + '-' + devId;
         setSessionToken(fallbackToken, role);
       }
       const cbs = [...pendingSessionCallbacks];
@@ -2348,7 +2352,7 @@ const DEFAULT_CATALOG = [
     .catch(err => {
       isEnsuringSession = false;
       console.warn('[DOMUS AUTO-AUTH] Error al crear sesión automática:', err);
-      const fallbackToken = 'DOMUS-SES-' + devId;
+      const fallbackToken = 'DOMUS-SES-' + role + '-' + devId;
       setSessionToken(fallbackToken, role);
       const cbs = [...pendingSessionCallbacks];
       pendingSessionCallbacks.length = 0;
@@ -2495,14 +2499,15 @@ const DEFAULT_CATALOG = [
         saveOutbox(queue);
 
         const endpoint = `${STATE.apiUrl}?action=${encodeURIComponent(item.action)}`;
+        const itemRole = item.role || getStationRole();
         const payload = {
           action: item.action,
           args: item.args,
           requestId: item.requestId,
           deviceId: item.deviceId,
           operator: item.operatorId,
-          role: item.role,
-          sessionToken: getSessionToken()
+          role: itemRole,
+          sessionToken: getSessionToken(itemRole)
         };
 
         try {
@@ -2685,10 +2690,11 @@ const DEFAULT_CATALOG = [
     }
 
     // B) Mutaciones transaccionales (POST con token, idempotencia y encolado en Outbox)
-    if (!getSessionToken()) {
+    const stationRole = getStationRole();
+    if (!getSessionToken(stationRole)) {
       ensureSessionToken(() => {
         callBackend(fnName, args, onSuccess, onError);
-      });
+      }, stationRole);
       return;
     }
 
@@ -2699,8 +2705,8 @@ const DEFAULT_CATALOG = [
       requestId: reqId,
       deviceId: getDeviceId(),
       operator: STATE.operator || 'Operador',
-      role: getStationRole(),
-      sessionToken: getSessionToken()
+      role: stationRole,
+      sessionToken: getSessionToken(stationRole)
     };
 
     fetch(endpoint, {
@@ -3339,7 +3345,7 @@ const DEFAULT_CATALOG = [
       method: isPaid ? activePaymentMethod : '',
       received: isPaid && activePaymentMethod === 'Efectivo' ? received : null,
       tip: isPaid && activePaymentMethod === 'Efectivo' ? tip : 0,
-      credit: isPaid ? '' : STATE.accountType,
+      credit: isPaid ? '' : (STATE.accountType || 'Amigo'),
       items: STATE.cart.map(i => ({
         name: i.name,
         price: i.price,
