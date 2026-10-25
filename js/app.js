@@ -3709,13 +3709,13 @@ const DEFAULT_CATALOG = [
 
                 ${STATE.kdsFilterState !== 'Entregadas' ? `
                   <div class="order-item-actions">
-                    ${hasResponsible && item.state !== 'Lista' && !item.incident ? `
+                    ${hasResponsible && item.state === 'En preparación' && !item.incident ? `
                       <button type="button" class="btn-action-small btn-ready" onclick="window.__domusApp.markOrderReady('${item.key}')">
                         ✓ Marcar Lista
                       </button>
                     ` : ''}
                     
-                    ${hasResponsible && !item.incident ? `
+                    ${hasResponsible && item.state === 'Lista' && !item.incident ? `
                       <button type="button" class="btn-action-small btn-deliver" onclick="window.__domusApp.deliverOrder('${item.key}')">
                         📦 Entregar
                       </button>
@@ -3780,6 +3780,12 @@ const DEFAULT_CATALOG = [
   // --- ACCIONES KDS ---
   function claimOrder(orderKey) {
     if (!ensureOperator()) return;
+    const ord = STATE.comandas.find(o => o.key === orderKey);
+    if (!ord || ord.state !== 'Pendiente') {
+      toast('La comanda ya no está Pendiente. Actualizando tablero…', 'warn');
+      syncBackendData();
+      return;
+    }
     const body = {
       key: orderKey,
       action: 'TOMAR',
@@ -3795,6 +3801,12 @@ const DEFAULT_CATALOG = [
 
   function markOrderReady(orderKey) {
     if (!ensureOperator()) return;
+    const ord = STATE.comandas.find(o => o.key === orderKey);
+    if (!ord || ord.state !== 'En preparación') {
+      toast('Sólo una comanda En preparación puede marcarse como Lista.', 'warn');
+      syncBackendData();
+      return;
+    }
     const body = {
       key: orderKey,
       action: 'LISTA',
@@ -3811,7 +3823,12 @@ const DEFAULT_CATALOG = [
   function deliverOrder(orderKey) {
     if (!ensureOperator()) return;
     const ord = STATE.comandas.find(o => o.key === orderKey);
-    const prodName = ord ? ord.product : '1 unidad';
+    if (!ord || ord.state !== 'Lista') {
+      toast('Sólo una comanda marcada como Lista puede registrarse como Entregada.', 'warn');
+      syncBackendData();
+      return;
+    }
+    const prodName = ord.product || '1 unidad';
     
     if (!confirm(`¿Confirmas la entrega FÍSICA de:\n${prodName} para ${ord ? ord.alias : 'el cliente'}?`)) {
       return;
