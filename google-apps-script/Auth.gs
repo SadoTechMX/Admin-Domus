@@ -34,7 +34,11 @@ const ACTION_PERMISSIONS = Object.freeze({
   // Catálogo, Administración y Carta
   sincronizarCartaConCatalogoDOMUS: ['ADMIN', 'GERENCIA'],
   registrarNuevoProducto: ['CAJA', 'ADMIN', 'GERENCIA'],
-  sincronizarJujutsuShi: ['ADMIN', 'GERENCIA']
+  sincronizarJujutsuShi: ['ADMIN', 'GERENCIA'],
+
+  // Finanzas / Economic OS (lectura sensible)
+  financeLedgerPreview: ['GERENCIA', 'ADMIN'],
+  financeSummaryPreview: ['GERENCIA', 'ADMIN']
 });
 
 /**
