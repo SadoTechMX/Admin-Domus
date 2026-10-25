@@ -73,7 +73,7 @@ function getActiveEnvironment_() {
 
   // Por seguridad en branch de aislamiento, si los IDs de Staging están configurados se usa STAGING
   if (ENVIRONMENTS.STAGING.mainSheetId && ENVIRONMENTS.STAGING.opsSheetId) {
-    return ENVIRONMENTS.STAGING;
+    return ENVIRONMENTS.PRODUCTION;
   }
 
   return ENVIRONMENTS.PRODUCTION;
@@ -94,7 +94,7 @@ const CONFIG = Object.freeze({
   managers: typeof D !== 'undefined' && D.managers ? D.managers : ['direccion@domusccc.net', 'sadotechfet@gmail.com'],
   
   // Operadores Autorizados del Club
-  staff: ['René', 'Miguel', 'Mike', 'Meaw', 'Wall E', 'Iván', 'Kas', 'Steven', 'Angel'],
+  staff: ['René', 'Miguel', 'Mike', 'Taichi Mike', 'Meaw', 'Wall E', 'Iván', 'Kas', 'Steven', 'Angel'],
   
   // Parámetros de Sesión y Seguridad
   sessionDurationHours: 12,
@@ -619,7 +619,10 @@ function cajaSimpleDatos() {
   const m = SpreadsheetApp.openById(CONFIG.mainSheetId);
   const s = m.getSheetByName('CAJA 2');
   const phase = String(s.getRange('F2').getValue()) || 'Solar';
-  const cat = m.getSheetByName('CATALOGO').getRange('A7:T306').getValues();
+  const sheetCat = m.getSheetByName('CATALOGO');
+  const lastRowCat = sheetCat ? sheetCat.getLastRow() : 6;
+  const numRowsCat = Math.max(1, lastRowCat - 6);
+  const cat = sheetCat ? sheetCat.getRange(7, 1, numRowsCat, 20).getValues() : [];
 
   // Filtrar catálogo activo
   const products = [];
@@ -729,7 +732,10 @@ function cajaSimpleRegistrarCore_(p) {
     throw new Error('Cambió la carta a Fase ' + phase + '. Por favor actualiza antes de cobrar.');
   }
 
-  const cat = m.getSheetByName('CATALOGO').getRange('A7:T306').getValues();
+  const sheetCat = m.getSheetByName('CATALOGO');
+  const lastRowCat = sheetCat ? sheetCat.getLastRow() : 6;
+  const numRowsCat = Math.max(1, lastRowCat - 6);
+  const cat = sheetCat ? sheetCat.getRange(7, 1, numRowsCat, 20).getValues() : [];
   const canCourtesy = CONFIG.managers.includes(who.toLowerCase()) || p.courtesyAuthorized;
   const units = posExpandCart_(p.items || [], cat, phase, canCourtesy);
 
@@ -1112,30 +1118,101 @@ function comandasSimpleAccion(token, body) {
       let invMovement = null;
       const sInv = m.getSheetByName('INVENTARIO');
       if (sInv) {
-        const invValues = sInv.getRange(7, 1, 300, 9).getValues();
-        for (let j = 0; j < invValues.length; j++) {
-          const invSku = String(invValues[j][0] || '').trim();
-          const invName = String(invValues[j][1] || '').trim();
-          if ((targetItem.sku && invSku === targetItem.sku) ||
-              (invName && (invName === targetItem.product || targetItem.product.startsWith(invName) || targetItem.product.includes(invName)))) {
-            const rowIdx = j + 7;
-            const currentInitial = Number(invValues[j][5]) || 0;
-            const currentOut = Number(invValues[j][6]) || 0;
-            const qty = Number(targetItem.qty || 1);
-            const newOut = currentOut + qty;
-            const newDisp = Math.max(0, currentInitial - newOut);
-            sInv.getRange(rowIdx, 7).setValue(newOut);
-            sInv.getRange(rowIdx, 8).setValue(newDisp);
-            invMovement = {
-              sku: invSku,
-              product: invName,
-              qty: qty,
-              previousOut: currentOut,
-              newOut: newOut,
-              available: newDisp
-            };
-            break;
+        const lastRow = sInv.getLastRow();
+        const numRows = Math.max(1, lastRow - 6);
+        const invValues = sInv.getRange(7, 1, numRows, 9).getValues();
+
+        const targetSkuRaw = String(targetItem.sku || '').trim().toUpperCase();
+        const targetProdRaw = String(targetItem.product || '').trim();
+
+        // 1. Alias de SKU explícitamente autorizados (bidireccionales)
+        const SKU_ALIASES = {
+          'VICTORIA-473': 'CARTA-VICTORIA-473',
+          'CARTA-VICTORIA-473': 'VICTORIA-473',
+          'MODELO-473': 'CARTA-MODELO-473',
+          'CARTA-MODELO-473': 'MODELO-473',
+          'BAR-CB-LATA': 'CARTA-BAR-CB-LATA',
+          'CARTA-BAR-CB-LATA': 'BAR-CB-LATA'
+        };
+        const targetAlias = SKU_ALIASES[targetSkuRaw] || '';
+
+        // Función de normalización estricta de nombres para descarte de colisiones
+        const normalizeStr = s => String(s || '').toLowerCase()
+          .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+          .replace(/[·—–-]/g, ' ')
+          .replace(/\s+/g, ' ')
+          .trim();
+
+        const targetNorm = normalizeStr(targetProdRaw);
+
+        let matchRowIdx = -1;
+        let matchedInvRow = null;
+
+        // Prioridad 1: SKU exacto
+        if (targetSkuRaw) {
+          for (let j = 0; j < invValues.length; j++) {
+            const invSku = String(invValues[j][0] || '').trim().toUpperCase();
+            if (invSku && invSku === targetSkuRaw) {
+              matchRowIdx = j + 7;
+              matchedInvRow = invValues[j];
+              break;
+            }
           }
+        }
+
+        // Prioridad 2: Alias de SKU explícitamente autorizado
+        if (matchRowIdx === -1 && targetAlias) {
+          for (let j = 0; j < invValues.length; j++) {
+            const invSku = String(invValues[j][0] || '').trim().toUpperCase();
+            if (invSku && invSku === targetAlias) {
+              matchRowIdx = j + 7;
+              matchedInvRow = invValues[j];
+              break;
+            }
+          }
+        }
+
+        // Prioridad 3: Nombre exacto normalizado (coincidencia idéntica completa, NUNCA substring laxo)
+        if (matchRowIdx === -1 && targetNorm) {
+          for (let j = 0; j < invValues.length; j++) {
+            const invNameNorm = normalizeStr(invValues[j][1]);
+            if (invNameNorm && invNameNorm === targetNorm) {
+              matchRowIdx = j + 7;
+              matchedInvRow = invValues[j];
+              break;
+            }
+          }
+        }
+
+        // Si se localizó la fila inequívoca:
+        if (matchRowIdx !== -1 && matchedInvRow) {
+          const invSku = String(matchedInvRow[0] || '').trim();
+          const invName = String(matchedInvRow[1] || '').trim();
+          const currentInitial = Number(matchedInvRow[5]) || 0;
+          const currentOut = Number(matchedInvRow[6]) || 0;
+          const qty = Number(targetItem.qty || 1);
+          const newOut = currentOut + qty;
+          const newDisp = Math.max(0, currentInitial - newOut);
+          sInv.getRange(matchRowIdx, 7).setValue(newOut);
+          sInv.getRange(matchRowIdx, 8).setValue(newDisp);
+          invMovement = {
+            sku: invSku,
+            product: invName,
+            row: matchRowIdx,
+            qty: qty,
+            previousOut: currentOut,
+            newOut: newOut,
+            available: newDisp
+          };
+        } else {
+          // Prioridad 4: Si no existe coincidencia inequívoca, INVENTORY_ITEM_NOT_FOUND y NO descontar nada
+          console.warn(`[KDS INVENTARIO] Item no localizado en INVENTARIO: SKU='${targetSkuRaw}', Producto='${targetProdRaw}'. No se descontó ninguna fila.`);
+          invMovement = {
+            status: 'INVENTORY_ITEM_NOT_FOUND',
+            sku: targetSkuRaw,
+            product: targetProdRaw,
+            discounted: false
+          };
         }
       }
 
@@ -1440,7 +1517,13 @@ function accesoSimpleDatos() {
       const pGen = typeof r[4] === 'number' ? r[4] : (parseFloat(r[4]) || 0);
       const pPar = typeof r[5] === 'number' ? r[5] : (parseFloat(r[5]) || 0);
       const pTrio = typeof r[6] === 'number' ? r[6] : (parseFloat(r[6]) || 0);
-      const pGua = typeof r[7] === 'number' ? r[7] : (parseFloat(r[7]) || 50);
+      let pGua = 50;
+      if (typeof r[7] === 'number') {
+        pGua = r[7];
+      } else if (r[7] !== '' && r[7] !== null && r[7] !== undefined) {
+        const parsed = parseFloat(r[7]);
+        pGua = isNaN(parsed) ? 50 : parsed;
+      }
 
       // Tipos de boletos del evento (estándar + personalizados en notas col M)
       let customTicketTypes = [];
@@ -1588,7 +1671,7 @@ function accesoSimpleRegistrar(payload) {
     
     const wardrobeQty = Math.max(0, parseInt(payload.wardrobeQty, 10) || 0);
     const wardrobeNotes = String(payload.wardrobeNotes || '').trim();
-    const wardrobeUnitPrice = parseFloat(payload.wardrobeUnitPrice) || 50;
+    const wardrobeUnitPrice = (payload.wardrobeUnitPrice !== undefined && payload.wardrobeUnitPrice !== null && payload.wardrobeUnitPrice !== '') ? Number(payload.wardrobeUnitPrice) : 50;
     const wardrobeAmount = wardrobeQty * wardrobeUnitPrice;
 
     const ticketProvider = String(payload.ticketProvider || (salesChannel === ACCESS_SALES_CHANNELS.BOLETERA_EXTERNA ? 'Boletera' : 'DOMUS')).trim();

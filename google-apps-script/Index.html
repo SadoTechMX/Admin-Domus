@@ -1,10 +1,12 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
   <title>DOMUS · Sistema Operativo de Administración, Caja y Comandas</title>
-  <meta name="description" content="Plataforma unificada para administración de DOMUS, punto de venta de caja y pantalla de comandas de cocina y barra." />
+  <meta name="description"
+    content="Plataforma unificada para administración de DOMUS, punto de venta de caja y pantalla de comandas de cocina y barra." />
   <meta name="theme-color" content="#0a0b0e" />
 
   <!-- Favicon / Branding -->
@@ -2147,6 +2149,7 @@ html, body {
 
 </style>
 </head>
+
 <body>
 
   <!-- ========================================================================
@@ -2213,7 +2216,8 @@ html, body {
       </button>
 
       <!-- Settings / Config -->
-      <button type="button" class="action-icon-btn" id="btnOpenSettings" title="Configuración y Enlace con Google Apps Script">
+      <button type="button" class="action-icon-btn" id="btnOpenSettings"
+        title="Configuración y Enlace con Google Apps Script">
         ⚙️
       </button>
 
@@ -2232,6 +2236,7 @@ html, body {
     </div>
     <div class="outbox-actions">
       <button type="button" class="btn-outbox-sync" id="btnOutboxRetry">🔄 Reintentar Sincronización</button>
+      <button type="button" class="btn-outbox-sync" id="btnOutboxClear" style="margin-left: 8px; background: rgba(239,68,68,0.2); border-color: rgba(239,68,68,0.4); color: #fca5a5;">✕ Limpiar Cola</button>
     </div>
   </aside>
 
@@ -2250,9 +2255,10 @@ html, body {
         <div class="catalog-toolbar">
           <div class="search-input-wrapper">
             <span class="search-icon">🔍</span>
-            <input type="text" id="catalogSearchInput" placeholder="Buscar producto, cerveza, cóctel o insumo…" />
+            <input type="text" id="catalogSearchInput" placeholder="Buscar producto, menú cannábico, alitas, hamburguesa, cerveza…" />
           </div>
-          <button type="button" class="btn-add-product-toolbar" id="btnOpenNewProductModal" title="Registrar un nuevo producto en el catálogo e inventario">
+          <button type="button" class="btn-add-product-toolbar" id="btnOpenNewProductModal"
+            title="Registrar un nuevo producto en el catálogo e inventario">
             <span>➕</span>
             <span>Alta de Producto</span>
           </button>
@@ -2397,7 +2403,8 @@ html, body {
           <select id="accessActivitySelect" class="event-select-styled" title="Selecciona el evento en curso">
             <!-- Rendered dynamically -->
           </select>
-          <button type="button" class="btn-new-event" id="btnOpenNewEventModal" title="Programar o configurar un evento con sus tarifas">
+          <button type="button" class="btn-new-event" id="btnOpenNewEventModal"
+            title="Programar o configurar un evento con sus tarifas">
             <span>➕</span>
             <span>Nuevo Evento / Tarifas</span>
           </button>
@@ -2522,7 +2529,8 @@ html, body {
                 <input type="text" id="accessExternalTicketId" placeholder="Ej. BOL-99482 / QR" />
               </div>
             </div>
-            <div class="channel-status-pill badge-neutral">✓ Boleto pagado externamente · $0 por cobrar en puerta por entrada</div>
+            <div class="channel-status-pill badge-neutral">✓ Boleto pagado externamente · $0 por cobrar en puerta por
+              entrada</div>
           </div>
 
           <!-- B. Transferencia Previa Panel -->
@@ -2555,7 +2563,8 @@ html, body {
                 <input type="text" id="accessCourtesyReason" placeholder="Ej. Artista / Prensa / Aliado" />
               </div>
             </div>
-            <div class="channel-status-pill badge-warn">⭐ Cortesía autorizada · Valor comercial registrado a $0 en puerta</div>
+            <div class="channel-status-pill badge-warn">⭐ Cortesía autorizada · Valor comercial registrado a $0 en
+              puerta</div>
           </div>
 
           <!-- D. Preventa Directa DOMUS Panel -->
@@ -2564,7 +2573,8 @@ html, body {
               <label for="accessPresaleDomusFolio">Folio de Preventa DOMUS: *</label>
               <input type="text" id="accessPresaleDomusFolio" placeholder="Ej. PRE-2026-088" />
             </div>
-            <div class="channel-status-pill badge-neutral">✓ Preventa ya cobrada previamente en DOMUS · Validar acceso sin re-cobro</div>
+            <div class="channel-status-pill badge-neutral">✓ Preventa ya cobrada previamente en DOMUS · Validar acceso
+              sin re-cobro</div>
           </div>
 
           <!-- E. Taquilla Door Payment Section -->
@@ -2599,7 +2609,8 @@ html, body {
               </div>
               <div class="input-group">
                 <label>Cambio:</label>
-                <div style="font-size: 1.2rem; font-weight: 800; color: var(--emerald-400); padding-top: 8px;" id="accessCashChangeText">$0.00</div>
+                <div style="font-size: 1.2rem; font-weight: 800; color: var(--emerald-400); padding-top: 8px;"
+                  id="accessCashChangeText">$0.00</div>
               </div>
             </div>
           </div>
@@ -2641,7 +2652,8 @@ html, body {
             </div>
           </div>
 
-          <button type="button" class="btn-primary-action" id="btnConfirmAccess" style="padding: 14px; font-size: 1.05rem;">
+          <button type="button" class="btn-primary-action" id="btnConfirmAccess"
+            style="padding: 14px; font-size: 1.05rem;">
             ✓ Confirmar Acceso y Emitir Tickets
           </button>
         </div>
@@ -2669,7 +2681,8 @@ html, body {
             <div id="panelAccessLog" class="accesos-panel">
               <div class="search-input-wrapper" style="margin-bottom: 12px;">
                 <span class="search-icon">🔍</span>
-                <input type="text" id="accessLogSearchInput" placeholder="Buscar por asistente, teléfono, folio o tipo…" />
+                <input type="text" id="accessLogSearchInput"
+                  placeholder="Buscar por asistente, teléfono, folio o tipo…" />
               </div>
               <div class="accesos-table-wrapper">
                 <table class="accesos-table">
@@ -2696,7 +2709,8 @@ html, body {
             <div id="panelWardrobe" class="accesos-panel hidden">
               <div class="search-input-wrapper" style="margin-bottom: 12px;">
                 <span class="search-icon">🔍</span>
-                <input type="text" id="wardrobeSearchInput" placeholder="Buscar por ticket GUA, nombre de cliente o prenda…" />
+                <input type="text" id="wardrobeSearchInput"
+                  placeholder="Buscar por ticket GUA, nombre de cliente o prenda…" />
               </div>
               <div class="accesos-table-wrapper">
                 <table class="accesos-table">
@@ -2719,7 +2733,8 @@ html, body {
 
             <!-- Tab Panel 3: Eventos & Tarifas -->
             <div id="panelEvents" class="accesos-panel hidden">
-              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
+              <div
+                style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
                 <p style="font-size: 0.85rem; color: var(--text-muted); margin: 0;">
                   Catálogo de actividades programadas y estructura de tarifas autorizadas en DOMUS.
                 </p>
@@ -2766,14 +2781,16 @@ html, body {
       </div>
 
       <div class="modal-body">
-        <div style="display: flex; justify-content: space-between; align-items: baseline; background: var(--bg-surface-elevated); padding: 14px 18px; border-radius: var(--radius-md);">
+        <div
+          style="display: flex; justify-content: space-between; align-items: baseline; background: var(--bg-surface-elevated); padding: 14px 18px; border-radius: var(--radius-md);">
           <span style="font-size: 1rem; color: var(--text-secondary); font-weight: 600;">Total a Cobrar:</span>
           <span style="font-size: 1.8rem; font-weight: 800; color: var(--gold-400);" id="payTotalDisplay">$0.00</span>
         </div>
 
         <!-- Forma de Pago -->
         <div>
-          <label style="display: block; font-size: 0.85rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 8px;">
+          <label
+            style="display: block; font-size: 0.85rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 8px;">
             Selecciona la Forma de Pago:
           </label>
           <div class="payment-methods-grid">
@@ -2866,7 +2883,8 @@ html, body {
             <span id="receiptTotal">$0.00</span>
           </div>
 
-          <div id="receiptPaymentDetails" style="margin-top: 12px; font-size: 0.88rem; border-top: 1px dotted #9ca3af; padding-top: 8px;">
+          <div id="receiptPaymentDetails"
+            style="margin-top: 12px; font-size: 0.88rem; border-top: 1px dotted #9ca3af; padding-top: 8px;">
             <!-- Payment info rendered dynamically -->
           </div>
         </div>
@@ -2876,7 +2894,8 @@ html, body {
         <button type="button" class="btn-secondary" id="btnPrintReceipt">
           🖨️ Imprimir Ticket
         </button>
-        <button type="button" class="btn-primary-action" onclick="document.getElementById('receiptModal').classList.remove('open')">
+        <button type="button" class="btn-primary-action"
+          onclick="document.getElementById('receiptModal').classList.remove('open')">
           Aceptar
         </button>
       </div>
@@ -2900,25 +2919,31 @@ html, body {
 
         <div class="input-group">
           <label for="gasApiUrlInput">URL de Implementación de Apps Script (/exec):</label>
-          <input type="url" id="gasApiUrlInput" placeholder="https://script.google.com/a/macros/domusccc.net/s/.../exec" />
+          <input type="url" id="gasApiUrlInput"
+            placeholder="https://script.google.com/a/macros/domusccc.net/s/.../exec" />
           <small style="color: var(--text-muted); display: block; margin-top: 4px;">
             URL del Web App publicado en el proyecto Google Apps Script de DOMUS.
           </small>
         </div>
 
-        <div style="background: var(--bg-surface-elevated); padding: 12px 16px; border-radius: var(--radius-md); font-size: 0.85rem; color: var(--text-muted);">
-          ℹ️ Si abres esta web desde el propio enlace de Google Apps Script, la conexión es nativa y directa sin requerir claves externas.
+        <div
+          style="background: var(--bg-surface-elevated); padding: 12px 16px; border-radius: var(--radius-md); font-size: 0.85rem; color: var(--text-muted);">
+          ℹ️ Si abres esta web desde el propio enlace de Google Apps Script, la conexión es nativa y directa sin
+          requerir claves externas.
         </div>
 
         <hr style="border: none; border-top: 1px solid var(--border-subtle); margin: 6px 0;" />
 
         <!-- Sincronización de Catálogo e Inventario -->
         <div>
-          <h4 style="font-size: 0.95rem; margin-bottom: 8px; color: var(--gold-400);">📊 Base de Datos: Catálogo e Inventario</h4>
+          <h4 style="font-size: 0.95rem; margin-bottom: 8px; color: var(--gold-400);">📊 Base de Datos: Catálogo e
+            Inventario</h4>
           <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 8px;">
-            Sincronizar los 120 productos y recetas de la Carta Oficial Definitiva directamente a CATALOGO e INVENTARIO del libro maestro de DOMUS.
+            Sincronizar los 120 productos y recetas de la Carta Oficial Definitiva directamente a CATALOGO e INVENTARIO
+            del libro maestro de DOMUS.
           </p>
-          <button type="button" class="btn-secondary-action" id="btnSyncOfficialCarta" style="width: 100%; border-color: var(--gold-500); color: var(--gold-400);">
+          <button type="button" class="btn-secondary-action" id="btnSyncOfficialCarta"
+            style="width: 100%; border-color: var(--gold-500); color: var(--gold-400);">
             🔄 Sincronizar CATALOGO e INVENTARIO en Google Sheets
           </button>
         </div>
@@ -2929,7 +2954,8 @@ html, body {
         <div>
           <h4 style="font-size: 0.95rem; margin-bottom: 8px; color: var(--gold-400);">🔒 Seguridad de Caja</h4>
           <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 8px;">
-            Cambiar la contraseña o PIN numérico requerido para ingresar a Modo Caja desde cualquier equipo no autorizado.
+            Cambiar la contraseña o PIN numérico requerido para ingresar a Modo Caja desde cualquier equipo no
+            autorizado.
           </p>
           <div class="input-group">
             <label for="newCajaPasswordInput">Nueva Contraseña o PIN de Caja:</label>
@@ -2939,7 +2965,8 @@ html, body {
       </div>
 
       <div class="modal-footer">
-        <button type="button" class="btn-secondary" onclick="document.getElementById('configModal').classList.remove('open')">
+        <button type="button" class="btn-secondary"
+          onclick="document.getElementById('configModal').classList.remove('open')">
           Cancelar
         </button>
         <button type="button" class="btn-primary-action" id="btnSaveConfig" style="width: auto;">
@@ -2954,7 +2981,8 @@ html, body {
        ======================================================================== -->
   <div class="modal-overlay" id="cajaLockModal" role="dialog" aria-modal="true" aria-labelledby="cajaLockTitle">
     <div class="modal-card" style="max-width: 380px;">
-      <div class="modal-header" style="justify-content: center; text-align: center; border-bottom: none; padding-bottom: 0;">
+      <div class="modal-header"
+        style="justify-content: center; text-align: center; border-bottom: none; padding-bottom: 0;">
         <div style="text-align: center; width: 100%;">
           <div class="lock-badge-icon">🔒</div>
           <h3 id="cajaLockTitle">Acceso Protegido a Caja</h3>
@@ -2966,8 +2994,10 @@ html, body {
 
       <div class="modal-body" style="padding-top: 8px;">
         <div class="pin-display-wrapper">
-          <input type="password" id="cajaPinInput" class="pin-input-field" placeholder="••••" maxlength="20" autofocus />
-          <div id="cajaPinError" style="color: var(--rose-400); font-size: 0.85rem; font-weight: 600; min-height: 20px;"></div>
+          <input type="password" id="cajaPinInput" class="pin-input-field" placeholder="••••" maxlength="20"
+            autofocus />
+          <div id="cajaPinError"
+            style="color: var(--rose-400); font-size: 0.85rem; font-weight: 600; min-height: 20px;"></div>
         </div>
 
         <!-- Teclado Numérico para Pantallas Táctiles / Tablets -->
@@ -3003,250 +3033,267 @@ html, body {
         <button type="button" class="btn-primary-action" id="btnSubmitCajaPin" style="width: auto;">
           ✓ Desbloquear
         </button>
-  <!-- ========================================================================
+        <!-- ========================================================================
        MODAL 5: REGISTRAR NUEVO PRODUCTO EN CAJA / INVENTARIO
        ======================================================================== -->
-  <div class="modal-overlay" id="newProductModal" role="dialog" aria-modal="true" aria-labelledby="newProductTitle">
-    <div class="modal-card" style="max-width: 520px;">
-      <div class="modal-header">
-        <h3 id="newProductTitle">➕ Alta de Nuevo Producto</h3>
-        <button type="button" class="modal-close-btn" id="btnCloseNewProductModal" aria-label="Cerrar">&times;</button>
-      </div>
+        <div class="modal-overlay" id="newProductModal" role="dialog" aria-modal="true"
+          aria-labelledby="newProductTitle">
+          <div class="modal-card" style="max-width: 520px;">
+            <div class="modal-header">
+              <h3 id="newProductTitle">➕ Alta de Nuevo Producto</h3>
+              <button type="button" class="modal-close-btn" id="btnCloseNewProductModal"
+                aria-label="Cerrar">&times;</button>
+            </div>
 
-      <div class="modal-body">
-        <p style="font-size: 0.85rem; color: var(--text-muted);">
-          El producto se registrará en el catálogo de Caja, el inventario operativo y en Google Sheets.
-        </p>
+            <div class="modal-body">
+              <p style="font-size: 0.85rem; color: var(--text-muted);">
+                El producto se registrará en el catálogo de Caja, el inventario operativo y en Google Sheets.
+              </p>
 
-        <div class="input-group">
-          <label for="newProdName">Nombre del Producto / Presentación: *</label>
-          <input type="text" id="newProdName" placeholder="Ej. Mezcalina de Jamaica · 500 ml" required />
+              <div class="input-group">
+                <label for="newProdName">Nombre del Producto / Presentación: *</label>
+                <input type="text" id="newProdName" placeholder="Ej. Mezcalina de Jamaica · 500 ml" required />
+              </div>
+
+              <div class="form-row-2">
+                <div class="input-group">
+                  <label for="newProdCategory">Categoría:</label>
+                  <select id="newProdCategory">
+                    <option value="Menú Cannábico">🌿 Menú Cannábico</option>
+                    <option value="Cafetería">Cafetería</option>
+                    <option value="Bebidas">Bebidas</option>
+                    <option value="Cervezas">Cervezas</option>
+                    <option value="Cheladas">Cheladas</option>
+                    <option value="Coctelería">Coctelería</option>
+                    <option value="Canna Treats">Canna Treats</option>
+                    <option value="Cocina">Cocina</option>
+                    <option value="Sushi">Sushi</option>
+                    <option value="Shots">Shots</option>
+                    <option value="__NEW__">+ Otra Categoría…</option>
+                  </select>
+                </div>
+
+                <div class="input-group">
+                  <label for="newProdDestination">Estación de Comanda: *</label>
+                  <select id="newProdDestination">
+                    <option value="Barra">Barra</option>
+                    <option value="Cocina">Cocina</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="input-group hidden" id="customCatWrapper">
+                <label for="newProdCustomCategory">Nombre de la Nueva Categoría:</label>
+                <input type="text" id="newProdCustomCategory" placeholder="Escribe el nombre de la nueva categoría…" />
+              </div>
+
+              <div class="form-row-2">
+                <div class="input-group">
+                  <label for="newProdPriceSolar">Precio Fase Solar (MXN): *</label>
+                  <input type="number" id="newProdPriceSolar" placeholder="0.00" min="0" step="any" required />
+                </div>
+
+                <div class="input-group">
+                  <label for="newProdPriceLunar">Precio Fase Lunar (MXN): *</label>
+                  <input type="number" id="newProdPriceLunar" placeholder="0.00" min="0" step="any" required />
+                </div>
+              </div>
+
+              <div class="form-row-2">
+                <div class="input-group">
+                  <label for="newProdProvider">Proveedor / Marca:</label>
+                  <input type="text" id="newProdProvider" placeholder="DOMUS" value="DOMUS" />
+                </div>
+
+                <div class="input-group">
+                  <label for="newProdSku">Clave / SKU (opcional):</label>
+                  <input type="text" id="newProdSku" placeholder="Auto-generado si está vacío" />
+                </div>
+              </div>
+
+              <div class="input-group">
+                <label for="newProdStock">Stock Inicial en Inventario:</label>
+                <input type="number" id="newProdStock" value="50" min="0" step="1" />
+              </div>
+            </div>
+
+            <div class="modal-footer">
+              <button type="button" class="btn-secondary" id="btnCancelNewProduct">
+                Cancelar
+              </button>
+              <button type="button" class="btn-primary-action" id="btnSaveNewProduct" style="width: auto;">
+                ✓ Guardar y Dar de Alta
+              </button>
+            </div>
+          </div>
         </div>
 
-        <div class="form-row-2">
-          <div class="input-group">
-            <label for="newProdCategory">Categoría:</label>
-            <select id="newProdCategory">
-              <option value="Cafetería">Cafetería</option>
-              <option value="Bebidas">Bebidas</option>
-              <option value="Cervezas">Cervezas</option>
-              <option value="Cheladas">Cheladas</option>
-              <option value="Coctelería">Coctelería</option>
-              <option value="Canna Treats">Canna Treats</option>
-              <option value="Cocina">Cocina</option>
-              <option value="Sushi">Sushi</option>
-              <option value="Shots">Shots</option>
-              <option value="__NEW__">+ Otra Categoría…</option>
-            </select>
-          </div>
-
-          <div class="input-group">
-            <label for="newProdDestination">Estación de Comanda: *</label>
-            <select id="newProdDestination">
-              <option value="Barra">Barra</option>
-              <option value="Cocina">Cocina</option>
-            </select>
-          </div>
-        </div>
-
-        <div class="input-group hidden" id="customCatWrapper">
-          <label for="newProdCustomCategory">Nombre de la Nueva Categoría:</label>
-          <input type="text" id="newProdCustomCategory" placeholder="Escribe el nombre de la nueva categoría…" />
-        </div>
-
-        <div class="form-row-2">
-          <div class="input-group">
-            <label for="newProdPriceSolar">Precio Fase Solar (MXN): *</label>
-            <input type="number" id="newProdPriceSolar" placeholder="0.00" min="0" step="any" required />
-          </div>
-
-          <div class="input-group">
-            <label for="newProdPriceLunar">Precio Fase Lunar (MXN): *</label>
-            <input type="number" id="newProdPriceLunar" placeholder="0.00" min="0" step="any" required />
-          </div>
-        </div>
-
-        <div class="form-row-2">
-          <div class="input-group">
-            <label for="newProdProvider">Proveedor / Marca:</label>
-            <input type="text" id="newProdProvider" placeholder="DOMUS" value="DOMUS" />
-          </div>
-
-          <div class="input-group">
-            <label for="newProdSku">Clave / SKU (opcional):</label>
-            <input type="text" id="newProdSku" placeholder="Auto-generado si está vacío" />
-          </div>
-        </div>
-
-        <div class="input-group">
-          <label for="newProdStock">Stock Inicial en Inventario:</label>
-          <input type="number" id="newProdStock" value="50" min="0" step="1" />
-        </div>
-      </div>
-
-      <div class="modal-footer">
-        <button type="button" class="btn-secondary" id="btnCancelNewProduct">
-          Cancelar
-        </button>
-        <button type="button" class="btn-primary-action" id="btnSaveNewProduct" style="width: auto;">
-          ✓ Guardar y Dar de Alta
-        </button>
-      </div>
-    </div>
-  </div>
-
-  <!-- ========================================================================
+        <!-- ========================================================================
        MODAL 6: COMPROBANTE DE ACCESO Y TALÓN DE GUARDARROPA
        ======================================================================== -->
-  <div class="modal-overlay" id="accessReceiptModal" role="dialog" aria-modal="true" aria-labelledby="accessReceiptTitle">
-    <div class="modal-card" style="max-width: 440px;">
-      <div class="modal-header">
-        <h3 id="accessReceiptTitle">🎟️ Ticket de Acceso</h3>
-        <button type="button" class="modal-close-btn" id="btnCloseAccessReceipt" aria-label="Cerrar">&times;</button>
-      </div>
+        <div class="modal-overlay" id="accessReceiptModal" role="dialog" aria-modal="true"
+          aria-labelledby="accessReceiptTitle">
+          <div class="modal-card" style="max-width: 440px;">
+            <div class="modal-header">
+              <h3 id="accessReceiptTitle">🎟️ Ticket de Acceso</h3>
+              <button type="button" class="modal-close-btn" id="btnCloseAccessReceipt"
+                aria-label="Cerrar">&times;</button>
+            </div>
 
-      <div class="modal-body">
-        <div class="receipt-paper" id="printableAccessReceipt">
-          <div class="receipt-header">
-            <h2>DOMUS</h2>
-            <p style="letter-spacing: 0.1em; font-size: 0.75rem; text-transform: uppercase;">Control de Accesos &middot; Taquilla</p>
-            <p id="accessTicketFolio" style="font-size: 1.15rem; font-weight: 800; color: #111827; margin: 8px 0 2px;">TICKET: A-0000</p>
-            <p id="accessTicketEvent" style="font-weight: 700; color: #4b5563; font-size: 0.9rem;">EVENTO: ---</p>
-            <p id="accessTicketCustomer" style="font-weight: 600; color: #111827;">ASISTENTE: ---</p>
-            <p id="accessTicketDate" style="font-size: 0.8rem; color: #6b7280;">FECHA: --/--/----</p>
-          </div>
+            <div class="modal-body">
+              <div class="receipt-paper" id="printableAccessReceipt">
+                <div class="receipt-header">
+                  <h2>DOMUS</h2>
+                  <p style="letter-spacing: 0.1em; font-size: 0.75rem; text-transform: uppercase;">Control de Accesos
+                    &middot; Taquilla</p>
+                  <p id="accessTicketFolio"
+                    style="font-size: 1.15rem; font-weight: 800; color: #111827; margin: 8px 0 2px;">TICKET: A-0000</p>
+                  <p id="accessTicketEvent" style="font-weight: 700; color: #4b5563; font-size: 0.9rem;">EVENTO: ---</p>
+                  <p id="accessTicketCustomer" style="font-weight: 600; color: #111827;">ASISTENTE: ---</p>
+                  <p id="accessTicketDate" style="font-size: 0.8rem; color: #6b7280;">FECHA: --/--/----</p>
+                </div>
 
-          <div class="receipt-items-list" id="accessTicketDetailsList">
-            <!-- Details rendered dynamically -->
-          </div>
+                <div class="receipt-items-list" id="accessTicketDetailsList">
+                  <!-- Details rendered dynamically -->
+                </div>
 
-          <div class="receipt-total-row">
-            <span>TOTAL PAGADO:</span>
-            <span id="accessTicketTotalAmount">$0.00</span>
-          </div>
+                <div class="receipt-total-row">
+                  <span>TOTAL PAGADO:</span>
+                  <span id="accessTicketTotalAmount">$0.00</span>
+                </div>
 
-          <div class="receipt-payment-info" id="accessTicketPaymentInfo">
-            <!-- Payment info -->
-          </div>
+                <div class="receipt-payment-info" id="accessTicketPaymentInfo">
+                  <!-- Payment info -->
+                </div>
 
-          <!-- Talón desprendible de guardarropa -->
-          <div id="wardrobeTearOffStub" style="display: none; border-top: 2px dashed #9ca3af; margin-top: 14px; padding-top: 12px; text-align: center;">
-            <p style="font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; color: #6b7280; margin: 0;">Talón de Guardarropa DOMUS</p>
-            <div id="stubWardrobeTicket" style="font-size: 1.6rem; font-weight: 900; color: #1e3a8a; margin: 4px 0;">GUA-A-0000</div>
-            <p id="stubWardrobeQty" style="font-weight: 700; font-size: 0.95rem; margin: 0; color: #111827;">1 Prenda</p>
-            <p id="stubWardrobeNotes" style="font-size: 0.78rem; color: #4b5563; margin-top: 2px;"></p>
-            <small style="font-size: 0.65rem; color: #9ca3af; display: block; margin-top: 4px;">Presenta este talón para retirar tus pertenencias al salir.</small>
+                <!-- Talón desprendible de guardarropa -->
+                <div id="wardrobeTearOffStub"
+                  style="display: none; border-top: 2px dashed #9ca3af; margin-top: 14px; padding-top: 12px; text-align: center;">
+                  <p
+                    style="font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; color: #6b7280; margin: 0;">
+                    Talón de Guardarropa DOMUS</p>
+                  <div id="stubWardrobeTicket"
+                    style="font-size: 1.6rem; font-weight: 900; color: #1e3a8a; margin: 4px 0;">GUA-A-0000</div>
+                  <p id="stubWardrobeQty" style="font-weight: 700; font-size: 0.95rem; margin: 0; color: #111827;">1
+                    Prenda</p>
+                  <p id="stubWardrobeNotes" style="font-size: 0.78rem; color: #4b5563; margin-top: 2px;"></p>
+                  <small style="font-size: 0.65rem; color: #9ca3af; display: block; margin-top: 4px;">Presenta este
+                    talón para retirar tus pertenencias al salir.</small>
+                </div>
+              </div>
+            </div>
+
+            <div class="modal-footer">
+              <button type="button" class="btn-secondary" id="btnDismissAccessReceipt">
+                Cerrar
+              </button>
+              <button type="button" class="btn-primary-action" id="btnPrintAccessReceipt" style="width: auto;">
+                🖨️ Imprimir Ticket
+              </button>
+            </div>
           </div>
         </div>
-      </div>
 
-      <div class="modal-footer">
-        <button type="button" class="btn-secondary" id="btnDismissAccessReceipt">
-          Cerrar
-        </button>
-        <button type="button" class="btn-primary-action" id="btnPrintAccessReceipt" style="width: auto;">
-          🖨️ Imprimir Ticket
-        </button>
-      </div>
-    </div>
-  </div>
-
-  <!-- ========================================================================
+        <!-- ========================================================================
        MODAL 7: ALTA Y CONFIGURACIÓN DE EVENTO / ACTIVIDAD
        ======================================================================== -->
-  <div class="modal-overlay" id="newEventModal" role="dialog" aria-modal="true" aria-labelledby="newEventTitle">
-    <div class="modal-card" style="max-width: 520px;">
-      <div class="modal-header">
-        <h3 id="newEventTitle">📅 Programar / Configurar Evento</h3>
-        <button type="button" class="modal-close-btn" id="btnCloseNewEventModal" aria-label="Cerrar">&times;</button>
-      </div>
-
-      <div class="modal-body">
-        <p style="font-size: 0.85rem; color: var(--text-muted);">
-          Configura un nuevo evento en el calendario de DOMUS y define sus tarifas de taquilla y guardarropa.
-        </p>
-
-        <div class="input-group">
-          <label for="eventFormName">Nombre del Evento / Actividad: *</label>
-          <input type="text" id="eventFormName" placeholder="Ej. Sensorama fetish y kinky" required />
-        </div>
-
-        <div class="form-row-2">
-          <div class="input-group">
-            <label for="eventFormDate">Fecha del Evento: *</label>
-            <input type="date" id="eventFormDate" required />
-          </div>
-          <div class="input-group">
-            <label for="eventFormType">Tipo / Categoría:</label>
-            <select id="eventFormType">
-              <option value="Fiesta temática">Fiesta temática</option>
-              <option value="Club nocturno">Club nocturno</option>
-              <option value="Social / Gaming">Social / Gaming</option>
-              <option value="Comunidad / Privado">Comunidad / Privado</option>
-              <option value="Taller / Performance">Taller / Performance</option>
-              <option value="Operación diaria">Operación diaria</option>
-            </select>
-          </div>
-        </div>
-
-        <div class="form-row-2">
-          <div class="input-group">
-            <label for="eventFormOrganizer">Organizador / Marca:</label>
-            <input type="text" id="eventFormOrganizer" placeholder="DOMUS" value="DOMUS" />
-          </div>
-          <div class="input-group">
-            <label for="eventFormCapacity">Aforo Estimado (Personas):</label>
-            <input type="number" id="eventFormCapacity" value="150" min="10" />
-          </div>
-        </div>
-
-        <!-- Tariffs Grid -->
-        <div style="background: var(--bg-surface-elevated); padding: 14px; border-radius: var(--radius-lg); border: 1px solid var(--border-subtle); margin: 6px 0;">
-          <h4 style="margin: 0 0 10px 0; font-size: 0.88rem; color: var(--gold-primary);">Estructura de Tarifas (MXN)</h4>
-          <div class="form-row-2">
-            <div class="input-group">
-              <label for="eventFormPriceGeneral">Entrada General (1 pers): *</label>
-              <input type="number" id="eventFormPriceGeneral" placeholder="100.00" min="0" step="any" required />
+        <div class="modal-overlay" id="newEventModal" role="dialog" aria-modal="true" aria-labelledby="newEventTitle">
+          <div class="modal-card" style="max-width: 520px;">
+            <div class="modal-header">
+              <h3 id="newEventTitle">📅 Programar / Configurar Evento</h3>
+              <button type="button" class="modal-close-btn" id="btnCloseNewEventModal"
+                aria-label="Cerrar">&times;</button>
             </div>
-            <div class="input-group">
-              <label for="eventFormPricePareja">Entrada Pareja (2 pers): *</label>
-              <input type="number" id="eventFormPricePareja" placeholder="180.00" min="0" step="any" required />
+
+            <div class="modal-body">
+              <p style="font-size: 0.85rem; color: var(--text-muted);">
+                Configura un nuevo evento en el calendario de DOMUS y define sus tarifas de taquilla y guardarropa.
+              </p>
+
+              <div class="input-group">
+                <label for="eventFormName">Nombre del Evento / Actividad: *</label>
+                <input type="text" id="eventFormName" placeholder="Ej. Sensorama fetish y kinky" required />
+              </div>
+
+              <div class="form-row-2">
+                <div class="input-group">
+                  <label for="eventFormDate">Fecha del Evento: *</label>
+                  <input type="date" id="eventFormDate" required />
+                </div>
+                <div class="input-group">
+                  <label for="eventFormType">Tipo / Categoría:</label>
+                  <select id="eventFormType">
+                    <option value="Fiesta temática">Fiesta temática</option>
+                    <option value="Club nocturno">Club nocturno</option>
+                    <option value="Social / Gaming">Social / Gaming</option>
+                    <option value="Comunidad / Privado">Comunidad / Privado</option>
+                    <option value="Taller / Performance">Taller / Performance</option>
+                    <option value="Operación diaria">Operación diaria</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="form-row-2">
+                <div class="input-group">
+                  <label for="eventFormOrganizer">Organizador / Marca:</label>
+                  <input type="text" id="eventFormOrganizer" placeholder="DOMUS" value="DOMUS" />
+                </div>
+                <div class="input-group">
+                  <label for="eventFormCapacity">Aforo Estimado (Personas):</label>
+                  <input type="number" id="eventFormCapacity" value="150" min="10" />
+                </div>
+              </div>
+
+              <!-- Tariffs Grid -->
+              <div
+                style="background: var(--bg-surface-elevated); padding: 14px; border-radius: var(--radius-lg); border: 1px solid var(--border-subtle); margin: 6px 0;">
+                <h4 style="margin: 0 0 10px 0; font-size: 0.88rem; color: var(--gold-primary);">Estructura de Tarifas
+                  (MXN)</h4>
+                <div class="form-row-2">
+                  <div class="input-group">
+                    <label for="eventFormPriceGeneral">Entrada General (1 pers): *</label>
+                    <input type="number" id="eventFormPriceGeneral" placeholder="100.00" min="0" step="any" required />
+                  </div>
+                  <div class="input-group">
+                    <label for="eventFormPricePareja">Entrada Pareja (2 pers): *</label>
+                    <input type="number" id="eventFormPricePareja" placeholder="180.00" min="0" step="any" required />
+                  </div>
+                </div>
+                <div class="form-row-2" style="margin-top: 8px;">
+                  <div class="input-group">
+                    <label for="eventFormPriceTrio">Entrada Trío (3 pers): *</label>
+                    <input type="number" id="eventFormPriceTrio" placeholder="250.00" min="0" step="any" required />
+                  </div>
+                  <div class="input-group">
+                    <label for="eventFormPriceWardrobe">Guardarropa (por prenda): *</label>
+                    <input type="number" id="eventFormPriceWardrobe" value="50.00" min="0" step="any" required />
+                  </div>
+                </div>
+              </div>
+
+              <div class="input-group">
+                <label for="eventFormNotes">Notas / Descripción (opcional):</label>
+                <input type="text" id="eventFormNotes"
+                  placeholder="Detalles de admisión, dress code o requerimientos" />
+              </div>
             </div>
-          </div>
-          <div class="form-row-2" style="margin-top: 8px;">
-            <div class="input-group">
-              <label for="eventFormPriceTrio">Entrada Trío (3 pers): *</label>
-              <input type="number" id="eventFormPriceTrio" placeholder="250.00" min="0" step="any" required />
-            </div>
-            <div class="input-group">
-              <label for="eventFormPriceWardrobe">Guardarropa (por prenda): *</label>
-              <input type="number" id="eventFormPriceWardrobe" value="50.00" min="0" step="any" required />
+
+            <div class="modal-footer">
+              <button type="button" class="btn-secondary" id="btnCancelNewEvent">
+                Cancelar
+              </button>
+              <button type="button" class="btn-primary-action" id="btnSaveNewEvent" style="width: auto;">
+                ✓ Guardar en ACTIVIDADES
+              </button>
             </div>
           </div>
         </div>
 
-        <div class="input-group">
-          <label for="eventFormNotes">Notas / Descripción (opcional):</label>
-          <input type="text" id="eventFormNotes" placeholder="Detalles de admisión, dress code o requerimientos" />
-        </div>
-      </div>
+        <!-- Toast Container -->
+        <div class="toast-container" id="toastContainer" aria-live="polite"></div>
 
-      <div class="modal-footer">
-        <button type="button" class="btn-secondary" id="btnCancelNewEvent">
-          Cancelar
-        </button>
-        <button type="button" class="btn-primary-action" id="btnSaveNewEvent" style="width: auto;">
-          ✓ Guardar en ACTIVIDADES
-        </button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Toast Container -->
-  <div class="toast-container" id="toastContainer" aria-live="polite"></div>
-
-  <!-- Script -->
-  <script>
+        <!-- Script -->
+        <script>
 /**
  * DOMUS ADMIN & PUNTO DE VENTA - SISTEMA UNIFICADO
  * Modo Caja (POS / Cobro) y Modo Comandas (KDS Cocina y Barra)
@@ -3256,13 +3303,16 @@ html, body {
 
 (function () {
   // --- CONFIGURACIÓN & ESTADO INICIAL ---
-  const DEFAULT_GAS_URL = 'https://script.google.com/a/macros/domusccc.net/s/AKfycbzy7wZZ55zPnzZ6h9iRKXNAvitP5EZMCPyjsxPtLIpdtuv4_3Zt9SYqQS65I1WRGJGL/exec';
+  const DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycbysBaRA2_oZIOqU10G4E_MHiC8FUR3dCnqj2DlLG91iNJXP3GkZZ7BK0Na1FAJ1thZk/exec';
   const STAFF_MEMBERS = ['René', 'Miguel', 'Mike', 'Taichi Mike', 'Meaw', 'Wall E', 'Iván', 'Kas', 'Steven', 'Angel'];
+
+  const cachedGasUrl = localStorage.getItem('domus_gas_url');
+  const validApiUrl = (cachedGasUrl && !cachedGasUrl.includes('domusccc.net')) ? cachedGasUrl : DEFAULT_GAS_URL;
 
   const STATE = {
     mode: 'caja', // 'caja' | 'comandas'
-    phase: 'Solar', // 'Solar' | 'Lunar'
-    apiUrl: localStorage.getItem('domus_gas_url') || DEFAULT_GAS_URL,
+    phase: 'Lunar', // 'Solar' | 'Lunar'
+    apiUrl: validApiUrl,
     operator: sessionStorage.getItem('domus_operator') || '',
     sound: localStorage.getItem('domus_sound') === 'true',
     catalogCategory: 'Todas',
@@ -3288,7 +3338,7 @@ html, body {
     kdsSearch: '',
 
     // Accesos, Eventos y Guardarropa
-    activeActivity: 'Sensorama fetish y kinky',
+    activeActivity: 'Forza · sábado',
     eventsList: [],
     recentAccessList: [],
     accessSelectedType: 'General',
@@ -3296,6 +3346,9 @@ html, body {
     accessPaymentMethod: 'Efectivo',
     accessSearch: '',
     accessTab: 'log', // 'log' | 'wardrobe' | 'events'
+    openingFloat: 600,
+    openingFloatProvider: 'Steven',
+    openingFloatConcept: 'Fondo inicial / fondo de cambio',
     
     // Conexión
     isNativeGas: !!(window.google && google.script && google.script.run),
@@ -4586,6 +4639,50 @@ html, body {
         "provider": "Canna Treats"
     },
     {
+        "name": "Pelones",
+        "group": "Canna Treats",
+        "officialCat": "ALIMENTOS · CANNA TREATS",
+        "price": 120.0,
+        "priceSolar": 120.0,
+        "priceLunar": 120.0,
+        "destination": "Cocina",
+        "sku": "CT-PELONES",
+        "provider": "Canna Treats"
+    },
+    {
+        "name": "Galletas grandes",
+        "group": "Canna Treats",
+        "officialCat": "ALIMENTOS · CANNA TREATS",
+        "price": 100.0,
+        "priceSolar": 100.0,
+        "priceLunar": 100.0,
+        "destination": "Cocina",
+        "sku": "CT-GALLETA-GDE",
+        "provider": "Canna Treats"
+    },
+    {
+        "name": "Galletas pequeñas",
+        "group": "Canna Treats",
+        "officialCat": "ALIMENTOS · CANNA TREATS",
+        "price": 80.0,
+        "priceSolar": 80.0,
+        "priceLunar": 80.0,
+        "destination": "Cocina",
+        "sku": "CT-GALLETA-PEQ",
+        "provider": "Canna Treats"
+    },
+    {
+        "name": "Chocolates",
+        "group": "Canna Treats",
+        "officialCat": "ALIMENTOS · CANNA TREATS",
+        "price": 80.0,
+        "priceSolar": 80.0,
+        "priceLunar": 80.0,
+        "destination": "Cocina",
+        "sku": "CT-CHOCOLATES",
+        "provider": "Canna Treats"
+    },
+    {
         "name": "MUFFINS",
         "group": "Cocina",
         "officialCat": "ALIMENTOS ANDY",
@@ -4791,10 +4888,39 @@ html, body {
     }
   ];
 
+  // Configuración Operativa Especial FORZA 24/10/2026
+  const FORZA_CONFIG = Object.freeze({
+    organizer: 'FORZA',
+    openingFloat: 600,
+    openingFloatProvider: 'Steven',
+    openingFloatConcept: 'Fondo inicial / fondo de cambio',
+    advance: 3000,
+    feePerAttendee: 150,
+    doorCoverDomus: 0,
+    wardrobeDomus: 0
+  });
+
   // Eventos y Actividades Base (para Demo / Offline)
   const DEFAULT_EVENTS = [
+    {
+      name: 'Forza · sábado',
+      date: '2026-10-24',
+      type: 'Club nocturno',
+      organizer: 'FORZA',
+      priceGeneral: 0,
+      pricePareja: 0,
+      priceTrio: 0,
+      priceGuardarropa: 0,
+      capacity: 200,
+      status: 'Confirmado',
+      salesChannel: 'BOLETERA_EXTERNA',
+      ticketProvider: 'FORZA',
+      advance: 3000,
+      forzaFeePerAttendee: 150,
+      agreement: 'Confirmado',
+      notes: 'Boletera externa y guardarropa gestionados por FORZA ($0 DOMUS). Asistencia genera $150/asistente liquidable vs $3,000 anticipo.'
+    },
     { name: 'Sensorama fetish y kinky', date: '2026-10-25', type: 'Fiesta temática', organizer: 'DOMUS', priceGeneral: 150, pricePareja: 260, priceTrio: 360, priceGuardarropa: 50, capacity: 150, status: 'Confirmado' },
-    { name: 'Forza · sábado', date: '2026-10-24', type: 'Club nocturno', organizer: 'DOMUS', priceGeneral: 120, pricePareja: 200, priceTrio: 280, priceGuardarropa: 50, capacity: 200, status: 'Confirmado' },
     { name: 'Chilangoticas · Haunted', date: '2026-10-23', type: 'Fiesta Drag / Performance', organizer: 'Chilangoticas', priceGeneral: 100, pricePareja: 180, priceTrio: 250, priceGuardarropa: 50, capacity: 180, status: 'Confirmado' },
     { name: 'Videojuegos y películas · miércoles', date: '2026-10-21', type: 'Social / Gaming', organizer: 'DOMUS', priceGeneral: 80, pricePareja: 150, priceTrio: 200, priceGuardarropa: 50, capacity: 120, status: 'Confirmado' },
     { name: 'Evento de Steven · registro obligatorio', date: '2026-10-20', type: 'Comunidad / Privado', organizer: 'Steven', priceGeneral: 0, pricePareja: 0, priceTrio: 0, priceGuardarropa: 50, capacity: 100, status: 'Confirmado' },
@@ -4974,6 +5100,16 @@ html, body {
       return;
     }
 
+    if (STATE.mode !== newMode) {
+      const savedRole = localStorage.getItem('domus_session_role');
+      const targetRole = newMode === 'caja' ? 'CAJA' : (newMode === 'comandas' ? 'BARRA' : 'ACCESOS');
+      if (savedRole && savedRole !== targetRole) {
+        localStorage.removeItem('domus_session_token');
+        sessionStorage.removeItem('domus_session_token');
+        localStorage.removeItem('domus_session_role');
+      }
+    }
+
     STATE.mode = newMode;
     localStorage.setItem('domus_view', newMode);
 
@@ -5031,10 +5167,11 @@ html, body {
     return sessionStorage.getItem('domus_session_token') || localStorage.getItem('domus_session_token') || '';
   }
 
-  function setSessionToken(token) {
+  function setSessionToken(token, role) {
     if (token) {
       sessionStorage.setItem('domus_session_token', token);
       localStorage.setItem('domus_session_token', token);
+      if (role) localStorage.setItem('domus_session_role', role);
     }
   }
 
@@ -5043,6 +5180,57 @@ html, body {
     if (STATE.mode === 'comandas') return 'BARRA';
     if (STATE.mode === 'accesos') return 'ACCESOS';
     return 'CAJA';
+  }
+
+  let isEnsuringSession = false;
+  const pendingSessionCallbacks = [];
+
+  function ensureSessionToken(onDone) {
+    const currentToken = getSessionToken();
+    const currentRole = getStationRole();
+    const savedRole = localStorage.getItem('domus_session_role');
+
+    if (currentToken && (!savedRole || savedRole === currentRole)) {
+      if (onDone) onDone();
+      return;
+    }
+
+    if (onDone) pendingSessionCallbacks.push(onDone);
+    if (isEnsuringSession) return;
+    isEnsuringSession = true;
+
+    const role = currentRole;
+    const devId = getDeviceId();
+    const endpoint = `${STATE.apiUrl}?action=authCrearSesion`;
+
+    fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({
+        action: 'authCrearSesion',
+        args: [role, 'Operador ' + role, devId],
+        role: role,
+        deviceId: devId
+      })
+    })
+    .then(r => r.json())
+    .then(res => {
+      isEnsuringSession = false;
+      if (res && res.data && res.data.token) {
+        setSessionToken(res.data.token, role);
+        console.log('[DOMUS AUTO-AUTH] Sesión creada exitosamente:', role, res.data.token);
+      }
+      const cbs = [...pendingSessionCallbacks];
+      pendingSessionCallbacks.length = 0;
+      cbs.forEach(cb => cb());
+    })
+    .catch(err => {
+      isEnsuringSession = false;
+      console.warn('[DOMUS AUTO-AUTH] Error al crear sesión automática:', err);
+      const cbs = [...pendingSessionCallbacks];
+      pendingSessionCallbacks.length = 0;
+      cbs.forEach(cb => cb());
+    });
   }
 
   function getOutbox() {
@@ -5270,14 +5458,13 @@ html, body {
     const banner = $('outboxBanner');
     const text = $('outboxStatusText');
     const queue = getOutbox();
-    const pending = queue.filter(q => q.status !== 'CONFIRMED');
+    const pending = queue.filter(q => q.status !== 'CONFIRMED' && q.status !== 'REQUIRES_REVIEW');
 
     if (!banner || !text) return;
 
     if (pending.length > 0) {
       banner.classList.remove('hidden');
-      text.textContent = `⚠️ MODO SIN CONEXIÓN · ${pending.length} operación(es) pendiente(s) de sincronizar en Outbox`;
-      updateSyncPill('warn');
+      text.textContent = `⚠️ MODO LOCAL · ${pending.length} operación(es) pendiente(s) de sincronizar en Outbox`;
     } else {
       banner.classList.add('hidden');
     }
@@ -5340,6 +5527,13 @@ html, body {
     }
 
     // 2. Modo Externo (GitHub Pages / Fetch API con Outbox)
+    if (!getSessionToken()) {
+      ensureSessionToken(() => {
+        callBackend(fnName, args, onSuccess, onError);
+      });
+      return;
+    }
+
     const endpoint = `${STATE.apiUrl}?action=${encodeURIComponent(fnName)}`;
     const payload = {
       action: fnName,
@@ -5416,9 +5610,12 @@ html, body {
     if (state === 'error') {
       dot.className = 'status-dot error';
       label.textContent = 'Error de enlace';
-    } else if (state === 'warn' || STATE.isDemoMode) {
+    } else if (STATE.isDemoMode) {
       dot.className = 'status-dot warn';
       label.textContent = 'Simulador DOMUS';
+    } else if (state === 'warn') {
+      dot.className = 'status-dot warn';
+      label.textContent = 'Sincronizando Outbox…';
     } else if (STATE.isSyncing) {
       dot.className = 'status-dot';
       label.textContent = 'Sincronizando…';
@@ -5431,12 +5628,12 @@ html, body {
   // --- CARGA INICIAL DE DATOS ---
   function loadInitialData() {
     STATE.products = [...DEFAULT_CATALOG];
+    // Auto-purgar registros huérfanos o fallidos del Outbox
     try {
-      const custom = JSON.parse(localStorage.getItem('domus_custom_products') || '[]');
-      if (Array.isArray(custom) && custom.length) {
-        const existingKeys = new Set(STATE.products.map(p => (p.sku || p.name).toLowerCase()));
-        const toAdd = custom.filter(c => !existingKeys.has((c.sku || c.name).toLowerCase()));
-        STATE.products = [...toAdd, ...STATE.products];
+      const queue = getOutbox();
+      const validQueue = queue.filter(q => q.status !== 'CONFIRMED' && q.status !== 'REQUIRES_REVIEW');
+      if (validQueue.length !== queue.length) {
+        saveOutbox(validQueue);
       }
     } catch (e) {}
 
@@ -5475,92 +5672,98 @@ html, body {
   }
 
   function syncBackendData() {
-    callBackend('cajaSimpleDatos', [], data => {
-      if (data.phase) {
-        STATE.phase = data.phase;
-        $('currentPhaseBadge').textContent = `Fase ${data.phase}`;
-      }
-      if (data.products && data.products.length) {
-        const backendProducts = data.products.map(p => {
-          if (isCannaProduct(p)) {
-            p.isCanna = true;
-            p.provider = p.provider || 'Canna Treats';
-            p.destination = 'Cocina';
-          }
-          return p;
-        });
-
-        // Asegurar que productos canónicos de DEFAULT_CATALOG estén presentes
-        const existingKeys = new Set(backendProducts.map(p => (p.sku || p.name).toLowerCase()));
-        const missingDefaults = DEFAULT_CATALOG.filter(dp => !existingKeys.has((dp.sku || dp.name).toLowerCase()));
-
-        STATE.products = [...backendProducts, ...missingDefaults];
-
-        // Fusionar productos personalizados creados en el cliente
-        try {
-          const custom = JSON.parse(localStorage.getItem('domus_custom_products') || '[]');
-          if (Array.isArray(custom) && custom.length) {
-            const currentKeys = new Set(STATE.products.map(p => (p.sku || p.name).toLowerCase()));
-            const toAdd = custom.filter(c => !currentKeys.has((c.sku || c.name).toLowerCase()));
-            STATE.products = [...toAdd, ...STATE.products];
-          }
-        } catch (e) {}
-        renderCategoryChips();
-      }
-      if (data.accounts) {
-        STATE.openAccounts = data.accounts;
-        renderAccountDropdown();
-      }
-      if (data.activities) {
-        STATE.activities = data.activities;
-        renderActivityDropdown();
-      }
-      if (data.lastReceipt) {
-        STATE.lastReceiptInfo = data.lastReceipt;
-      }
-      if (STATE.mode === 'caja') {
-        renderCatalog();
-      }
-    }, err => {
-      console.warn('No se pudo leer datos de Caja desde el servidor:', err);
-    });
-
-    callBackend('comandasSimpleDatos', [sessionStorage.getItem('domus_token') || ''], d => {
-      if (d.orders) {
-        const currentKeys = new Set(d.orders.map(o => o.key));
-        if (STATE.seenOrderKeys.size > 0) {
-          const hasNew = [...currentKeys].some(k => !STATE.seenOrderKeys.has(k));
-          if (hasNew) playChime('alert');
+    // 1. Catálogo y cuentas de Caja solo en modo Caja
+    if (STATE.mode === 'caja') {
+      callBackend('cajaSimpleDatos', [], data => {
+        if (data.phase) {
+          STATE.phase = data.phase;
+          $('currentPhaseBadge').textContent = `Fase ${data.phase}`;
         }
-        STATE.seenOrderKeys = currentKeys;
-        STATE.comandas = d.orders;
-      }
-      if (d.history) STATE.historyComandas = d.history;
-      if (d.requests) STATE.restockRequests = d.requests;
+        if (data.products && data.products.length) {
+          const backendProducts = data.products.map(p => {
+            if (isCannaProduct(p)) {
+              p.isCanna = true;
+              p.provider = p.provider || 'Canna Treats';
+              p.destination = 'Cocina';
+            }
+            return p;
+          });
 
-      updateKdsBadgeCount();
-      if (STATE.mode === 'comandas') renderComandasBoard();
-    }, err => {
-      console.warn('Fallo al refrescar comandas:', err);
-    });
+          // Asegurar que productos canónicos de DEFAULT_CATALOG estén presentes
+          const existingKeys = new Set(backendProducts.map(p => (p.sku || p.name).toLowerCase()));
+          const missingDefaults = DEFAULT_CATALOG.filter(dp => !existingKeys.has((dp.sku || dp.name).toLowerCase()));
 
-    callBackend('accesoSimpleDatos', [], data => {
-      if (data.activities && data.activities.length) {
-        STATE.eventsList = data.activities;
-      }
-      if (data.activeActivity) {
-        STATE.activeActivity = data.activeActivity;
-      }
-      if (data.recentAccess && data.recentAccess.length) {
-        STATE.recentAccessList = data.recentAccess;
-      }
-      updateAccesosBadge();
-      if (STATE.mode === 'accesos') {
+          STATE.products = [...backendProducts, ...missingDefaults];
+
+          // Fusionar productos personalizados creados en el cliente
+          try {
+            const custom = JSON.parse(localStorage.getItem('domus_custom_products') || '[]');
+            if (Array.isArray(custom) && custom.length) {
+              const currentKeys = new Set(STATE.products.map(p => (p.sku || p.name).toLowerCase()));
+              const toAdd = custom.filter(c => !currentKeys.has((c.sku || c.name).toLowerCase()));
+              STATE.products = [...toAdd, ...STATE.products];
+            }
+          } catch (e) {}
+          renderCategoryChips();
+          renderCatalog();
+        }
+        if (data.accounts) {
+          STATE.openAccounts = data.accounts;
+          renderAccountDropdown();
+        }
+        if (data.activities) {
+          STATE.activities = data.activities;
+          renderActivityDropdown();
+        }
+        if (data.lastReceipt) {
+          STATE.lastReceiptInfo = data.lastReceipt;
+        }
+        renderCatalog();
+      }, err => {
+        console.warn('No se pudo leer datos de Caja desde el servidor:', err);
+      });
+    }
+
+    // 2. Comandas en Modo Comandas y Modo Caja
+    if (STATE.mode === 'comandas' || STATE.mode === 'caja') {
+      callBackend('comandasSimpleDatos', [sessionStorage.getItem('domus_token') || ''], d => {
+        if (d.orders) {
+          const currentKeys = new Set(d.orders.map(o => o.key));
+          if (STATE.seenOrderKeys.size > 0) {
+            const hasNew = [...currentKeys].some(k => !STATE.seenOrderKeys.has(k));
+            if (hasNew) playChime('alert');
+          }
+          STATE.seenOrderKeys = currentKeys;
+          STATE.comandas = d.orders;
+        }
+        if (d.history) STATE.historyComandas = d.history;
+        if (d.requests) STATE.restockRequests = d.requests;
+
+        updateKdsBadgeCount();
+        if (STATE.mode === 'comandas') renderComandasBoard();
+      }, err => {
+        console.warn('Fallo al refrescar comandas:', err);
+      });
+    }
+
+    // 3. Accesos exclusivamente en Modo Accesos
+    if (STATE.mode === 'accesos') {
+      callBackend('accesoSimpleDatos', [], data => {
+        if (data.activities && data.activities.length) {
+          STATE.eventsList = data.activities;
+        }
+        if (data.activeActivity) {
+          STATE.activeActivity = data.activeActivity;
+        }
+        if (data.recentAccess && data.recentAccess.length) {
+          STATE.recentAccessList = data.recentAccess;
+        }
+        updateAccesosBadge();
         renderAccesosView();
-      }
-    }, err => {
-      console.warn('Accesos: enlace de Google notificó:', err);
-    });
+      }, err => {
+        console.warn('Accesos: enlace de Google notificó:', err);
+      });
+    }
   }
 
   function updateAccesosBadge() {
@@ -5606,6 +5809,7 @@ html, body {
     const name = String(p.name || '').toLowerCase();
     if (name.includes('canna')) return true;
     const cannaNames = [
+      'pelones', 'galletas grandes', 'galletas pequeñas', 'galletas pequenas', 'chocolates',
       'hamburguesa kinki', 'la dominatrix', 'trío de jochis', 'trio de jochis',
       'boneless', 'alitas sumisas', 'sado nachos', 'nachos libres',
       'bastones de castigo', 'papas misioneras', 'papas gajo', 'misioneritas',
@@ -6439,15 +6643,15 @@ html, body {
     }
     if (!ev) {
       ev = {
-        name: STATE.activeActivity || 'Sensorama fetish y kinky',
+        name: STATE.activeActivity || 'Forza · sábado',
         date: new Date().toISOString().slice(0, 10),
-        type: 'Fiesta temática',
-        organizer: 'DOMUS',
-        priceGeneral: 150,
-        pricePareja: 260,
-        priceTrio: 360,
-        priceGuardarropa: 50,
-        capacity: 150,
+        type: 'Club nocturno',
+        organizer: 'FORZA',
+        priceGeneral: 0,
+        pricePareja: 0,
+        priceTrio: 0,
+        priceGuardarropa: 0,
+        capacity: 200,
         status: 'Confirmado'
       };
     }
@@ -6574,7 +6778,7 @@ html, body {
       });
     });
 
-    const pGua = ev.priceGuardarropa !== undefined ? Number(ev.priceGuardarropa) : 50;
+    const pGua = (ev.priceGuardarropa !== undefined && ev.priceGuardarropa !== null && ev.priceGuardarropa !== '') ? Number(ev.priceGuardarropa) : 50;
     if ($('wardrobeUnitPriceText')) {
       $('wardrobeUnitPriceText').textContent = `$${pGua.toFixed(2)} c/u`;
     }
@@ -6656,7 +6860,7 @@ html, body {
     }
 
     // Cobro de guardarropa desacoplado
-    const pGua = Number(ev.priceGuardarropa) || 50;
+    const pGua = (ev.priceGuardarropa !== undefined && ev.priceGuardarropa !== null && ev.priceGuardarropa !== '') ? Number(ev.priceGuardarropa) : 50;
     const wardrobeCost = (STATE.accessWardrobeQty || 0) * pGua;
     const doorTotal = doorEntryCharge + wardrobeCost;
     const commercialTotal = faceValue + wardrobeCost;
@@ -6784,6 +6988,8 @@ html, body {
       paymentStatus = 'CONFIRMADA';
     }
 
+    const ev = getActiveEvent();
+    const pGua = (ev.priceGuardarropa !== undefined && ev.priceGuardarropa !== null && ev.priceGuardarropa !== '') ? Number(ev.priceGuardarropa) : 50;
     const { faceValue, persons, doorEntryCharge, wardrobeCost, doorTotal, commercialTotal } = calculateAccessSubtotal();
 
     // Generate atomic folio & wardrobe ticket
@@ -6810,7 +7016,7 @@ html, body {
       doorEntryCharge: doorEntryCharge,
       wardrobeQty: wardrobeQty,
       wardrobeNotes: wardrobeNotes,
-      wardrobeUnitPrice: 50,
+      wardrobeUnitPrice: pGua,
       wardrobeAmount: wardrobeCost,
       doorCollected: doorTotal,
       commercialTotal: commercialTotal,
@@ -7331,6 +7537,16 @@ html, body {
       });
     }
 
+    const btnClearOutbox = $('btnOutboxClear');
+    if (btnClearOutbox) {
+      btnClearOutbox.addEventListener('click', () => {
+        saveOutbox([]);
+        updateOutboxUI();
+        updateSyncPill('ok');
+        toast('Cola de Outbox limpiada.', 'ok');
+      });
+    }
+
     $('btnSyncNow').addEventListener('click', () => {
       toast('Sincronizando con Google…', 'ok');
       syncBackendData();
@@ -7540,6 +7756,12 @@ html, body {
     loadInitialData();
   });
 
+  // Arqueo de Caja / Cierre: Efectivo esperado = $600 + cobros reales efectivo - retiros - devoluciones - gastos autorizados
+  function calculateExpectedCashArqueo(cashCollected = 0, withdrawals = 0, refunds = 0, expenses = 0) {
+    const openingFloat = STATE.openingFloat || 600;
+    return openingFloat + Number(cashCollected) - Number(withdrawals) - Number(refunds) - Number(expenses);
+  }
+
   // Exportar helpers globales para llamadas inline en HTML
   window.__domusApp = {
     updateQty: updateCartQty,
@@ -7551,11 +7773,13 @@ html, body {
     resolveRestock: resolveRestock,
     reprintAccessTicket: reprintAccessTicket,
     returnWardrobe: returnWardrobeItems,
-    setActiveEvent: changeActiveEvent
+    setActiveEvent: changeActiveEvent,
+    calculateExpectedCashArqueo: calculateExpectedCashArqueo
   };
 
 })();
 
 </script>
 </body>
+
 </html>
