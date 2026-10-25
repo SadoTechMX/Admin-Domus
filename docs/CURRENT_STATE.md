@@ -11,9 +11,9 @@
 * **Rama de Fase 1 (Turnos y Cortes):** Aislada en `feature/phase-1-shifts-cuts` (Commit `881a71c`)
 * **Estado de Working Tree:** `clean`
 * **Entorno de PRODUCCIÓN Oficial:**
-  - Proyecto Apps Script: `DOMUS - Caja y barra` (`1A4i6kAnpaHQ_0ReGkiT3rvidUA_bc8hvRlIepD20YLIypW8AY0yH0FXj`)
+  - Versión Activa en Producción: **Versión 21** (24 oct 2026, Release v1.1.1)
   - Versión Rollback Garantizada: **Versión 12** (23 oct 2026, 10:58 p.m.)
-  - Nueva Versión Desplegable: **Versión v1.1.1 (Bundle compilado DOMUS_PRODUCTION_BUNDLE.gs)**
+  - Deployment Web App Oficial (Conservado): `https://script.google.com/macros/s/AKfycbysBaRA2_oZIOqU10G4E_MHiC8FUR3dCnqj2DlLG91iNJXP3GkZZ7BK0Na1FAJ1thZk/exec`
   - Libros Oficiales:
     - Main: `1KQz8oJ4VaWFsqS2-sg25HMCm60SdSoQpIDlCDSV5J1U` (*DOMUS · SISTEMA OPERATIVO*)
     - Ops: `1DiwPa1cVe33xCYkIiYoHhP015RsEOjHXBFe2iU2RVCc` (*DOMUS · BARRA Y RESURTIDO*)
