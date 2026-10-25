@@ -3,20 +3,25 @@
 > [!NOTE]
 > Este archivo resume el estado técnico del sistema. La fuente de verdad para el commit activo siempre es el comando `git rev-parse HEAD`.
 
-* **Fecha de Último Handoff:** 2026-10-24 23:30 UTC-6
-* **Decisión Ejecutiva Operativa:** **RELEASE v1.1.1 AUTORIZADO (HOTFIX FORZA).** Gates A–N aprobados al 100%.
-* **Tag Oficial:** `v1.1.1` (Commit `75168f1`)
-* **Rama `main` (Producción):** Alineada en `v1.1.1`
-* **Rama de Hotfix:** `hotfix/event-2026-10-24` (Commit `96ad547`)
-* **Rama de Fase 1 (Turnos y Cortes):** Aislada en `feature/phase-1-shifts-cuts` (Commit `881a71c`)
+* **Fecha de Último Handoff:** 2026-10-25 01:10 UTC-6 (Noche 24/10 cruzando medianoche 25/10)
+* **Decisión Ejecutiva Operativa:** **PRODUCCIÓN EN VIVO OPERANDO AL 100%.**
+* **Baseline Backend Vigente:** Apps Script **Versión 22** (`PROD_VERIFIED`, Hotfix KDS formula-ledger + Guardarropa $0)
+* **Versión Rollback Garantizada:** Apps Script **Versión 12** (23 oct 2026, 10:58 p.m.)
+* **Baseline Frontend Vigente (GitHub Pages):** Commit `53aa938` (Hotfix `73b8173` `fix(access): preserve active overnight event after midnight`)
+* **Rama `main` (Producción):** Alineada en commit `53aa938`
 * **Estado de Working Tree:** `clean`
 * **Entorno de PRODUCCIÓN Oficial:**
-  - Versión Activa en Producción: **Versión 21** (24 oct 2026, Release v1.1.1)
+  - Versión Activa en Producción: **Versión 22** (25 oct 2026, Baseline Vigente Oficial)
   - Versión Rollback Garantizada: **Versión 12** (23 oct 2026, 10:58 p.m.)
-  - Deployment Web App Oficial (Conservado): `https://script.google.com/macros/s/AKfycbysBaRA2_oZIOqU10G4E_MHiC8FUR3dCnqj2DlLG91iNJXP3GkZZ7BK0Na1FAJ1thZk/exec`
+  - Deployment Web App Oficial: `https://script.google.com/macros/s/AKfycbysBaRA2_oZIOqU10G4E_MHiC8FUR3dCnqj2DlLG91iNJXP3GkZZ7BK0Na1FAJ1thZk/exec`
   - Libros Oficiales:
     - Main: `1KQz8oJ4VaWFsqS2-sg25HMCm60SdSoQpIDlCDSV5J1U` (*DOMUS · SISTEMA OPERATIVO*)
     - Ops: `1DiwPa1cVe33xCYkIiYoHhP015RsEOjHXBFe2iU2RVCc` (*DOMUS · BARRA Y RESURTIDO*)
+* **Módulos Operativos en Servicio Vivo:**
+  - **Accesos (`ACCESOS GO`):** `activeActivity = Forza · sábado`, Boletera Externa, Entrada DOMUS $0, Guardarropa DOMUS $0, aforo sumando asistentes reales para liquidación ($150/asistente).
+  - **Caja (POS):** Operativa, catálogo completo (151 productos), fondo inicial de caja de Steven ($600) protegido.
+  - **KDS (Cocina / Barra):** Operativo en v22 sin sobreescritura directa en `INVENTARIO!G:H`, gobernado por fórmulas reactivas.
+  - **Inventario:** Circuito reactivo por fórmulas intacto.
 * **Entorno de STAGING Oficial:**
   - Proyecto Apps Script: `DOMUS - Caja simple` (`1VFG72NoaQlca_czsgSgQmbnAIGOqyaAzqMlXVTdtsU-YZy6Xt35pHYPh`)
   - Web App Deployment: `https://script.google.com/macros/s/AKfycbysBaRA2_oZIOqU10G4E_MHiC8FUR3dCnqj2DlLG91iNJXP3GkZZ7BK0Na1FAJ1thZk/exec` (Versión 20)
