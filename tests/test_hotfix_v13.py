@@ -99,7 +99,10 @@ def run_suite():
     print("\n[Test 7] Verificando que NO existe asignación automática de credit='Amigo'...")
     assert "item.args[0].credit = 'Amigo'" not in js_content, "🚨 ALERTA: Persiste lógica que asigna credit='Amigo' en Outbox!"
     assert "credit = 'Amigo';" not in js_content, "🚨 ALERTA: Persiste inferencia de crédito Amigo!"
-    print("✅ TEST 7 PASS: Se eliminó completamente cualquier inferencia o mutación a crédito 'Amigo'.")
+    assert "(STATE.accountType || 'Amigo')" not in js_content, "🚨 ALERTA: Persiste fallback implícito a crédito Amigo en venta normal!"
+    assert "credit: isPaid ? '' : explicitCredit" in js_content, "El crédito impago debe provenir de selección explícita"
+    assert "creditAuthorizationSelect" in index_content, "Falta control UI para autorización explícita de crédito"
+    print("✅ TEST 7 PASS: No existe crédito implícito; pagar después exige autorización explícita.")
     passed += 1
 
     # --------------------------------------------------------------------------
@@ -135,7 +138,9 @@ def run_suite():
     # --------------------------------------------------------------------------
     print("\n[Test 11] Operaciones CONFIRMED son retiradas de la cola pendiente y no se reenvían...")
     assert "queue.filter(it => it.status === 'LOCAL_PENDING' || it.status === 'RETRY')" in js_content, "pendingItems debe incluir solo LOCAL_PENDING o RETRY"
-    print("✅ TEST 11 PASS: Operaciones CONFIRMED jamás se reenvían.")
+    assert "saveOutbox(getOutbox().map(q => q.requestId === item.requestId ? item : q));" in js_content, "La clasificación del error directo debe persistirse en Outbox"
+    assert "if (onError) onError(err);" in js_content, "Un error determinista no debe ejecutar la ruta de éxito"
+    print("✅ TEST 11 PASS: CONFIRMED no se reenvía y REQUIRES_REVIEW persiste sin falso éxito.")
     passed += 1
 
     # --------------------------------------------------------------------------
