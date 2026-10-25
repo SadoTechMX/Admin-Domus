@@ -2872,7 +2872,12 @@ const DEFAULT_CATALOG = [
     .then(json => {
       STATE.isSyncing = false;
       STATE.lastSyncTimestamp = Date.now();
-      if (!json.ok && json.error) throw new Error(json.error);
+      if (!json.ok) {
+        const backendError = new Error((json && (json.error || json.message)) || 'Error en servidor');
+        backendError.code = json && json.code;
+        backendError.status = json && json.status;
+        throw backendError;
+      }
 
       updateSyncPill('ok');
       const data = json.data !== undefined ? json.data : json;
@@ -2890,26 +2895,27 @@ const DEFAULT_CATALOG = [
         const classification = classifyMutationFailure(err);
         item.lastError = err.message || String(err);
         item.status = classification;
-        saveOutbox(getOutbox());
+        saveOutbox(getOutbox().map(q => q.requestId === item.requestId ? item : q));
 
         if (classification === 'REQUIRES_REVIEW') {
-          toast(`🛑 Operación guardada en revisión manual (error determinista): ${item.lastError}`, 'warn');
-        } else {
-          toast(`⚠️ Sin conexión con Google Sheets. Operación guardada en Outbox local (${reqId}).`, 'warn');
+          toast(`🛑 Operación en revisión manual. No se registró como venta: ${item.lastError}`, 'warn');
+          if (onError) onError(err);
+          return;
         }
-      }
 
-      if (onSuccess) {
-        onSuccess({
-          ok: true,
-          localOutbox: true,
-          status: 'LOCAL_PENDING',
-          requestId: reqId,
-          rowId: reqId,
-          id: reqId,
-          ticket: reqId,
-          message: `Guardado en Outbox local (${reqId}). Se sincronizará automáticamente al volver la señal.`
-        });
+        toast(`⚠️ Sin conexión con Google Sheets. Operación guardada en Outbox local (${reqId}).`, 'warn');
+        if (onSuccess) {
+          onSuccess({
+            ok: true,
+            localOutbox: true,
+            status: 'RETRY',
+            requestId: reqId,
+            rowId: reqId,
+            id: reqId,
+            ticket: reqId,
+            message: `Guardado en Outbox local (${reqId}). Se sincronizará automáticamente al volver la señal.`
+          });
+        }
       }
     });
   }
@@ -3429,6 +3435,8 @@ const DEFAULT_CATALOG = [
     $('cashDueInput').value = total.toFixed(2);
     $('cashReceivedInput').value = '';
     $('cashTipInput').value = '0';
+    STATE.accountType = '';
+    if ($('creditAuthorizationSelect')) $('creditAuthorizationSelect').value = '';
     updateChangeDisplay();
 
     // Resetear a Efectivo
@@ -3488,6 +3496,20 @@ const DEFAULT_CATALOG = [
     const received = parseFloat($('cashReceivedInput').value) || 0;
     const tip = parseFloat($('cashTipInput').value) || 0;
 
+    let explicitCredit = '';
+    if (!isPaid) {
+      const creditSelect = $('creditAuthorizationSelect');
+      explicitCredit = creditSelect ? String(creditSelect.value || '') : '';
+      if (!['Amigo', 'Creador de proyecto'].includes(explicitCredit)) {
+        toast('Para enviar un pedido sin cobrar debes seleccionar una autorización de crédito explícita.', 'error');
+        if (creditSelect) creditSelect.focus();
+        return;
+      }
+      STATE.accountType = explicitCredit;
+    } else {
+      STATE.accountType = '';
+    }
+
     if (isPaid && activePaymentMethod === 'Efectivo' && received + 0.001 < total + tip) {
       toast('El efectivo recibido es insuficiente para cubrir la cuenta.', 'error');
       $('cashReceivedInput').focus();
@@ -3505,7 +3527,7 @@ const DEFAULT_CATALOG = [
       method: isPaid ? activePaymentMethod : '',
       received: isPaid && activePaymentMethod === 'Efectivo' ? received : null,
       tip: isPaid && activePaymentMethod === 'Efectivo' ? tip : 0,
-      credit: isPaid ? '' : (STATE.accountType || 'Amigo'),
+      credit: isPaid ? '' : explicitCredit,
       items: STATE.cart.map(i => ({
         name: i.name,
         price: i.price,
@@ -3538,6 +3560,8 @@ const DEFAULT_CATALOG = [
       clearCart();
       $('customerNameInput').value = '';
       STATE.selectedAccountTicket = '';
+      STATE.accountType = '';
+      if ($('creditAuthorizationSelect')) $('creditAuthorizationSelect').value = '';
       syncBackendData();
     }, err => {
       toast(`Error al registrar: ${err.message || String(err)}`, 'error');
