@@ -392,6 +392,24 @@ html, body {
   color: var(--gold-400);
 }
 
+.chip-btn.canna-chip {
+  border-color: rgba(74, 222, 128, 0.4);
+  color: #4ade80;
+}
+
+.chip-btn.canna-chip:hover {
+  background: rgba(34, 197, 94, 0.15);
+  border-color: #22c55e;
+  color: #86efac;
+}
+
+.chip-btn.canna-chip.active {
+  background: rgba(34, 197, 94, 0.22);
+  border-color: #4ade80;
+  color: #86efac;
+  box-shadow: 0 0 12px rgba(34, 197, 94, 0.35);
+}
+
 /* Product Cards Grid */
 .products-grid {
   display: grid;
@@ -421,12 +439,26 @@ html, body {
   box-shadow: var(--shadow-gold);
 }
 
+.product-card.canna-card {
+  border-color: rgba(74, 222, 128, 0.25);
+}
+
+.product-card.canna-card:hover {
+  border-color: #4ade80;
+  box-shadow: 0 0 14px rgba(34, 197, 94, 0.25);
+}
+
 .product-card .card-cat-badge {
   font-size: 0.7rem;
   text-transform: uppercase;
   font-weight: 700;
   letter-spacing: 0.5px;
   color: var(--text-muted);
+}
+
+.product-card .card-cat-badge.badge-canna {
+  color: #4ade80;
+  font-weight: 800;
 }
 
 .product-card .card-title {
@@ -5449,13 +5481,27 @@ html, body {
         $('currentPhaseBadge').textContent = `Fase ${data.phase}`;
       }
       if (data.products && data.products.length) {
-        STATE.products = data.products;
+        const backendProducts = data.products.map(p => {
+          if (isCannaProduct(p)) {
+            p.isCanna = true;
+            p.provider = p.provider || 'Canna Treats';
+            p.destination = 'Cocina';
+          }
+          return p;
+        });
+
+        // Asegurar que productos canónicos de DEFAULT_CATALOG estén presentes
+        const existingKeys = new Set(backendProducts.map(p => (p.sku || p.name).toLowerCase()));
+        const missingDefaults = DEFAULT_CATALOG.filter(dp => !existingKeys.has((dp.sku || dp.name).toLowerCase()));
+
+        STATE.products = [...backendProducts, ...missingDefaults];
+
         // Fusionar productos personalizados creados en el cliente
         try {
           const custom = JSON.parse(localStorage.getItem('domus_custom_products') || '[]');
           if (Array.isArray(custom) && custom.length) {
-            const existingKeys = new Set(STATE.products.map(p => (p.sku || p.name).toLowerCase()));
-            const toAdd = custom.filter(c => !existingKeys.has((c.sku || c.name).toLowerCase()));
+            const currentKeys = new Set(STATE.products.map(p => (p.sku || p.name).toLowerCase()));
+            const toAdd = custom.filter(c => !currentKeys.has((c.sku || c.name).toLowerCase()));
             STATE.products = [...toAdd, ...STATE.products];
           }
         } catch (e) {}
@@ -5547,15 +5593,70 @@ html, body {
       STAFF_MEMBERS.map(s => `<option value="${s}" ${STATE.operator === s ? 'selected' : ''}>${s}</option>`).join('');
   }
 
+  function isCannaProduct(p) {
+    if (!p) return false;
+    const sku = String(p.sku || '').toUpperCase().trim();
+    if (sku.startsWith('CT')) return true;
+    const prov = String(p.provider || '').toLowerCase();
+    if (prov.includes('canna')) return true;
+    const grp = String(p.group || '').toLowerCase();
+    if (grp.includes('canna') || grp.includes('cannáb') || grp.includes('cannab')) return true;
+    const off = String(p.officialCat || '').toLowerCase();
+    if (off.includes('canna')) return true;
+    const name = String(p.name || '').toLowerCase();
+    if (name.includes('canna')) return true;
+    const cannaNames = [
+      'hamburguesa kinki', 'la dominatrix', 'trío de jochis', 'trio de jochis',
+      'boneless', 'alitas sumisas', 'sado nachos', 'nachos libres',
+      'bastones de castigo', 'papas misioneras', 'papas gajo', 'misioneritas',
+      'gajitos', 'orgía de botanas', 'orgia de botanas', 'ramen de abuelita',
+      'sado sampler', 'waffle vainilla', 'waffles de vainilla', 'tacos de la parrilla',
+      'espagueti pomodoro', 'espaghetti', 'orden de pajitas', 'orden de queso', 'guacamole regular'
+    ];
+    return cannaNames.some(cn => name.includes(cn));
+  }
+
   function renderCategoryChips() {
     const container = $('categoryChips');
     if (!container) return;
-    const groups = ['Todas', ...new Set(STATE.products.map(p => p.group))];
-    container.innerHTML = groups.map(g => `
-      <button type="button" class="chip-btn ${STATE.catalogCategory === g ? 'active' : ''}" data-cat="${g}">
-        ${g}
-      </button>
-    `).join('');
+
+    // Obtener los grupos presentes en el catálogo excluyendo redundancias
+    const groupsSet = new Set();
+    STATE.products.forEach(p => {
+      if (p.group && p.group !== 'Canna Treats' && p.group !== 'Menú Cannábico' && p.group !== '🌿 Menú Cannábico') {
+        groupsSet.add(p.group);
+      }
+    });
+
+    // Pestañas canónicas ordenadas:
+    // 1. Todas
+    // 2. 🌿 Menú Cannábico
+    // 3. Barra
+    // 4. Comida público / Alimentos
+    // 5. Resto de categorías dinámicas
+    const orderedCategories = ['Todas', '🌿 Menú Cannábico'];
+    if (groupsSet.has('Barra')) {
+      orderedCategories.push('Barra');
+      groupsSet.delete('Barra');
+    }
+    if (groupsSet.has('Comida público')) {
+      orderedCategories.push('Comida público');
+      groupsSet.delete('Comida público');
+    } else if (groupsSet.has('Alimentos')) {
+      orderedCategories.push('Alimentos');
+      groupsSet.delete('Alimentos');
+    }
+    groupsSet.forEach(g => orderedCategories.push(g));
+
+    container.innerHTML = orderedCategories.map(g => {
+      const isCannaChip = g.includes('Cannábico') || g.includes('Canna');
+      const isActive = STATE.catalogCategory === g || (isCannaChip && (STATE.catalogCategory === 'Menú Cannábico' || STATE.catalogCategory === '🌿 Menú Cannábico' || STATE.catalogCategory === 'Canna Treats'));
+      return `
+        <button type="button" class="chip-btn ${isCannaChip ? 'canna-chip' : ''} ${isActive ? 'active' : ''}" data-cat="${g}">
+          ${g}
+        </button>
+      `;
+    }).join('');
 
     container.querySelectorAll('.chip-btn').forEach(btn => {
       btn.addEventListener('click', () => {
@@ -5571,18 +5672,46 @@ html, body {
     if (!grid) return;
 
     const query = STATE.searchQuery.toLowerCase().trim();
+    const isCannaCategory = STATE.catalogCategory === '🌿 Menú Cannábico' ||
+                            STATE.catalogCategory === 'Menú Cannábico' ||
+                            STATE.catalogCategory === 'Canna Treats' ||
+                            STATE.catalogCategory === 'Cannábico';
+
+    const isCannaSearch = query.includes('canna') ||
+                          query.includes('cannab') ||
+                          query.includes('cannáb') ||
+                          query.includes('weed') ||
+                          query.includes('treats') ||
+                          query.includes('kinki');
+
     const filtered = STATE.products.filter(p => {
-      const matchCat = STATE.catalogCategory === 'Todas' ||
-                       p.group === STATE.catalogCategory ||
-                       (STATE.catalogCategory === 'Cocina' && (p.destination === 'Cocina' || p.group === 'Sushi')) ||
-                       (STATE.catalogCategory === 'Sushi' && (p.group === 'Sushi' || (p.provider && p.provider.toLowerCase().includes('jujutsu'))));
+      const isCanna = isCannaProduct(p);
+
+      let matchCat = false;
+      if (STATE.catalogCategory === 'Todas') {
+        matchCat = true;
+      } else if (isCannaCategory) {
+        matchCat = isCanna;
+      } else if (STATE.catalogCategory === 'Cocina') {
+        matchCat = p.destination === 'Cocina' || isCanna || p.group === 'Sushi' || p.group === 'Comida público';
+      } else if (STATE.catalogCategory === 'Sushi') {
+        matchCat = p.group === 'Sushi' || (p.provider && p.provider.toLowerCase().includes('jujutsu'));
+      } else if (STATE.catalogCategory === 'Barra') {
+        matchCat = (p.destination === 'Barra' || p.group === 'Barra') && !isCanna;
+      } else if (STATE.catalogCategory === 'Comida público' || STATE.catalogCategory === 'Alimentos') {
+        matchCat = p.group === STATE.catalogCategory || isCanna;
+      } else {
+        matchCat = p.group === STATE.catalogCategory;
+      }
 
       const matchQuery = !query ||
-                         p.name.toLowerCase().includes(query) ||
-                         p.group.toLowerCase().includes(query) ||
+                         (p.name && p.name.toLowerCase().includes(query)) ||
+                         (p.group && p.group.toLowerCase().includes(query)) ||
                          (p.desc && p.desc.toLowerCase().includes(query)) ||
                          (p.provider && p.provider.toLowerCase().includes(query)) ||
-                         (p.sku && p.sku.toLowerCase().includes(query));
+                         (p.sku && p.sku.toLowerCase().includes(query)) ||
+                         (isCanna && isCannaSearch);
+
       return matchCat && matchQuery;
     });
 
@@ -5597,12 +5726,17 @@ html, body {
 
     grid.innerHTML = filtered.map(p => {
       const price = STATE.phase === 'Solar' ? (p.priceSolar || p.price) : (p.priceLunar || p.price);
+      const isCanna = isCannaProduct(p);
       return `
-        <article class="product-card" data-product="${encodeURIComponent(JSON.stringify(p))}">
+        <article class="product-card ${isCanna ? 'canna-card' : ''}" data-product="${encodeURIComponent(JSON.stringify(p))}">
           <div>
             <div style="display: flex; justify-content: space-between; align-items: center; gap: 6px; margin-bottom: 4px;">
-              <span class="card-cat-badge">${p.group}</span>
-              ${p.provider && p.provider !== 'DOMUS' ? `<span style="font-size: 0.68rem; color: var(--gold-primary); opacity: 0.9; font-weight: 500;">${p.provider}</span>` : ''}
+              <span class="card-cat-badge ${isCanna ? 'badge-canna' : ''}">
+                ${isCanna ? '🌿 Menú Cannábico' : p.group}
+              </span>
+              <span style="font-size: 0.68rem; color: ${isCanna ? '#4ade80' : 'var(--gold-primary)'}; opacity: 0.95; font-weight: 600;">
+                ${isCanna ? 'Canna Treats' : (p.provider && p.provider !== 'DOMUS' ? p.provider : '')}
+              </span>
             </div>
             <h3 class="card-title">${p.name}</h3>
             ${p.desc ? `<p style="font-size: 0.76rem; color: var(--text-muted); margin-top: 4px; line-height: 1.25;">${p.desc}</p>` : ''}
@@ -5646,17 +5780,19 @@ html, body {
   function addToCart(product) {
     const price = STATE.phase === 'Solar' ? (product.priceSolar || product.price) : (product.priceLunar || product.price);
     const existing = STATE.cart.find(i => i.name === product.name && !i.courtesy);
+    const isCanna = isCannaProduct(product);
     if (existing) {
       if (existing.qty < 20) existing.qty += 1;
     } else {
       STATE.cart.push({
         name: product.name,
         desc: product.desc || '',
-        group: product.group,
-        destination: product.destination || (product.group === 'Alimentos' || product.group === 'Sushi' ? 'Cocina' : 'Barra'),
+        group: isCanna ? 'Menú Cannábico' : product.group,
+        destination: isCanna ? 'Cocina' : (product.destination || (product.group === 'Alimentos' || product.group === 'Sushi' ? 'Cocina' : 'Barra')),
         price: price,
         qty: 1,
-        courtesy: false
+        courtesy: false,
+        sku: product.sku || ''
       });
     }
     renderCart();
