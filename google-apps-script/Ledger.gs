@@ -36,6 +36,10 @@ function financeLedgerPreview_(params) {
   const limit = Math.max(1, Math.min(Number(params.limit) || 500, 2000));
   const from = ledgerParseDateBoundary_(params.from || params.dateFrom, false);
   const to = ledgerParseDateBoundary_(params.to || params.dateTo, true);
+  const entryType = String(params.entryType || '').trim().toUpperCase();
+  const sourceModule = String(params.sourceModule || '').trim().toUpperCase();
+  const unit = String(params.unit || '').trim().toUpperCase();
+  const qualityStatus = String(params.qualityStatus || '').trim().toUpperCase();
 
   let entries = [];
   entries = entries.concat(ledgerFromCaja_(ss));
@@ -44,6 +48,10 @@ function financeLedgerPreview_(params) {
   entries = entries.concat(ledgerFromPendientes_(ss));
 
   entries = entries.filter(e => ledgerDateInRange_(e.timestamp, from, to));
+  if (entryType) entries = entries.filter(e => String(e.entryType || '').toUpperCase() === entryType);
+  if (sourceModule) entries = entries.filter(e => String(e.sourceModule || '').toUpperCase() === sourceModule);
+  if (unit) entries = entries.filter(e => String((e.dimensions && e.dimensions.unit) || '').toUpperCase() === unit);
+  if (qualityStatus) entries = entries.filter(e => String(e.qualityStatus || '').toUpperCase() === qualityStatus);
   entries.sort((a, b) => String(a.timestamp || '').localeCompare(String(b.timestamp || '')));
 
   const totalBeforeLimit = entries.length;
@@ -57,6 +65,10 @@ function financeLedgerPreview_(params) {
     filters: {
       from: from ? from.toISOString() : '',
       to: to ? to.toISOString() : '',
+      entryType: entryType,
+      sourceModule: sourceModule,
+      unit: unit,
+      qualityStatus: qualityStatus,
       limit: limit
     },
     totalBeforeLimit: totalBeforeLimit,
@@ -70,6 +82,8 @@ function financeSummaryPreview_(params) {
   const totals = {
     sales: 0,
     payments: 0,
+    reversals: 0,
+    netPayments: 0,
     tips: 0,
     processingFees: 0,
     expenses: 0,
@@ -77,7 +91,8 @@ function financeSummaryPreview_(params) {
     debtPayments: 0,
     receivables: 0,
     payables: 0,
-    transfers: 0
+    transfers: 0,
+    cashWithdrawals: 0
   };
   const byPaymentChannel = {};
   const byUnit = {};
@@ -88,6 +103,7 @@ function financeSummaryPreview_(params) {
     switch (e.entryType) {
       case LEDGER_ENTRY_TYPES.SALE: totals.sales += n; break;
       case LEDGER_ENTRY_TYPES.PAYMENT: totals.payments += n; break;
+      case LEDGER_ENTRY_TYPES.REVERSAL: totals.reversals += Math.abs(n); break;
       case LEDGER_ENTRY_TYPES.TIP: totals.tips += n; break;
       case LEDGER_ENTRY_TYPES.PROCESSING_FEE: totals.processingFees += n; break;
       case LEDGER_ENTRY_TYPES.EXPENSE: totals.expenses += n; break;
@@ -96,10 +112,11 @@ function financeSummaryPreview_(params) {
       case LEDGER_ENTRY_TYPES.CUSTOMER_RECEIVABLE: totals.receivables += n; break;
       case LEDGER_ENTRY_TYPES.SUPPLIER_PAYABLE: totals.payables += n; break;
       case LEDGER_ENTRY_TYPES.TRANSFER: totals.transfers += n; break;
+      case LEDGER_ENTRY_TYPES.CASH_WITHDRAWAL: totals.cashWithdrawals += Math.abs(n); break;
     }
 
     const pay = (e.dimensions && e.dimensions.paymentChannel) || '';
-    if (pay && e.entryType === LEDGER_ENTRY_TYPES.PAYMENT) {
+    if (pay && (e.entryType === LEDGER_ENTRY_TYPES.PAYMENT || e.entryType === LEDGER_ENTRY_TYPES.REVERSAL)) {
       byPaymentChannel[pay] = ledgerRound_((byPaymentChannel[pay] || 0) + n);
     }
 
@@ -111,6 +128,7 @@ function financeSummaryPreview_(params) {
     if (quality[e.qualityStatus] !== undefined) quality[e.qualityStatus]++;
   });
 
+  totals.netPayments = ledgerRound_(totals.payments - totals.reversals);
   Object.keys(totals).forEach(k => totals[k] = ledgerRound_(totals[k]));
 
   return {
@@ -134,7 +152,7 @@ function financeSummaryPreview_(params) {
 }
 
 function ledgerFromCaja_(ss) {
-  const sheet = ss.getSheetByName('CAJA 2');
+  const sheet = ss.getSheetByName('CAJA 2') || ss.getSheetByName('CAJA');
   if (!sheet || sheet.getLastRow() < 7) return [];
   const numRows = Math.min(Math.max(sheet.getLastRow() - 6, 0), 5000);
   if (!numRows) return [];
@@ -173,6 +191,8 @@ function ledgerFromCaja_(ss) {
         sku: String(r[20] || ''),
         provider: String(r[18] || ''),
         customer: String(r[4] || ''),
+        ticket: ticket,
+        quantity: Number(r[7]) || 1,
         salesChannel: 'CAJA',
         costCenter: group,
         revenueCenter: group,
@@ -199,6 +219,9 @@ function ledgerFromCobros_(ss) {
     const amount = ledgerRound_(Number(r[13]) || Number(r[5]) || 0);
     const method = String(r[4] || '');
     const activity = String(r[15] || '');
+    const evidence = String(r[8] || '');
+    const reversalRefs = evidence.match(/REC-[A-Z0-9-]+/ig) || [];
+    const reversalOf = reversalRefs.find(ref => String(ref).toUpperCase() !== folio.toUpperCase()) || '';
     const base = {
       timestamp: ledgerIso_(r[1]),
       sourceModule: 'COBROS',
@@ -207,11 +230,14 @@ function ledgerFromCobros_(ss) {
       qualityStatus: status === 'Confirmado' ? 'REAL' : (status === 'Borrador' ? 'PENDING' : 'UNDER_REVIEW'),
       accountFrom: 'CUSTOMER',
       accountTo: ledgerTreasuryAccountForPayment_(method),
+      evidence: evidence,
       dimensions: {
         unit: ledgerInferUnit_(activity),
         project: activity,
         event: activity,
         customer: String(r[7] || ''),
+        ticket: String(r[3] || ''),
+        staff: String(r[11] || ''),
         paymentChannel: method,
         salesChannel: String(r[2] || 'Caja')
       }
@@ -223,6 +249,7 @@ function ledgerFromCobros_(ss) {
         entryType: amount < 0 ? LEDGER_ENTRY_TYPES.REVERSAL : LEDGER_ENTRY_TYPES.PAYMENT,
         grossAmount: amount,
         netAmount: amount,
+        reversalOf: amount < 0 ? reversalOf : '',
         description: 'Cobro ' + folio
       })));
     }
@@ -286,7 +313,7 @@ function ledgerFromMovimientos_(ss) {
       description: String(r[3] || ''),
       evidence: String(r[9] || ''),
       dimensions: {
-        unit: 'DOMUS',
+        unit: ledgerInferUnit_(String(r[3] || '')),
         project: '',
         provider: String(r[5] || ''),
         staff: String(r[11] || ''),
@@ -416,7 +443,8 @@ function ledgerIso_(value) {
 
 function ledgerParseDateBoundary_(value, endOfDay) {
   if (!value) return null;
-  const d = new Date(String(value).length <= 10 ? String(value) + (endOfDay ? 'T23:59:59.999-06:00' : 'T00:00:00.000-06:00') : value);
+  const clean = String(value).trim();
+  const d = new Date(clean.length <= 10 ? clean + (endOfDay ? 'T23:59:59.999-06:00' : 'T00:00:00.000-06:00') : clean);
   return isNaN(d.getTime()) ? null : d;
 }
 
