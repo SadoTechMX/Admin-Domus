@@ -277,6 +277,7 @@ function financeSummaryPreview_(params) {
     byPaymentChannel: summary.byPaymentChannel,
     byUnit: summary.byUnit,
     quality: summary.quality,
+    obligationQuality: summary.obligationQuality,
     warnings: summary.warnings
   };
 }
