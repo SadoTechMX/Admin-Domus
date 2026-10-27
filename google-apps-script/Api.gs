@@ -190,6 +190,12 @@ function handleApiGetRequest_(action, params) {
     } else if (action === 'financeSummaryPreview') {
       authValidateAction(action, params.token || '', params.role || '', params.deviceId || '');
       data = financeSummaryPreview_(params);
+    } else if (action === 'financeDailyPreview') {
+      authValidateAction(action, params.token || '', params.role || '', params.deviceId || '');
+      data = financeDailyPreview_(params);
+    } else if (action === 'financeDashboardPreview') {
+      authValidateAction(action, params.token || '', params.role || '', params.deviceId || '');
+      data = financeDashboardPreview_(params);
     } else if (action === 'ping' || action === 'health') {
       data = {
         status: 'HEALTHY',
