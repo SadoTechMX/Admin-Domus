@@ -2234,45 +2234,66 @@ function financeLedgerPreview_(params) {
   };
 }
 
+
+
 function financeDailyPreview_(params) {
   params = params || {};
-  const date = String(params.date || params.businessDate || '').trim();
-  const from = date || params.from || params.dateFrom || '';
-  const to = date || params.to || params.dateTo || '';
-  const preview = financeLedgerPreview_(Object.assign({}, params, { from: from, to: to, limit: 2000 }));
+  const explicitDate = String(params.date || params.businessDate || '').trim();
+  const tz = (typeof Session !== 'undefined' && Session.getScriptTimeZone)
+    ? (Session.getScriptTimeZone() || 'America/Mexico_City')
+    : 'America/Mexico_City';
+  const businessDate = explicitDate || Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd');
+  const preview = financeLedgerPreview_(Object.assign({}, params, {
+    from: businessDate,
+    to: businessDate,
+    limit: 2000
+  }));
   const summary = financeSummaryFromEntries_(preview.entries);
-  const byProduct = {};
-  const byProvider = {};
-  const byEvent = {};
-  const byStaff = {};
+  const byProductSales = {};
+  const byProviderSales = {};
+  const byEventSales = {};
+  const byStaffActivity = {};
 
   preview.entries.forEach(e => {
     const d = e.dimensions || {};
     const amount = Number(e.netAmount || e.grossAmount || 0);
     if (e.entryType === LEDGER_ENTRY_TYPES.SALE && d.product) {
-      byProduct[d.product] = ledgerRound_((byProduct[d.product] || 0) + amount);
+      byProductSales[d.product] = ledgerRound_((byProductSales[d.product] || 0) + amount);
     }
-    if (d.provider) byProvider[d.provider] = ledgerRound_((byProvider[d.provider] || 0) + amount);
+    if (e.entryType === LEDGER_ENTRY_TYPES.SALE && d.provider) {
+      byProviderSales[d.provider] = ledgerRound_((byProviderSales[d.provider] || 0) + amount);
+    }
     const event = d.event || d.project;
-    if (event) byEvent[event] = ledgerRound_((byEvent[event] || 0) + amount);
-    if (d.staff) byStaff[d.staff] = ledgerRound_((byStaff[d.staff] || 0) + amount);
+    if (e.entryType === LEDGER_ENTRY_TYPES.SALE && event) {
+      byEventSales[event] = ledgerRound_((byEventSales[event] || 0) + amount);
+    }
+    if (d.staff) {
+      if (!byStaffActivity[d.staff]) byStaffActivity[d.staff] = {};
+      byStaffActivity[d.staff][e.entryType] = ledgerRound_(
+        (byStaffActivity[d.staff][e.entryType] || 0) + amount
+      );
+    }
   });
 
   return {
-    schemaVersion: 'finance-daily-preview-v1',
+    schemaVersion: 'finance-daily-preview-v2',
     mode: 'READ_ONLY_DERIVED',
     environment: CONFIG.environment,
     generatedAt: new Date().toISOString(),
-    businessDate: date || '',
+    businessDate: businessDate,
     totals: summary.totals,
     byPaymentChannel: summary.byPaymentChannel,
     byUnit: summary.byUnit,
     quality: summary.quality,
-    byProduct: byProduct,
-    byProvider: byProvider,
-    byEvent: byEvent,
-    byStaff: byStaff,
-    warnings: summary.warnings
+    obligationQuality: summary.obligationQuality,
+    byProductSales: byProductSales,
+    byProviderSales: byProviderSales,
+    byEventSales: byEventSales,
+    byStaffActivity: byStaffActivity,
+    warnings: summary.warnings.concat([
+      'Las dimensiones monetarias de producto/proveedor/evento muestran sólo SALE; no mezclan deuda, gastos ni transferencias.',
+      'Staff se expone por tipo de asiento para evitar interpretar actividad administrativa como venta o ingreso generado.'
+    ])
   };
 }
 
@@ -2305,6 +2326,10 @@ function financeDashboardPreview_(params) {
       cashWithdrawals: t.cashWithdrawals || 0,
       receivables: t.receivables || 0,
       payables: t.payables || 0,
+      payablesConfirmed: (summary.obligationQuality && summary.obligationQuality.payables && summary.obligationQuality.payables.REAL) || 0,
+      payablesUnderReview: (summary.obligationQuality && summary.obligationQuality.payables && summary.obligationQuality.payables.UNDER_REVIEW) || 0,
+      receivablesConfirmed: (summary.obligationQuality && summary.obligationQuality.receivables && summary.obligationQuality.receivables.REAL) || 0,
+      receivablesUnderReview: (summary.obligationQuality && summary.obligationQuality.receivables && summary.obligationQuality.receivables.UNDER_REVIEW) || 0,
       debtPayments: t.debtPayments || 0,
       transfers: t.transfers || 0,
       operatingResultBeforeCogs: operatingResultBeforeCogs
@@ -2312,6 +2337,7 @@ function financeDashboardPreview_(params) {
     byPaymentChannel: summary.byPaymentChannel,
     byUnit: summary.byUnit,
     quality: summary.quality,
+    obligationQuality: summary.obligationQuality,
     warnings: summary.warnings.concat([
       'Resultado operativo mostrado antes de COGS; no equivale a utilidad neta.',
       'Punto de equilibrio y margen final permanecen fuera de esta vista hasta integrar costos reales.'
@@ -2338,6 +2364,10 @@ function financeSummaryFromEntries_(entries) {
   const byPaymentChannel = {};
   const byUnit = {};
   const quality = { REAL: 0, RECONCILED: 0, ESTIMATED: 0, PENDING: 0, UNDER_REVIEW: 0 };
+  const obligationQuality = {
+    receivables: { REAL: 0, RECONCILED: 0, ESTIMATED: 0, PENDING: 0, UNDER_REVIEW: 0 },
+    payables: { REAL: 0, RECONCILED: 0, ESTIMATED: 0, PENDING: 0, UNDER_REVIEW: 0 }
+  };
 
   (entries || []).forEach(e => {
     const n = Number(e.netAmount || e.grossAmount || 0);
@@ -2364,6 +2394,12 @@ function financeSummaryFromEntries_(entries) {
       byUnit[unit] = ledgerRound_((byUnit[unit] || 0) + n);
     }
     if (quality[e.qualityStatus] !== undefined) quality[e.qualityStatus]++;
+    if (e.entryType === LEDGER_ENTRY_TYPES.CUSTOMER_RECEIVABLE && obligationQuality.receivables[e.qualityStatus] !== undefined) {
+      obligationQuality.receivables[e.qualityStatus] = ledgerRound_(obligationQuality.receivables[e.qualityStatus] + n);
+    }
+    if (e.entryType === LEDGER_ENTRY_TYPES.SUPPLIER_PAYABLE && obligationQuality.payables[e.qualityStatus] !== undefined) {
+      obligationQuality.payables[e.qualityStatus] = ledgerRound_(obligationQuality.payables[e.qualityStatus] + n);
+    }
   });
 
   totals.netPayments = ledgerRound_(totals.payments - totals.reversals);
@@ -2374,6 +2410,7 @@ function financeSummaryFromEntries_(entries) {
     byPaymentChannel: byPaymentChannel,
     byUnit: byUnit,
     quality: quality,
+    obligationQuality: obligationQuality,
     warnings: [
       'Vista derivada: no constituye todavía libro contable persistente.',
       'COGS no se calcula hasta integrar costo real por SKU/receta.',
