@@ -30,12 +30,21 @@ def test_phase_remains_read_only():
         assert token not in LEDGER
 
 
+def test_staging_bundle_contains_daily_and_dashboard():
+    staging = (ROOT / "google-apps-script" / "DOMUS_STAGING_BUNDLE.gs").read_text(encoding="utf-8")
+    for action in ["financeDailyPreview", "financeDashboardPreview"]:
+        assert action in staging
+        assert f"{action}: ['GERENCIA', 'ADMIN']" in staging
+    assert "operatingResultBeforeCogs" in staging
+
+
 def run_all():
     tests = [
         test_daily_and_dashboard_endpoints_exist,
         test_daily_dimensions_exist,
         test_dashboard_never_claims_net_profit_without_cogs,
         test_phase_remains_read_only,
+        test_staging_bundle_contains_daily_and_dashboard,
     ]
     for fn in tests:
         fn()

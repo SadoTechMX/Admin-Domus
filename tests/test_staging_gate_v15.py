@@ -10,10 +10,14 @@ import pathlib
 import urllib.parse
 import urllib.request
 
+import sys
 ROOT = pathlib.Path(__file__).resolve().parents[1]
-STAGING_URL = "https://script.google.com/macros/s/AKfycbwgLRDIvZ3rdl-dl3g_YtwexjYE7TBdGkxTfVdzBABb-58nKt-G7179bL163V5nTut2/exec"
-EXPECTED_MAIN = "114VSwo3bXyn_audh1LHr4qqjW5aSDSTP_bR_-Iz5dkg"
-EXPECTED_OPS = "1NDpuyx6EfCHcoKW9CZ6pwR0oe2JS0aKpTTMa7RdqmlE"
+sys.path.insert(0, str(ROOT / "tests"))
+from guardrails import STAGING_DEPLOYMENT_ID, EXPECTED_STAGING_MAIN, EXPECTED_STAGING_OPS
+
+STAGING_URL = f"https://script.google.com/macros/s/{STAGING_DEPLOYMENT_ID}/exec"
+EXPECTED_MAIN = EXPECTED_STAGING_MAIN
+EXPECTED_OPS = EXPECTED_STAGING_OPS
 
 
 def http_json(url, payload=None, timeout=90):

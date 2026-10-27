@@ -155,7 +155,9 @@ const ACTION_PERMISSIONS = Object.freeze({
 
   // Finanzas / Economic OS (lectura sensible)
   financeLedgerPreview: ['GERENCIA', 'ADMIN'],
-  financeSummaryPreview: ['GERENCIA', 'ADMIN']
+  financeSummaryPreview: ['GERENCIA', 'ADMIN'],
+  financeDailyPreview: ['GERENCIA', 'ADMIN'],
+  financeDashboardPreview: ['GERENCIA', 'ADMIN']
 });
 
 /**
@@ -2232,8 +2234,92 @@ function financeLedgerPreview_(params) {
   };
 }
 
-function financeSummaryPreview_(params) {
-  const preview = financeLedgerPreview_(Object.assign({}, params || {}, { limit: 2000 }));
+function financeDailyPreview_(params) {
+  params = params || {};
+  const date = String(params.date || params.businessDate || '').trim();
+  const from = date || params.from || params.dateFrom || '';
+  const to = date || params.to || params.dateTo || '';
+  const preview = financeLedgerPreview_(Object.assign({}, params, { from: from, to: to, limit: 2000 }));
+  const summary = financeSummaryFromEntries_(preview.entries);
+  const byProduct = {};
+  const byProvider = {};
+  const byEvent = {};
+  const byStaff = {};
+
+  preview.entries.forEach(e => {
+    const d = e.dimensions || {};
+    const amount = Number(e.netAmount || e.grossAmount || 0);
+    if (e.entryType === LEDGER_ENTRY_TYPES.SALE && d.product) {
+      byProduct[d.product] = ledgerRound_((byProduct[d.product] || 0) + amount);
+    }
+    if (d.provider) byProvider[d.provider] = ledgerRound_((byProvider[d.provider] || 0) + amount);
+    const event = d.event || d.project;
+    if (event) byEvent[event] = ledgerRound_((byEvent[event] || 0) + amount);
+    if (d.staff) byStaff[d.staff] = ledgerRound_((byStaff[d.staff] || 0) + amount);
+  });
+
+  return {
+    schemaVersion: 'finance-daily-preview-v1',
+    mode: 'READ_ONLY_DERIVED',
+    environment: CONFIG.environment,
+    generatedAt: new Date().toISOString(),
+    businessDate: date || '',
+    totals: summary.totals,
+    byPaymentChannel: summary.byPaymentChannel,
+    byUnit: summary.byUnit,
+    quality: summary.quality,
+    byProduct: byProduct,
+    byProvider: byProvider,
+    byEvent: byEvent,
+    byStaff: byStaff,
+    warnings: summary.warnings
+  };
+}
+
+function financeDashboardPreview_(params) {
+  params = params || {};
+  const summary = financeSummaryPreview_(params);
+  const t = summary.totals || {};
+  const operatingResultBeforeCogs = ledgerRound_(
+    Number(t.sales || 0)
+    - Number(t.processingFees || 0)
+    - Number(t.expenses || 0)
+    - Number(t.payroll || 0)
+  );
+
+  return {
+    schemaVersion: 'finance-dashboard-preview-v1',
+    mode: summary.mode,
+    environment: summary.environment,
+    generatedAt: summary.generatedAt,
+    filters: summary.filters,
+    kpis: {
+      sales: t.sales || 0,
+      grossPayments: t.payments || 0,
+      reversals: t.reversals || 0,
+      netPayments: t.netPayments || 0,
+      tips: t.tips || 0,
+      processingFees: t.processingFees || 0,
+      expenses: t.expenses || 0,
+      payroll: t.payroll || 0,
+      cashWithdrawals: t.cashWithdrawals || 0,
+      receivables: t.receivables || 0,
+      payables: t.payables || 0,
+      debtPayments: t.debtPayments || 0,
+      transfers: t.transfers || 0,
+      operatingResultBeforeCogs: operatingResultBeforeCogs
+    },
+    byPaymentChannel: summary.byPaymentChannel,
+    byUnit: summary.byUnit,
+    quality: summary.quality,
+    warnings: summary.warnings.concat([
+      'Resultado operativo mostrado antes de COGS; no equivale a utilidad neta.',
+      'Punto de equilibrio y margen final permanecen fuera de esta vista hasta integrar costos reales.'
+    ])
+  };
+}
+
+function financeSummaryFromEntries_(entries) {
   const totals = {
     sales: 0,
     payments: 0,
@@ -2253,7 +2339,7 @@ function financeSummaryPreview_(params) {
   const byUnit = {};
   const quality = { REAL: 0, RECONCILED: 0, ESTIMATED: 0, PENDING: 0, UNDER_REVIEW: 0 };
 
-  preview.entries.forEach(e => {
+  (entries || []).forEach(e => {
     const n = Number(e.netAmount || e.grossAmount || 0);
     switch (e.entryType) {
       case LEDGER_ENTRY_TYPES.SALE: totals.sales += n; break;
@@ -2269,17 +2355,14 @@ function financeSummaryPreview_(params) {
       case LEDGER_ENTRY_TYPES.TRANSFER: totals.transfers += n; break;
       case LEDGER_ENTRY_TYPES.CASH_WITHDRAWAL: totals.cashWithdrawals += Math.abs(n); break;
     }
-
     const pay = (e.dimensions && e.dimensions.paymentChannel) || '';
     if (pay && (e.entryType === LEDGER_ENTRY_TYPES.PAYMENT || e.entryType === LEDGER_ENTRY_TYPES.REVERSAL)) {
       byPaymentChannel[pay] = ledgerRound_((byPaymentChannel[pay] || 0) + n);
     }
-
     const unit = (e.dimensions && e.dimensions.unit) || 'DOMUS';
     if (e.entryType === LEDGER_ENTRY_TYPES.SALE) {
       byUnit[unit] = ledgerRound_((byUnit[unit] || 0) + n);
     }
-
     if (quality[e.qualityStatus] !== undefined) quality[e.qualityStatus]++;
   });
 
@@ -2287,12 +2370,6 @@ function financeSummaryPreview_(params) {
   Object.keys(totals).forEach(k => totals[k] = ledgerRound_(totals[k]));
 
   return {
-    schemaVersion: preview.schemaVersion,
-    mode: preview.mode,
-    environment: preview.environment,
-    generatedAt: preview.generatedAt,
-    filters: preview.filters,
-    entryCount: preview.returned,
     totals: totals,
     byPaymentChannel: byPaymentChannel,
     byUnit: byUnit,
@@ -2303,6 +2380,24 @@ function financeSummaryPreview_(params) {
       'Comisiones de terminal sólo se reconocen cuando existen en la fuente.',
       'No se lee ni modifica ACCESO/Forza en este módulo.'
     ]
+  };
+}
+
+function financeSummaryPreview_(params) {
+  const preview = financeLedgerPreview_(Object.assign({}, params || {}, { limit: 2000 }));
+  const summary = financeSummaryFromEntries_(preview.entries);
+  return {
+    schemaVersion: preview.schemaVersion,
+    mode: preview.mode,
+    environment: preview.environment,
+    generatedAt: preview.generatedAt,
+    filters: preview.filters,
+    entryCount: preview.returned,
+    totals: summary.totals,
+    byPaymentChannel: summary.byPaymentChannel,
+    byUnit: summary.byUnit,
+    quality: summary.quality,
+    warnings: summary.warnings
   };
 }
 
@@ -2633,6 +2728,18 @@ function ledgerRound_(n) {
  * Enrutador GET: Sirve la aplicación Web o responde consultas de lectura REST
  */
 function doGet(e) {
+  return domusHandleDoGet_(e);
+}
+
+/**
+ * Compatibilidad hacia atrás con extensiones heredadas de Apps Script (ej. ComandasSimple)
+ * Desactiva recursión si ComandasSimple define doGet delegando a domusCajaDoGetOriginal_
+ */
+function domusCajaDoGetOriginal_(e) {
+  return domusHandleDoGet_(e);
+}
+
+function domusHandleDoGet_(e) {
   try {
     // Manejo de peticiones API (GET)
     if (e && e.parameter && e.parameter.action) {
@@ -2669,14 +2776,6 @@ function doGet(e) {
       error: 'Error en doGet: ' + err.message
     })).setMimeType(ContentService.MimeType.JSON);
   }
-}
-
-/**
- * Compatibilidad hacia atrás con extensiones heredadas de Apps Script (ej. ComandasSimple)
- * Desactiva el error 'Instalacion incompleta: renombra el doGet original a domusCajaDoGetOriginal_'
- */
-function domusCajaDoGetOriginal_(e) {
-  return doGet(e);
 }
 
 /**
@@ -2812,6 +2911,12 @@ function handleApiGetRequest_(action, params) {
     } else if (action === 'financeSummaryPreview') {
       authValidateAction(action, params.token || '', params.role || '', params.deviceId || '');
       data = financeSummaryPreview_(params);
+    } else if (action === 'financeDailyPreview') {
+      authValidateAction(action, params.token || '', params.role || '', params.deviceId || '');
+      data = financeDailyPreview_(params);
+    } else if (action === 'financeDashboardPreview') {
+      authValidateAction(action, params.token || '', params.role || '', params.deviceId || '');
+      data = financeDashboardPreview_(params);
     } else if (action === 'ping' || action === 'health') {
       data = {
         status: 'HEALTHY',

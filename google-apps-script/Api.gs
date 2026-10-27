@@ -11,6 +11,18 @@
  * Enrutador GET: Sirve la aplicación Web o responde consultas de lectura REST
  */
 function doGet(e) {
+  return domusHandleDoGet_(e);
+}
+
+/**
+ * Compatibilidad hacia atrás con extensiones heredadas de Apps Script (ej. ComandasSimple)
+ * Desactiva recursión si ComandasSimple define doGet delegando a domusCajaDoGetOriginal_
+ */
+function domusCajaDoGetOriginal_(e) {
+  return domusHandleDoGet_(e);
+}
+
+function domusHandleDoGet_(e) {
   try {
     // Manejo de peticiones API (GET)
     if (e && e.parameter && e.parameter.action) {
@@ -47,14 +59,6 @@ function doGet(e) {
       error: 'Error en doGet: ' + err.message
     })).setMimeType(ContentService.MimeType.JSON);
   }
-}
-
-/**
- * Compatibilidad hacia atrás con extensiones heredadas de Apps Script (ej. ComandasSimple)
- * Desactiva el error 'Instalacion incompleta: renombra el doGet original a domusCajaDoGetOriginal_'
- */
-function domusCajaDoGetOriginal_(e) {
-  return doGet(e);
 }
 
 /**
