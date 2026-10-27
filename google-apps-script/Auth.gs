@@ -38,7 +38,9 @@ const ACTION_PERMISSIONS = Object.freeze({
 
   // Finanzas / Economic OS (lectura sensible)
   financeLedgerPreview: ['GERENCIA', 'ADMIN'],
-  financeSummaryPreview: ['GERENCIA', 'ADMIN']
+  financeSummaryPreview: ['GERENCIA', 'ADMIN'],
+  financeDailyPreview: ['GERENCIA', 'ADMIN'],
+  financeDashboardPreview: ['GERENCIA', 'ADMIN']
 });
 
 /**
