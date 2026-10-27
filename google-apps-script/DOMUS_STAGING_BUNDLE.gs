@@ -155,7 +155,9 @@ const ACTION_PERMISSIONS = Object.freeze({
 
   // Finanzas / Economic OS (lectura sensible)
   financeLedgerPreview: ['GERENCIA', 'ADMIN'],
-  financeSummaryPreview: ['GERENCIA', 'ADMIN']
+  financeSummaryPreview: ['GERENCIA', 'ADMIN'],
+  financeDailyPreview: ['GERENCIA', 'ADMIN'],
+  financeDashboardPreview: ['GERENCIA', 'ADMIN']
 });
 
 /**
@@ -2232,8 +2234,118 @@ function financeLedgerPreview_(params) {
   };
 }
 
-function financeSummaryPreview_(params) {
-  const preview = financeLedgerPreview_(Object.assign({}, params || {}, { limit: 2000 }));
+
+
+function financeDailyPreview_(params) {
+  params = params || {};
+  const explicitDate = String(params.date || params.businessDate || '').trim();
+  const tz = (typeof Session !== 'undefined' && Session.getScriptTimeZone)
+    ? (Session.getScriptTimeZone() || 'America/Mexico_City')
+    : 'America/Mexico_City';
+  const businessDate = explicitDate || Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd');
+  const preview = financeLedgerPreview_(Object.assign({}, params, {
+    from: businessDate,
+    to: businessDate,
+    limit: 2000
+  }));
+  const summary = financeSummaryFromEntries_(preview.entries);
+  const byProductSales = {};
+  const byProviderSales = {};
+  const byEventSales = {};
+  const byStaffActivity = {};
+
+  preview.entries.forEach(e => {
+    const d = e.dimensions || {};
+    const amount = Number(e.netAmount || e.grossAmount || 0);
+    if (e.entryType === LEDGER_ENTRY_TYPES.SALE && d.product) {
+      byProductSales[d.product] = ledgerRound_((byProductSales[d.product] || 0) + amount);
+    }
+    if (e.entryType === LEDGER_ENTRY_TYPES.SALE && d.provider) {
+      byProviderSales[d.provider] = ledgerRound_((byProviderSales[d.provider] || 0) + amount);
+    }
+    const event = d.event || d.project;
+    if (e.entryType === LEDGER_ENTRY_TYPES.SALE && event) {
+      byEventSales[event] = ledgerRound_((byEventSales[event] || 0) + amount);
+    }
+    if (d.staff) {
+      if (!byStaffActivity[d.staff]) byStaffActivity[d.staff] = {};
+      byStaffActivity[d.staff][e.entryType] = ledgerRound_(
+        (byStaffActivity[d.staff][e.entryType] || 0) + amount
+      );
+    }
+  });
+
+  return {
+    schemaVersion: 'finance-daily-preview-v2',
+    mode: 'READ_ONLY_DERIVED',
+    environment: CONFIG.environment,
+    generatedAt: new Date().toISOString(),
+    businessDate: businessDate,
+    totals: summary.totals,
+    byPaymentChannel: summary.byPaymentChannel,
+    byUnit: summary.byUnit,
+    quality: summary.quality,
+    obligationQuality: summary.obligationQuality,
+    byProductSales: byProductSales,
+    byProviderSales: byProviderSales,
+    byEventSales: byEventSales,
+    byStaffActivity: byStaffActivity,
+    warnings: summary.warnings.concat([
+      'Las dimensiones monetarias de producto/proveedor/evento muestran sólo SALE; no mezclan deuda, gastos ni transferencias.',
+      'Staff se expone por tipo de asiento para evitar interpretar actividad administrativa como venta o ingreso generado.'
+    ])
+  };
+}
+
+function financeDashboardPreview_(params) {
+  params = params || {};
+  const summary = financeSummaryPreview_(params);
+  const t = summary.totals || {};
+  const operatingResultBeforeCogs = ledgerRound_(
+    Number(t.sales || 0)
+    - Number(t.processingFees || 0)
+    - Number(t.expenses || 0)
+    - Number(t.payroll || 0)
+  );
+
+  return {
+    schemaVersion: 'finance-dashboard-preview-v1',
+    mode: summary.mode,
+    environment: summary.environment,
+    generatedAt: summary.generatedAt,
+    filters: summary.filters,
+    kpis: {
+      sales: t.sales || 0,
+      grossPayments: t.payments || 0,
+      reversals: t.reversals || 0,
+      netPayments: t.netPayments || 0,
+      tips: t.tips || 0,
+      processingFees: t.processingFees || 0,
+      expenses: t.expenses || 0,
+      payroll: t.payroll || 0,
+      cashWithdrawals: t.cashWithdrawals || 0,
+      receivables: t.receivables || 0,
+      payables: t.payables || 0,
+      payablesConfirmed: (summary.obligationQuality && summary.obligationQuality.payables && summary.obligationQuality.payables.REAL) || 0,
+      payablesUnderReview: (summary.obligationQuality && summary.obligationQuality.payables && summary.obligationQuality.payables.UNDER_REVIEW) || 0,
+      receivablesConfirmed: (summary.obligationQuality && summary.obligationQuality.receivables && summary.obligationQuality.receivables.REAL) || 0,
+      receivablesUnderReview: (summary.obligationQuality && summary.obligationQuality.receivables && summary.obligationQuality.receivables.UNDER_REVIEW) || 0,
+      debtPayments: t.debtPayments || 0,
+      transfers: t.transfers || 0,
+      operatingResultBeforeCogs: operatingResultBeforeCogs
+    },
+    byPaymentChannel: summary.byPaymentChannel,
+    byUnit: summary.byUnit,
+    quality: summary.quality,
+    obligationQuality: summary.obligationQuality,
+    warnings: summary.warnings.concat([
+      'Resultado operativo mostrado antes de COGS; no equivale a utilidad neta.',
+      'Punto de equilibrio y margen final permanecen fuera de esta vista hasta integrar costos reales.'
+    ])
+  };
+}
+
+function financeSummaryFromEntries_(entries) {
   const totals = {
     sales: 0,
     payments: 0,
@@ -2252,8 +2364,12 @@ function financeSummaryPreview_(params) {
   const byPaymentChannel = {};
   const byUnit = {};
   const quality = { REAL: 0, RECONCILED: 0, ESTIMATED: 0, PENDING: 0, UNDER_REVIEW: 0 };
+  const obligationQuality = {
+    receivables: { REAL: 0, RECONCILED: 0, ESTIMATED: 0, PENDING: 0, UNDER_REVIEW: 0 },
+    payables: { REAL: 0, RECONCILED: 0, ESTIMATED: 0, PENDING: 0, UNDER_REVIEW: 0 }
+  };
 
-  preview.entries.forEach(e => {
+  (entries || []).forEach(e => {
     const n = Number(e.netAmount || e.grossAmount || 0);
     switch (e.entryType) {
       case LEDGER_ENTRY_TYPES.SALE: totals.sales += n; break;
@@ -2269,23 +2385,44 @@ function financeSummaryPreview_(params) {
       case LEDGER_ENTRY_TYPES.TRANSFER: totals.transfers += n; break;
       case LEDGER_ENTRY_TYPES.CASH_WITHDRAWAL: totals.cashWithdrawals += Math.abs(n); break;
     }
-
     const pay = (e.dimensions && e.dimensions.paymentChannel) || '';
     if (pay && (e.entryType === LEDGER_ENTRY_TYPES.PAYMENT || e.entryType === LEDGER_ENTRY_TYPES.REVERSAL)) {
       byPaymentChannel[pay] = ledgerRound_((byPaymentChannel[pay] || 0) + n);
     }
-
     const unit = (e.dimensions && e.dimensions.unit) || 'DOMUS';
     if (e.entryType === LEDGER_ENTRY_TYPES.SALE) {
       byUnit[unit] = ledgerRound_((byUnit[unit] || 0) + n);
     }
-
     if (quality[e.qualityStatus] !== undefined) quality[e.qualityStatus]++;
+    if (e.entryType === LEDGER_ENTRY_TYPES.CUSTOMER_RECEIVABLE && obligationQuality.receivables[e.qualityStatus] !== undefined) {
+      obligationQuality.receivables[e.qualityStatus] = ledgerRound_(obligationQuality.receivables[e.qualityStatus] + n);
+    }
+    if (e.entryType === LEDGER_ENTRY_TYPES.SUPPLIER_PAYABLE && obligationQuality.payables[e.qualityStatus] !== undefined) {
+      obligationQuality.payables[e.qualityStatus] = ledgerRound_(obligationQuality.payables[e.qualityStatus] + n);
+    }
   });
 
   totals.netPayments = ledgerRound_(totals.payments - totals.reversals);
   Object.keys(totals).forEach(k => totals[k] = ledgerRound_(totals[k]));
 
+  return {
+    totals: totals,
+    byPaymentChannel: byPaymentChannel,
+    byUnit: byUnit,
+    quality: quality,
+    obligationQuality: obligationQuality,
+    warnings: [
+      'Vista derivada: no constituye todavía libro contable persistente.',
+      'COGS no se calcula hasta integrar costo real por SKU/receta.',
+      'Comisiones de terminal sólo se reconocen cuando existen en la fuente.',
+      'No se lee ni modifica ACCESO/Forza en este módulo.'
+    ]
+  };
+}
+
+function financeSummaryPreview_(params) {
+  const preview = financeLedgerPreview_(Object.assign({}, params || {}, { limit: 2000 }));
+  const summary = financeSummaryFromEntries_(preview.entries);
   return {
     schemaVersion: preview.schemaVersion,
     mode: preview.mode,
@@ -2293,16 +2430,12 @@ function financeSummaryPreview_(params) {
     generatedAt: preview.generatedAt,
     filters: preview.filters,
     entryCount: preview.returned,
-    totals: totals,
-    byPaymentChannel: byPaymentChannel,
-    byUnit: byUnit,
-    quality: quality,
-    warnings: [
-      'Vista derivada: no constituye todavía libro contable persistente.',
-      'COGS no se calcula hasta integrar costo real por SKU/receta.',
-      'Comisiones de terminal sólo se reconocen cuando existen en la fuente.',
-      'No se lee ni modifica ACCESO/Forza en este módulo.'
-    ]
+    totals: summary.totals,
+    byPaymentChannel: summary.byPaymentChannel,
+    byUnit: summary.byUnit,
+    quality: summary.quality,
+    obligationQuality: summary.obligationQuality,
+    warnings: summary.warnings
   };
 }
 
@@ -2633,6 +2766,18 @@ function ledgerRound_(n) {
  * Enrutador GET: Sirve la aplicación Web o responde consultas de lectura REST
  */
 function doGet(e) {
+  return domusHandleDoGet_(e);
+}
+
+/**
+ * Compatibilidad hacia atrás con extensiones heredadas de Apps Script (ej. ComandasSimple)
+ * Desactiva recursión si ComandasSimple define doGet delegando a domusCajaDoGetOriginal_
+ */
+function domusCajaDoGetOriginal_(e) {
+  return domusHandleDoGet_(e);
+}
+
+function domusHandleDoGet_(e) {
   try {
     // Manejo de peticiones API (GET)
     if (e && e.parameter && e.parameter.action) {
@@ -2669,14 +2814,6 @@ function doGet(e) {
       error: 'Error en doGet: ' + err.message
     })).setMimeType(ContentService.MimeType.JSON);
   }
-}
-
-/**
- * Compatibilidad hacia atrás con extensiones heredadas de Apps Script (ej. ComandasSimple)
- * Desactiva el error 'Instalacion incompleta: renombra el doGet original a domusCajaDoGetOriginal_'
- */
-function domusCajaDoGetOriginal_(e) {
-  return doGet(e);
 }
 
 /**
@@ -2812,6 +2949,12 @@ function handleApiGetRequest_(action, params) {
     } else if (action === 'financeSummaryPreview') {
       authValidateAction(action, params.token || '', params.role || '', params.deviceId || '');
       data = financeSummaryPreview_(params);
+    } else if (action === 'financeDailyPreview') {
+      authValidateAction(action, params.token || '', params.role || '', params.deviceId || '');
+      data = financeDailyPreview_(params);
+    } else if (action === 'financeDashboardPreview') {
+      authValidateAction(action, params.token || '', params.role || '', params.deviceId || '');
+      data = financeDashboardPreview_(params);
     } else if (action === 'ping' || action === 'health') {
       data = {
         status: 'HEALTHY',

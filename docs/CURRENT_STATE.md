@@ -3,12 +3,13 @@
 > [!NOTE]
 > Este archivo resume el estado técnico del sistema. La fuente de verdad para el commit activo siempre es el comando `git rev-parse HEAD`.
 
-* **Fecha de Último Handoff:** 2026-10-25 01:48 UTC-6 (Noche 24/10 cruzando medianoche 25/10)
+* **Fecha de Último Handoff:** 2026-10-27 17:30 UTC-6
 * **Decisión Ejecutiva Operativa:** **PRODUCCIÓN EN VIVO OPERANDO AL 100%.**
 * **Baseline Backend Vigente:** Apps Script **Versión 22** (`PROD_VERIFIED`, Hotfix KDS formula-ledger + Guardarropa $0)
 * **Versión Rollback Garantizada:** Apps Script **Versión 12** (23 oct 2026, 10:58 p.m.)
 * **Baseline Frontend Vigente (GitHub Pages):** Hotfix Accesos UI (`escapeHtml` def + GET transport + resilient boot)
-* **Rama `main` (Producción):** Alineada con hotfix de enlace y renderizado de Accesos
+* **Rama `main` (Producción):** Congelada · protegida
+* **Rama Activa de Desarrollo:** `feat/erp-v15-dimensions-daily-finance` (PR #15 draft)
 * **Estado de Working Tree:** `clean`
 * **Entorno de PRODUCCIÓN Oficial:**
   - Versión Activa en Producción: **Versión 22** (25 oct 2026, Baseline Vigente Oficial)
@@ -23,11 +24,17 @@
   - **KDS (Cocina / Barra):** Operativo en v22 sin sobreescritura directa en `INVENTARIO!G:H`, gobernado por fórmulas reactivas.
   - **Inventario:** Circuito reactivo por fórmulas intacto.
 * **Entorno de STAGING Oficial:**
-  - Proyecto Apps Script: `DOMUS - Caja simple` (`1VFG72NoaQlca_czsgSgQmbnAIGOqyaAzqMlXVTdtsU-YZy6Xt35pHYPh`)
-  - Web App Deployment: `https://script.google.com/macros/s/AKfycbysBaRA2_oZIOqU10G4E_MHiC8FUR3dCnqj2DlLG91iNJXP3GkZZ7BK0Na1FAJ1thZk/exec` (Versión 20)
+  - Proyecto Apps Script: `DOMUS · Caja y barra` (`1A45kAhlpaHC_9Rq5kT0rvkNjA_bCBhVRIIxpC20YUypWBAY9yH0PXjdj`)
+  - Web App Deployment: `https://script.google.com/macros/s/AKfycbzy7wZZ55zPnzZ6h9iRKXNAvitP5EZMCPyjsxPtLIpdtuv4_3Zt9SYqQS65I1WRGJGL/exec` (Versión 15)
   - Libros Staging:
     - Main: `114VSwo3bXyn_audh1LHr4qqjW5aSDSTP_bR_-Iz5dkg`
     - Ops: `1NDpuyx6EfCHcoKW9CZ6pwR0oe2JS0aKpTTMa7RdqmlE`
+
+
+> [!IMPORTANT]
+> **Gate pendiente al cierre del snapshot:** el HEAD actual de PR #15 ya no es el mismo código que produjo el PASS live anterior. Antes de marcar Epic 2/3 como `STAGING_VERIFIED`, desplegar el bundle del HEAD actual y volver a ejecutar:
+> `test_finance_daily_dashboard_v15.py`, `test_staging_daily_dashboard_v15.py`, `test_staging_gate_v15.py`, `test_universal_ledger_v15.py` y `test_write_guardrails.py`.
+> Criterios mínimos live: `finance-daily-preview-v2`, CxC confirmada separada, CxP confirmada vs en revisión, `byEventSales <= sales`, `byProviderSales <= sales`, y staff desglosado por `entryType`.
 
 ---
 
@@ -36,11 +43,14 @@
 | Componente | Archivo(s) | Estado Actual | Evidencia / Próximo Paso |
 | :--- | :--- | :---: | :--- |
 | **Release v1.1.0 en Producción** | `main` / `v1.1.0` | `PROD_VERIFIED` | Smoke test de solo lectura aprobado (EXIT 0). Cero escrituras o ventas sintéticas en Producción. |
-| **Backend de Producción (`DOMUS_PRODUCTION_BUNDLE.gs`)** | `google-apps-script/DOMUS_PRODUCTION_BUNDLE.gs` | `PROD_VERIFIED` | Desplegado en Versión 18 de Apps Script; PING reporta `HEALTHY` y `environment: PRODUCTION`. |
+| **Backend de Producción (`DOMUS_PRODUCTION_BUNDLE.gs`)** | `google-apps-script/DOMUS_PRODUCTION_BUNDLE.gs` | `PROD_VERIFIED` | Baseline operativo declarado: Versión 22. PING reporta `HEALTHY` y `environment: PRODUCTION`. |
 | **Aislamiento de Libros Oficiales** | `Config.gs` | `PROD_VERIFIED` | Confirmado en vivo: Main `1KQz8oJ4...` y Ops `1DiwPa1c...` vinculados estrictamente. |
 | **Fase 0: Transaccional Core** | Backend Modular (11 archivos) | `PROD_VERIFIED` | Merge a `main` completado y certificado. |
 | **Fase 0.5: Ticketing & Access Commerce** | `Access.gs`, `Events.gs`, `index.html` | `PROD_VERIFIED` | Modelo de 4 canales comerciales (Taquilla, Boletera, Transferencias, Cortesías) integrado en `main`. |
-| **Fase 1: Apertura / Turnos / Corte X / Z** | N/A | `READY_FOR_DEVELOPMENT` | Desbloqueada para iniciar desarrollo en la rama aislada `feature/phase-1-shifts-cuts`. |
+| **DOMUS Economic OS v15: Epic 1 (Universal Ledger)** | `Ledger.gs`, `test_staging_gate_v15.py` | `STAGING_VERIFIED` | 20/20 compuertas PASS en STAGING v15 (`AKfycbzy...`). Modo READ_ONLY_DERIVED. |
+| **DOMUS Economic OS v15: Epic 2 & 3 (Daily & Dashboard)** | `Ledger.gs`, `Api.gs`, `test_staging_daily_dashboard_v15.py` | `STAGING_REDEPLOY_REQUIRED` | El PASS en vivo previo corresponde al contrato v1. HEAD actual introduce `finance-daily-preview-v2`, dimensiones tipadas y separación CxC/CxP por calidad; requiere redeploy y rerun live antes de certificar. |
+| **DOMUS Economic OS v15: Epic 4 (Obligations CxC / CxP)** | N/A | `BLOCKED_BY_PR15_LIVE_GATE` | No iniciar hasta certificar en vivo el contrato v2 de PR #15: CxC/CxP por calidad, dimensiones tipadas y daily real. |
+| **Fase 1: Apertura / Turnos / Corte X / Z** | N/A | `READY_FOR_DEVELOPMENT` | Desbloqueada para desarrollo posterior en rama aislada. |
 
 ---
 
