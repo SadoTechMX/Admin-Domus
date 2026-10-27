@@ -68,12 +68,18 @@ def run():
         assert get(action).get("ok") is False
     print("PASS RBAC")
 
-    daily = get("financeDailyPreview", token=ger)
+    daily = get("financeDailyPreview", token=ger, date="2026-10-25")
     dd = daily["data"]
-    assert dd["schemaVersion"] == "finance-daily-preview-v1"
-    for key in ["totals", "byPaymentChannel", "byUnit", "quality", "byProduct", "byProvider", "byEvent", "byStaff"]:
+    assert dd["schemaVersion"] == "finance-daily-preview-v2"
+    assert dd["businessDate"] == "2026-10-25"
+    for key in [
+        "totals", "byPaymentChannel", "byUnit", "quality", "obligationQuality",
+        "byProductSales", "byProviderSales", "byEventSales", "byStaffActivity"
+    ]:
         assert key in dd
-    print("PASS daily schema")
+    assert sum(float(v) for v in dd["byEventSales"].values()) <= float(dd["totals"]["sales"]) + 0.01
+    assert sum(float(v) for v in dd["byProviderSales"].values()) <= float(dd["totals"]["sales"]) + 0.01
+    print("PASS daily schema and typed dimensions")
 
     dash = get("financeDashboardPreview", token=ger)
     kd = dash["data"]["kpis"]
@@ -81,8 +87,9 @@ def run():
     for key in [
         "sales","grossPayments","reversals","netPayments","tips",
         "processingFees","expenses","payroll","cashWithdrawals",
-        "receivables","payables","debtPayments","transfers",
-        "operatingResultBeforeCogs"
+        "receivables","payables","payablesConfirmed","payablesUnderReview",
+        "receivablesConfirmed","receivablesUnderReview",
+        "debtPayments","transfers","operatingResultBeforeCogs"
     ]:
         assert key in kd
 
