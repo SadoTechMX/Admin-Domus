@@ -31,6 +31,7 @@ def test_daily_is_actually_daily():
 def test_obligation_quality_is_split():
     for token in ["payablesConfirmed", "payablesUnderReview", "receivablesConfirmed", "receivablesUnderReview"]:
         assert token in LEDGER
+    assert "obligationQuality: summary.obligationQuality" in LEDGER
 
 
 def test_dashboard_never_claims_net_profit_without_cogs():
