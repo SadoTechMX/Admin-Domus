@@ -15,7 +15,21 @@ def test_daily_and_dashboard_endpoints_exist():
 
 
 def test_daily_dimensions_exist():
-    for token in ["byProduct", "byProvider", "byEvent", "byStaff", "byPaymentChannel", "byUnit", "quality"]:
+    for token in [
+        "byProductSales", "byProviderSales", "byEventSales",
+        "byStaffActivity", "byPaymentChannel", "byUnit", "quality",
+        "obligationQuality"
+    ]:
+        assert token in LEDGER
+
+
+def test_daily_is_actually_daily():
+    assert "Utilities.formatDate(new Date()" in LEDGER
+    assert "businessDate: businessDate" in LEDGER
+
+
+def test_obligation_quality_is_split():
+    for token in ["payablesConfirmed", "payablesUnderReview", "receivablesConfirmed", "receivablesUnderReview"]:
         assert token in LEDGER
 
 
@@ -42,6 +56,8 @@ def run_all():
     tests = [
         test_daily_and_dashboard_endpoints_exist,
         test_daily_dimensions_exist,
+        test_daily_is_actually_daily,
+        test_obligation_quality_is_split,
         test_dashboard_never_claims_net_profit_without_cogs,
         test_phase_remains_read_only,
         test_staging_bundle_contains_daily_and_dashboard,
