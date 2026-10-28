@@ -139,8 +139,11 @@ function doPost(e) {
       case 'operatingProfileDatos':
         result = operatingProfileDatos_();
         break;
-      case 'operatingProfileSet':
-        result = idempotentExecute_(requestId, action, args[0], deviceId, () => operatingProfileSet_(args[0], authContext));
+      case 'operatingContextsDatos':
+        result = operatingContextsDatos_();
+        break;
+      case 'operatingContextValidate':
+        result = operatingContextValidate_(args[0]);
         break;
 
       // --- INVENTARIO & CATÁLOGO ---
@@ -195,6 +198,9 @@ function handleApiGetRequest_(action, params) {
     } else if (action === 'operatingProfileDatos') {
       authValidateAction(action, params.token || '', params.role || '', params.deviceId || '');
       data = operatingProfileDatos_();
+    } else if (action === 'operatingContextsDatos') {
+      authValidateAction(action, params.token || '', params.role || '', params.deviceId || '');
+      data = operatingContextsDatos_();
     } else if (action === 'ping' || action === 'health') {
       data = {
         status: 'HEALTHY',
