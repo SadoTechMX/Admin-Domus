@@ -5098,6 +5098,11 @@ const DEFAULT_CATALOG = [
 
     // Phase Switcher (Solar / Lunar) — persistente y validado por servidor
     $('btnPhaseToggle').addEventListener('click', async () => {
+      const stationRole = getStationRole();
+      if (!['GERENCIA', 'ADMIN'].includes(stationRole)) {
+        toast('Cambio Solar/Lunar reservado a Gerencia. Solicita autorización.', 'error');
+        return;
+      }
       const nextPhase = STATE.phase === 'Solar' ? 'Lunar' : 'Solar';
       const previousPhase = STATE.phase;
       const btn = $('btnPhaseToggle');
