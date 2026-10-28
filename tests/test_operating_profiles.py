@@ -36,13 +36,14 @@ def test_rbac_and_routes():
     assert "operatingProfileDatos" in API
     assert "operatingProfileSet" in API
     assert re.search(r"operatingProfileDatos:\s*\['CAJA',\s*'ACCESOS',\s*'GERENCIA',\s*'ADMIN'\]", AUTH)
-    assert re.search(r"operatingProfileSet:\s*\['CAJA',\s*'GERENCIA',\s*'ADMIN'\]", AUTH)
+    assert re.search(r"operatingProfileSet:\s*\['GERENCIA',\s*'ADMIN'\]", AUTH)
 
 
 def test_frontend_phase_toggle_is_not_local_only():
     block = APP[APP.index("// Phase Switcher (Solar / Lunar)"):APP.index("// Botón Reintentar Outbox")]
     assert "operatingProfileSet" in block
     assert "await loadCajaData()" in block
+    assert "reservado a Gerencia" in block
 
 
 def test_readiness_detects_operational_blockers():
