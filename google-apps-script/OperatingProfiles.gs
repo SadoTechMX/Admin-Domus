@@ -124,62 +124,59 @@ function operatingProfileDatos_() {
   };
 }
 
-function operatingProfileSet_(payload, authContext) {
+function operatingContextValidate_(payload) {
   payload = payload || {};
-  const profile = String(payload.profile || payload.phase || '').trim();
-  if (!DOMUS_OPERATING_PROFILES[profile]) {
-    const err = new Error('OPERATING_PROFILE_INVALID: perfil debe ser Solar o Lunar.');
+  const phase = String(payload.phase || payload.profile || '').trim();
+  const activity = String(payload.activity || '').trim();
+
+  if (!['Solar', 'Lunar'].includes(phase)) {
+    const err = new Error('OPERATING_CONTEXT_INVALID: phase debe ser Solar o Lunar.');
     err.status = 400;
-    err.code = 'OPERATING_PROFILE_INVALID';
+    err.code = 'OPERATING_CONTEXT_INVALID';
     throw err;
   }
 
-  const m = SpreadsheetApp.openById(CONFIG.mainSheetId);
-  const sCaja = m.getSheetByName('CAJA 2');
-  const sAct = m.getSheetByName('ACTIVIDADES');
-  if (!sCaja || !sAct) throw new Error('Faltan hojas operativas CAJA 2 / ACTIVIDADES.');
+  let activityInfo = null;
+  if (activity) activityInfo = operatingActivityValidate_(activity);
 
-  const activity = String(payload.activity || '').trim();
-  if (activity) {
-    const lastRow = Math.max(sAct.getLastRow(), 7);
-    const rows = sAct.getRange(7, 1, Math.max(lastRow - 6, 1), 13).getValues();
-    const match = rows.find(r => String(r[0] || '').trim().toLowerCase() === activity.toLowerCase());
-    if (!match) {
-      const err = new Error('OPERATING_ACTIVITY_NOT_FOUND: actividad no existe en ACTIVIDADES.');
-      err.status = 400;
-      err.code = 'OPERATING_ACTIVITY_NOT_FOUND';
-      throw err;
-    }
-    const status = String(match[11] || '').trim().toLowerCase();
-    if (status !== 'confirmado') {
-      const err = new Error('OPERATING_ACTIVITY_NOT_CONFIRMED: la actividad debe estar Confirmada antes de activarse.');
-      err.status = 400;
-      err.code = 'OPERATING_ACTIVITY_NOT_CONFIRMED';
-      throw err;
-    }
-  }
+  return {
+    ok: true,
+    phase: phase,
+    activity: activity,
+    activityInfo: activityInfo,
+    mode: 'CONCURRENT_TRANSACTION_CONTEXT'
+  };
+}
 
-  return withLock_(CONFIG.lockTimeoutMs, () => {
-    const props = PropertiesService.getScriptProperties();
-    const previousPhase = String(sCaja.getRange('F2').getValue() || 'Solar').trim();
-    const previousActivity = String(props.getProperty('actividadAcceso') || '').trim();
-
-    sCaja.getRange('F2').setValue(profile);
-    if (activity) props.setProperty('actividadAcceso', activity);
-    props.setProperty('domusOperatingProfile', profile);
-    props.setProperty('domusOperatingProfileChangedAt', new Date().toISOString());
-    props.setProperty('domusOperatingProfileChangedBy', (authContext && authContext.operator) || 'Operador');
-
-    SpreadsheetApp.flush();
-
-    const current = operatingProfileDatos_();
+function operatingContextsDatos_() {
+  const base = operatingProfileDatos_();
+  const contexts = (base.confirmedActivities || []).map(a => {
+    const raw = String(a.area || '').toLowerCase();
+    let units = [];
+    if (raw.includes('solar')) units.push('Solar');
+    if (raw.includes('lunar') || raw.includes('club') || raw.includes('nocturno')) units.push('Lunar');
+    if (units.length === 0) units = ['Solar', 'Lunar'];
     return {
-      ok: true,
-      previous: { profile: previousPhase, activeActivity: previousActivity },
-      current: current,
-      message: 'Perfil operativo cambiado a ' + profile + (activity ? ' · ' + activity : '')
+      activity: a.name,
+      date: a.date,
+      units: units,
+      priceGeneral: a.priceGeneral,
+      pricePareja: a.pricePareja,
+      priceTrio: a.priceTrio,
+      priceGuardarropa: a.priceGuardarropa,
+      status: a.status
     };
   });
+
+  return {
+    environment: CONFIG.environment,
+    mode: 'CONCURRENT_TRANSACTION_CONTEXT',
+    defaultPhase: base.profile,
+    contexts: contexts,
+    catalog: base.catalog,
+    opening: base.opening,
+    readiness: base.readiness
+  };
 }
 
 function operatingActivityValidate_(activity) {
