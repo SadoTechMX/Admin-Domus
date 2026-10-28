@@ -101,6 +101,7 @@ function accesoSimpleDatos() {
   let totalCommercialGross = 0;
   let presalesCount = 0;
   let courtesiesCount = 0;
+  const metricsByActivity = {};
 
   rawAcc.forEach((r, idx) => {
     if (r[0] || r[3]) {
@@ -130,10 +131,22 @@ function accesoSimpleDatos() {
       totalAttendance += persons;
       totalDoorRevenue += amountPaidAtDoor;
       totalCommercialGross += totalCommercial;
+      if (!metricsByActivity[activity]) {
+        metricsByActivity[activity] = {
+          attendance: 0,
+          doorRevenue: 0,
+          commercialGross: 0,
+          activeWardrobe: 0
+        };
+      }
+      metricsByActivity[activity].attendance += persons;
+      metricsByActivity[activity].doorRevenue += amountPaidAtDoor;
+      metricsByActivity[activity].commercialGross += totalCommercial;
       if (salesChannel === 'BOLETERA_EXTERNA' || salesChannel === 'PREVENTA_DOMUS') presalesCount++;
       if (salesChannel === 'CORTESIA') courtesiesCount++;
       if (wardrobeQty > 0 && !wardrobeReturned) {
         activeWardrobe += wardrobeQty;
+        metricsByActivity[activity].activeWardrobe += wardrobeQty;
       }
 
       recentAccess.unshift({
@@ -167,6 +180,8 @@ function accesoSimpleDatos() {
     activeActivity: activeActivity,
     activities: activities,
     recentAccess: recentAccess,
+    activeActivities: activities.filter(a => String(a.status || '').toLowerCase() === 'confirmado'),
+    metricsByActivity: metricsByActivity,
     metrics: {
       totalAttendance: totalAttendance,
       activeWardrobe: activeWardrobe,
