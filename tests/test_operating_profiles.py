@@ -58,6 +58,14 @@ def test_readiness_detects_operational_blockers():
         assert token in OPS
 
 
+def test_access_pricing_comes_from_confirmed_activity():
+    assert "let pGua = 0;" in ACCESS
+    assert "faceValue = officialPrice;" in ACCESS
+    assert "wardrobeUnitPrice = officialWardrobe;" in ACCESS
+    assert "actStatus !== 'confirmado'" in ACCESS
+    assert "Para acceso gratuito usa LISTA/CORTESIA/MEMBRESIA" in ACCESS
+
+
 def test_staging_bundle_contains_profiles():
     assert "START OF OperatingProfiles.gs" in BUNDLE
     assert "operatingContextValidate" in BUNDLE
@@ -81,6 +89,7 @@ def run_all():
         test_rbac_and_routes,
         test_frontend_phase_toggle_is_not_local_only,
         test_readiness_detects_operational_blockers,
+        test_access_pricing_comes_from_confirmed_activity,
         test_staging_bundle_contains_profiles,
         test_pos_records_phase_per_line,
     ]
