@@ -66,31 +66,22 @@ def run():
     gerencia = create_session("GERENCIA")
     accesos = create_session("ACCESOS")
 
-    d = get("operatingProfileDatos", token=caja, role="CAJA")
+    d = get("operatingContextsDatos", token=caja, role="CAJA")
     assert d["ok"]
-    assert d["data"]["profile"] in ["Solar", "Lunar"]
-    assert "readiness" in d["data"]
-    print("PASS profile read")
+    assert d["data"]["mode"] == "CONCURRENT_TRANSACTION_CONTEXT"
+    assert "contexts" in d["data"]
+    print("PASS concurrent contexts read")
 
-    denied = post("operatingProfileSet", accesos, "ACCESOS", [{"profile": "Solar"}])
-    assert denied.get("ok") is False
-    denied_caja = post("operatingProfileSet", caja, "CAJA", [{"profile": "Solar"}])
-    assert denied_caja.get("ok") is False
-    print("PASS operational roles cannot change global profile")
+    solar = post("operatingContextValidate", caja, "CAJA", [{"phase": "Solar"}])
+    lunar = post("operatingContextValidate", caja, "CAJA", [{"phase": "Lunar"}])
+    assert solar["ok"] and lunar["ok"]
+    assert solar["data"]["phase"] == "Solar"
+    assert lunar["data"]["phase"] == "Lunar"
+    print("PASS CAJA can validate Solar and Lunar concurrently")
 
-    original = d["data"]["profile"]
-    target = "Lunar" if original == "Solar" else "Solar"
-    switched = post("operatingProfileSet", gerencia, "GERENCIA", [{"profile": target}])
-    assert switched["ok"]
-    verify = get("operatingProfileDatos", token=caja, role="CAJA")
-    assert verify["data"]["profile"] == target
-    print("PASS persistent phase switch")
-
-    restored = post("operatingProfileSet", gerencia, "GERENCIA", [{"profile": original}])
-    assert restored["ok"]
-    verify2 = get("operatingProfileDatos", token=caja, role="CAJA")
-    assert verify2["data"]["profile"] == original
-    print("PASS rollback to original profile")
+    invalid = post("operatingContextValidate", caja, "CAJA", [{"phase": "INVALID"}])
+    assert invalid.get("ok") is False
+    print("PASS invalid context blocked")
 
     print("SOLAR/LUNAR STAGING GATE PASSED")
 
