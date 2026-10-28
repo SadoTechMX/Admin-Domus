@@ -23,8 +23,8 @@
   - **KDS (Cocina / Barra):** Operativo en v22 sin sobreescritura directa en `INVENTARIO!G:H`, gobernado por fórmulas reactivas.
   - **Inventario:** Circuito reactivo por fórmulas intacto.
 * **Entorno de STAGING Oficial:**
-  - Proyecto Apps Script: `DOMUS - Caja simple` (`1VFG72NoaQlca_czsgSgQmbnAIGOqyaAzqMlXVTdtsU-YZy6Xt35pHYPh`)
-  - Web App Deployment: `https://script.google.com/macros/s/AKfycbysBaRA2_oZIOqU10G4E_MHiC8FUR3dCnqj2DlLG91iNJXP3GkZZ7BK0Na1FAJ1thZk/exec` (Versión 20)
+  - Web App Deployment canónico: `https://script.google.com/macros/s/AKfycbzy7wZZ55zPnzZ6h9iRKXNAvitP5EZMCPyjsxPtLIpdtuv4_3Zt9SYqQS65I1WRGJGL/exec`
+  - Deployment alterno histórico `AKfycbwg...`: sólo evidencia de gate previo; no usar como target canónico de nuevas suites.
   - Libros Staging:
     - Main: `114VSwo3bXyn_audh1LHr4qqjW5aSDSTP_bR_-Iz5dkg`
     - Ops: `1NDpuyx6EfCHcoKW9CZ6pwR0oe2JS0aKpTTMa7RdqmlE`
@@ -41,7 +41,7 @@
 | **Fase 0: Transaccional Core** | Backend Modular (11 archivos) | `PROD_VERIFIED` | Merge a `main` completado y certificado. |
 | **Fase 0.5: Ticketing & Access Commerce** | `Access.gs`, `Events.gs`, `index.html` | `PROD_VERIFIED` | Modelo de 4 canales comerciales (Taquilla, Boletera, Transferencias, Cortesías) integrado en `main`. |
 | **Fase 1: Apertura / Turnos / Corte X / Z** | N/A | `READY_FOR_DEVELOPMENT` | Desbloqueada para iniciar desarrollo en la rama aislada `feature/phase-1-shifts-cuts`. |
-| **Solar / Lunar Concurrent Operating Model (PR #16)** | `OperatingProfiles.gs`, `POS.gs`, `KDS.gs`, `app.js` | `STAGING_VERIFIED` | Certificado en vivo en STAGING al 100% (7/7 compuertas aprobadas por `test_solar_lunar_simultaneous_gate.py`). Venta Solar (`CTA-20261028-058931`, $30) y Lunar (`CTA-20261028-058932`, $50) concurrentes en el mismo KDS (`C2-167` y `C2-168`) con decremento físico de inventario solo al entregar físicamente (ADR-004) y protección anti-doble entrega. |
+| **Solar / Lunar Concurrent Operating Model (PR #16)** | `OperatingProfiles.gs`, `POS.gs`, `KDS.gs`, `app.js` | `CANONICAL_STAGING_REDEPLOY_REQUIRED` | La concurrencia fue probada 7/7 sobre deployment alterno `AKfycbwg...`. El target canónico `AKfycbzy...` aún debe recibir el HEAD actual (incluye pricing guardrails y contextos concurrentes) y repetir el gate antes de producción. |
 
 ---
 
