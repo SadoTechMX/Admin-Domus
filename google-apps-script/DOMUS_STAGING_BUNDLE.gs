@@ -149,7 +149,8 @@ const ACTION_PERMISSIONS = Object.freeze({
 
   // Operación Solar / Lunar
   operatingProfileDatos: ['CAJA', 'ACCESOS', 'GERENCIA', 'ADMIN'],
-  operatingProfileSet: ['GERENCIA', 'ADMIN'],
+  operatingContextsDatos: ['CAJA', 'ACCESOS', 'BARRA', 'COCINA', 'GERENCIA', 'ADMIN'],
+  operatingContextValidate: ['CAJA', 'ACCESOS', 'GERENCIA', 'ADMIN'],
 
   // Catálogo, Administración y Carta
   sincronizarCartaConCatalogoDOMUS: ['ADMIN', 'GERENCIA'],
@@ -606,7 +607,6 @@ function idempotentExecute_(requestId, action, payload, deviceId, fn) {
 
 
 // ==================== START OF POS.gs ====================
-
 /**
  * ============================================================================
  * DOMUS OS · POINT OF SALE & REGISTER (POS.gs)
@@ -621,7 +621,7 @@ function idempotentExecute_(requestId, action, payload, deviceId, fn) {
 function cajaSimpleDatos() {
   const m = SpreadsheetApp.openById(CONFIG.mainSheetId);
   const s = m.getSheetByName('CAJA 2');
-  const phase = String(s.getRange('F2').getValue()) || 'Solar';
+  const defaultPhase = String(s.getRange('F2').getValue()) || 'Solar';
   const sheetCat = m.getSheetByName('CATALOGO');
   const lastRowCat = sheetCat ? sheetCat.getLastRow() : 6;
   const numRowsCat = Math.max(1, lastRowCat - 6);
@@ -631,7 +631,7 @@ function cajaSimpleDatos() {
   const products = [];
   posCatalogRows_(cat).forEach(r => {
     if (r[0] && r[8] === 'Sí') {
-      const price = r[15] ? r[phase === 'Solar' ? 16 : 17] : r[2];
+      const price = r[15] ? r[defaultPhase === 'Solar' ? 16 : 17] : r[2];
       if (typeof price === 'number' && price >= 0) {
         const sku = String(r[6] || '');
         const provider = String(r[4] || '');
@@ -690,7 +690,9 @@ function cajaSimpleDatos() {
     : '';
 
   return {
-    phase: ['Solar', 'Lunar'].includes(phase) ? phase : 'Solar',
+    phase: ['Solar', 'Lunar'].includes(defaultPhase) ? defaultPhase : 'Solar',
+    defaultPhase: ['Solar', 'Lunar'].includes(defaultPhase) ? defaultPhase : 'Solar',
+    concurrentContexts: true,
     products: products,
     accounts: accounts,
     activities: activities,
@@ -730,10 +732,14 @@ function cajaSimpleRegistrarCore_(p) {
 
   const m = SpreadsheetApp.openById(CONFIG.mainSheetId);
   const sCaja = m.getSheetByName('CAJA 2');
-  const phase = String(sCaja.getRange('F2').getValue()) || 'Solar';
-  if (p.phase && p.phase !== phase) {
-    throw new Error('Cambió la carta a Fase ' + phase + '. Por favor actualiza antes de cobrar.');
-  }
+  const defaultPhase = String(sCaja.getRange('F2').getValue()) || 'Solar';
+  const phase = ['Solar', 'Lunar'].includes(String(p.phase || '').trim())
+    ? String(p.phase).trim()
+    : (['Solar', 'Lunar'].includes(defaultPhase) ? defaultPhase : 'Solar');
+  const activity = String(p.activity || 'Visita general DOMUS').trim();
+
+  // Valida el contexto de ESTA venta. Solar y Lunar pueden coexistir.
+  operatingContextValidate_({ phase: phase, activity: activity });
 
   const sheetCat = m.getSheetByName('CATALOGO');
   const lastRowCat = sheetCat ? sheetCat.getLastRow() : 6;
@@ -744,7 +750,6 @@ function cajaSimpleRegistrarCore_(p) {
 
   const customer = String(p.customer || 'Público General').trim();
   let ticket = String(p.ticket || '');
-  let activity = String(p.activity || 'Visita general DOMUS');
 
   // Si no hay ticket, generar un folio único para la cuenta
   if (!ticket) {
@@ -807,6 +812,9 @@ function cajaSimpleRegistrarCore_(p) {
       '', u.inventory || '', '', 'LISTO', '', u.destination || 'Barra'
     ];
     sCaja.getRange(rowNum, 1, 1, rowData.length).setValues([rowData]);
+    // Columna AK (37): dimensión operativa autoritativa por línea.
+    // Solar y Lunar pueden coexistir en la misma jornada y en la misma caja.
+    sCaja.getRange(rowNum, 37).setValue(phase);
   });
 
   // Si fue pagado, asentar en COBROS
@@ -847,7 +855,9 @@ function cajaSimpleRegistrarCore_(p) {
           state: 'Pendiente',
           credit: !isPaid,
           incident: '',
-          responsible: ''
+          responsible: '',
+          phase: phase,
+          activity: activity
         };
         sComandas.getRange(rowNum, 13).setValue(JSON.stringify(comandaItem));
         sComandas.getRange(rowNum, 8).setValue('Recibida');
@@ -864,6 +874,8 @@ function cajaSimpleRegistrarCore_(p) {
     paid: isPaid,
     total: expectedTotal,
     customer: customer,
+    phase: phase,
+    activity: activity,
     message: isPaid 
       ? `Cobro registrado exitosamente: Folio ${receiptFolio || ticket}` 
       : `Pedido guardado en cuenta abierta: ${ticket}`
@@ -1573,6 +1585,7 @@ function accesoSimpleDatos() {
   let totalCommercialGross = 0;
   let presalesCount = 0;
   let courtesiesCount = 0;
+  const metricsByActivity = {};
 
   rawAcc.forEach((r, idx) => {
     if (r[0] || r[3]) {
@@ -1602,10 +1615,22 @@ function accesoSimpleDatos() {
       totalAttendance += persons;
       totalDoorRevenue += amountPaidAtDoor;
       totalCommercialGross += totalCommercial;
+      if (!metricsByActivity[activity]) {
+        metricsByActivity[activity] = {
+          attendance: 0,
+          doorRevenue: 0,
+          commercialGross: 0,
+          activeWardrobe: 0
+        };
+      }
+      metricsByActivity[activity].attendance += persons;
+      metricsByActivity[activity].doorRevenue += amountPaidAtDoor;
+      metricsByActivity[activity].commercialGross += totalCommercial;
       if (salesChannel === 'BOLETERA_EXTERNA' || salesChannel === 'PREVENTA_DOMUS') presalesCount++;
       if (salesChannel === 'CORTESIA') courtesiesCount++;
       if (wardrobeQty > 0 && !wardrobeReturned) {
         activeWardrobe += wardrobeQty;
+        metricsByActivity[activity].activeWardrobe += wardrobeQty;
       }
 
       recentAccess.unshift({
@@ -1639,6 +1664,8 @@ function accesoSimpleDatos() {
     activeActivity: activeActivity,
     activities: activities,
     recentAccess: recentAccess,
+    activeActivities: activities.filter(a => String(a.status || '').toLowerCase() === 'confirmado'),
+    metricsByActivity: metricsByActivity,
     metrics: {
       totalAttendance: totalAttendance,
       activeWardrobe: activeWardrobe,
@@ -2276,62 +2303,80 @@ function operatingProfileDatos_() {
   };
 }
 
-function operatingProfileSet_(payload, authContext) {
+function operatingContextValidate_(payload) {
   payload = payload || {};
-  const profile = String(payload.profile || payload.phase || '').trim();
-  if (!DOMUS_OPERATING_PROFILES[profile]) {
-    const err = new Error('OPERATING_PROFILE_INVALID: perfil debe ser Solar o Lunar.');
+  const phase = String(payload.phase || payload.profile || '').trim();
+  const activity = String(payload.activity || '').trim();
+
+  if (!['Solar', 'Lunar'].includes(phase)) {
+    const err = new Error('OPERATING_CONTEXT_INVALID: phase debe ser Solar o Lunar.');
     err.status = 400;
-    err.code = 'OPERATING_PROFILE_INVALID';
+    err.code = 'OPERATING_CONTEXT_INVALID';
     throw err;
   }
 
-  const m = SpreadsheetApp.openById(CONFIG.mainSheetId);
-  const sCaja = m.getSheetByName('CAJA 2');
-  const sAct = m.getSheetByName('ACTIVIDADES');
-  if (!sCaja || !sAct) throw new Error('Faltan hojas operativas CAJA 2 / ACTIVIDADES.');
-
-  const activity = String(payload.activity || '').trim();
+  let activityInfo = null;
   if (activity) {
-    const lastRow = Math.max(sAct.getLastRow(), 7);
-    const rows = sAct.getRange(7, 1, Math.max(lastRow - 6, 1), 13).getValues();
-    const match = rows.find(r => String(r[0] || '').trim().toLowerCase() === activity.toLowerCase());
-    if (!match) {
-      const err = new Error('OPERATING_ACTIVITY_NOT_FOUND: actividad no existe en ACTIVIDADES.');
+    activityInfo = operatingActivityValidate_(activity);
+    const allowedUnits = activityInfo.allowedUnits || ['Solar', 'Lunar'];
+    if (!allowedUnits.includes(phase)) {
+      const err = new Error('OPERATING_CONTEXT_MISMATCH: la actividad "' + activity + '" no corresponde a ' + phase + '.');
       err.status = 400;
-      err.code = 'OPERATING_ACTIVITY_NOT_FOUND';
-      throw err;
-    }
-    const status = String(match[11] || '').trim().toLowerCase();
-    if (status !== 'confirmado') {
-      const err = new Error('OPERATING_ACTIVITY_NOT_CONFIRMED: la actividad debe estar Confirmada antes de activarse.');
-      err.status = 400;
-      err.code = 'OPERATING_ACTIVITY_NOT_CONFIRMED';
+      err.code = 'OPERATING_CONTEXT_MISMATCH';
       throw err;
     }
   }
 
-  return withLock_(CONFIG.lockTimeoutMs, () => {
-    const props = PropertiesService.getScriptProperties();
-    const previousPhase = String(sCaja.getRange('F2').getValue() || 'Solar').trim();
-    const previousActivity = String(props.getProperty('actividadAcceso') || '').trim();
+  return {
+    ok: true,
+    phase: phase,
+    activity: activity,
+    activityInfo: activityInfo,
+    mode: 'CONCURRENT_TRANSACTION_CONTEXT'
+  };
+}
 
-    sCaja.getRange('F2').setValue(profile);
-    if (activity) props.setProperty('actividadAcceso', activity);
-    props.setProperty('domusOperatingProfile', profile);
-    props.setProperty('domusOperatingProfileChangedAt', new Date().toISOString());
-    props.setProperty('domusOperatingProfileChangedBy', (authContext && authContext.operator) || 'Operador');
-
-    SpreadsheetApp.flush();
-
-    const current = operatingProfileDatos_();
+function operatingContextsDatos_() {
+  const base = operatingProfileDatos_();
+  const today = Utilities.formatDate(new Date(), 'America/Mexico_City', 'yyyy-MM-dd');
+  const contexts = (base.confirmedActivities || []).filter(a => a.date === today).map(a => {
+    const raw = String(a.area || '').toLowerCase();
+    let units = [];
+    if (raw.includes('solar')) units.push('Solar');
+    if (raw.includes('lunar') || raw.includes('club') || raw.includes('nocturno')) units.push('Lunar');
+    if (units.length === 0) units = ['Solar', 'Lunar'];
     return {
-      ok: true,
-      previous: { profile: previousPhase, activeActivity: previousActivity },
-      current: current,
-      message: 'Perfil operativo cambiado a ' + profile + (activity ? ' · ' + activity : '')
+      activity: a.name,
+      date: a.date,
+      units: units,
+      priceGeneral: a.priceGeneral,
+      pricePareja: a.pricePareja,
+      priceTrio: a.priceTrio,
+      priceGuardarropa: a.priceGuardarropa,
+      status: a.status
     };
   });
+
+  const blockers = [];
+  if (contexts.length === 0) blockers.push('NO_CONFIRMED_CONTEXT_TODAY');
+  if (!base.catalog || base.catalog.activeProducts === 0) blockers.push('NO_ACTIVE_PRODUCTS');
+  if (base.catalog && base.catalog.phasePricedProducts < base.catalog.activeProducts) blockers.push('CATALOG_PHASE_PRICE_GAPS');
+  if (base.catalog && base.catalog.invalidDestination > 0) blockers.push('INVALID_KDS_DESTINATIONS');
+  if (!base.opening || !base.opening.isToday) blockers.push('OPENING_NOT_TODAY');
+  if (base.opening && base.opening.checklistMarked < base.opening.checklistTotal) blockers.push('OPENING_CHECKLIST_INCOMPLETE');
+
+  return {
+    environment: CONFIG.environment,
+    mode: 'CONCURRENT_TRANSACTION_CONTEXT',
+    defaultPhase: base.profile,
+    contexts: contexts,
+    catalog: base.catalog,
+    opening: base.opening,
+    readiness: {
+      ready: blockers.length === 0,
+      blockers: blockers
+    }
+  };
 }
 
 function operatingActivityValidate_(activity) {
@@ -2361,7 +2406,20 @@ function operatingActivityValidate_(activity) {
     throw err;
   }
 
-  return { name: clean, status: status };
+  const area = String(match[2] || '').trim();
+  const raw = area.toLowerCase();
+  let allowedUnits = [];
+  if (raw.includes('solar')) allowedUnits.push('Solar');
+  if (raw.includes('lunar') || raw.includes('club') || raw.includes('nocturno')) allowedUnits.push('Lunar');
+  if (allowedUnits.length === 0) allowedUnits = ['Solar', 'Lunar'];
+
+  return {
+    name: clean,
+    status: status,
+    area: area,
+    date: match[1] instanceof Date ? Utilities.formatDate(match[1], 'America/Mexico_City', 'yyyy-MM-dd') : String(match[1] || ''),
+    allowedUnits: allowedUnits
+  };
 }
 
 // ==================== END OF OperatingProfiles.gs ====================
@@ -2507,8 +2565,11 @@ function doPost(e) {
       case 'operatingProfileDatos':
         result = operatingProfileDatos_();
         break;
-      case 'operatingProfileSet':
-        result = idempotentExecute_(requestId, action, args[0], deviceId, () => operatingProfileSet_(args[0], authContext));
+      case 'operatingContextsDatos':
+        result = operatingContextsDatos_();
+        break;
+      case 'operatingContextValidate':
+        result = operatingContextValidate_(args[0]);
         break;
 
       // --- INVENTARIO & CATÁLOGO ---
@@ -2563,6 +2624,9 @@ function handleApiGetRequest_(action, params) {
     } else if (action === 'operatingProfileDatos') {
       authValidateAction(action, params.token || '', params.role || '', params.deviceId || '');
       data = operatingProfileDatos_();
+    } else if (action === 'operatingContextsDatos') {
+      authValidateAction(action, params.token || '', params.role || '', params.deviceId || '');
+      data = operatingContextsDatos_();
     } else if (action === 'ping' || action === 'health') {
       data = {
         status: 'HEALTHY',
