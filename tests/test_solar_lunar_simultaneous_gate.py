@@ -20,7 +20,7 @@ import urllib.request
 
 DEFAULT_URL = os.getenv(
     "DOMUS_STAGING_URL",
-    "https://script.google.com/macros/s/AKfycbwgLRDIvZ3rdl-dl3g_YtwexjYE7TBdGkxTfVdzBABb-58nKt-G7179bL163V5nTut2/exec"
+    "https://script.google.com/macros/s/AKfycbzy7wZZ55zPnzZ6h9iRKXNAvitP5EZMCPyjsxPtLIpdtuv4_3Zt9SYqQS65I1WRGJGL/exec"
 )
 
 EXPECTED_MAIN_SHEET = "114VSwo3bXyn_audh1LHr4qqjW5aSDSTP_bR_-Iz5dkg"
