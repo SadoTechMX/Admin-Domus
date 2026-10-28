@@ -135,6 +135,14 @@ function doPost(e) {
         result = idempotentExecute_(requestId, action, args[0], deviceId, () => registrarNuevoEvento(args[0]));
         break;
 
+      // --- OPERACIÓN SOLAR / LUNAR ---
+      case 'operatingProfileDatos':
+        result = operatingProfileDatos_();
+        break;
+      case 'operatingProfileSet':
+        result = idempotentExecute_(requestId, action, args[0], deviceId, () => operatingProfileSet_(args[0], authContext));
+        break;
+
       // --- INVENTARIO & CATÁLOGO ---
       case 'sincronizarCartaConCatalogoDOMUS':
         result = idempotentExecute_(requestId, action, null, deviceId, () => sincronizarCartaConCatalogoDOMUS());
@@ -184,6 +192,9 @@ function handleApiGetRequest_(action, params) {
       data = accesoSimpleDatos();
     } else if (action === 'cajaSimpleEstado') {
       data = cajaSimpleEstado(params.id || '');
+    } else if (action === 'operatingProfileDatos') {
+      authValidateAction(action, params.token || '', params.role || '', params.deviceId || '');
+      data = operatingProfileDatos_();
     } else if (action === 'ping' || action === 'health') {
       data = {
         status: 'HEALTHY',
