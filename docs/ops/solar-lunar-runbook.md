@@ -2,7 +2,7 @@
 
 ## Objetivo
 
-Permitir que DOMUS cambie entre Solar y Lunar sin mezclar:
+Permitir que DOMUS opere Solar y Lunar de forma simultánea sin mezclar:
 - precios,
 - actividad de acceso,
 - caja,
@@ -29,22 +29,20 @@ Permitir que DOMUS cambie entre Solar y Lunar sin mezclar:
 
 ## Regla técnica
 
-La fase POS oficial vive en:
-`CAJA 2!F2`
+Solar/Lunar es una dimensión de cada transacción, no un modo global.
 
-La actividad oficial de Acceso vive en:
-`PropertiesService.scriptProperties.actividadAcceso`
+- `CAJA 2!F2` queda únicamente como default de compatibilidad/estación.
+- Cada venta lleva `phase: Solar|Lunar`.
+- Cada línea escribe su unidad en `CAJA 2!AK = Solar / Lunar registrado`.
+- La actividad viaja en la propia venta/acceso.
+- KDS e inventario son compartidos: una entrega descuenta una sola vez, sin importar la unidad.
+- Finanzas y liquidaciones se cortan por `phase + activity`.
 
-Antes de este cambio podían divergir.
-
-Ahora `operatingProfileSet` permite a GERENCIA/ADMIN:
-1. cambiar la fase persistente;
-2. opcionalmente cambiar la actividad;
-3. validar que la actividad existe y está CONFIRMADA;
-4. registrar quién/cuándo hizo el cambio;
-5. retornar readiness.
-
-Nunca escribir en historial de ACCESO para cambiar perfil.
+Así pueden coexistir:
+- Solar · Taller A
+- Solar · Galería
+- Lunar · Evento B
+en el mismo minuto y usando el mismo stock físico.
 
 ## Endpoints
 
@@ -67,9 +65,11 @@ Entrega:
 - blockers
 
 ### POST
-`operatingProfileSet`
+`operatingContextValidate`
 
 Roles:
+- CAJA
+- ACCESOS
 - GERENCIA
 - ADMIN
 
@@ -77,8 +77,8 @@ Payload:
 
 ```json
 {
-  "profile": "Solar",
-  "activity": "Visita general DOMUS"
+  "phase": "Solar",
+  "activity": "DOMUS Solar · operación diaria · 28 oct"
 }
 ```
 
@@ -106,16 +106,16 @@ Mismos 10 gates, más:
 - cambio de precio confirmado por backend;
 - corte intermedio Solar si cambia custodio/caja.
 
-## Transición Solar → Lunar
+## Concurrencia Solar + Lunar
 
-1. Detener nuevas ventas durante el cambio.
-2. Si cambia custodio, hacer conteo/corte intermedio.
-3. Gerencia ejecuta `operatingProfileSet({profile:"Lunar", activity:"..."})`.
-4. Todas las estaciones recargan Caja/Acceso.
-5. Verificar badge Lunar + precios Lunar.
-6. Verificar actividad de Acceso correcta.
-7. Verificar KDS.
-8. Reanudar ventas.
+1. No detener Solar cuando inicia Lunar.
+2. Cada venta selecciona su contexto antes de agregar/cobrar.
+3. El backend valida `phase + activity`.
+4. La línea queda marcada en AK como Solar o Lunar.
+5. El mismo KDS procesa ambas; puede mostrar la unidad como etiqueta.
+6. Inventario descuenta la unidad física una sola vez al entregar.
+7. Cortes y dashboards separan por unidad/evento.
+8. Si cambia custodio de caja, sí hacer corte intermedio por responsabilidad, no por cambio de unidad.
 
 ## Prohibido
 
