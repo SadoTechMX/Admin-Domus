@@ -41,7 +41,7 @@
 | **Fase 0: Transaccional Core** | Backend Modular (11 archivos) | `PROD_VERIFIED` | Merge a `main` completado y certificado. |
 | **Fase 0.5: Ticketing & Access Commerce** | `Access.gs`, `Events.gs`, `index.html` | `PROD_VERIFIED` | Modelo de 4 canales comerciales (Taquilla, Boletera, Transferencias, Cortesías) integrado en `main`. |
 | **Fase 1: Apertura / Turnos / Corte X / Z** | N/A | `READY_FOR_DEVELOPMENT` | Desbloqueada para iniciar desarrollo en la rama aislada `feature/phase-1-shifts-cuts`. |
-| **Solar / Lunar Concurrent Operating Model (PR #16)** | `OperatingProfiles.gs`, `POS.gs`, `KDS.gs`, `app.js` | `LOCAL_TESTED` / `STAGING_AWAITING_DEPLOY` | 9/9 pruebas locales aprobadas. Suite de gate en vivo `test_solar_lunar_simultaneous_gate.py` lista para validar Staging en cuanto se actualice el bundle en Apps Script. |
+| **Solar / Lunar Concurrent Operating Model (PR #16)** | `OperatingProfiles.gs`, `POS.gs`, `KDS.gs`, `app.js` | `STAGING_VERIFIED` | Certificado en vivo en STAGING al 100% (7/7 compuertas aprobadas por `test_solar_lunar_simultaneous_gate.py`). Venta Solar (`CTA-20261028-058931`, $30) y Lunar (`CTA-20261028-058932`, $50) concurrentes en el mismo KDS (`C2-167` y `C2-168`) con decremento físico de inventario solo al entregar físicamente (ADR-004) y protección anti-doble entrega. |
 
 ---
 

@@ -131,8 +131,8 @@ def run_simultaneous_gate(target_url=None):
     # 4. DISPARO SIMULTÁNEO DE VENTA SOLAR Y VENTA LUNAR
     print("\n[PASO 4/7] Ejecutando venta Solar y venta Lunar simultáneas en la misma jornada...")
     ts = int(time.time() * 1000)
-    id_solar = f"POS-GATE-SOLAR-{ts}"
-    id_lunar = f"POS-GATE-LUNAR-{ts}"
+    id_solar = f"POS-GATE-SOLAR-{ts}1"
+    id_lunar = f"POS-GATE-LUNAR-{ts}2"
 
     payload_solar = {
         "id": id_solar,
@@ -181,8 +181,8 @@ def run_simultaneous_gate(target_url=None):
     orders = kds_resp["data"]["orders"]
 
     # Localizar ambas órdenes
-    order_solar = next((o for o in orders if o.get("ticket") == data_solar["ticket"]), None)
-    order_lunar = next((o for o in orders if o.get("ticket") == data_lunar["ticket"]), None)
+    order_solar = next((o for o in orders if o.get("batch") == id_solar or o.get("ticket") == data_solar["ticket"]), None)
+    order_lunar = next((o for o in orders if o.get("batch") == id_lunar or o.get("ticket") == data_lunar["ticket"]), None)
 
     assert order_solar, f"Comanda Solar {data_solar['ticket']} no apareció en KDS."
     assert order_lunar, f"Comanda Lunar {data_lunar['ticket']} no apareció en KDS."
