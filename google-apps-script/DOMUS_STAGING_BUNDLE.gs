@@ -1024,7 +1024,9 @@ function comandasSimpleDatos(token) {
             responsible: item.responsible || item.preparedBy || '',
             sent: item.sent ? new Date(item.sent).getTime() : Date.now(),
             credit: !!item.credit,
-            incident: item.incident || ''
+            incident: item.incident || '',
+            phase: item.phase || '',
+            activity: item.activity || ''
           });
         }
       } catch (err) {}

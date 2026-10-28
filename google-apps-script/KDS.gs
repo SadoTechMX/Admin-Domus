@@ -42,7 +42,9 @@ function comandasSimpleDatos(token) {
     deliveredBy: item.deliveredBy || '',
     cancelled: item.cancelled ? new Date(item.cancelled).getTime() : null,
     credit: !!item.credit,
-    incident: item.incident || ''
+    incident: item.incident || '',
+    phase: item.phase || '',
+    activity: item.activity || ''
   });
 
   masterRaw.forEach(row => {

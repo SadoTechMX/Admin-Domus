@@ -3676,7 +3676,9 @@ const DEFAULT_CATALOG = [
           <div class="order-card-header">
             <div class="order-card-meta">
               <h3 class="customer-name">${first.alias || 'Cliente'}</h3>
-              <div class="ticket-info">${first.ticket} · ${items.length} unidad(es)</div>
+              <div class="ticket-info">
+                ${first.phase ? `<span class="badge-tag badge-phase-${first.phase.toLowerCase()}">[ ${first.phase.toUpperCase()} ]</span> ` : ''}${first.ticket} · ${items.length} unidad(es)${first.activity ? ` · ${first.activity}` : ''}
+              </div>
               ${first.credit ? '<span class="credit-tag">💳 Paga al final</span>' : ''}
             </div>
             <div class="order-timer-badge ${isUrgent ? 'danger' : isWarning ? 'warning' : ''}">
@@ -3699,6 +3701,7 @@ const DEFAULT_CATALOG = [
                 <div class="order-item-top">
                   <span class="order-item-name">1 × ${item.product}</span>
                   <div class="order-item-badges">
+                    ${item.phase ? `<span class="badge-tag badge-phase-${item.phase.toLowerCase()}">${item.phase}</span>` : ''}
                     <span class="badge-tag dest-${(item.destination || 'Barra').toLowerCase()}">${item.destination}</span>
                     <span class="badge-tag state-${item.state.toLowerCase().replace(/\s+/g, '')}">${item.state}</span>
                   </div>

@@ -40,7 +40,8 @@ def test_rbac_and_routes():
 
 
 def test_frontend_phase_toggle_is_not_local_only():
-    block = APP[APP.index("// Phase Switcher (Solar / Lunar)"):APP.index("// Botón Reintentar Outbox")]
+    marker = "// Contexto transaccional Solar / Lunar." if "// Contexto transaccional Solar / Lunar." in APP else "// Phase Switcher (Solar / Lunar)"
+    block = APP[APP.index(marker):APP.index("// Botón Reintentar Outbox")]
     assert "Siguiente venta" in block
     assert "operatingContextValidate" not in block
 
