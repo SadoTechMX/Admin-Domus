@@ -137,7 +137,16 @@ function operatingContextValidate_(payload) {
   }
 
   let activityInfo = null;
-  if (activity) activityInfo = operatingActivityValidate_(activity);
+  if (activity) {
+    activityInfo = operatingActivityValidate_(activity);
+    const allowedUnits = activityInfo.allowedUnits || ['Solar', 'Lunar'];
+    if (!allowedUnits.includes(phase)) {
+      const err = new Error('OPERATING_CONTEXT_MISMATCH: la actividad "' + activity + '" no corresponde a ' + phase + '.');
+      err.status = 400;
+      err.code = 'OPERATING_CONTEXT_MISMATCH';
+      throw err;
+    }
+  }
 
   return {
     ok: true,
@@ -150,7 +159,8 @@ function operatingContextValidate_(payload) {
 
 function operatingContextsDatos_() {
   const base = operatingProfileDatos_();
-  const contexts = (base.confirmedActivities || []).map(a => {
+  const today = Utilities.formatDate(new Date(), 'America/Mexico_City', 'yyyy-MM-dd');
+  const contexts = (base.confirmedActivities || []).filter(a => a.date === today).map(a => {
     const raw = String(a.area || '').toLowerCase();
     let units = [];
     if (raw.includes('solar')) units.push('Solar');
@@ -206,5 +216,18 @@ function operatingActivityValidate_(activity) {
     throw err;
   }
 
-  return { name: clean, status: status };
+  const area = String(match[2] || '').trim();
+  const raw = area.toLowerCase();
+  let allowedUnits = [];
+  if (raw.includes('solar')) allowedUnits.push('Solar');
+  if (raw.includes('lunar') || raw.includes('club') || raw.includes('nocturno')) allowedUnits.push('Lunar');
+  if (allowedUnits.length === 0) allowedUnits = ['Solar', 'Lunar'];
+
+  return {
+    name: clean,
+    status: status,
+    area: area,
+    date: match[1] instanceof Date ? Utilities.formatDate(match[1], 'America/Mexico_City', 'yyyy-MM-dd') : String(match[1] || ''),
+    allowedUnits: allowedUnits
+  };
 }
