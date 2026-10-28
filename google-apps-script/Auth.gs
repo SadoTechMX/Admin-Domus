@@ -31,6 +31,10 @@ const ACTION_PERMISSIONS = Object.freeze({
   accesoCambiarActividad: ['ACCESOS', 'GERENCIA', 'ADMIN'],
   registrarNuevoEvento: ['ACCESOS', 'GERENCIA', 'ADMIN'],
 
+  // Operación Solar / Lunar
+  operatingProfileDatos: ['CAJA', 'ACCESOS', 'GERENCIA', 'ADMIN'],
+  operatingProfileSet: ['CAJA', 'GERENCIA', 'ADMIN'],
+
   // Catálogo, Administración y Carta
   sincronizarCartaConCatalogoDOMUS: ['ADMIN', 'GERENCIA'],
   registrarNuevoProducto: ['CAJA', 'ADMIN', 'GERENCIA'],
