@@ -16,13 +16,13 @@ def test_profiles_are_canonical():
     assert "priceSolar" in OPS and "priceLunar" in OPS
 
 
-def test_profile_set_persists_server_phase():
-    assert "getRange('F2').setValue(profile)" in OPS
-    assert "domusOperatingProfile" in OPS
-    assert "actividadAcceso" in OPS
+def test_context_is_transaction_scoped():
+    assert "CONCURRENT_TRANSACTION_CONTEXT" in OPS
+    assert "getRange('F2').setValue" not in OPS
+    assert "operatingContextValidate_" in OPS
 
 
-def test_profile_set_never_writes_access_history():
+def test_context_never_writes_access_history():
     assert "getSheetByName('ACCESO')" not in OPS
     assert ".appendRow(" not in OPS
 
@@ -34,16 +34,15 @@ def test_activity_switch_is_validated():
 
 def test_rbac_and_routes():
     assert "operatingProfileDatos" in API
-    assert "operatingProfileSet" in API
+    assert "operatingContextValidate" in API
     assert re.search(r"operatingProfileDatos:\s*\['CAJA',\s*'ACCESOS',\s*'GERENCIA',\s*'ADMIN'\]", AUTH)
-    assert re.search(r"operatingProfileSet:\s*\['GERENCIA',\s*'ADMIN'\]", AUTH)
+    assert re.search(r"operatingContextValidate:\s*\['CAJA',\s*'ACCESOS',\s*'GERENCIA',\s*'ADMIN'\]", AUTH)
 
 
 def test_frontend_phase_toggle_is_not_local_only():
     block = APP[APP.index("// Phase Switcher (Solar / Lunar)"):APP.index("// Botón Reintentar Outbox")]
-    assert "operatingProfileSet" in block
-    assert "await loadCajaData()" in block
-    assert "reservado a Gerencia" in block
+    assert "Siguiente venta" in block
+    assert "operatingContextValidate" not in block
 
 
 def test_readiness_detects_operational_blockers():
@@ -61,20 +60,29 @@ def test_readiness_detects_operational_blockers():
 
 def test_staging_bundle_contains_profiles():
     assert "START OF OperatingProfiles.gs" in BUNDLE
-    assert "operatingProfileSet" in BUNDLE
+    assert "operatingContextValidate" in BUNDLE
+    assert "operatingContextsDatos" in BUNDLE
     assert "operatingActivityValidate_" in BUNDLE
+
+
+def test_pos_records_phase_per_line():
+    pos = (ROOT / "google-apps-script" / "POS.gs").read_text(encoding="utf-8")
+    assert "sCaja.getRange(rowNum, 37).setValue(phase)" in pos
+    assert "operatingContextValidate_" in pos
+    assert "phase: phase" in pos
 
 
 def run_all():
     tests = [
         test_profiles_are_canonical,
-        test_profile_set_persists_server_phase,
-        test_profile_set_never_writes_access_history,
+        test_context_is_transaction_scoped,
+        test_context_never_writes_access_history,
         test_activity_switch_is_validated,
         test_rbac_and_routes,
         test_frontend_phase_toggle_is_not_local_only,
         test_readiness_detects_operational_blockers,
         test_staging_bundle_contains_profiles,
+        test_pos_records_phase_per_line,
     ]
     for fn in tests:
         fn()
