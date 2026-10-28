@@ -14,6 +14,9 @@ function cajaSimpleDatos() {
   const m = SpreadsheetApp.openById(CONFIG.mainSheetId);
   const s = m.getSheetByName('CAJA 2');
   const defaultPhase = String(s.getRange('F2').getValue()) || 'Solar';
+  // Valida el contexto de esta transacción; Solar y Lunar pueden coexistir.
+  operatingContextValidate_({ phase: phase, activity: String(p.activity || '').trim() });
+
   const sheetCat = m.getSheetByName('CATALOGO');
   const lastRowCat = sheetCat ? sheetCat.getLastRow() : 6;
   const numRowsCat = Math.max(1, lastRowCat - 6);
