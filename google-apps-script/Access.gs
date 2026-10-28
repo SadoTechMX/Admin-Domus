@@ -471,6 +471,7 @@ function guardarropaDevolver(payload) {
 function accesoCambiarActividad(payload) {
   if (!payload || !payload.activity) throw new Error('Actividad no especificada.');
   const act = String(payload.activity).trim();
+  operatingActivityValidate_(act);
   PropertiesService.getScriptProperties().setProperty('actividadAcceso', act);
   return { ok: true, activeActivity: act };
 }
