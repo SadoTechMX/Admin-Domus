@@ -128,9 +128,10 @@ function cajaSimpleRegistrarCore_(p) {
   const phase = ['Solar', 'Lunar'].includes(String(p.phase || '').trim())
     ? String(p.phase).trim()
     : (['Solar', 'Lunar'].includes(defaultPhase) ? defaultPhase : 'Solar');
+  const activity = String(p.activity || 'Visita general DOMUS').trim();
 
   // Valida el contexto de ESTA venta. Solar y Lunar pueden coexistir.
-  operatingContextValidate_({ phase: phase, activity: String(p.activity || '').trim() });
+  operatingContextValidate_({ phase: phase, activity: activity });
 
   const sheetCat = m.getSheetByName('CATALOGO');
   const lastRowCat = sheetCat ? sheetCat.getLastRow() : 6;
@@ -141,7 +142,6 @@ function cajaSimpleRegistrarCore_(p) {
 
   const customer = String(p.customer || 'Público General').trim();
   let ticket = String(p.ticket || '');
-  let activity = String(p.activity || 'Visita general DOMUS');
 
   // Si no hay ticket, generar un folio único para la cuenta
   if (!ticket) {
