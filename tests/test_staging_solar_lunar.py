@@ -63,6 +63,7 @@ def run():
     print("PASS health / isolation")
 
     caja = create_session("CAJA")
+    gerencia = create_session("GERENCIA")
     accesos = create_session("ACCESOS")
 
     d = get("operatingProfileDatos", token=caja, role="CAJA")
@@ -73,17 +74,19 @@ def run():
 
     denied = post("operatingProfileSet", accesos, "ACCESOS", [{"profile": "Solar"}])
     assert denied.get("ok") is False
-    print("PASS ACCESOS cannot change POS profile")
+    denied_caja = post("operatingProfileSet", caja, "CAJA", [{"profile": "Solar"}])
+    assert denied_caja.get("ok") is False
+    print("PASS operational roles cannot change global profile")
 
     original = d["data"]["profile"]
     target = "Lunar" if original == "Solar" else "Solar"
-    switched = post("operatingProfileSet", caja, "CAJA", [{"profile": target}])
+    switched = post("operatingProfileSet", gerencia, "GERENCIA", [{"profile": target}])
     assert switched["ok"]
     verify = get("operatingProfileDatos", token=caja, role="CAJA")
     assert verify["data"]["profile"] == target
     print("PASS persistent phase switch")
 
-    restored = post("operatingProfileSet", caja, "CAJA", [{"profile": original}])
+    restored = post("operatingProfileSet", gerencia, "GERENCIA", [{"profile": original}])
     assert restored["ok"]
     verify2 = get("operatingProfileDatos", token=caja, role="CAJA")
     assert verify2["data"]["profile"] == original
