@@ -5096,13 +5096,34 @@ const DEFAULT_CATALOG = [
       $('btnToggleSound').textContent = '🔔 Sonido: On';
     }
 
-    // Phase Switcher (Solar / Lunar)
-    $('btnPhaseToggle').addEventListener('click', () => {
-      STATE.phase = STATE.phase === 'Solar' ? 'Lunar' : 'Solar';
-      $('currentPhaseBadge').textContent = `Fase ${STATE.phase}`;
-      toast(`Carta cambiada a Fase ${STATE.phase}`, 'ok');
-      renderCatalog();
-      renderCart();
+    // Phase Switcher (Solar / Lunar) — persistente y validado por servidor
+    $('btnPhaseToggle').addEventListener('click', async () => {
+      const nextPhase = STATE.phase === 'Solar' ? 'Lunar' : 'Solar';
+      const previousPhase = STATE.phase;
+      const btn = $('btnPhaseToggle');
+      if (btn) btn.disabled = true;
+
+      try {
+        const res = await gasCall('operatingProfileSet', [{
+          id: 'PROFILE-' + Date.now(),
+          profile: nextPhase
+        }]);
+
+        const current = res && res.current ? res.current : null;
+        STATE.phase = current && current.profile ? current.profile : nextPhase;
+        $('currentPhaseBadge').textContent = `Fase ${STATE.phase}`;
+        toast(`Perfil operativo cambiado a ${STATE.phase}`, 'ok');
+
+        await loadCajaData();
+        renderCatalog();
+        renderCart();
+      } catch (err) {
+        STATE.phase = previousPhase;
+        $('currentPhaseBadge').textContent = `Fase ${STATE.phase}`;
+        toast('No se pudo cambiar la fase: ' + (err.message || err), 'error');
+      } finally {
+        if (btn) btn.disabled = false;
+      }
     });
 
     // Botón Reintentar Outbox (Issue #1 - FASE 1.G):
