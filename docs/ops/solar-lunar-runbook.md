@@ -162,3 +162,69 @@ Inventario:
 
 Conclusión:
 el catálogo no bloquea la apertura. El inventario físico sí requiere un conteo dirigido del surtido que realmente se venderá.
+
+
+## Reglas comerciales canónicas
+
+### Consumo
+- Solar usa `priceSolar` por transacción.
+- Lunar usa `priceLunar` por transacción.
+- Dos ventas simultáneas del mismo SKU pueden tener precios distintos si pertenecen a unidades distintas.
+
+### Entrada
+- Taquilla y transferencia directa sólo pueden cobrar una actividad en estado `Confirmado`.
+- El precio cobrado se toma de `ACTIVIDADES`, nunca del navegador.
+- No existe cover heredado entre jornadas.
+- Si la actividad es gratuita, registrar el ingreso mediante `LISTA`, `CORTESIA` o `MEMBRESIA` según corresponda; no crear boleto de taquilla con precio 0.
+
+### Guardarropa
+- La tarifa se toma exclusivamente de `ACTIVIDADES`.
+- `0` explícito significa sin cobro.
+- No existe fallback automático de $50.
+- Una actividad `Por validar` no puede cobrar guardarropa.
+
+### Boletera externa
+- No duplicar el cover en puerta.
+- Registrar proveedor/folio/canal y sólo cobrar en DOMUS los conceptos autorizados adicionales.
+
+### Canna Treats
+- Reparto vigente: 30% DOMUS / 70% proveedor.
+- Comisión de terminal a cargo de DOMUS.
+- El consumo puede pertenecer a Solar o Lunar sin cambiar el acuerdo de reparto.
+
+### Corte
+Todo cierre debe poder segmentarse por:
+`unidad + actividad + medio de pago`.
+
+## Conteo dirigido de apertura
+
+No contar 158 referencias para poder abrir.
+
+### P0 — antes de abrir Solar
+Contar/validar las 10 referencias compartidas de mayor criticidad:
+- Modelo Especial 473 ml
+- Victoria 473 ml
+- Corona Extra lata
+- Carta Blanca lata
+- Corona 710 ml
+- Modelo 710 ml
+- Victoria 710 ml
+- Victoria Mega 1.2 L
+- Feldschöbchen
+- Onírica
+
+### P1 — antes del arranque Lunar
+Completar además:
+- agua natural
+- Squirt
+- Coca-Cola
+- agua mineral
+- Volt Blue
+- Volt Yellow
+- limón agrio
+- Clamato 946 ml
+- José Cuervo
+- Bacardí
+- Smirnoff
+
+El tablero operativo en Google Sheets mantiene el checklist vivo y enlazado a `INVENTARIO`.
