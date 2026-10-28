@@ -47,8 +47,7 @@ def test_frontend_phase_toggle_is_not_local_only():
 
 def test_readiness_detects_operational_blockers():
     for token in [
-        "ACTIVE_ACTIVITY_NOT_FOUND",
-        "ACTIVE_ACTIVITY_NOT_CONFIRMED",
+        "NO_CONFIRMED_CONTEXT_TODAY",
         "NO_ACTIVE_PRODUCTS",
         "CATALOG_PHASE_PRICE_GAPS",
         "INVALID_KDS_DESTINATIONS",
