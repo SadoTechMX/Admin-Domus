@@ -178,6 +178,14 @@ function operatingContextsDatos_() {
     };
   });
 
+  const blockers = [];
+  if (contexts.length === 0) blockers.push('NO_CONFIRMED_CONTEXT_TODAY');
+  if (!base.catalog || base.catalog.activeProducts === 0) blockers.push('NO_ACTIVE_PRODUCTS');
+  if (base.catalog && base.catalog.phasePricedProducts < base.catalog.activeProducts) blockers.push('CATALOG_PHASE_PRICE_GAPS');
+  if (base.catalog && base.catalog.invalidDestination > 0) blockers.push('INVALID_KDS_DESTINATIONS');
+  if (!base.opening || !base.opening.isToday) blockers.push('OPENING_NOT_TODAY');
+  if (base.opening && base.opening.checklistMarked < base.opening.checklistTotal) blockers.push('OPENING_CHECKLIST_INCOMPLETE');
+
   return {
     environment: CONFIG.environment,
     mode: 'CONCURRENT_TRANSACTION_CONTEXT',
@@ -185,7 +193,10 @@ function operatingContextsDatos_() {
     contexts: contexts,
     catalog: base.catalog,
     opening: base.opening,
-    readiness: base.readiness
+    readiness: {
+      ready: blockers.length === 0,
+      blockers: blockers
+    }
   };
 }
 
