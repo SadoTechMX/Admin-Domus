@@ -2946,7 +2946,9 @@ const DEFAULT_CATALOG = [
 
   // --- CARGA INICIAL DE DATOS ---
   function loadInitialData() {
-    STATE.products = [...DEFAULT_CATALOG];
+    // En producción, no mostrar productos hasta recibir el catálogo autorizado del backend.
+    // Evita vender entradas obsoletas del catálogo local que Google Sheets rechazará.
+    STATE.products = STATE.isProductionLocked ? [] : [...DEFAULT_CATALOG];
     // Migración segura de operaciones Outbox a v13 (conservando historial en cuarentena)
     migrateLegacyOutbox_();
 
@@ -2994,43 +2996,49 @@ const DEFAULT_CATALOG = [
           $('currentPhaseBadge').textContent = `Fase ${data.phase}`;
         }
         if (data.products && data.products.length) {
+          // FUENTE DE VERDAD: sólo el catálogo que el backend confirma como vendible.
+          // DEFAULT_CATALOG se usa únicamente para enriquecer presentación; nunca para
+          // introducir productos que Google Sheets no reconozca por nombre exacto.
           const canonMapByName = new Map(DEFAULT_CATALOG.map(c => [c.name.trim().toLowerCase(), c]));
-          const canonMapBySku = new Map(DEFAULT_CATALOG.filter(c => c.sku).map(c => [c.sku.trim().toLowerCase(), c]));
-
           const catalogMap = new Map();
-          // Base canónica oficial (143 productos autorizados)
-          DEFAULT_CATALOG.forEach(cp => {
-            catalogMap.set(cp.name.trim().toLowerCase(), { ...cp });
-          });
 
-          // Enlazar con datos de backend (preservando SKUs u opciones adicionales)
           data.products.forEach(bp => {
-            const bName = bp.name ? bp.name.trim().toLowerCase() : '';
-            const bSku = bp.sku ? bp.sku.trim().toLowerCase() : '';
-            const canon = canonMapByName.get(bName) || (bSku ? canonMapBySku.get(bSku) : null);
-            if (canon) {
-              const current = catalogMap.get(canon.name.trim().toLowerCase());
-              if (current && bp.sku && !current.sku) {
-                current.sku = bp.sku;
-              }
-            } else if (!bName.includes('— staff')) {
-              // Producto adicional no staff
-              catalogMap.set(bName, bp);
-            }
+            const serverName = String(bp.name || '').trim();
+            const bName = serverName.toLowerCase();
+            if (!serverName || bName.includes('— staff')) return;
+
+            const canon = canonMapByName.get(bName);
+            const group = (canon && canon.group) || bp.group || '';
+            const routeHint = (group + ' ' + serverName).toLowerCase();
+            const destination = (canon && canon.destination) || bp.destination ||
+              (/sushi|comida|alimento|cocina|cannab|jujutsu/.test(routeHint) ? 'Cocina' : 'Barra');
+
+            catalogMap.set(bName, {
+              ...(canon || {}),
+              ...bp,
+              // Conservar SIEMPRE el nombre y precio exactos entregados por el servidor.
+              name: serverName,
+              price: Number(bp.price),
+              priceSolar: Number(bp.price),
+              priceLunar: Number(bp.price),
+              group: group,
+              destination: destination
+            });
           });
 
-          // Fusionar productos personalizados creados localmente
-          try {
-            const custom = JSON.parse(localStorage.getItem('domus_custom_products') || '[]');
-            if (Array.isArray(custom) && custom.length) {
-              custom.forEach(c => {
-                const cKey = (c.name || '').trim().toLowerCase();
-                if (cKey && !catalogMap.has(cKey)) {
-                  catalogMap.set(cKey, c);
-                }
-              });
-            }
-          } catch (e) {}
+          // En producción no se mezclan productos guardados sólo en localStorage:
+          // primero deben existir y ser devueltos por CATALOGO en Google Sheets.
+          if (!STATE.isProductionLocked) {
+            try {
+              const custom = JSON.parse(localStorage.getItem('domus_custom_products') || '[]');
+              if (Array.isArray(custom) && custom.length) {
+                custom.forEach(p => {
+                  const key = String(p.name || '').trim().toLowerCase();
+                  if (key && !catalogMap.has(key)) catalogMap.set(key, p);
+                });
+              }
+            } catch (e) {}
+          }
 
           STATE.products = Array.from(catalogMap.values());
           renderCategoryChips();
