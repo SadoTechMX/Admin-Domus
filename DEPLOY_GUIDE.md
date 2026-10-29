@@ -40,8 +40,8 @@ Para que funcione directamente dentro del entorno seguro de Google Workspace (`d
    - En **Versión**, elige **Nueva versión**.
    - Haz clic en **Implementar**.
 5. **Listo.** La URL oficial mantendrá el acceso:
-   - **Modo Caja:** `https://script.google.com/a/macros/domusccc.net/s/AKfycbzy7wZZ55zPnzZ6h9iRKXNAvitP5EZMCPyjsxPtLIpdtuv4_3Zt9SYqQS65I1WRGJGL/exec?vista=caja`
-   - **Modo Comandas:** `https://script.google.com/a/macros/domusccc.net/s/AKfycbzy7wZZ55zPnzZ6h9iRKXNAvitP5EZMCPyjsxPtLIpdtuv4_3Zt9SYqQS65I1WRGJGL/exec?vista=comandas`
+   - **Modo Caja PRODUCCIÓN:** `https://script.google.com/macros/s/AKfycbysBaRA2_oZIOqU10G4E_MHiC8FUR3dCnqj2DlLG91iNJXP3GkZZ7BK0Na1FAJ1thZk/exec?vista=caja`
+   - **Modo Comandas PRODUCCIÓN:** `https://script.google.com/macros/s/AKfycbysBaRA2_oZIOqU10G4E_MHiC8FUR3dCnqj2DlLG91iNJXP3GkZZ7BK0Na1FAJ1thZk/exec?vista=comandas`
 
 ---
 
@@ -50,3 +50,23 @@ Para que funcione directamente dentro del entorno seguro de Google Workspace (`d
 - **Modo Offline & Resiliencia:** Si la conexión con Google tarda o falla, el sistema activa el simulador interactivo de DOMUS sin interrumpir la interfaz.
 - **Sonido de Comandas (Audio Chime):** Sintetizador Web Audio integrado con alertas para nuevos pedidos.
 - **Cálculo de Cambio y Billetes:** Botones rápidos de $50, $100, $200 y $500 con cálculo de cambio y propina voluntaria.
+
+
+## 🚨 Contrato de despliegue obligatorio
+
+Un deployment de DOMUS **NO está completo** si sólo contiene los archivos `.gs`.
+
+El proyecto Apps Script de PRODUCCIÓN debe contener, como mínimo:
+- backend `.gs` de producción;
+- `Index.html` copiado desde `google-apps-script/Index.html`;
+- Script Property `DOMUS_ENV=PRODUCTION`.
+
+Gate obligatorio después de desplegar:
+1. `?action=health` devuelve `environment=PRODUCTION`.
+2. `mainSheetId=1KQz8oJ4VaWFsqS2-sg25HMCm60SdSoQpIDlCDSV5J1U`.
+3. `opsSheetId=1DiwPa1cVe33xCYkIiYoHhP015RsEOjHXBFe2iU2RVCc`.
+4. La URL raíz `?vista=caja` devuelve HTML de DOMUS, NO el JSON `DOMUS OS API ONLINE`.
+5. Dentro de Caja, `STATE.isNativeGas=true` y las llamadas usan `google.script.run`.
+6. Caja carga catálogo y KDS sin mostrar `MODO SIN CONEXIÓN`.
+
+**Prohibido:** copiar `DOMUS_STAGING_BUNDLE.gs` al proyecto de producción.
