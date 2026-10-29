@@ -3,12 +3,12 @@
 > [!NOTE]
 > Este archivo resume el estado técnico del sistema. La fuente de verdad para el commit activo siempre es el comando `git rev-parse HEAD`.
 
-* **Fecha de Último Handoff:** 2026-10-29 16:35 UTC-6 (Apertura DOMUS Solar Jueves 29 Octubre 2026)
-* **Decisión Ejecutiva Operativa:** **PRODUCCIÓN EN VIVO OPERANDO AL 100% (FASE SOLAR CERTIFICADA).**
+* **Fecha de Último Handoff:** 2026-10-29 17:35 UTC-6 (Auditoría Canónica Apertura Solar 29 Octubre 2026)
+* **Decisión Ejecutiva Operativa:** **GO CONTROLADO · Producción en vivo operativa en Fase Solar con controles de apertura e inventario pendientes de formalización.**
 * **Baseline Backend Vigente:** Apps Script **Versión 16** (`PROD_VERIFIED`, Contenedor `DOMUS - Caja y barra` `1A45kAhlpaHC_9Rq5kT0rvkNjA_bCBhVRIIxpC20YUypWBAY9yH0PXjdj`)
 * **Versión Rollback Garantizada:** Apps Script **Versión 15** / **Versión 22** anterior
 * **Baseline Frontend Vigente (GitHub Pages + Apps Script Native UI):** Interfaz nativa HTML desplegada en Apps Script (`?vista=caja`) y GitHub Pages sincronizado
-* **Rama `main` (Producción):** Alineada y actualizada al commit `e2ad610`
+* **Rama `main` (Producción):** Alineada y actualizada al commit `acb47f6`
 * **Estado de Working Tree:** `clean`
 * **Entorno de PRODUCCIÓN Oficial:**
   - Versión Activa en Producción: **Versión 16** (29 oct 2026, Baseline Vigente Certificado)
@@ -174,3 +174,47 @@
      - `Sushi Jujutsu-shi` (9 items)
      - `🌿 Menú Cannábico` (18 items infusionados)
   5. **Precios Solar vs Lunar:** 73 productos con tarifas dinámicas alternables al toque del botón de Fase. Cero divergencias de precio (100% verificado contra la Carta Oficial).
+
+---
+
+## 🛡️ Auditoría Canónica y Certificación GO Controlado (2026-10-29 17:35 UTC-6)
+* **Auditor Externo:** ChatGPT / Ariadna
+* **Veredicto Técnico:** 🟢 **GO CONTROLADO · DOMUS SOLAR EN VIVO**
+* **Línea Base Canónica:**
+  - Deployment Apps Script: `AKfycbzy7wZZ55zPnzZ6h9iRKXNAvitP5EZMCPyjsxPtLIpdtuv4_3Zt9SYqQS65I1WRGJGL` (Versión 16)
+  - HEAD Git: `acb47f6`
+  - Libros: Main `1KQz8oJ4...`, Ops `1DiwPa1c...`
+
+### 📊 Semáforo de Áreas Operativas
+
+| Área / Componente | Estado | Detalle |
+| :--- | :---: | :--- |
+| **Backend Producción** | 🟢 | Status `HEALTHY`, environment `PRODUCTION`. |
+| **Caja Solar** | 🟢 | `CAJA 2!F2: Solar`, 152 items cargados. |
+| **COBROS** | 🟢 | Transaccional e inmutable. |
+| **KDS** | 🟢 | Conectado, 0 comandas activas al sondeo. |
+| **Accesos** | 🟢 | Actividad `Operación diaria`, 4 canales. |
+| **Interfaz Nativa** | 🟢 | `?vista=caja` sirve HTML completo con `google.script.run`. |
+| **GitHub Pages** | 🟢 | Sincronizado a Producción (`AKfycbzy...`). |
+| **Prueba de Venta y Entrega** | 🟢 | Circuito comercial y KDS verificado con David Franco. |
+| **Inventario Físico de Apertura** | 🟠 | Pendiente conteo físico del 29-Oct en libro de Barra. |
+| **Apertura Formal de Turno** | 🟠 | Hoja `APERTURA` conserva datos históricos del 22-Oct (0/8 checks). |
+| **Conciliación de Cuentas Abiertas** | 🟠 | 4 cuentas abiertas activas. |
+| **Inventario de Sushi** | 🟠 | Rollos Choso y Nobara arrojaron `INVENTORY_ITEM_NOT_FOUND`. |
+| **Autenticación Real de Roles Externos** | 🔴 | `authCrearSesion` requiere endurecimiento del lado servidor. |
+| **Protección de Rama `main`** | 🔴 | `main` requiere reglas de branch protection en GitHub. |
+
+### 📝 Registro Transaccional de Smoke Test (David Franco)
+* **Recibo Real:** `REC-MVU54BJ8`
+* **Cuenta Real:** `CTA-20261029-p8jui2`
+* **Batch / Operación:** `POS-1793314442100-p8jui2`
+* **Detalle:** 2 rollos de sushi (Jujutsu-shi · Choso + Nobara), $200.00 MXN en Efectivo.
+* **Circuito Confirmado:** Caja -> `CAJA 2` -> `COBROS` -> `COMANDAS` -> Preparación -> Lista -> Entregada (por Steven).
+* **Nota de Inventario:** Circuito comercial y operativo certificado; conciliación de inventario de sushi pendiente de alta en rango operativo de `INVENTARIO`.
+
+### 🚨 Directivas Inmediatas de Seguridad y Operación
+1. **Acceso a Caja Maestra:** Usar preferentemente la versión nativa de Google Workspace (`direccion@domusccc.net` / `sadotechfet@gmail.com`).
+2. **Terminales de Piso (GitHub Pages):** Operar únicamente en dispositivos físicos del club bajo red interna controlada; no difundir URLs.
+3. **Rotación de PIN:** El PIN de pantalla mencionado en chat debe ser rotado en la primera ventana de mantenimiento; no se considera secreto backend.
+4. **Protección de Rama `main`:** Configurar Branch Protection Rules en GitHub (Require PR, 1 approval, status checks, block force pushes).
+
