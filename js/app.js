@@ -8,7 +8,7 @@
 (function () {
   // --- CONFIGURACIÓN & ESTADO INICIAL ---
   const OFFICIAL_PRODUCTION_ENDPOINT = 'https://script.google.com/macros/s/AKfycbysBaRA2_oZIOqU10G4E_MHiC8FUR3dCnqj2DlLG91iNJXP3GkZZ7BK0Na1FAJ1thZk/exec';
-  const STAGING_ENDPOINT = 'https://script.google.com/macros/s/AKfycbzLkId5CWpQp3kBuY6UM5r6zhmyVyxmP1R80SfQidL83qXi_tUueRGd4P20Nc0tRYNH/exec';
+  const STAGING_ENDPOINT = 'https://script.google.com/macros/s/AKfycbzy7wZZ55zPnzZ6h9iRKXNAvitP5EZMCPyjsxPtLIpdtuv4_3Zt9SYqQS65I1WRGJGL/exec';
   const STAFF_MEMBERS = ['René', 'Miguel', 'Mike', 'Taichi Mike', 'Meaw', 'Wall E', 'Iván', 'Kas', 'Steven', 'Angel'];
 
   // Determinar entorno de ejecución (Issue #1: Bloqueo estricto del endpoint productivo)
@@ -3676,7 +3676,9 @@ const DEFAULT_CATALOG = [
           <div class="order-card-header">
             <div class="order-card-meta">
               <h3 class="customer-name">${first.alias || 'Cliente'}</h3>
-              <div class="ticket-info">${first.ticket} · ${items.length} unidad(es)</div>
+              <div class="ticket-info">
+                ${first.phase ? `<span class="badge-tag badge-phase-${first.phase.toLowerCase()}">[ ${first.phase.toUpperCase()} ]</span> ` : ''}${first.ticket} · ${items.length} unidad(es)${first.activity ? ` · ${first.activity}` : ''}
+              </div>
               ${first.credit ? '<span class="credit-tag">💳 Paga al final</span>' : ''}
             </div>
             <div class="order-timer-badge ${isUrgent ? 'danger' : isWarning ? 'warning' : ''}">
@@ -3699,6 +3701,7 @@ const DEFAULT_CATALOG = [
                 <div class="order-item-top">
                   <span class="order-item-name">1 × ${item.product}</span>
                   <div class="order-item-badges">
+                    ${item.phase ? `<span class="badge-tag badge-phase-${item.phase.toLowerCase()}">${item.phase}</span>` : ''}
                     <span class="badge-tag dest-${(item.destination || 'Barra').toLowerCase()}">${item.destination}</span>
                     <span class="badge-tag state-${item.state.toLowerCase().replace(/\s+/g, '')}">${item.state}</span>
                   </div>
@@ -5096,11 +5099,12 @@ const DEFAULT_CATALOG = [
       $('btnToggleSound').textContent = '🔔 Sonido: On';
     }
 
-    // Phase Switcher (Solar / Lunar)
+    // Contexto transaccional Solar / Lunar.
+    // NO cambia un modo global: sólo determina el precio/unidad de la siguiente venta.
     $('btnPhaseToggle').addEventListener('click', () => {
       STATE.phase = STATE.phase === 'Solar' ? 'Lunar' : 'Solar';
-      $('currentPhaseBadge').textContent = `Fase ${STATE.phase}`;
-      toast(`Carta cambiada a Fase ${STATE.phase}`, 'ok');
+      $('currentPhaseBadge').textContent = `Contexto ${STATE.phase}`;
+      toast(`Siguiente venta: ${STATE.phase}`, 'ok');
       renderCatalog();
       renderCart();
     });

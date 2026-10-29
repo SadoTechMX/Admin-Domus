@@ -3,28 +3,28 @@
 > [!NOTE]
 > Este archivo resume el estado técnico del sistema. La fuente de verdad para el commit activo siempre es el comando `git rev-parse HEAD`.
 
-* **Fecha de Último Handoff:** 2026-10-25 01:48 UTC-6 (Noche 24/10 cruzando medianoche 25/10)
-* **Decisión Ejecutiva Operativa:** **PRODUCCIÓN EN VIVO OPERANDO AL 100%.**
-* **Baseline Backend Vigente:** Apps Script **Versión 22** (`PROD_VERIFIED`, Hotfix KDS formula-ledger + Guardarropa $0)
+* **Fecha de Último Handoff:** 2026-10-28 19:10 UTC-6 (Noche 28/10)
+* **Decisión Ejecutiva Operativa:** **DOMUS LUNAR CONSUMOS = ABIERTO PARA COBRO (MODO CONTROLADO).**
+* **Baseline Backend Vigente:** Apps Script **Versión 26** (`PROD_VERIFIED`, PING `HEALTHY`, Fase Activa `Lunar`)
 * **Versión Rollback Garantizada:** Apps Script **Versión 12** (23 oct 2026, 10:58 p.m.)
-* **Baseline Frontend Vigente (GitHub Pages):** Hotfix Accesos UI (`escapeHtml` def + GET transport + resilient boot)
-* **Rama `main` (Producción):** Alineada con hotfix de enlace y renderizado de Accesos
+* **Baseline Frontend Vigente (GitHub Pages):** DOMUS OS Web App (Caja POS + KDS + Accesos)
+* **Rama de Trabajo Aislada:** `feat/solar-lunar-operating-profiles` (PR #16, `STAGING_VERIFIED`)
 * **Estado de Working Tree:** `clean`
 * **Entorno de PRODUCCIÓN Oficial:**
-  - Versión Activa en Producción: **Versión 22** (25 oct 2026, Baseline Vigente Oficial)
-  - Versión Rollback Garantizada: **Versión 12** (23 oct 2026, 10:58 p.m.)
+  - Versión Activa en Producción: **Versión 26** (Baseline Vigente Oficial)
   - Deployment Web App Oficial: `https://script.google.com/macros/s/AKfycbysBaRA2_oZIOqU10G4E_MHiC8FUR3dCnqj2DlLG91iNJXP3GkZZ7BK0Na1FAJ1thZk/exec`
   - Libros Oficiales:
     - Main: `1KQz8oJ4VaWFsqS2-sg25HMCm60SdSoQpIDlCDSV5J1U` (*DOMUS · SISTEMA OPERATIVO*)
     - Ops: `1DiwPa1cVe33xCYkIiYoHhP015RsEOjHXBFe2iU2RVCc` (*DOMUS · BARRA Y RESURTIDO*)
 * **Módulos Operativos en Servicio Vivo:**
-  - **Accesos (`ACCESOS GO`):** `activeActivity = Forza · sábado`, Boletera Externa, Entrada DOMUS $0, Guardarropa DOMUS $0, aforo sumando asistentes reales para liquidación ($150/asistente).
-  - **Caja (POS):** Operativa, catálogo completo (151 productos), fondo inicial de caja de Steven ($600) protegido.
-  - **KDS (Cocina / Barra):** Operativo en v22 sin sobreescritura directa en `INVENTARIO!G:H`, gobernado por fórmulas reactivas.
-  - **Inventario:** Circuito reactivo por fórmulas intacto.
+  - **Fase de Operación:** `Lunar` activa en `CAJA 2!F2`.
+  - **Actividad Activa Confirmada:** `DOMUS Lunar · operación nocturna · 28 oct` (Confirmado, Entrada $0, Guardarropa $0).
+  - **Caja (POS):** Cobrando consumos a `priceLunar`. Entrada y guardarropa en $0 por política directiva. Cero ventas Solar en Caja hasta despliegue de PR #16.
+  - **KDS (Cocina / Barra):** Cola activa y respondiendo normalmente.
+  - **Inventario:** Circuito físico reactivo unificado intacto.
 * **Entorno de STAGING Oficial:**
-  - Proyecto Apps Script: `DOMUS - Caja simple` (`1VFG72NoaQlca_czsgSgQmbnAIGOqyaAzqMlXVTdtsU-YZy6Xt35pHYPh`)
-  - Web App Deployment: `https://script.google.com/macros/s/AKfycbysBaRA2_oZIOqU10G4E_MHiC8FUR3dCnqj2DlLG91iNJXP3GkZZ7BK0Na1FAJ1thZk/exec` (Versión 20)
+  - Web App Deployment canónico: `https://script.google.com/macros/s/AKfycbzy7wZZ55zPnzZ6h9iRKXNAvitP5EZMCPyjsxPtLIpdtuv4_3Zt9SYqQS65I1WRGJGL/exec`
+  - Deployment alterno histórico `AKfycbwg...`: sólo evidencia de gate previo; no usar como target canónico de nuevas suites.
   - Libros Staging:
     - Main: `114VSwo3bXyn_audh1LHr4qqjW5aSDSTP_bR_-Iz5dkg`
     - Ops: `1NDpuyx6EfCHcoKW9CZ6pwR0oe2JS0aKpTTMa7RdqmlE`
@@ -41,6 +41,7 @@
 | **Fase 0: Transaccional Core** | Backend Modular (11 archivos) | `PROD_VERIFIED` | Merge a `main` completado y certificado. |
 | **Fase 0.5: Ticketing & Access Commerce** | `Access.gs`, `Events.gs`, `index.html` | `PROD_VERIFIED` | Modelo de 4 canales comerciales (Taquilla, Boletera, Transferencias, Cortesías) integrado en `main`. |
 | **Fase 1: Apertura / Turnos / Corte X / Z** | N/A | `READY_FOR_DEVELOPMENT` | Desbloqueada para iniciar desarrollo en la rama aislada `feature/phase-1-shifts-cuts`. |
+| **Solar / Lunar Concurrent Operating Model (PR #16)** | `OperatingProfiles.gs`, `POS.gs`, `KDS.gs`, `app.js` | `CANONICAL_STAGING_REDEPLOY_REQUIRED` | La concurrencia fue probada 7/7 sobre deployment alterno `AKfycbwg...`. El target canónico `AKfycbzy...` aún debe recibir el HEAD actual (incluye pricing guardrails y contextos concurrentes) y repetir el gate antes de producción. |
 
 ---
 

@@ -13,7 +13,7 @@
 function cajaSimpleDatos() {
   const m = SpreadsheetApp.openById(CONFIG.mainSheetId);
   const s = m.getSheetByName('CAJA 2');
-  const phase = String(s.getRange('F2').getValue()) || 'Solar';
+  const defaultPhase = String(s.getRange('F2').getValue()) || 'Solar';
   const sheetCat = m.getSheetByName('CATALOGO');
   const lastRowCat = sheetCat ? sheetCat.getLastRow() : 6;
   const numRowsCat = Math.max(1, lastRowCat - 6);
@@ -23,7 +23,7 @@ function cajaSimpleDatos() {
   const products = [];
   posCatalogRows_(cat).forEach(r => {
     if (r[0] && r[8] === 'Sí') {
-      const price = r[15] ? r[phase === 'Solar' ? 16 : 17] : r[2];
+      const price = r[15] ? r[defaultPhase === 'Solar' ? 16 : 17] : r[2];
       if (typeof price === 'number' && price >= 0) {
         const sku = String(r[6] || '');
         const provider = String(r[4] || '');
@@ -82,7 +82,9 @@ function cajaSimpleDatos() {
     : '';
 
   return {
-    phase: ['Solar', 'Lunar'].includes(phase) ? phase : 'Solar',
+    phase: ['Solar', 'Lunar'].includes(defaultPhase) ? defaultPhase : 'Solar',
+    defaultPhase: ['Solar', 'Lunar'].includes(defaultPhase) ? defaultPhase : 'Solar',
+    concurrentContexts: true,
     products: products,
     accounts: accounts,
     activities: activities,
@@ -122,10 +124,14 @@ function cajaSimpleRegistrarCore_(p) {
 
   const m = SpreadsheetApp.openById(CONFIG.mainSheetId);
   const sCaja = m.getSheetByName('CAJA 2');
-  const phase = String(sCaja.getRange('F2').getValue()) || 'Solar';
-  if (p.phase && p.phase !== phase) {
-    throw new Error('Cambió la carta a Fase ' + phase + '. Por favor actualiza antes de cobrar.');
-  }
+  const defaultPhase = String(sCaja.getRange('F2').getValue()) || 'Solar';
+  const phase = ['Solar', 'Lunar'].includes(String(p.phase || '').trim())
+    ? String(p.phase).trim()
+    : (['Solar', 'Lunar'].includes(defaultPhase) ? defaultPhase : 'Solar');
+  const activity = String(p.activity || 'Visita general DOMUS').trim();
+
+  // Valida el contexto de ESTA venta. Solar y Lunar pueden coexistir.
+  operatingContextValidate_({ phase: phase, activity: activity });
 
   const sheetCat = m.getSheetByName('CATALOGO');
   const lastRowCat = sheetCat ? sheetCat.getLastRow() : 6;
@@ -136,7 +142,6 @@ function cajaSimpleRegistrarCore_(p) {
 
   const customer = String(p.customer || 'Público General').trim();
   let ticket = String(p.ticket || '');
-  let activity = String(p.activity || 'Visita general DOMUS');
 
   // Si no hay ticket, generar un folio único para la cuenta
   if (!ticket) {
@@ -199,6 +204,9 @@ function cajaSimpleRegistrarCore_(p) {
       '', u.inventory || '', '', 'LISTO', '', u.destination || 'Barra'
     ];
     sCaja.getRange(rowNum, 1, 1, rowData.length).setValues([rowData]);
+    // Columna AK (37): dimensión operativa autoritativa por línea.
+    // Solar y Lunar pueden coexistir en la misma jornada y en la misma caja.
+    sCaja.getRange(rowNum, 37).setValue(phase);
   });
 
   // Si fue pagado, asentar en COBROS
@@ -239,7 +247,9 @@ function cajaSimpleRegistrarCore_(p) {
           state: 'Pendiente',
           credit: !isPaid,
           incident: '',
-          responsible: ''
+          responsible: '',
+          phase: phase,
+          activity: activity
         };
         sComandas.getRange(rowNum, 13).setValue(JSON.stringify(comandaItem));
         sComandas.getRange(rowNum, 8).setValue('Recibida');
@@ -256,6 +266,8 @@ function cajaSimpleRegistrarCore_(p) {
     paid: isPaid,
     total: expectedTotal,
     customer: customer,
+    phase: phase,
+    activity: activity,
     message: isPaid 
       ? `Cobro registrado exitosamente: Folio ${receiptFolio || ticket}` 
       : `Pedido guardado en cuenta abierta: ${ticket}`

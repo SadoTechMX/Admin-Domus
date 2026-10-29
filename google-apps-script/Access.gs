@@ -47,12 +47,12 @@ function accesoSimpleDatos() {
       const pGen = typeof r[4] === 'number' ? r[4] : (parseFloat(r[4]) || 0);
       const pPar = typeof r[5] === 'number' ? r[5] : (parseFloat(r[5]) || 0);
       const pTrio = typeof r[6] === 'number' ? r[6] : (parseFloat(r[6]) || 0);
-      let pGua = 50;
+      let pGua = 0;
       if (typeof r[7] === 'number') {
         pGua = r[7];
       } else if (r[7] !== '' && r[7] !== null && r[7] !== undefined) {
         const parsed = parseFloat(r[7]);
-        pGua = isNaN(parsed) ? 50 : parsed;
+        pGua = isNaN(parsed) ? 0 : parsed;
       }
 
       // Tipos de boletos del evento (estándar + personalizados en notas col M)
@@ -101,6 +101,7 @@ function accesoSimpleDatos() {
   let totalCommercialGross = 0;
   let presalesCount = 0;
   let courtesiesCount = 0;
+  const metricsByActivity = {};
 
   rawAcc.forEach((r, idx) => {
     if (r[0] || r[3]) {
@@ -130,10 +131,22 @@ function accesoSimpleDatos() {
       totalAttendance += persons;
       totalDoorRevenue += amountPaidAtDoor;
       totalCommercialGross += totalCommercial;
+      if (!metricsByActivity[activity]) {
+        metricsByActivity[activity] = {
+          attendance: 0,
+          doorRevenue: 0,
+          commercialGross: 0,
+          activeWardrobe: 0
+        };
+      }
+      metricsByActivity[activity].attendance += persons;
+      metricsByActivity[activity].doorRevenue += amountPaidAtDoor;
+      metricsByActivity[activity].commercialGross += totalCommercial;
       if (salesChannel === 'BOLETERA_EXTERNA' || salesChannel === 'PREVENTA_DOMUS') presalesCount++;
       if (salesChannel === 'CORTESIA') courtesiesCount++;
       if (wardrobeQty > 0 && !wardrobeReturned) {
         activeWardrobe += wardrobeQty;
+        metricsByActivity[activity].activeWardrobe += wardrobeQty;
       }
 
       recentAccess.unshift({
@@ -167,6 +180,8 @@ function accesoSimpleDatos() {
     activeActivity: activeActivity,
     activities: activities,
     recentAccess: recentAccess,
+    activeActivities: activities.filter(a => String(a.status || '').toLowerCase() === 'confirmado'),
+    metricsByActivity: metricsByActivity,
     metrics: {
       totalAttendance: totalAttendance,
       activeWardrobe: activeWardrobe,
@@ -197,12 +212,12 @@ function accesoSimpleRegistrar(payload) {
     const salesChannel = String(payload.salesChannel || ACCESS_SALES_CHANNELS.TAQUILLA_DOMUS).trim();
     const ticketTypeId = String(payload.ticketTypeId || payload.entryType || 'General').trim();
     const persons = Number(payload.persons) || (ticketTypeId === 'Pareja' ? 2 : (ticketTypeId === 'Trío' ? 3 : 1));
-    const faceValue = parseFloat(payload.faceValue || payload.entryPrice) || 0;
+    let faceValue = parseFloat(payload.faceValue || payload.entryPrice) || 0;
     
     const wardrobeQty = Math.max(0, parseInt(payload.wardrobeQty, 10) || 0);
     const wardrobeNotes = String(payload.wardrobeNotes || '').trim();
-    const wardrobeUnitPrice = (payload.wardrobeUnitPrice !== undefined && payload.wardrobeUnitPrice !== null && payload.wardrobeUnitPrice !== '') ? Number(payload.wardrobeUnitPrice) : 50;
-    const wardrobeAmount = wardrobeQty * wardrobeUnitPrice;
+    let wardrobeUnitPrice = 0;
+    let wardrobeAmount = 0;
 
     const ticketProvider = String(payload.ticketProvider || (salesChannel === ACCESS_SALES_CHANNELS.BOLETERA_EXTERNA ? 'Boletera' : 'DOMUS')).trim();
     const externalTicketId = String(payload.externalTicketId || payload.presaleFolio || payload.folio || '').trim();
@@ -222,52 +237,74 @@ function accesoSimpleRegistrar(payload) {
       }
     }
 
-    // Guardrail pre-evento: Validación de tarifa y acuerdo comercial autorizado (ADR-005)
-    const requiresDoorAdmissionCharge = (salesChannel === ACCESS_SALES_CHANNELS.TAQUILLA_DOMUS || salesChannel === ACCESS_SALES_CHANNELS.TRANSFERENCIA_DIRECTA) && ticketTypeId !== 'SOLO_GUARDARROPA' && ticketTypeId !== 'GUARDARROPA';
+    // Guardrail comercial: toda tarifa cobrada en puerta viene de ACTIVIDADES.
+    // No heredar $50 ni aceptar un precio arbitrario del navegador.
+    const requiresDoorAdmissionCharge = (
+      salesChannel === ACCESS_SALES_CHANNELS.TAQUILLA_DOMUS ||
+      salesChannel === ACCESS_SALES_CHANNELS.TRANSFERENCIA_DIRECTA
+    ) && ticketTypeId !== 'SOLO_GUARDARROPA' && ticketTypeId !== 'GUARDARROPA';
 
-    if (requiresDoorAdmissionCharge) {
+    const requiresCommercialValidation = requiresDoorAdmissionCharge || wardrobeQty > 0;
+    let matchedAct = null;
+
+    if (requiresCommercialValidation) {
       const sAct = m.getSheetByName('ACTIVIDADES');
-      let matchedAct = null;
       if (sAct && sAct.getLastRow() >= 7) {
         const rawActs = sAct.getRange('A7:M' + sAct.getLastRow()).getValues();
         matchedAct = rawActs.find(r => String(r[0] || '').trim().toLowerCase() === activity.toLowerCase());
       }
 
       if (!matchedAct) {
-        const err = new Error(`EVENT_PRICING_NOT_CONFIRMED: El evento "${activity}" no existe en ACTIVIDADES o no cuenta con programación oficial.`);
+        const err = new Error(`EVENT_PRICING_NOT_CONFIRMED: La actividad "${activity}" no existe en ACTIVIDADES.`);
         err.status = 400;
         err.code = 'EVENT_PRICING_NOT_CONFIRMED';
         throw err;
       }
 
       const actStatus = String(matchedAct[11] || '').trim().toLowerCase();
-      if (actStatus === 'por validar' || actStatus === 'pendiente' || actStatus === 'no confirmado') {
-        const err = new Error(`EVENT_PRICING_NOT_CONFIRMED: El acuerdo comercial del evento "${activity}" está "${matchedAct[11]}". No se pueden cobrar entradas en taquilla hasta que Dirección apruebe las tarifas oficiales.`);
+      if (actStatus !== 'confirmado') {
+        const err = new Error(`EVENT_PRICING_NOT_CONFIRMED: El acuerdo comercial de "${activity}" está "${matchedAct[11]}".`);
         err.status = 400;
         err.code = 'EVENT_PRICING_NOT_CONFIRMED';
         throw err;
       }
 
-      // Validar precio oficial del tipo de boleto
-      let officialPrice = 0;
-      if (ticketTypeId === 'General') officialPrice = parseFloat(matchedAct[4]) || 0;
-      else if (ticketTypeId === 'Pareja') officialPrice = parseFloat(matchedAct[5]) || 0;
-      else if (ticketTypeId === 'Trío') officialPrice = parseFloat(matchedAct[6]) || 0;
-      else {
-        try {
-          if (matchedAct[12] && String(matchedAct[12]).trim().startsWith('[')) {
-            const customs = JSON.parse(matchedAct[12]);
-            const foundCustom = customs.find(c => c.id === ticketTypeId || c.name === ticketTypeId);
-            if (foundCustom) officialPrice = parseFloat(foundCustom.price) || 0;
-          }
-        } catch (e) {}
+      if (wardrobeQty > 0) {
+        const officialWardrobe = Number(matchedAct[7]);
+        if (!Number.isFinite(officialWardrobe) || officialWardrobe < 0) {
+          const err = new Error(`EVENT_PRICING_NOT_CONFIRMED: Guardarropa de "${activity}" no tiene tarifa autorizada.`);
+          err.status = 400;
+          err.code = 'EVENT_PRICING_NOT_CONFIRMED';
+          throw err;
+        }
+        wardrobeUnitPrice = officialWardrobe;
+        wardrobeAmount = wardrobeQty * wardrobeUnitPrice;
       }
 
-      if (officialPrice <= 0 && faceValue <= 0) {
-        const err = new Error(`EVENT_PRICING_NOT_CONFIRMED: El tipo de boleto "${ticketTypeId}" para el evento "${activity}" no tiene una tarifa válida autorizada.`);
-        err.status = 400;
-        err.code = 'EVENT_PRICING_NOT_CONFIRMED';
-        throw err;
+      if (requiresDoorAdmissionCharge) {
+        let officialPrice = 0;
+        if (ticketTypeId === 'General') officialPrice = parseFloat(matchedAct[4]) || 0;
+        else if (ticketTypeId === 'Pareja') officialPrice = parseFloat(matchedAct[5]) || 0;
+        else if (ticketTypeId === 'Trío') officialPrice = parseFloat(matchedAct[6]) || 0;
+        else {
+          try {
+            if (matchedAct[12] && String(matchedAct[12]).trim().startsWith('[')) {
+              const customs = JSON.parse(matchedAct[12]);
+              const foundCustom = customs.find(c => c.id === ticketTypeId || c.name === ticketTypeId);
+              if (foundCustom) officialPrice = parseFloat(foundCustom.price) || 0;
+            }
+          } catch (e) {}
+        }
+
+        if (officialPrice <= 0) {
+          const err = new Error(`EVENT_PRICING_NOT_CONFIRMED: El boleto "${ticketTypeId}" de "${activity}" no tiene tarifa positiva autorizada. Para acceso gratuito usa LISTA/CORTESIA/MEMBRESIA según corresponda.`);
+          err.status = 400;
+          err.code = 'EVENT_PRICING_NOT_CONFIRMED';
+          throw err;
+        }
+
+        // La taquilla cobra exactamente la tarifa oficial, no el valor enviado por el cliente.
+        faceValue = officialPrice;
       }
     }
 
@@ -471,6 +508,7 @@ function guardarropaDevolver(payload) {
 function accesoCambiarActividad(payload) {
   if (!payload || !payload.activity) throw new Error('Actividad no especificada.');
   const act = String(payload.activity).trim();
+  operatingActivityValidate_(act);
   PropertiesService.getScriptProperties().setProperty('actividadAcceso', act);
   return { ok: true, activeActivity: act };
 }

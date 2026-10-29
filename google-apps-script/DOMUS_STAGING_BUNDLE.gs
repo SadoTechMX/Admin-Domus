@@ -115,7 +115,6 @@ const CONFIG = Object.freeze({
 
 
 // ==================== START OF Auth.gs ====================
-
 /**
  * ============================================================================
  * DOMUS OS · AUTHENTICATION & ZERO-TRUST RBAC (Auth.gs)
@@ -147,6 +146,11 @@ const ACTION_PERMISSIONS = Object.freeze({
   guardarropaDevolver: ['ACCESOS', 'GERENCIA', 'ADMIN'],
   accesoCambiarActividad: ['ACCESOS', 'GERENCIA', 'ADMIN'],
   registrarNuevoEvento: ['ACCESOS', 'GERENCIA', 'ADMIN'],
+
+  // Operación Solar / Lunar
+  operatingProfileDatos: ['CAJA', 'ACCESOS', 'GERENCIA', 'ADMIN'],
+  operatingContextsDatos: ['CAJA', 'ACCESOS', 'BARRA', 'COCINA', 'GERENCIA', 'ADMIN'],
+  operatingContextValidate: ['CAJA', 'ACCESOS', 'GERENCIA', 'ADMIN'],
 
   // Catálogo, Administración y Carta
   sincronizarCartaConCatalogoDOMUS: ['ADMIN', 'GERENCIA'],
@@ -603,7 +607,6 @@ function idempotentExecute_(requestId, action, payload, deviceId, fn) {
 
 
 // ==================== START OF POS.gs ====================
-
 /**
  * ============================================================================
  * DOMUS OS · POINT OF SALE & REGISTER (POS.gs)
@@ -618,7 +621,7 @@ function idempotentExecute_(requestId, action, payload, deviceId, fn) {
 function cajaSimpleDatos() {
   const m = SpreadsheetApp.openById(CONFIG.mainSheetId);
   const s = m.getSheetByName('CAJA 2');
-  const phase = String(s.getRange('F2').getValue()) || 'Solar';
+  const defaultPhase = String(s.getRange('F2').getValue()) || 'Solar';
   const sheetCat = m.getSheetByName('CATALOGO');
   const lastRowCat = sheetCat ? sheetCat.getLastRow() : 6;
   const numRowsCat = Math.max(1, lastRowCat - 6);
@@ -628,7 +631,7 @@ function cajaSimpleDatos() {
   const products = [];
   posCatalogRows_(cat).forEach(r => {
     if (r[0] && r[8] === 'Sí') {
-      const price = r[15] ? r[phase === 'Solar' ? 16 : 17] : r[2];
+      const price = r[15] ? r[defaultPhase === 'Solar' ? 16 : 17] : r[2];
       if (typeof price === 'number' && price >= 0) {
         const sku = String(r[6] || '');
         const provider = String(r[4] || '');
@@ -687,7 +690,9 @@ function cajaSimpleDatos() {
     : '';
 
   return {
-    phase: ['Solar', 'Lunar'].includes(phase) ? phase : 'Solar',
+    phase: ['Solar', 'Lunar'].includes(defaultPhase) ? defaultPhase : 'Solar',
+    defaultPhase: ['Solar', 'Lunar'].includes(defaultPhase) ? defaultPhase : 'Solar',
+    concurrentContexts: true,
     products: products,
     accounts: accounts,
     activities: activities,
@@ -727,10 +732,14 @@ function cajaSimpleRegistrarCore_(p) {
 
   const m = SpreadsheetApp.openById(CONFIG.mainSheetId);
   const sCaja = m.getSheetByName('CAJA 2');
-  const phase = String(sCaja.getRange('F2').getValue()) || 'Solar';
-  if (p.phase && p.phase !== phase) {
-    throw new Error('Cambió la carta a Fase ' + phase + '. Por favor actualiza antes de cobrar.');
-  }
+  const defaultPhase = String(sCaja.getRange('F2').getValue()) || 'Solar';
+  const phase = ['Solar', 'Lunar'].includes(String(p.phase || '').trim())
+    ? String(p.phase).trim()
+    : (['Solar', 'Lunar'].includes(defaultPhase) ? defaultPhase : 'Solar');
+  const activity = String(p.activity || 'Visita general DOMUS').trim();
+
+  // Valida el contexto de ESTA venta. Solar y Lunar pueden coexistir.
+  operatingContextValidate_({ phase: phase, activity: activity });
 
   const sheetCat = m.getSheetByName('CATALOGO');
   const lastRowCat = sheetCat ? sheetCat.getLastRow() : 6;
@@ -741,7 +750,6 @@ function cajaSimpleRegistrarCore_(p) {
 
   const customer = String(p.customer || 'Público General').trim();
   let ticket = String(p.ticket || '');
-  let activity = String(p.activity || 'Visita general DOMUS');
 
   // Si no hay ticket, generar un folio único para la cuenta
   if (!ticket) {
@@ -804,6 +812,9 @@ function cajaSimpleRegistrarCore_(p) {
       '', u.inventory || '', '', 'LISTO', '', u.destination || 'Barra'
     ];
     sCaja.getRange(rowNum, 1, 1, rowData.length).setValues([rowData]);
+    // Columna AK (37): dimensión operativa autoritativa por línea.
+    // Solar y Lunar pueden coexistir en la misma jornada y en la misma caja.
+    sCaja.getRange(rowNum, 37).setValue(phase);
   });
 
   // Si fue pagado, asentar en COBROS
@@ -844,7 +855,9 @@ function cajaSimpleRegistrarCore_(p) {
           state: 'Pendiente',
           credit: !isPaid,
           incident: '',
-          responsible: ''
+          responsible: '',
+          phase: phase,
+          activity: activity
         };
         sComandas.getRange(rowNum, 13).setValue(JSON.stringify(comandaItem));
         sComandas.getRange(rowNum, 8).setValue('Recibida');
@@ -861,6 +874,8 @@ function cajaSimpleRegistrarCore_(p) {
     paid: isPaid,
     total: expectedTotal,
     customer: customer,
+    phase: phase,
+    activity: activity,
     message: isPaid 
       ? `Cobro registrado exitosamente: Folio ${receiptFolio || ticket}` 
       : `Pedido guardado en cuenta abierta: ${ticket}`
@@ -1009,7 +1024,9 @@ function comandasSimpleDatos(token) {
             responsible: item.responsible || item.preparedBy || '',
             sent: item.sent ? new Date(item.sent).getTime() : Date.now(),
             credit: !!item.credit,
-            incident: item.incident || ''
+            incident: item.incident || '',
+            phase: item.phase || '',
+            activity: item.activity || ''
           });
         }
       } catch (err) {}
@@ -1468,7 +1485,6 @@ function sincronizarJujutsuShi() {
 
 
 // ==================== START OF Access.gs ====================
-
 /**
  * ============================================================================
  * DOMUS OS · ADMISSIONS, TICKETING & WARDROBE SYSTEM (Access.gs)
@@ -1517,12 +1533,12 @@ function accesoSimpleDatos() {
       const pGen = typeof r[4] === 'number' ? r[4] : (parseFloat(r[4]) || 0);
       const pPar = typeof r[5] === 'number' ? r[5] : (parseFloat(r[5]) || 0);
       const pTrio = typeof r[6] === 'number' ? r[6] : (parseFloat(r[6]) || 0);
-      let pGua = 50;
+      let pGua = 0;
       if (typeof r[7] === 'number') {
         pGua = r[7];
       } else if (r[7] !== '' && r[7] !== null && r[7] !== undefined) {
         const parsed = parseFloat(r[7]);
-        pGua = isNaN(parsed) ? 50 : parsed;
+        pGua = isNaN(parsed) ? 0 : parsed;
       }
 
       // Tipos de boletos del evento (estándar + personalizados en notas col M)
@@ -1571,6 +1587,7 @@ function accesoSimpleDatos() {
   let totalCommercialGross = 0;
   let presalesCount = 0;
   let courtesiesCount = 0;
+  const metricsByActivity = {};
 
   rawAcc.forEach((r, idx) => {
     if (r[0] || r[3]) {
@@ -1600,10 +1617,22 @@ function accesoSimpleDatos() {
       totalAttendance += persons;
       totalDoorRevenue += amountPaidAtDoor;
       totalCommercialGross += totalCommercial;
+      if (!metricsByActivity[activity]) {
+        metricsByActivity[activity] = {
+          attendance: 0,
+          doorRevenue: 0,
+          commercialGross: 0,
+          activeWardrobe: 0
+        };
+      }
+      metricsByActivity[activity].attendance += persons;
+      metricsByActivity[activity].doorRevenue += amountPaidAtDoor;
+      metricsByActivity[activity].commercialGross += totalCommercial;
       if (salesChannel === 'BOLETERA_EXTERNA' || salesChannel === 'PREVENTA_DOMUS') presalesCount++;
       if (salesChannel === 'CORTESIA') courtesiesCount++;
       if (wardrobeQty > 0 && !wardrobeReturned) {
         activeWardrobe += wardrobeQty;
+        metricsByActivity[activity].activeWardrobe += wardrobeQty;
       }
 
       recentAccess.unshift({
@@ -1637,6 +1666,8 @@ function accesoSimpleDatos() {
     activeActivity: activeActivity,
     activities: activities,
     recentAccess: recentAccess,
+    activeActivities: activities.filter(a => String(a.status || '').toLowerCase() === 'confirmado'),
+    metricsByActivity: metricsByActivity,
     metrics: {
       totalAttendance: totalAttendance,
       activeWardrobe: activeWardrobe,
@@ -1667,12 +1698,12 @@ function accesoSimpleRegistrar(payload) {
     const salesChannel = String(payload.salesChannel || ACCESS_SALES_CHANNELS.TAQUILLA_DOMUS).trim();
     const ticketTypeId = String(payload.ticketTypeId || payload.entryType || 'General').trim();
     const persons = Number(payload.persons) || (ticketTypeId === 'Pareja' ? 2 : (ticketTypeId === 'Trío' ? 3 : 1));
-    const faceValue = parseFloat(payload.faceValue || payload.entryPrice) || 0;
+    let faceValue = parseFloat(payload.faceValue || payload.entryPrice) || 0;
     
     const wardrobeQty = Math.max(0, parseInt(payload.wardrobeQty, 10) || 0);
     const wardrobeNotes = String(payload.wardrobeNotes || '').trim();
-    const wardrobeUnitPrice = (payload.wardrobeUnitPrice !== undefined && payload.wardrobeUnitPrice !== null && payload.wardrobeUnitPrice !== '') ? Number(payload.wardrobeUnitPrice) : 50;
-    const wardrobeAmount = wardrobeQty * wardrobeUnitPrice;
+    let wardrobeUnitPrice = 0;
+    let wardrobeAmount = 0;
 
     const ticketProvider = String(payload.ticketProvider || (salesChannel === ACCESS_SALES_CHANNELS.BOLETERA_EXTERNA ? 'Boletera' : 'DOMUS')).trim();
     const externalTicketId = String(payload.externalTicketId || payload.presaleFolio || payload.folio || '').trim();
@@ -1692,52 +1723,74 @@ function accesoSimpleRegistrar(payload) {
       }
     }
 
-    // Guardrail pre-evento: Validación de tarifa y acuerdo comercial autorizado (ADR-005)
-    const requiresDoorAdmissionCharge = (salesChannel === ACCESS_SALES_CHANNELS.TAQUILLA_DOMUS || salesChannel === ACCESS_SALES_CHANNELS.TRANSFERENCIA_DIRECTA) && ticketTypeId !== 'SOLO_GUARDARROPA' && ticketTypeId !== 'GUARDARROPA';
+    // Guardrail comercial: toda tarifa cobrada en puerta viene de ACTIVIDADES.
+    // No heredar $50 ni aceptar un precio arbitrario del navegador.
+    const requiresDoorAdmissionCharge = (
+      salesChannel === ACCESS_SALES_CHANNELS.TAQUILLA_DOMUS ||
+      salesChannel === ACCESS_SALES_CHANNELS.TRANSFERENCIA_DIRECTA
+    ) && ticketTypeId !== 'SOLO_GUARDARROPA' && ticketTypeId !== 'GUARDARROPA';
 
-    if (requiresDoorAdmissionCharge) {
+    const requiresCommercialValidation = requiresDoorAdmissionCharge || wardrobeQty > 0;
+    let matchedAct = null;
+
+    if (requiresCommercialValidation) {
       const sAct = m.getSheetByName('ACTIVIDADES');
-      let matchedAct = null;
       if (sAct && sAct.getLastRow() >= 7) {
         const rawActs = sAct.getRange('A7:M' + sAct.getLastRow()).getValues();
         matchedAct = rawActs.find(r => String(r[0] || '').trim().toLowerCase() === activity.toLowerCase());
       }
 
       if (!matchedAct) {
-        const err = new Error(`EVENT_PRICING_NOT_CONFIRMED: El evento "${activity}" no existe en ACTIVIDADES o no cuenta con programación oficial.`);
+        const err = new Error(`EVENT_PRICING_NOT_CONFIRMED: La actividad "${activity}" no existe en ACTIVIDADES.`);
         err.status = 400;
         err.code = 'EVENT_PRICING_NOT_CONFIRMED';
         throw err;
       }
 
       const actStatus = String(matchedAct[11] || '').trim().toLowerCase();
-      if (actStatus === 'por validar' || actStatus === 'pendiente' || actStatus === 'no confirmado') {
-        const err = new Error(`EVENT_PRICING_NOT_CONFIRMED: El acuerdo comercial del evento "${activity}" está "${matchedAct[11]}". No se pueden cobrar entradas en taquilla hasta que Dirección apruebe las tarifas oficiales.`);
+      if (actStatus !== 'confirmado') {
+        const err = new Error(`EVENT_PRICING_NOT_CONFIRMED: El acuerdo comercial de "${activity}" está "${matchedAct[11]}".`);
         err.status = 400;
         err.code = 'EVENT_PRICING_NOT_CONFIRMED';
         throw err;
       }
 
-      // Validar precio oficial del tipo de boleto
-      let officialPrice = 0;
-      if (ticketTypeId === 'General') officialPrice = parseFloat(matchedAct[4]) || 0;
-      else if (ticketTypeId === 'Pareja') officialPrice = parseFloat(matchedAct[5]) || 0;
-      else if (ticketTypeId === 'Trío') officialPrice = parseFloat(matchedAct[6]) || 0;
-      else {
-        try {
-          if (matchedAct[12] && String(matchedAct[12]).trim().startsWith('[')) {
-            const customs = JSON.parse(matchedAct[12]);
-            const foundCustom = customs.find(c => c.id === ticketTypeId || c.name === ticketTypeId);
-            if (foundCustom) officialPrice = parseFloat(foundCustom.price) || 0;
-          }
-        } catch (e) {}
+      if (wardrobeQty > 0) {
+        const officialWardrobe = Number(matchedAct[7]);
+        if (!Number.isFinite(officialWardrobe) || officialWardrobe < 0) {
+          const err = new Error(`EVENT_PRICING_NOT_CONFIRMED: Guardarropa de "${activity}" no tiene tarifa autorizada.`);
+          err.status = 400;
+          err.code = 'EVENT_PRICING_NOT_CONFIRMED';
+          throw err;
+        }
+        wardrobeUnitPrice = officialWardrobe;
+        wardrobeAmount = wardrobeQty * wardrobeUnitPrice;
       }
 
-      if (officialPrice <= 0 && faceValue <= 0) {
-        const err = new Error(`EVENT_PRICING_NOT_CONFIRMED: El tipo de boleto "${ticketTypeId}" para el evento "${activity}" no tiene una tarifa válida autorizada.`);
-        err.status = 400;
-        err.code = 'EVENT_PRICING_NOT_CONFIRMED';
-        throw err;
+      if (requiresDoorAdmissionCharge) {
+        let officialPrice = 0;
+        if (ticketTypeId === 'General') officialPrice = parseFloat(matchedAct[4]) || 0;
+        else if (ticketTypeId === 'Pareja') officialPrice = parseFloat(matchedAct[5]) || 0;
+        else if (ticketTypeId === 'Trío') officialPrice = parseFloat(matchedAct[6]) || 0;
+        else {
+          try {
+            if (matchedAct[12] && String(matchedAct[12]).trim().startsWith('[')) {
+              const customs = JSON.parse(matchedAct[12]);
+              const foundCustom = customs.find(c => c.id === ticketTypeId || c.name === ticketTypeId);
+              if (foundCustom) officialPrice = parseFloat(foundCustom.price) || 0;
+            }
+          } catch (e) {}
+        }
+
+        if (officialPrice <= 0) {
+          const err = new Error(`EVENT_PRICING_NOT_CONFIRMED: El boleto "${ticketTypeId}" de "${activity}" no tiene tarifa positiva autorizada. Para acceso gratuito usa LISTA/CORTESIA/MEMBRESIA según corresponda.`);
+          err.status = 400;
+          err.code = 'EVENT_PRICING_NOT_CONFIRMED';
+          throw err;
+        }
+
+        // La taquilla cobra exactamente la tarifa oficial, no el valor enviado por el cliente.
+        faceValue = officialPrice;
       }
     }
 
@@ -1941,6 +1994,7 @@ function guardarropaDevolver(payload) {
 function accesoCambiarActividad(payload) {
   if (!payload || !payload.activity) throw new Error('Actividad no especificada.');
   const act = String(payload.activity).trim();
+  operatingActivityValidate_(act);
   PropertiesService.getScriptProperties().setProperty('actividadAcceso', act);
   return { ok: true, activeActivity: act };
 }
@@ -2147,8 +2201,254 @@ function registrarNuevoEvento(evento) {
 // ==================== END OF Events.gs ====================
 
 
-// ==================== START OF Api.gs ====================
+// ==================== START OF OperatingProfiles.gs ====================
+/**
+ * DOMUS OS · SOLAR / LUNAR OPERATING PROFILES
+ * Operational control for POS phase + active access activity.
+ * Does not alter historical sales or ACCESO rows.
+ */
 
+
+const DOMUS_OPERATING_PROFILES = Object.freeze({
+  Solar: Object.freeze({
+    id: 'Solar',
+    phase: 'Solar',
+    label: 'DOMUS Solar',
+    intendedWindow: '14:00–21:00',
+    priceField: 'priceSolar'
+  }),
+  Lunar: Object.freeze({
+    id: 'Lunar',
+    phase: 'Lunar',
+    label: 'DOMUS Lunar',
+    intendedWindow: '21:00–cierre / según programación',
+    priceField: 'priceLunar'
+  })
+});
+
+function operatingProfileDatos_() {
+  const m = SpreadsheetApp.openById(CONFIG.mainSheetId);
+  const sCaja = m.getSheetByName('CAJA 2');
+  const sAct = m.getSheetByName('ACTIVIDADES');
+  const sCat = m.getSheetByName('CATALOGO');
+  const sApertura = m.getSheetByName('APERTURA');
+  const props = PropertiesService.getScriptProperties();
+
+  const phaseRaw = sCaja ? String(sCaja.getRange('F2').getValue() || 'Solar').trim() : 'Solar';
+  const phase = DOMUS_OPERATING_PROFILES[phaseRaw] ? phaseRaw : 'Solar';
+  const activeActivity = String(props.getProperty('actividadAcceso') || '').trim();
+
+  const activities = [];
+  if (sAct && sAct.getLastRow() >= 7) {
+    const rows = sAct.getRange(7, 1, Math.min(sAct.getLastRow() - 6, 100), 13).getValues();
+    rows.forEach(r => {
+      if (!r[0]) return;
+      activities.push({
+        name: String(r[0] || '').trim(),
+        date: r[1] instanceof Date ? Utilities.formatDate(r[1], 'America/Mexico_City', 'yyyy-MM-dd') : String(r[1] || ''),
+        area: String(r[2] || '').trim(),
+        organizer: String(r[3] || '').trim(),
+        priceGeneral: Number(r[4]) || 0,
+        pricePareja: Number(r[5]) || 0,
+        priceTrio: Number(r[6]) || 0,
+        priceGuardarropa: (r[7] === '' || r[7] === null || r[7] === undefined) ? null : Number(r[7]),
+        status: String(r[11] || '').trim()
+      });
+    });
+  }
+
+  const selectedActivity = activities.find(a => a.name === activeActivity) || null;
+  const confirmedActivities = activities.filter(a => a.status.toLowerCase() === 'confirmado');
+
+  let activeProducts = 0;
+  let invalidDestination = 0;
+  let phasePricedProducts = 0;
+  if (sCat && sCat.getLastRow() >= 7) {
+    const rows = sCat.getRange(7, 1, Math.min(sCat.getLastRow() - 6, 500), 20).getValues();
+    rows.forEach(r => {
+      if (!r[0] || String(r[8] || '').trim() !== 'Sí') return;
+      activeProducts++;
+      const destination = String(r[7] || '').trim();
+      if (!['Barra', 'Cocina'].includes(destination)) invalidDestination++;
+      const hasDualPrice = !!r[15];
+      const p = hasDualPrice ? Number(r[phase === 'Solar' ? 16 : 17]) : Number(r[2]);
+      if (Number.isFinite(p) && p >= 0) phasePricedProducts++;
+    });
+  }
+
+  let opening = {
+    checklistMarked: 0,
+    checklistTotal: 8,
+    date: '',
+    isToday: false
+  };
+  if (sApertura) {
+    const checks = sApertura.getRange('A5:A12').getValues().flat();
+    const arrival = sApertura.getRange('B3').getValue();
+    const today = Utilities.formatDate(new Date(), 'America/Mexico_City', 'yyyy-MM-dd');
+    const openingDate = arrival instanceof Date
+      ? Utilities.formatDate(arrival, 'America/Mexico_City', 'yyyy-MM-dd')
+      : '';
+    opening = {
+      checklistMarked: checks.filter(v => v === true).length,
+      checklistTotal: checks.length,
+      date: openingDate,
+      isToday: openingDate === today
+    };
+  }
+
+  const blockers = [];
+  if (!selectedActivity) blockers.push('ACTIVE_ACTIVITY_NOT_FOUND');
+  if (selectedActivity && selectedActivity.status.toLowerCase() !== 'confirmado') blockers.push('ACTIVE_ACTIVITY_NOT_CONFIRMED');
+  if (activeProducts === 0) blockers.push('NO_ACTIVE_PRODUCTS');
+  if (phasePricedProducts < activeProducts) blockers.push('CATALOG_PHASE_PRICE_GAPS');
+  if (invalidDestination > 0) blockers.push('INVALID_KDS_DESTINATIONS');
+  if (!opening.isToday) blockers.push('OPENING_NOT_TODAY');
+  if (opening.checklistMarked < opening.checklistTotal) blockers.push('OPENING_CHECKLIST_INCOMPLETE');
+
+  return {
+    environment: CONFIG.environment,
+    profile: phase,
+    preset: DOMUS_OPERATING_PROFILES[phase],
+    activeActivity: activeActivity,
+    selectedActivity: selectedActivity,
+    confirmedActivities: confirmedActivities,
+    catalog: {
+      activeProducts: activeProducts,
+      phasePricedProducts: phasePricedProducts,
+      invalidDestination: invalidDestination
+    },
+    opening: opening,
+    readiness: {
+      ready: blockers.length === 0,
+      blockers: blockers
+    },
+    profiles: DOMUS_OPERATING_PROFILES
+  };
+}
+
+function operatingContextValidate_(payload) {
+  payload = payload || {};
+  const phase = String(payload.phase || payload.profile || '').trim();
+  const activity = String(payload.activity || '').trim();
+
+  if (!['Solar', 'Lunar'].includes(phase)) {
+    const err = new Error('OPERATING_CONTEXT_INVALID: phase debe ser Solar o Lunar.');
+    err.status = 400;
+    err.code = 'OPERATING_CONTEXT_INVALID';
+    throw err;
+  }
+
+  let activityInfo = null;
+  if (activity) {
+    activityInfo = operatingActivityValidate_(activity);
+    const allowedUnits = activityInfo.allowedUnits || ['Solar', 'Lunar'];
+    if (!allowedUnits.includes(phase)) {
+      const err = new Error('OPERATING_CONTEXT_MISMATCH: la actividad "' + activity + '" no corresponde a ' + phase + '.');
+      err.status = 400;
+      err.code = 'OPERATING_CONTEXT_MISMATCH';
+      throw err;
+    }
+  }
+
+  return {
+    ok: true,
+    phase: phase,
+    activity: activity,
+    activityInfo: activityInfo,
+    mode: 'CONCURRENT_TRANSACTION_CONTEXT'
+  };
+}
+
+function operatingContextsDatos_() {
+  const base = operatingProfileDatos_();
+  const today = Utilities.formatDate(new Date(), 'America/Mexico_City', 'yyyy-MM-dd');
+  const contexts = (base.confirmedActivities || []).filter(a => a.date === today).map(a => {
+    const raw = String(a.area || '').toLowerCase();
+    let units = [];
+    if (raw.includes('solar')) units.push('Solar');
+    if (raw.includes('lunar') || raw.includes('club') || raw.includes('nocturno')) units.push('Lunar');
+    if (units.length === 0) units = ['Solar', 'Lunar'];
+    return {
+      activity: a.name,
+      date: a.date,
+      units: units,
+      priceGeneral: a.priceGeneral,
+      pricePareja: a.pricePareja,
+      priceTrio: a.priceTrio,
+      priceGuardarropa: a.priceGuardarropa,
+      status: a.status
+    };
+  });
+
+  const blockers = [];
+  if (contexts.length === 0) blockers.push('NO_CONFIRMED_CONTEXT_TODAY');
+  if (!base.catalog || base.catalog.activeProducts === 0) blockers.push('NO_ACTIVE_PRODUCTS');
+  if (base.catalog && base.catalog.phasePricedProducts < base.catalog.activeProducts) blockers.push('CATALOG_PHASE_PRICE_GAPS');
+  if (base.catalog && base.catalog.invalidDestination > 0) blockers.push('INVALID_KDS_DESTINATIONS');
+  if (!base.opening || !base.opening.isToday) blockers.push('OPENING_NOT_TODAY');
+  if (base.opening && base.opening.checklistMarked < base.opening.checklistTotal) blockers.push('OPENING_CHECKLIST_INCOMPLETE');
+
+  return {
+    environment: CONFIG.environment,
+    mode: 'CONCURRENT_TRANSACTION_CONTEXT',
+    defaultPhase: base.profile,
+    contexts: contexts,
+    catalog: base.catalog,
+    opening: base.opening,
+    readiness: {
+      ready: blockers.length === 0,
+      blockers: blockers
+    }
+  };
+}
+
+function operatingActivityValidate_(activity) {
+  const clean = String(activity || '').trim();
+  if (!clean) throw new Error('Actividad no especificada.');
+
+  const m = SpreadsheetApp.openById(CONFIG.mainSheetId);
+  const sAct = m.getSheetByName('ACTIVIDADES');
+  if (!sAct) throw new Error('Hoja ACTIVIDADES no encontrada.');
+
+  const lastRow = Math.max(sAct.getLastRow(), 7);
+  const rows = sAct.getRange(7, 1, Math.max(lastRow - 6, 1), 13).getValues();
+  const match = rows.find(r => String(r[0] || '').trim().toLowerCase() === clean.toLowerCase());
+
+  if (!match) {
+    const err = new Error('OPERATING_ACTIVITY_NOT_FOUND: la actividad no existe en ACTIVIDADES.');
+    err.status = 400;
+    err.code = 'OPERATING_ACTIVITY_NOT_FOUND';
+    throw err;
+  }
+
+  const status = String(match[11] || '').trim();
+  if (status.toLowerCase() !== 'confirmado') {
+    const err = new Error('OPERATING_ACTIVITY_NOT_CONFIRMED: la actividad está "' + status + '".');
+    err.status = 400;
+    err.code = 'OPERATING_ACTIVITY_NOT_CONFIRMED';
+    throw err;
+  }
+
+  const area = String(match[2] || '').trim();
+  const raw = area.toLowerCase();
+  let allowedUnits = [];
+  if (raw.includes('solar')) allowedUnits.push('Solar');
+  if (raw.includes('lunar') || raw.includes('club') || raw.includes('nocturno')) allowedUnits.push('Lunar');
+  if (allowedUnits.length === 0) allowedUnits = ['Solar', 'Lunar'];
+
+  return {
+    name: clean,
+    status: status,
+    area: area,
+    date: match[1] instanceof Date ? Utilities.formatDate(match[1], 'America/Mexico_City', 'yyyy-MM-dd') : String(match[1] || ''),
+    allowedUnits: allowedUnits
+  };
+}
+
+// ==================== END OF OperatingProfiles.gs ====================
+
+// ==================== START OF Api.gs ====================
 /**
  * ============================================================================
  * DOMUS OS · API ROUTER & DISPATCHER (Api.gs)
@@ -2285,6 +2585,17 @@ function doPost(e) {
         result = idempotentExecute_(requestId, action, args[0], deviceId, () => registrarNuevoEvento(args[0]));
         break;
 
+      // --- OPERACIÓN SOLAR / LUNAR ---
+      case 'operatingProfileDatos':
+        result = operatingProfileDatos_();
+        break;
+      case 'operatingContextsDatos':
+        result = operatingContextsDatos_();
+        break;
+      case 'operatingContextValidate':
+        result = operatingContextValidate_(args[0]);
+        break;
+
       // --- INVENTARIO & CATÁLOGO ---
       case 'sincronizarCartaConCatalogoDOMUS':
         result = idempotentExecute_(requestId, action, null, deviceId, () => sincronizarCartaConCatalogoDOMUS());
@@ -2334,6 +2645,12 @@ function handleApiGetRequest_(action, params) {
       data = accesoSimpleDatos();
     } else if (action === 'cajaSimpleEstado') {
       data = cajaSimpleEstado(params.id || '');
+    } else if (action === 'operatingProfileDatos') {
+      authValidateAction(action, params.token || '', params.role || '', params.deviceId || '');
+      data = operatingProfileDatos_();
+    } else if (action === 'operatingContextsDatos') {
+      authValidateAction(action, params.token || '', params.role || '', params.deviceId || '');
+      data = operatingContextsDatos_();
     } else if (action === 'ping' || action === 'health') {
       data = {
         status: 'HEALTHY',
