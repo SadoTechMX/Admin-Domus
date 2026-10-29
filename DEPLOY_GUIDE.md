@@ -40,8 +40,8 @@ Para que funcione directamente dentro del entorno seguro de Google Workspace (`d
    - En **Versión**, elige **Nueva versión**.
    - Haz clic en **Implementar**.
 5. **Listo.** La URL oficial mantendrá el acceso:
-   - **Modo Caja PRODUCCIÓN:** `https://script.google.com/macros/s/AKfycbysBaRA2_oZIOqU10G4E_MHiC8FUR3dCnqj2DlLG91iNJXP3GkZZ7BK0Na1FAJ1thZk/exec?vista=caja`
-   - **Modo Comandas PRODUCCIÓN:** `https://script.google.com/macros/s/AKfycbysBaRA2_oZIOqU10G4E_MHiC8FUR3dCnqj2DlLG91iNJXP3GkZZ7BK0Na1FAJ1thZk/exec?vista=comandas`
+   - **Modo Caja PRODUCCIÓN:** `https://script.google.com/macros/s/AKfycbzy7wZZ55zPnzZ6h9iRKXNAvitP5EZMCPyjsxPtLIpdtuv4_3Zt9SYqQS65I1WRGJGL/exec?vista=caja`
+   - **Modo Comandas PRODUCCIÓN:** `https://script.google.com/macros/s/AKfycbzy7wZZ55zPnzZ6h9iRKXNAvitP5EZMCPyjsxPtLIpdtuv4_3Zt9SYqQS65I1WRGJGL/exec?vista=comandas`
 
 ---
 
