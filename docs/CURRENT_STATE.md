@@ -3,25 +3,24 @@
 > [!NOTE]
 > Este archivo resume el estado técnico del sistema. La fuente de verdad para el commit activo siempre es el comando `git rev-parse HEAD`.
 
-* **Fecha de Último Handoff:** 2026-10-25 01:48 UTC-6 (Noche 24/10 cruzando medianoche 25/10)
-* **Decisión Ejecutiva Operativa:** **PRODUCCIÓN EN VIVO OPERANDO AL 100%.**
-* **Baseline Backend Vigente:** Apps Script **Versión 22** (`PROD_VERIFIED`, Hotfix KDS formula-ledger + Guardarropa $0)
-* **Versión Rollback Garantizada:** Apps Script **Versión 12** (23 oct 2026, 10:58 p.m.)
-* **Baseline Frontend Vigente (GitHub Pages):** Hotfix Accesos UI (`escapeHtml` def + GET transport + resilient boot)
-* **Rama `main` (Producción):** Alineada con hotfix de enlace y renderizado de Accesos
+* **Fecha de Último Handoff:** 2026-10-29 16:35 UTC-6 (Apertura DOMUS Solar Jueves 29 Octubre 2026)
+* **Decisión Ejecutiva Operativa:** **PRODUCCIÓN EN VIVO OPERANDO AL 100% (FASE SOLAR CERTIFICADA).**
+* **Baseline Backend Vigente:** Apps Script **Versión 16** (`PROD_VERIFIED`, Contenedor `DOMUS - Caja y barra` `1A45kAhlpaHC_9Rq5kT0rvkNjA_bCBhVRIIxpC20YUypWBAY9yH0PXjdj`)
+* **Versión Rollback Garantizada:** Apps Script **Versión 15** / **Versión 22** anterior
+* **Baseline Frontend Vigente (GitHub Pages + Apps Script Native UI):** Interfaz nativa HTML desplegada en Apps Script (`?vista=caja`) y GitHub Pages sincronizado
+* **Rama `main` (Producción):** Alineada y actualizada al commit `e2ad610`
 * **Estado de Working Tree:** `clean`
 * **Entorno de PRODUCCIÓN Oficial:**
-  - Versión Activa en Producción: **Versión 22** (25 oct 2026, Baseline Vigente Oficial)
-  - Versión Rollback Garantizada: **Versión 12** (23 oct 2026, 10:58 p.m.)
-  - Deployment Web App Oficial: `https://script.google.com/macros/s/AKfycbysBaRA2_oZIOqU10G4E_MHiC8FUR3dCnqj2DlLG91iNJXP3GkZZ7BK0Na1FAJ1thZk/exec`
+  - Versión Activa en Producción: **Versión 16** (29 oct 2026, Baseline Vigente Certificado)
+  - Deployment Web App Oficial: `https://script.google.com/macros/s/AKfycbzy7wZZ55zPnzZ6h9iRKXNAvitP5EZMCPyjsxPtLIpdtuv4_3Zt9SYqQS65I1WRGJGL/exec`
   - Libros Oficiales:
     - Main: `1KQz8oJ4VaWFsqS2-sg25HMCm60SdSoQpIDlCDSV5J1U` (*DOMUS · SISTEMA OPERATIVO*)
     - Ops: `1DiwPa1cVe33xCYkIiYoHhP015RsEOjHXBFe2iU2RVCc` (*DOMUS · BARRA Y RESURTIDO*)
 * **Módulos Operativos en Servicio Vivo:**
-  - **Accesos (`ACCESOS GO`):** `activeActivity = Forza · sábado`, Boletera Externa, Entrada DOMUS $0, Guardarropa DOMUS $0, aforo sumando asistentes reales para liquidación ($150/asistente).
-  - **Caja (POS):** Operativa, catálogo completo (151 productos), fondo inicial de caja de Steven ($600) protegido.
-  - **KDS (Cocina / Barra):** Operativo en v22 sin sobreescritura directa en `INVENTARIO!G:H`, gobernado por fórmulas reactivas.
-  - **Inventario:** Circuito reactivo por fórmulas intacto.
+  - **Caja (POS):** Operativa en Fase Solar (`CAJA 2!F2: Solar`), 152 productos vendibles cargados, interfaz nativa en Apps Script.
+  - **Accesos (`ACCESOS GO`):** `activeActivity = Operación diaria`, 4 canales comerciales (Taquilla, Boletera, Transferencias, Cortesías).
+  - **KDS (Cocina / Barra):** Operativo y conectado a libros oficiales.
+  - **Inventario:** Circuito reactivo por fórmulas intacto (ADR-004: stock decrementa al entregar comanda física).
 * **Entorno de STAGING Oficial:**
   - Proyecto Apps Script: `DOMUS - Caja simple` (`1VFG72NoaQlca_czsgSgQmbnAIGOqyaAzqMlXVTdtsU-YZy6Xt35pHYPh`)
   - Web App Deployment: `https://script.google.com/macros/s/AKfycbysBaRA2_oZIOqU10G4E_MHiC8FUR3dCnqj2DlLG91iNJXP3GkZZ7BK0Na1FAJ1thZk/exec` (Versión 20)
