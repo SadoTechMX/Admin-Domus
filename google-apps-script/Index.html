@@ -5858,8 +5858,18 @@ const DEFAULT_CATALOG = [
   function getOutbox() {
     try {
       const raw = localStorage.getItem('domus_outbox');
-      const queue = Array.isArray(JSON.parse(raw)) ? JSON.parse(raw) : [];
-      return queue.map(q => {if (q.status === 'SENDING' && (!q.lastAttempt || Date.now()-Date.parse(q.lastAttempt)>90000)) q.status='RETRY'; return q;});
+      const queue = raw === null ? [] : JSON.parse(raw);
+      if (!Array.isArray(queue) || queue.some(q => !q || typeof q !== 'object' || Array.isArray(q))) {
+        throw new Error('Formato de Outbox inválido.');
+      }
+      return queue.map(q => {
+        const attemptTime = Date.parse(q.lastAttempt);
+        if (['SENDING', 'SYNCING'].includes(q.status) &&
+            (!Number.isFinite(attemptTime) || Date.now() - attemptTime > 90000)) {
+          q.status = 'RETRY';
+        }
+        return q;
+      });
     } catch (e) {
       throw new Error('Outbox no legible: conserva los datos y solicita recuperación antes de operar.');
     }

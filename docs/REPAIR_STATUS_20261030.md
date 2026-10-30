@@ -2,6 +2,8 @@
 
 **NO-GO. IMPLEMENTED / LOCAL_TESTED only. Not STAGING_VERIFIED, not APPROVED_FOR_MERGE, not PROD_DEPLOYED.**
 
+**Coordination update:** authenticated editor access is now available. See `docs/ANTIGRAVITY_CROSSCHECK_20261030.md`: deployed `AKfycbwg...` passes exact STAGING Main/Ops GET preflight, but native routes return JSON, and the repair candidate remains uninstalled. Client recovery now handles interrupted SYNCING states and rejects malformed queue shapes without discarding data (12 local client cases PASS). The original 12 Chromium fixture checks passed CI run 41094055968; three added reload/recovery checks require the new commit's CI result. Local Chromium installation remains blocked by a failed browser archive download. Do not treat the older access blocker below as still requiring the user to sign in again.
+
 This branch is a repair candidate against main `ebf5697a4f5cd5cae281e51ecd1c0857c7e4c30b`. It is not a claim that every button, device, or live integration works. Main, deployments and historical production rows have not been changed.
 
 ## Implemented changes

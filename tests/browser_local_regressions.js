@@ -15,7 +15,7 @@ async function main(){
  const browser=await chromium.launch({headless:true});let passed=0;
  try{
  for(const viewport of [{width:1440,height:1000},{width:1024,height:768},{width:390,height:844}]){
-  const context=await browser.newContext({viewport});const page=await context.newPage();const errors=[],calls=[];let chargeCalls=0;
+  const context=await browser.newContext({viewport});const page=await context.newPage();const errors=[],calls=[],chargeBodies=[];let chargeCalls=0;
   page.on('pageerror',e=>errors.push(e.message));
   await page.addInitScript(()=>{localStorage.setItem('domus_caja_authorized','true');sessionStorage.setItem('domus_operator','QA');});
   await page.route('**/*',async route=>{
@@ -31,7 +31,7 @@ async function main(){
    else if(action==='comandasSimpleDatos')data={orders:[],history:[],requests:[],team:['QA'],version:'fixture'};
    else if(action==='accesoSimpleDatos')data={activeActivity:'QA event',activities:[{name:'QA event',date:'2026-10-30',status:'Confirmado',type:'Fiesta',priceGeneral:100,pricePareja:180,priceTrio:250,priceGuardarropa:20,ticketTypes:[{id:'General',name:'General',price:100,persons:1}]}],recentAccess:[],metrics:{totalAttendance:0}};
    else if(action==='cajaSimpleRegistrar'){
-    chargeCalls++;await new Promise(r=>setTimeout(r,100));const p=body.args[0];
+    chargeCalls++;chargeBodies.push(body);await new Promise(r=>setTimeout(r,100));const p=body.args[0];
     data={ticket:'FIXTURE-ACCOUNT',receipt:'FIXTURE-RECEIPT',paid:p.method!=='Transferencia',verified:p.method!=='Transferencia',method:p.method,paymentStatus:p.method==='Transferencia'?'PENDIENTE_VERIFICACION':'CONFIRMADA',total:40,customer:'QA',items:[{name:'QA drink',price:40,qty:1}],received:100,tip:0,change:60};
    }else data={ok:true,message:'Fixture response'};
    return route.fulfill({json:{ok:true,data}});
@@ -53,6 +53,17 @@ async function main(){
     await page.goto('http://127.0.0.1:'+port+'/?env=staging&vista='+view);
     await page.waitForTimeout(250);assert.deepEqual(errors,[]);passed++;console.log('PASS browser route',view,viewport.width);
   }
+  // A browser closed during background synchronization must retry the SAME intent.
+  const recoveryId='FIXTURE-RECOVERY-'+viewport.width;
+  const recoveryPayload={...chargeBodies[0].args[0],id:recoveryId,requestId:recoveryId};
+  await page.evaluate(({recoveryId,recoveryPayload})=>{
+   localStorage.setItem('domus_outbox',JSON.stringify([{requestId:recoveryId,action:'cajaSimpleRegistrar',args:[recoveryPayload],role:'CAJA',deviceId:'fixture-device',operatorId:'QA',status:'SYNCING',lastAttempt:new Date(Date.now()-100000).toISOString()}]));
+  },{recoveryId,recoveryPayload});
+  await page.reload();
+  await page.waitForFunction(()=>JSON.parse(localStorage.getItem('domus_outbox')||'[]').length===0);
+  assert.equal(chargeCalls,2);assert.equal(chargeBodies[1].requestId,recoveryId);
+  assert.deepEqual(chargeBodies[1].args[0],recoveryPayload);assert.deepEqual(errors,[]);
+  passed++;console.log('PASS browser reload recovers interrupted synchronization with original ID/payload',viewport.width);
   await context.close();
  }
  console.log(JSON.stringify({suite:'real-chromium-local-fixtures',passed,liveBackend:false,hardware:false,productionWrites:0}));

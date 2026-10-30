@@ -61,6 +61,31 @@ await test('storage quota failure prevents any network mutation',async()=>{
 await test('corrupt Outbox is not silently replaced with an empty queue',()=>{
  const t=setup();t.storage.set('domus_outbox','not-json');t.load('getOutbox');assert.throws(()=>t.run('getOutbox()'),/Outbox no legible/);
 });
+await test('valid JSON with an invalid queue shape is preserved and blocks operation',()=>{
+ for (const raw of ['null','{}','[null]','[7]','[[]]']) {
+  const t=setup();t.storage.set('domus_outbox',raw);t.load('getOutbox');
+  assert.throws(()=>t.run('getOutbox()'),/Outbox no legible/);assert.equal(t.storage.get('domus_outbox'),raw);
+ }
+});
+await test('interrupted foreground and background sends recover the original intent after timeout',()=>{
+ for (const status of ['SENDING','SYNCING']) {
+  const t=setup(),item={requestId:'same-request',status,lastAttempt:new Date(Date.now()-100000).toISOString(),args:[{id:'same-request',items:[{sku:'QA',qty:1}]}]};
+  t.storage.set('domus_outbox',JSON.stringify([item]));t.load('getOutbox');
+  const recovered=JSON.parse(t.run('JSON.stringify(getOutbox()[0])'));
+  assert.equal(recovered.status,'RETRY');assert.equal(recovered.requestId,item.requestId);assert.deepEqual(recovered.args,item.args);
+ }
+});
+await test('recent sends stay in flight and malformed timestamps recover without changing the payload',()=>{
+ for (const status of ['SENDING','SYNCING']) {
+  const t=setup();t.load('getOutbox');
+  t.storage.set('domus_outbox',JSON.stringify([{requestId:'r',status,lastAttempt:new Date().toISOString(),args:[{id:'r'}]}]));
+  assert.equal(t.run('getOutbox()[0].status'),status);
+  for(const lastAttempt of [undefined,'invalid-date']) {
+   t.storage.set('domus_outbox',JSON.stringify([{requestId:'r',status,lastAttempt,args:[{id:'r'}]}]));
+   assert.equal(t.run('getOutbox()[0].status'),'RETRY');assert.equal(t.run('getOutbox()[0].args[0].id'),'r');
+  }
+ }
+});
 console.log(JSON.stringify({suite:'isolated-client-code',passed,browser:false,hardware:false}));
 }
 main().catch(e=>{console.error(e);process.exitCode=1;});

@@ -19,11 +19,11 @@
     "google-apps-script/Events.gs": "e3c2916ec479eed91e14e814e2fd893df4937b9ee5d840b5aadfb456b82b4727",
     "google-apps-script/Operations.gs": "c0c5dae092efaa1ad2a6496ec19edeb1f655b124fc3bdcbdc5f7efe719768010",
     "google-apps-script/Api.gs": "e872984567b36588ddf15d0933245bfd3274d83a32215d428ca714f008c29fad",
-    "js/app.js": "db5550064d380e7b89780166095e2f82fa15010cb2aa7297ccd835b05b2961a3",
+    "js/app.js": "a635c68d7b38c9fb77ac4e57357c02cf73bbb0cc8d9f5871b3636aac9672d909",
     "index.html": "5c01f3b85d513a363a32135787e79285eae5abee7f73945b13dd8b09ad000376",
     "google-apps-script/Build.gs": "79950a8cd2d622761f50719ecc47f37e61970d155f6d354512916a81a1b9f9f2",
     "google-apps-script/DOMUS_PRODUCTION_BUNDLE.gs": "4d41c2fb63800f9717597c14df4d841b7d860cddb4ec40bda2af12f778a373f5",
     "google-apps-script/DOMUS_STAGING_BUNDLE.gs": "c8205813b91433abe77954b00ba282904eccf390aac1598672dc9f6cef686427",
-    "google-apps-script/Index.html": "2eb72237adaa873c4e4e29f4b51ca1b6301a3e61dbc98eb18e91cd640cd97002"
+    "google-apps-script/Index.html": "8f06c1dbd2dcb9f0c73f9a6551f7e8910c4caade99484f8ebdadecff4a1b633b"
   }
 }
