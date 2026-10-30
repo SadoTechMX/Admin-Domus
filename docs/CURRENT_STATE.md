@@ -39,6 +39,9 @@
 | **Aislamiento de Libros Oficiales** | `Config.gs` | `PROD_VERIFIED` | Confirmado en vivo: Main `1KQz8oJ4...` y Ops `1DiwPa1c...` vinculados estrictamente. |
 | **Fase 0: Transaccional Core** | Backend Modular (11 archivos) | `PROD_VERIFIED` | Merge a `main` completado y certificado. |
 | **Fase 0.5: Ticketing & Access Commerce** | `Access.gs`, `Events.gs`, `index.html` | `PROD_VERIFIED` | Modelo de 4 canales comerciales (Taquilla, Boletera, Transferencias, Cortesías) integrado en `main`. |
+| **Frontend GitHub Pages (UI 20261029-04)** | `index.html`, `js/app.js` | `PROD_VERIFIED` | Desplegado y verificado en GitHub Pages (`app.js?v=20261029-04`). |
+| **Frontend Apps Script Nativo (`Index.html`)** | `google-apps-script/Index.html` | `APPS_SCRIPT_UI_PENDING_CERTIFICATION` | Código fuente alineado en repo; pendiente actualización y despliegue de nueva versión en proyecto `DOMUS - Caja y barra`. |
+| **Autenticación Fuerte de Estaciones** | `authCrearSesion` (Backend/Frontend) | `AUTH_HARDENING_PENDING` | P0 Technical Debt: Eliminación de token falso completada; pendiente secreto de estación / Workspace identity / PIN servidor. |
 | **Fase 1: Apertura / Turnos / Corte X / Z** | N/A | `READY_FOR_DEVELOPMENT` | Desbloqueada para iniciar desarrollo en la rama aislada `feature/phase-1-shifts-cuts`. |
 
 ---
@@ -234,13 +237,14 @@
   3. Autenticación externa con fallback inválido: Al fallar la negociación de sesión, `ensureSessionToken()` generaba localmente un token sintético (`DOMUS-SES-...`) rechazado por el backend (401/403), causando errores de enlace y operaciones atascadas en Outbox.
   4. Desincronización entre `js/app.js` y `google-apps-script/Index.html`: El archivo integrado de Apps Script conservaba una referencia obsoleta de staging y una versión desfasada de la lógica KDS.
 * **Solución Implementada:**
-  1. **Vinculación Segura con `bindEvent(idOrEl, eventName, handler)`:** Todo registro de eventos valida la presencia del elemento en el DOM y registra un warning en consola si falta, garantizando que el resto de los botones continúen registrándose sin interrupción.
+  1. **Vinculación Segura con `bindEvent(idOrEl, eventName, handler)`:** Se sustituyeron los bindings directos susceptibles a `null.addEventListener` mediante `bindEvent`; los listeners sobre colecciones dinámicas permanecen (`querySelectorAll(...).forEach`) porque son tolerantes a colecciones vacías.
   2. **Unificación de Handlers:** Se retiraron todos los atributos `onclick` inline redundantes en modales de producto y tickets, delegando exclusivamente el manejo a `bindEvent`.
-  3. **Limpieza de Tokens Falsos:** Se eliminó la fabricación de tokens sintéticos. Ante fallos de autenticación, la aplicación marca limpiamente el estado en error (`updateSyncPill('error')`) y alerta al operador sin contaminar el almacén local ni el backend.
-  4. **Identificador de Versión Visible (`DOMUS_BUILD`):** Se definió `window.DOMUS_BUILD` (UI `20261029-04`, `PRODUCTION`) y se agregó un pie visible en la interfaz para permitir auditoría visual inmediata de versión en cada estación.
-  5. **Paridad Canónica de Archivos:** Se alinearon `js/app.js`, `index.html` y `google-apps-script/Index.html`.
+  3. **Limpieza de Tokens Falsos:** Se eliminó la fabricación de tokens sintéticos (`DOMUS-SES-...`). Ante fallos de autenticación, la aplicación marca limpiamente el estado en error (`updateSyncPill('error')`) y alerta al operador sin contaminar el almacén local ni el backend. La autenticación fuerte en servidor permanece como deuda técnica P0 pendiente.
+  4. **Identificador de Versión y Trazabilidad (`DOMUS_BUILD`):** Se definió `window.DOMUS_BUILD = { commit: 'f2ab131', ui: '20261029-04', environment: 'PRODUCTION' }` y se agregó un pie visible en la interfaz para permitir auditoría visual inmediata de versión en cada estación.
+  5. **Autoridad de Fase:** La fase inicial del frontend es transitoria y no autoritativa; la fuente de verdad es siempre `CAJA 2!F2` devuelta por el backend vía `cajaSimpleDatos()`, la cual sobrescribe `STATE.phase` inmediatamente.
+  6. **Código Fuente Alineado y Estado de Despliegue:** Código fuente alineado; GitHub Pages desplegado; Apps Script nativo pendiente de certificación.
 * **Estado Transaccional en Vivo:**
-  - Comanda `C2-43` (Héctor Tate, `Onírica IPA · lata`): Estado `En preparación`, responsable `Taichi Mike`. Circuito KDS operacional y validado en caliente.
+  - Comanda `C2-43` (Héctor Tate, `Onírica IPA · lata`): Estado `En preparación`, responsable `Taichi Mike`. Circuito KDS operacional y validado en caliente. No ejecutar más mutaciones sintéticas de diagnóstico en Producción.
 
 ### 🚨 Directivas Inmediatas de Seguridad y Congelación Operativa
 1. **Congelación Operativa en Caliente:** No desplegar cambios de backend en Producción durante el servicio activo de Fase Solar.

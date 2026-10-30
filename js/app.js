@@ -30,14 +30,15 @@
 
   // Metadatos canónicos del build de frontend
   window.DOMUS_BUILD = {
-    commit: 'd868d78',
+    commit: 'f2ab131',
     ui: '20261029-04',
     environment: isProductionLocked ? 'PRODUCTION' : 'STAGING'
   };
 
   const STATE = {
     mode: 'caja', // 'caja' | 'comandas'
-    phase: 'Solar', // 'Solar' | 'Lunar'
+    phase: 'Solar', // Valor inicial no autoritativo; la fuente de verdad siempre es CAJA 2!F2
+    phaseSyncedFromServer: false,
     apiUrl: validApiUrl,
     isProductionLocked: isProductionLocked,
     backendEnvironment: isProductionLocked ? 'PRODUCTION' : 'STAGING',
@@ -3004,12 +3005,14 @@ const DEFAULT_CATALOG = [
   }
 
   function syncBackendData() {
-    // 1. Catálogo y cuentas de Caja solo en modo Caja
-    if (STATE.mode === 'caja') {
+    // 1. Catálogo y cuentas de Caja en modo Caja (y lectura inicial autoritativa de fase de CAJA 2!F2)
+    if (STATE.mode === 'caja' || !STATE.phaseSyncedFromServer) {
       callBackend('cajaSimpleDatos', [], data => {
         if (data.phase) {
           STATE.phase = data.phase;
-          $('currentPhaseBadge').textContent = `Fase ${data.phase}`;
+          STATE.phaseSyncedFromServer = true;
+          const badge = $('currentPhaseBadge');
+          if (badge) badge.textContent = `Fase ${data.phase}`;
         }
         if (data.products && data.products.length) {
           // FUENTE DE VERDAD: sólo el catálogo que el backend confirma como vendible.
