@@ -88,6 +88,28 @@ function setup(){
   return {ctx,main,ops,props,run,login,request,manager:()=>email='direccion@domusccc.net',locks:()=>({held,acquires,releases}),sale:(extra={})=>({id:crypto.randomUUID(),phase:'Solar',customer:'QA',activity:'QA event',paid:true,method:'Efectivo',received:100,expectedTotal:40,items:[{name:'QA drink',sku:'QA-01',qty:1}],...extra})};
 }
 
+test('event-specific price is server-authoritative and preserves DOMUS base',()=>{
+  const t=setup(),m=t.main;
+  m.insertSheet('DOMUS_SETTINGS').getRange(1,1,1,2).setValues([['ACTIVE_ACTIVITY','Del Crepúsculo al Amanecer']]);
+  m.insertSheet('EVENTO_30OCT_PRECIOS').getRange(3,1,1,9).setValues([['Producto','Categoría','Clave técnica','SKU carta','Proveedor / operación','Precio Lunar DOMUS','Precio evento','Extra evento','Observaciones / excluir']]);
+  m.getSheetByName('EVENTO_30OCT_PRECIOS').getRange(4,1,1,9).setValues([['QA drink','Bebidas','QA-01','B01','DOMUS',50,60,10,'']]);
+  m.getSheetByName('CAJA 2').getRange('F2').setValue('Lunar');
+  const data=t.request('cajaSimpleDatos',[]);
+  assert.equal(data.activeActivity,'Del Crepúsculo al Amanecer');assert.equal(data.activityLocked,true);
+  assert.equal(data.products[0].basePrice,50);assert.equal(data.products[0].price,60);assert.equal(data.products[0].eventExtra,10);
+  const s=t.sale({phase:'Lunar',activity:'Del Crepúsculo al Amanecer',expectedTotal:60,received:100});
+  const r=t.request('cajaSimpleRegistrar',[s],s.id);assert.equal(r.total,60);assert.equal(r.items[0].basePrice,50);assert.equal(r.items[0].eventExtra,10);
+  const cash=m.getSheetByName('CAJA 2');assert.equal(cash.raw(7,10),50);assert.equal(cash.raw(7,11),60);assert.equal(cash.raw(7,48),10);assert.equal(cash.raw(7,49),'Universidad del Swinger');
+});
+test('event profile rejects sale assigned to another activity',()=>{
+  const t=setup(),m=t.main;
+  m.insertSheet('DOMUS_SETTINGS').getRange(1,1,1,2).setValues([['ACTIVE_ACTIVITY','Del Crepúsculo al Amanecer']]);
+  m.insertSheet('EVENTO_30OCT_PRECIOS').getRange(4,1,1,9).setValues([['QA drink','Bebidas','QA-01','B01','DOMUS',50,60,10,'']]);
+  m.getSheetByName('CAJA 2').getRange('F2').setValue('Lunar');
+  const s=t.sale({phase:'Lunar',activity:'QA event',expectedTotal:60,received:100});
+  assert.throws(()=>t.request('cajaSimpleRegistrar',[s],s.id),/ACTIVE_EVENT_MISMATCH/);
+});
+
 test('full financial history: payment at row 4565 clears old account',()=>{
   const t=setup(),c=t.main.getSheetByName('CAJA 2'),p=t.main.getSheetByName('COBROS');
   const cash=Array(32).fill('');Object.assign(cash,{1:'old',4:'QA',6:'QA drink',11:145});c.getRange(7,1,1,32).setValues([cash]);
