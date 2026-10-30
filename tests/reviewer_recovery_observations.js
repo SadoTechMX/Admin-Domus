@@ -1,0 +1,19 @@
+const fs=require('fs'),vm=require('vm'),crypto=require('crypto');
+const source=fs.readFileSync(require('path').join(__dirname,'../js/app.js'),'utf8');
+function section(start,end){const a=source.indexOf(start),b=source.indexOf(end,a+start.length);if(a<0||b<0)throw Error('source boundary missing');return source.slice(a,b);}
+(async()=>{
+ const saved={id:'FIXTURE-PENDING',items:[{sku:'QA',qty:1}],paid:true,method:'Efectivo'},storage=new Map([['domus_pending_sale',JSON.stringify(saved)]]);
+ let queue=[{requestId:saved.id,action:'cajaSimpleRegistrar',args:[saved],role:'CAJA',deviceId:'QA',operatorId:'QA',status:'RETRY'}];
+ const confirmed={receipt:'FIXTURE-RECEIPT',ticket:'FIXTURE-ACCOUNT',paid:true,total:40};
+ const ctx=vm.createContext({console,Date,JSON,STATE:{apiUrl:'https://example.invalid'},isOutboxCoreRunning:false,
+ getOutbox:()=>JSON.parse(JSON.stringify(queue)),saveOutbox:q=>{queue=JSON.parse(JSON.stringify(q));},getStationRole:()=> 'CAJA',getSessionToken:()=> 'FIXTURE-TOKEN',ensureSessionToken:async()=>{},transport_:async()=>({ok:true,data:confirmed}),toast(){},playChime(){},updateSyncPill(){},updateOutboxUI(){},syncBackendData(){},classifyMutationFailure:()=> 'RETRY',localStorage:{getItem:k=>storage.get(k)||null,setItem:(k,v)=>storage.set(k,v),removeItem:k=>storage.delete(k)}});
+ vm.runInContext(section('  async function sincronizarOutboxCore_()','\n  function processOutbox()'),ctx);await vm.runInContext('sincronizarOutboxCore_()',ctx);
+ const output=[{id:'REV-001',severity:'P1',status:(!storage.has('domus_pending_sale')&&[...storage.values()].some(v=>v.includes(confirmed.receipt)))?'PASS':'FAIL',method:'ACTUAL_CLIENT_FUNCTION_IN_VM_NO_NETWORK',expected:'Successful background sync retains recoverable receipt and resolves the matching pending sale intent.',actual:{queueLength:queue.length,pendingSaleStillPresent:storage.has('domus_pending_sale'),storedKeys:[...storage.keys()],receiptRetainedInPersistentStorage:[...storage.values()].some(v=>v.includes(confirmed.receipt))},limit:'Source-function execution only. No real browser, live server or printer. Stale intent replay is not proof of a duplicate charge; new-cart handling needs UI acceptance.'}];
+ let authCalls=0,dataCalls=0,errors=0,token='EXPIRED-FIXTURE';
+ const authCtx=vm.createContext({console,Date,JSON,crypto,Map,Set,Promise,Error,STATE:{operator:'QA'},sessionRequests:new Map(),MUTATION_ACTIONS:new Set(),getStationRole:()=> 'CAJA',getSessionToken:()=>token,getDeviceId:()=> 'QA',setSessionToken:t=>{token=t;},updateSyncPill(){},toast(){},cacheQuerySnapshot(){},requestStationSecret_:async()=> 'FIXTURE-NOT-A-REAL-SECRET',transport_:async p=>{if(p.action==='authCrearSesion'){authCalls++;return {ok:true,data:{token:'REFRESHED-FIXTURE'}};}dataCalls++;return p.sessionToken==='REFRESHED-FIXTURE'?{ok:true,data:{}}:{ok:false,status:401,error:'Sesión inválida o expirada'};},failed:()=>errors++});
+ vm.runInContext(section('  function ensureSessionToken(','\n  function getOutbox('),authCtx);
+ vm.runInContext(section('  function callBackend(','\n  function updateSyncPill('),authCtx);
+ for(let i=0;i<2;i++){vm.runInContext("callBackend('cajaSimpleDatos',[],null,failed)",authCtx);await new Promise(r=>setImmediate(r));}
+ output.push({id:'REV-002',severity:'P1',status:(authCalls>0&&errors<2)?'PASS':'FAIL',method:'ACTUAL_CLIENT_FUNCTIONS_IN_VM_NO_NETWORK',expected:'After explicit expired-session rejection, an ordinary retry can obtain a fresh session or offer reauthentication without repeatedly reusing the stale token.',actual:{dataCalls,authCalls,errors},limit:'Injected explicit 401, not observed expiration of a real GAS session. No real account or credential used.'});
+ console.log(JSON.stringify({sourceSha256:crypto.createHash('sha256').update(source).digest('hex'),observations:output},null,2));
+})().catch(e=>{console.error(e);process.exitCode=1;});

@@ -1,0 +1,34 @@
+{
+  "sourceSha256": "a635c68d7b38c9fb77ac4e57357c02cf73bbb0cc8d9f5871b3636aac9672d909",
+  "observations": [
+    {
+      "id": "REV-001",
+      "severity": "P1",
+      "status": "FAIL",
+      "method": "ACTUAL_CLIENT_FUNCTION_IN_VM_NO_NETWORK",
+      "expected": "Successful background sync retains recoverable receipt and resolves the matching pending sale intent.",
+      "actual": {
+        "queueLength": 0,
+        "pendingSaleStillPresent": true,
+        "storedKeys": [
+          "domus_pending_sale"
+        ],
+        "receiptRetainedInPersistentStorage": false
+      },
+      "limit": "Source-function execution only. No real browser, live server or printer. Stale intent replay is not proof of a duplicate charge; new-cart handling needs UI acceptance."
+    },
+    {
+      "id": "REV-002",
+      "severity": "P1",
+      "status": "FAIL",
+      "method": "ACTUAL_CLIENT_FUNCTIONS_IN_VM_NO_NETWORK",
+      "expected": "After explicit expired-session rejection, an ordinary retry can obtain a fresh session or offer reauthentication without repeatedly reusing the stale token.",
+      "actual": {
+        "dataCalls": 2,
+        "authCalls": 0,
+        "errors": 2
+      },
+      "limit": "Injected explicit 401, not observed expiration of a real GAS session. No real account or credential used."
+    }
+  ]
+}
