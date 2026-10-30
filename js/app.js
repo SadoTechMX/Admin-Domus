@@ -54,6 +54,7 @@
     selectedAccountTicket: '',
     customerName: '',
     activity: 'Visita general DOMUS',
+    activityLocked: false,
     accountType: '', // '' | 'Amigo' | 'Creador de proyecto'
     
     // DOMUS Print Bridge
@@ -3106,8 +3107,10 @@ const DEFAULT_CATALOG = [
         }
         if (data.activities) {
           STATE.activities = data.activities;
-          renderActivityDropdown();
         }
+        if (data.activeActivity) STATE.activity = data.activeActivity;
+        STATE.activityLocked = !!data.activityLocked;
+        renderActivityDropdown();
         if (data.lastReceipt) {
           STATE.lastReceiptInfo = data.lastReceipt;
         }
@@ -3387,6 +3390,9 @@ const DEFAULT_CATALOG = [
     select.innerHTML = STATE.activities.map(act => `
       <option value="${act}" ${STATE.activity === act ? 'selected' : ''}>${act}</option>
     `).join('');
+    select.value = STATE.activity || select.value;
+    select.disabled = !!STATE.activityLocked;
+    select.title = STATE.activityLocked ? 'Evento activo bloqueado por configuración de Gerencia' : '';
   }
 
   // --- CARRITO / PEDIDO EN CAJA ---
