@@ -13,7 +13,7 @@ const CASH_FORMULAS_ = {
   "28": "=IF(AND(W25=\"LISTO\",ISNUMBER(R25),L25>0),ROUND((M25*J25/L25)*(1-R25),2)-AL25,IF(P25=\"Cancelado\",-AL25,0))",
   "29": "=IF(V25=0,0,IFERROR(VLOOKUP(G25,CATALOGO!$A$7:$O$326,6,FALSE)*V25,0))",
   "30": "=IF(B25=\"\",\"\",SUMIFS($L$7:$L,$B$7:$B,B25,$P$7:$P,\"<>Cancelado\"))",
-  "48": "=IF(OR(G25=\"\",L25<=0),0,ROUND(MIN(1,M25/L25)*MAX(0,N(AT25)),2))"
+  "50": "=IF(OR(G25=\"\",L25<=0),0,ROUND(MIN(1,M25/L25)*MAX(0,N(AV25)),2))"
 };
 
 function cashFormulaWrites_(sheet, row) {
