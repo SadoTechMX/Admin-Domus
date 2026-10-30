@@ -766,7 +766,7 @@ class DomusPrintHandler(http.server.BaseHTTPRequestHandler):
 
             data = self.read_json_body() or {}
             ch = int(data.get('channel', 0))
-            confirmed = bool(data.get('confirmed', False))
+            confirmed = bool(data.get('confirmed', True))
 
             cfg = load_config()
             cfg['drawer_channel'] = ch

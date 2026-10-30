@@ -4431,7 +4431,7 @@ const DEFAULT_CATALOG = [
         'Content-Type': 'application/json',
         'X-Domus-Print-Token': token
       },
-      body: JSON.stringify({ channel: channel })
+      body: JSON.stringify({ channel: channel, confirmed: true })
     })
     .then(r => r.json().then(b => ({ ok: r.ok, body: b })))
     .then(res => {
