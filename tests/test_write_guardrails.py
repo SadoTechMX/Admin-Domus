@@ -17,7 +17,7 @@ from guardrails import (
     verify_write_target,
     PRODUCTION_DEPLOYMENT_ID,
     PRODUCTION_MAIN_SHEET_ID,
-    EXPECTED_STAGING_MAIN
+    EXPECTED_STAGING_MAIN, EXPECTED_STAGING_OPS
 )
 
 def test_blocks_production_deployment_url():
@@ -88,7 +88,7 @@ def test_allows_valid_staging():
         "ok": True,
         "data": {
             "environment": "STAGING",
-            "mainSheetId": EXPECTED_STAGING_MAIN
+            "mainSheetId": EXPECTED_STAGING_MAIN, "opsSheetId": EXPECTED_STAGING_OPS
         }
     }).encode("utf-8")
 

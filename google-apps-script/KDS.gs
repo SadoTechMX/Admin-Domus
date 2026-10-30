@@ -11,6 +11,7 @@
  * Consulta de comandas activas, historial reciente y solicitudes de resurtido
  */
 function comandasSimpleDatos(token) {
+  authRequireContext_('comandasSimpleDatos');
   const m = SpreadsheetApp.openById(CONFIG.mainSheetId);
   const o = SpreadsheetApp.openById(CONFIG.opsSheetId);
   const sComandas = m.getSheetByName('COMANDAS');
@@ -18,7 +19,7 @@ function comandasSimpleDatos(token) {
 
   // 1. Leer comandas activas + historial desde la columna M (JSON maestro).
   // La columna M es la fuente de verdad del KDS; H/N se mantienen como espejo humano.
-  const masterRaw = sComandas.getRange(7, 13, 500, 1).getValues();
+  const masterRaw = dataRows_(sComandas, 7, 1, 13);
   const orders = [];
   const history = [];
   const now = Date.now();
@@ -71,7 +72,7 @@ function comandasSimpleDatos(token) {
   // 2. Leer resurtidos abiertos
   const requests = [];
   if (oResurtido) {
-    const resRows = oResurtido.getRange(7, 1, 100, 8).getValues();
+    const resRows = dataRows_(oResurtido, 7, 8);
     resRows.forEach(r => {
       if (r[0] && r[5] !== true && r[7] !== 'Resuelto') {
         requests.push({
@@ -100,240 +101,101 @@ function comandasSimpleDatos(token) {
  * Aplica una acción sobre una comanda (TOMAR, LISTA, ENTREGAR, ALMACEN, AGOTADO)
  */
 function comandasSimpleAccion(tokenOrBody, maybeBody) {
-  const body = (maybeBody && typeof maybeBody === 'object') ? maybeBody : tokenOrBody;
-  if (!body || !body.key || !body.action) {
-    throw new Error('Parámetros de acción de comanda incompletos.');
-  }
-
-  return withLock_(CONFIG.lockTimeoutMs, () => {
-    const m = SpreadsheetApp.openById(CONFIG.mainSheetId);
-    const sComandas = m.getSheetByName('COMANDAS');
-    const masterRaw = sComandas.getRange(7, 13, 500, 1).getValues();
-
-    let targetRow = -1;
-    let targetItem = null;
-
-    for (let i = 0; i < masterRaw.length; i++) {
-      if (masterRaw[i][0]) {
-        try {
-          const item = JSON.parse(masterRaw[i][0]);
-          const key = 'DCS-' + item.row + '-' + (item.batch || item.id);
-          if (key === body.key) {
-            targetRow = i + 7;
-            targetItem = item;
-            break;
-          }
-        } catch (e) {}
-      }
-    }
-
-    if (!targetItem || targetRow < 7) {
-      throw new Error(`Comanda con clave '${body.key}' no encontrada en la matriz activa.`);
-    }
-
-    const action = String(body.action).toUpperCase();
-    const operator = String(body.operator || 'Operador').trim();
-
-    if (action === 'TOMAR') {
-      if (targetItem.state !== 'Pendiente') {
-        if (targetItem.state === 'En preparación') {
-          return { ok: true, message: `Comanda ya en preparación por ${targetItem.responsible || operator}.`, state: targetItem.state, responsible: targetItem.responsible };
-        }
-        throw new Error(`INVALID_KDS_TRANSITION: TOMAR requiere estado Pendiente; estado actual: ${targetItem.state}.`);
-      }
-
-      // Reclamar lote completo
-      const batchId = targetItem.batch;
-      const claimedAt = new Date().toISOString();
-      for (let i = 0; i < masterRaw.length; i++) {
-        if (masterRaw[i][0]) {
-          try {
-            const it = JSON.parse(masterRaw[i][0]);
-            if (it.batch === batchId && it.state === 'Pendiente') {
-              it.state = 'En preparación';
-              it.responsible = operator;
-              it.claimed = claimedAt;
-              it.version = String(Number(it.version || 1) + 1);
-              sComandas.getRange(i + 7, 13).setValue(JSON.stringify(it));
-              sComandas.getRange(i + 7, 8).setValue('Preparando');
-              sComandas.getRange(i + 7, 14).setValue('En preparación (' + operator + ')');
-            }
-          } catch (e) {}
-        }
-      }
-      SpreadsheetApp.flush();
-      return { ok: true, message: `Lote '${batchId}' tomado para preparación por ${operator}.`, state: 'En preparación', responsible: operator };
-    } else if (action === 'LISTA') {
-      if (targetItem.state !== 'En preparación') {
-        if (targetItem.state === 'Lista') {
-          return { ok: true, message: `Comanda ya marcada como Lista.`, state: targetItem.state };
-        }
-        throw new Error(`INVALID_KDS_TRANSITION: LISTA requiere estado En preparación; estado actual: ${targetItem.state}.`);
-      }
-      targetItem.state = 'Lista';
-      targetItem.ready = new Date().toISOString();
-      targetItem.version = String(Number(targetItem.version || 1) + 1);
-      sComandas.getRange(targetRow, 13).setValue(JSON.stringify(targetItem));
-      sComandas.getRange(targetRow, 8).setValue('Lista');
-      sComandas.getRange(targetRow, 14).setValue('Lista para entrega');
-      SpreadsheetApp.flush();
-      return { ok: true, message: `Comanda '${body.key}' marcada como Lista.`, state: 'Lista' };
-    } else if (action === 'ENTREGAR') {
-      if (targetItem.state === 'Entregada') {
-        return { ok: true, message: `La comanda '${body.key}' (${targetItem.product}) ya fue entregada previamente.`, state: targetItem.state };
-      }
-      if (targetItem.state !== 'Lista') {
-        throw new Error(`INVALID_KDS_TRANSITION: ENTREGAR requiere estado Lista; estado actual: ${targetItem.state}.`);
-      }
-      targetItem.state = 'Entregada';
-      targetItem.delivered = new Date().toISOString();
-      targetItem.deliveredBy = operator;
-      targetItem.version = String(Number(targetItem.version || 1) + 1);
-      sComandas.getRange(targetRow, 13).setValue(JSON.stringify(targetItem));
-      sComandas.getRange(targetRow, 8).setValue('Entregada');
-      sComandas.getRange(targetRow, 14).setValue('Entregada por ' + operator);
-
-      // Decremento físico de inventario en hoja INVENTARIO (ADR-004)
-      let invMovement = null;
-      const sInv = m.getSheetByName('INVENTARIO');
-      if (sInv) {
-        const lastRow = sInv.getLastRow();
-        const numRows = Math.max(1, lastRow - 6);
-        const invValues = sInv.getRange(7, 1, numRows, 9).getValues();
-
-        const targetSkuRaw = String(targetItem.sku || '').trim().toUpperCase();
-        const targetProdRaw = String(targetItem.product || '').trim();
-
-        // 1. Alias de SKU explícitamente autorizados (bidireccionales)
-        const SKU_ALIASES = {
-          'VICTORIA-473': 'CARTA-VICTORIA-473',
-          'CARTA-VICTORIA-473': 'VICTORIA-473',
-          'MODELO-473': 'CARTA-MODELO-473',
-          'CARTA-MODELO-473': 'MODELO-473',
-          'BAR-CB-LATA': 'CARTA-BAR-CB-LATA',
-          'CARTA-BAR-CB-LATA': 'BAR-CB-LATA'
-        };
-        const targetAlias = SKU_ALIASES[targetSkuRaw] || '';
-
-        // Función de normalización estricta de nombres para descarte de colisiones
-        const normalizeStr = s => String(s || '').toLowerCase()
-          .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-          .replace(/[·—–-]/g, ' ')
-          .replace(/\s+/g, ' ')
-          .trim();
-
-        const targetNorm = normalizeStr(targetProdRaw);
-
-        let matchRowIdx = -1;
-        let matchedInvRow = null;
-
-        // Prioridad 1: SKU exacto
-        if (targetSkuRaw) {
-          for (let j = 0; j < invValues.length; j++) {
-            const invSku = String(invValues[j][0] || '').trim().toUpperCase();
-            if (invSku && invSku === targetSkuRaw) {
-              matchRowIdx = j + 7;
-              matchedInvRow = invValues[j];
-              break;
-            }
-          }
-        }
-
-        // Prioridad 2: Alias de SKU explícitamente autorizado
-        if (matchRowIdx === -1 && targetAlias) {
-          for (let j = 0; j < invValues.length; j++) {
-            const invSku = String(invValues[j][0] || '').trim().toUpperCase();
-            if (invSku && invSku === targetAlias) {
-              matchRowIdx = j + 7;
-              matchedInvRow = invValues[j];
-              break;
-            }
-          }
-        }
-
-        // Prioridad 3: Nombre exacto normalizado (coincidencia idéntica completa, NUNCA substring laxo)
-        if (matchRowIdx === -1 && targetNorm) {
-          for (let j = 0; j < invValues.length; j++) {
-            const invNameNorm = normalizeStr(invValues[j][1]);
-            if (invNameNorm && invNameNorm === targetNorm) {
-              matchRowIdx = j + 7;
-              matchedInvRow = invValues[j];
-              break;
-            }
-          }
-        }
-
-        // Si se localizó la fila inequívoca:
-        if (matchRowIdx !== -1 && matchedInvRow) {
-          const invSku = String(matchedInvRow[0] || '').trim();
-          const invName = String(matchedInvRow[1] || '').trim();
-          const currentInitial = Number(matchedInvRow[5]) || 0;
-          const currentOut = Number(matchedInvRow[6]) || 0;
-          const qty = Number(targetItem.qty || 1);
-          const newOut = currentOut + qty;
-          const newDisp = Math.max(0, currentInitial - newOut);
-          sInv.getRange(matchRowIdx, 7).setValue(newOut);
-          sInv.getRange(matchRowIdx, 8).setValue(newDisp);
-          invMovement = {
-            sku: invSku,
-            product: invName,
-            row: matchRowIdx,
-            qty: qty,
-            previousOut: currentOut,
-            newOut: newOut,
-            available: newDisp
-          };
-        } else {
-          // Prioridad 4: Si no existe coincidencia inequívoca, INVENTORY_ITEM_NOT_FOUND y NO descontar nada
-          console.warn(`[KDS INVENTARIO] Item no localizado en INVENTARIO: SKU='${targetSkuRaw}', Producto='${targetProdRaw}'. No se descontó ninguna fila.`);
-          invMovement = {
-            status: 'INVENTORY_ITEM_NOT_FOUND',
-            sku: targetSkuRaw,
-            product: targetProdRaw,
-            discounted: false
-          };
-        }
-      }
-
-      SpreadsheetApp.flush();
-      return {
-        ok: true,
-        message: `Acción '${action}' aplicada exitosamente a ${targetItem.product}.`,
-        key: body.key,
-        product: targetItem.product,
-        state: 'Entregada',
-        deliveredBy: operator,
-        inventory: invMovement
-      };
-    } else if (action === 'ALMACEN' || action === 'AGOTADO') {
-      const incidentType = action === 'ALMACEN' ? 'Reponer de almacén' : 'Agotado en DOMUS';
-      targetItem.incident = incidentType;
-      sComandas.getRange(targetRow, 13).setValue(JSON.stringify(targetItem));
-      sComandas.getRange(targetRow, 14).setValue(incidentType);
-
-      // Crear aviso en RESURTIDO
-      const o = SpreadsheetApp.openById(CONFIG.opsSheetId);
-      if (o) {
-        const sRes = o.getSheetByName('RESURTIDO');
-        if (sRes) {
-          const resRowIdx = Math.max(sRes.getLastRow() + 1, 7);
-          const reqId = 'RS-' + Utilities.getUuid().slice(0, 8).toUpperCase();
-          sRes.getRange(resRowIdx, 1, 1, 8).setValues([[
-            reqId, new Date(), targetItem.product, incidentType, 1, false, '', incidentType === 'Agotado en DOMUS' ? 'Compra pendiente' : 'Resurtido pendiente'
-          ]]);
-        }
-      }
-    }
-
-    SpreadsheetApp.flush();
-    return { ok: true, message: `Acción '${action}' aplicada exitosamente a ${targetItem.product}.` };
+  authRequireContext_('comandasSimpleAccion');
+  const body=maybeBody && typeof maybeBody==='object'?maybeBody:tokenOrBody;
+  if(!body || typeof body!=='object' || !body.key || !body.action)throw new Error('Parámetros inválidos de comanda.');
+  return withLock_(CONFIG.lockTimeoutMs,()=>{
+    const m=SpreadsheetApp.openById(CONFIG.mainSheetId), s=m.getSheetByName('COMANDAS');
+    const req=String(body.requestId || body.id || '');
+    const resumed=journalResume_(req,'comandasSimpleAccion',m);if(resumed)return resumed;
+    const rows=dataRows_(s,7,1,13);
+    const entries=[];
+    rows.forEach((r,i)=>{if(r[0]){let it;try{it=JSON.parse(r[0]);}catch(e){return;} entries.push({row:i+7,item:it});}});
+    const target=entries.find(e=>'DCS-'+e.item.row+'-'+(e.item.batch||e.item.id)===body.key);
+    if(!target)throw new Error('Comanda no encontrada.');
+    const item=target.item, action=String(body.action).toUpperCase(), who=_authContext.operator;
+    if(_authContext.role==='COCINA' && item.destination!=='Cocina')throw new Error('Acceso denegado a otra estación.');
+    if(_authContext.role==='BARRA' && item.destination!=='Barra')throw new Error('Acceso denegado a otra estación.');
+    const writes=[];let state=item.state;let selected=[target];
+    if(action==='TOMAR') {
+      if(state==='En preparación')return {ok:true,state:state,responsible:item.responsible};
+      if(state!=='Pendiente')throw new Error('INVALID_KDS_TRANSITION: TOMAR requiere estado Pendiente; actual: '+state);
+      selected=entries.filter(e=>e.item.batch===item.batch && e.item.destination===item.destination && e.item.state==='Pendiente');
+      state='En preparación';
+    } else if(action==='LISTA') {
+      if(state==='Lista')return {ok:true,state:state};
+      if(state!=='En preparación')throw new Error('INVALID_KDS_TRANSITION: LISTA requiere estado En preparación; actual: '+state);state='Lista';
+    } else if(action==='ENTREGAR') {
+      if(state==='Entregada')return {ok:true,state:state};
+      if(state!=='Lista')throw new Error('INVALID_KDS_TRANSITION: ENTREGAR requiere estado Lista; actual: '+state);
+      writes.push(...deliveryInventoryWrites_(m,item)); state='Entregada';
+    } else if(action==='CANCELAR') {
+      if(['Entregada','Cancelada'].includes(state))throw new Error('INVALID_KDS_TRANSITION');
+      state='Cancelada'; writes.push(cellWrite_(m.getSheetByName('CAJA 2'),target.row,16,'Cancelado'));
+    } else if(['ALMACEN','AGOTADO'].includes(action)) {
+      const o=SpreadsheetApp.openById(CONFIG.opsSheetId),res=o.getSheetByName('RESURTIDO');
+      if(!res)throw new Error('Hoja RESURTIDO no encontrada.');
+      item.incident=action==='ALMACEN'?'Reponer de almacén':'Agotado en DOMUS';
+      const r=Math.max(res.getLastRow()+1,7),values=['RS-'+Utilities.getUuid(),new Date(),item.product,item.incident,1,false,'','Resurtido pendiente'];
+      values.forEach((v,i)=>writes.push(cellWrite_(res,r,i+1,v)));
+    } else throw new Error('Acción KDS no soportada.');
+    selected.forEach(e=>{
+      const it=e.item;it.state=state;it.version=String(Number(it.version||1)+1);
+      if(action==='TOMAR'){it.responsible=who;it.claimed=new Date().toISOString();}
+      if(action==='LISTA')it.ready=new Date().toISOString();
+      if(action==='ENTREGAR'){it.delivered=new Date().toISOString();it.deliveredBy=who;}
+      if(action==='CANCELAR')it.cancelled=new Date().toISOString();
+      writes.push(cellWrite_(s,e.row,13,JSON.stringify(it)),cellWrite_(s,e.row,8,state==='En preparación'?'Preparando':state));
+      writes.push(cellWrite_(s,e.row,14,state+' · '+who));
+    });
+    return journalCommit_(req,'comandasSimpleAccion',m,writes,{ok:true,key:body.key,state:state,product:item.product,responsible:who,message:'Comanda '+state});
   });
+}
+
+function deliveryInventoryWrites_(m,item) {
+  const inv=m.getSheetByName('INVENTARIO');
+  schemaColumns_(inv,['Producto / variante','INICIAL REAL','Entregado por comandas','Existencia esperada']);
+  const cat=dataRows_(m.getSheetByName('CATALOGO'),7,20).find(r=>r[0]===item.product);
+  if(!cat)throw new Error('PRODUCT_NOT_FOUND');
+  const recipes=m.getSheetByName('RECETAS CARTA');
+  const matches=recipes?dataRows_(recipes,2,10).map((r,i)=>({r:r,row:i+2})).filter(e=>String(e.r[0])===String(cat[15])):[];
+  const writes=[];
+  if(matches.length) {
+    const stock=m.getSheetByName('INSUMOS');
+    schemaColumns_(stock,['Grupo stock','Unidad control','Receta entregada','Existencia teórica']);
+    const ingredients=dataRows_(stock,7,12), totals={};
+    matches.forEach(e=>{
+      const amount=Number(e.r[5])*Number(e.r[7])*Number(item.qty||1), group=String(e.r[6]);
+      if(!group||!Number.isFinite(amount)||amount<=0)throw new Error('RECIPE_INVALID');
+      totals[group]=(totals[group]||0)+amount;
+      const name=String(item.product).replace(/"/g,'""');
+      writes.push(cellWrite_(recipes,e.row,10,`=SUMIF('CAJA 2'!$G$7:$G,"${name}",'CAJA 2'!$V$7:$V)*F${e.row}*H${e.row}`,true));
+    });
+    Object.keys(totals).forEach(group=>{
+      const found=ingredients.map((r,i)=>({r:r,row:i+7})).filter(e=>String(e.r[0])===group);
+      if(found.length!==1)throw new Error('INGREDIENT_NOT_FOUND: '+group);
+      const e=found[0];
+      if(e.r[3]==='' || !Number.isFinite(Number(e.r[7])))throw new Error('STOCK_COUNT_REQUIRED: '+group);
+      if(Number(e.r[7])+0.000001<totals[group])throw new Error('INSUFFICIENT_STOCK: '+group);
+      writes.push(cellWrite_(stock,e.row,7,`=SUMIF('RECETAS CARTA'!$G$2:$G,A${e.row},'RECETAS CARTA'!$J$2:$J)`,true));
+    });
+  } else {
+    const candidates=dataRows_(inv,7,16).map((r,i)=>({r:r,row:i+7})).filter(e=>String(e.r[0])===item.product || String(e.r[0]).endsWith(' · '+String(cat[6])));
+    if(candidates.length!==1)throw new Error('INVENTORY_ITEM_NOT_FOUND');
+    const e=candidates[0];
+    if(e.r[3]==='' || !Number.isFinite(Number(e.r[7])))throw new Error('STOCK_COUNT_REQUIRED');
+    if(Number(e.r[7])<Number(item.qty||1))throw new Error('INSUFFICIENT_STOCK');
+    if(!inv.getRange(e.row,7).getFormula() || !inv.getRange(e.row,8).getFormula())throw new Error('INVENTORY_FORMULA_REQUIRED');
+  }
+  // CAJA 2 V/X and INVENTARIO G/H are calculated. Preserve them; COMANDAS A/H supplies delivery.
+  return writes;
 }
 
 /**
  * Resuelve una incidencia de resurtido
  */
 function comandasSimpleResolver(tokenOrBody, maybeBody) {
+  authRequireContext_('comandasSimpleResolver');
   const body = (maybeBody && typeof maybeBody === 'object') ? maybeBody : tokenOrBody;
   if (!body || !body.id) throw new Error('ID de solicitud de resurtido no especificado.');
 
@@ -343,15 +205,12 @@ function comandasSimpleResolver(tokenOrBody, maybeBody) {
     const sRes = o.getSheetByName('RESURTIDO');
     if (!sRes) throw new Error('Hoja RESURTIDO no encontrada.');
 
-    const values = sRes.getRange(7, 1, 100, 8).getValues();
+    const values = dataRows_(sRes, 7, 8);
     for (let i = 0; i < values.length; i++) {
       if (String(values[i][0]).trim().toUpperCase() === String(body.id).trim().toUpperCase()) {
         const row = i + 7;
-        sRes.getRange(row, 6).setValue(true);
-        sRes.getRange(row, 7).setValue(new Date());
-        sRes.getRange(row, 8).setValue('Resuelto');
-        SpreadsheetApp.flush();
-        return { ok: true, message: 'Disponibilidad confirmada para ' + body.id };
+        const m=SpreadsheetApp.openById(CONFIG.mainSheetId);
+        return journalCommit_(body.requestId,'comandasSimpleResolver',m,[cellWrite_(sRes,row,6,true),cellWrite_(sRes,row,7,new Date()),cellWrite_(sRes,row,8,'Resuelto')],{ok:true,message:'Disponibilidad confirmada para '+body.id});
       }
     }
 
@@ -360,5 +219,6 @@ function comandasSimpleResolver(tokenOrBody, maybeBody) {
 }
 
 function comandasSimpleEntrar(token) {
-  return { ok: true, token: token || 'SES-' + Utilities.getUuid(), team: CONFIG.staff };
+  authRequireContext_('comandasSimpleEntrar');
+  return { ok: true, team: CONFIG.staff };
 }

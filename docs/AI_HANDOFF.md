@@ -1,5 +1,7 @@
 # 🤝 DOMUS OS · AI HANDOFF PROTOCOL (Punto Canónico de Entrada)
 
+> **2026-10-30 repair coordination update:** Read `docs/ANTIGRAVITY_CROSSCHECK_20261030.md` and `docs/REPAIR_STATUS_20261030.md` before using historical phase/deployment labels below. PR #18 remains draft/NO-GO. Published `AKfycbwg...` passed exact Main/Ops identity checks, but its native routes return JSON and the candidate is not deployed. The old Caja simple/staging label must not authorize writes to production books.
+
 > [!IMPORTANT]
 > **REGLA FUNDAMENTAL PARA TODAS LAS IAs (Antigravity, ChatGPT/Ariadna, Claude, etc.):**
 > Antes de sugerir, diseñar o modificar cualquier archivo de este repositorio, **debes leer este documento completo**, [`docs/CURRENT_STATE.md`](file:///Users/sadotechdireccion/Documents/GitHub/Admin-Domus/docs/CURRENT_STATE.md) y [`docs/OPERATING_RULES.md`](file:///Users/sadotechdireccion/Documents/GitHub/Admin-Domus/docs/OPERATING_RULES.md).

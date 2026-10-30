@@ -11,6 +11,7 @@ import os
 import re
 import sys
 import json
+import subprocess
 
 JS_PATH = os.path.abspath('js/app.js')
 INDEX_PATH = os.path.abspath('index.html')
@@ -28,6 +29,7 @@ with open(GAS_INDEX_PATH, 'r', encoding='utf-8') as f:
 def run_suite():
     print("=" * 80)
     print("🛡️ DOMUS OS · SUITE DE VERIFICACIÓN HOTFIX v13 (ISSUE #1)")
+    print("ALCANCE: comprobaciones estructurales de fuente y caso cliente aislado; no certifica dos pestañas reales, Apps Script ni hardware.")
     print("=" * 80)
     
     passed = 0
@@ -131,7 +133,7 @@ def run_suite():
     # --------------------------------------------------------------------------
     print("\n[Test 10] Mutex entre pestañas vía Web Locks API ('domus-outbox-sync')...")
     assert "window.navigator.locks.request('domus-outbox-sync'" in js_content, "Falta Web Locks mutex"
-    print("✅ TEST 10 PASS: Web Locks API garantiza un único POST concurrente entre pestañas.")
+    print("✅ TEST 10 PASS (SOURCE): llamada Web Locks presente; concurrencia real no ejecutada por esta comprobación.")
     passed += 1
 
     # --------------------------------------------------------------------------
@@ -148,9 +150,9 @@ def run_suite():
     # Test 12: producto no autorizado / orden vacía no es enviada
     # --------------------------------------------------------------------------
     print("\n[Test 12] Guardia contra órdenes vacías en confirmPaymentAndDispatch y enqueueOutbox...")
-    assert "if (!STATE.cart || !STATE.cart.length)" in js_content, "Falta guardia de carrito vacío en confirmPaymentAndDispatch"
-    assert "if (action === 'cajaSimpleRegistrar' && (!args || !args[0] || !args[0].items || !args[0].items.length))" in js_content, "Falta guardia en enqueueOutbox"
-    print("✅ TEST 12 PASS: Órdenes sin productos son bloqueadas y no se encolan ni envían.")
+    # Empty items are valid ONLY for settling an existing account; execute source instead of matching old syntax.
+    subprocess.run(['node', 'tests/client_recovery_regressions.js'], check=True, capture_output=True, text=True)
+    print("✅ TEST 12 PASS: Nueva venta vacía bloqueada; liquidación de cuenta existente preservada.")
     passed += 1
 
     # --------------------------------------------------------------------------

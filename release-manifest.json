@@ -1,0 +1,29 @@
+{
+  "build": {
+    "id": "repair-qa-20261030",
+    "sourceSha256": "c40b71deb07c57a6be0dc5f2709090faa32c2068445c658cb94f322f5ad01d9b",
+    "schema": "DOMUS-DB-v1.1-plus-recovery-journal"
+  },
+  "files": {
+    "google-apps-script/Config.gs": "a591b051dbac89206ae442f937c45d84a951106a1ae17d3a0539c143f3ca5b74",
+    "google-apps-script/Data.gs": "06330de5188ec08b9feddfb77894f99fee9440aba80788b193638f77f811168c",
+    "google-apps-script/Schema.gs": "65d5fbc40c305a71f5e2b6fdc847aa1e4bce853f7c70bd4a080cbb2db6a283f6",
+    "google-apps-script/Auth.gs": "8b0639a08a6aac32b41d4d584a2c7c2675b00cdb388d4edb64304c051f6bc63d",
+    "google-apps-script/Idempotency.gs": "1df5af7a8ae73999c230cdb6836fb43725be4b8ac45631ececc7d8a9c1820bc5",
+    "google-apps-script/Accounts.gs": "52af8a4443746fba455b5bac2b24fcc9fc3766d8a95280ce2879af828ce9b547",
+    "google-apps-script/Payments.gs": "2ac798518a488092e484dbda5eb9efe6c7ddd607aca955d3cee4d409ca3042d2",
+    "google-apps-script/POS.gs": "7ac48518ce39ec235b8b80c30afaa302f5c62453b5c19288b919081ef79c0295",
+    "google-apps-script/Access.gs": "399a57fb9d352af21890835f34ac4fe48b9f47469fac6e2866606bf74d0b737c",
+    "google-apps-script/KDS.gs": "a65e3b4f90ffdfcaeb5e8ffe6883bb3a93b64f00e5e3c5830ec1bbb252d5906a",
+    "google-apps-script/Inventory.gs": "ccf3a3a8e7650626a240152115eb31f124dda3cf8f0c2cac3a463caa82820b5f",
+    "google-apps-script/Events.gs": "e3c2916ec479eed91e14e814e2fd893df4937b9ee5d840b5aadfb456b82b4727",
+    "google-apps-script/Operations.gs": "c0c5dae092efaa1ad2a6496ec19edeb1f655b124fc3bdcbdc5f7efe719768010",
+    "google-apps-script/Api.gs": "e872984567b36588ddf15d0933245bfd3274d83a32215d428ca714f008c29fad",
+    "js/app.js": "a635c68d7b38c9fb77ac4e57357c02cf73bbb0cc8d9f5871b3636aac9672d909",
+    "index.html": "5c01f3b85d513a363a32135787e79285eae5abee7f73945b13dd8b09ad000376",
+    "google-apps-script/Build.gs": "79950a8cd2d622761f50719ecc47f37e61970d155f6d354512916a81a1b9f9f2",
+    "google-apps-script/DOMUS_PRODUCTION_BUNDLE.gs": "4d41c2fb63800f9717597c14df4d841b7d860cddb4ec40bda2af12f778a373f5",
+    "google-apps-script/DOMUS_STAGING_BUNDLE.gs": "c8205813b91433abe77954b00ba282904eccf390aac1598672dc9f6cef686427",
+    "google-apps-script/Index.html": "8f06c1dbd2dcb9f0c73f9a6551f7e8910c4caade99484f8ebdadecff4a1b633b"
+  }
+}

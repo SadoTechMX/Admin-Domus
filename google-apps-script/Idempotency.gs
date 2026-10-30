@@ -130,123 +130,34 @@ function getOrCreateRequestsSheet_(spreadsheet) {
  * 3) Hoja de cálculo REQUESTS
  */
 function findRequestRecord_(cleanReqId, spreadsheet) {
-  const cacheKey = 'idemp:' + cleanReqId;
-  const cache = typeof CacheService !== 'undefined' ? CacheService.getScriptCache() : null;
-  const props = typeof PropertiesService !== 'undefined' ? PropertiesService.getScriptProperties() : null;
-
-  // 1. Cache rápida
-  if (cache) {
-    const cachedJson = cache.get(cacheKey);
-    if (cachedJson) {
-      try {
-        return JSON.parse(cachedJson);
-      } catch (e) {}
-    }
-  }
-
-  // 2. ScriptProperties
-  if (props) {
-    const propJson = props.getProperty(cacheKey);
-    if (propJson) {
-      try {
-        const record = JSON.parse(propJson);
-        if (cache) cache.put(cacheKey, propJson, 21600);
-        return record;
-      } catch (e) {}
-    }
-  }
-
-  // 3. Hoja REQUESTS
-  try {
-    const sheet = getOrCreateRequestsSheet_(spreadsheet);
-    if (sheet) {
-      const lastRow = sheet.getLastRow();
-      if (lastRow > 1) {
-        const startRow = Math.max(2, lastRow - 200);
-        const numRows = lastRow - startRow + 1;
-        const rows = sheet.getRange(startRow, 1, numRows, 8).getValues();
-        for (let i = rows.length - 1; i >= 0; i--) {
-          const r = rows[i];
-          if (String(r[0]).trim() === cleanReqId) {
-            let parsedResp = null;
-            try { parsedResp = r[7] ? JSON.parse(r[7]) : null; } catch (e) { parsedResp = r[7]; }
-            const record = {
-              requestId: cleanReqId,
-              action: String(r[1]),
-              payloadHash: String(r[2]),
-              deviceId: String(r[3]),
-              status: String(r[4]),
-              createdAt: r[5],
-              completedAt: r[6],
-              response: parsedResp,
-              sheetRowIndex: startRow + i
-            };
-            if (cache) cache.put(cacheKey, JSON.stringify(record), 21600);
-            return record;
-          }
-        }
-      }
-    }
-  } catch (e) {
-    console.warn('[IDEMPOTENCY] Error al buscar en hoja REQUESTS:', e);
-  }
-
-  return null;
+  const sheet = getOrCreateRequestsSheet_(spreadsheet);
+  if (!sheet) throw new Error('LEDGER_UNAVAILABLE');
+  const rows = dataRows_(sheet, 2, 8);
+  const found = [];
+  rows.forEach((r, i) => {
+    if (String(r[0]).trim() === cleanReqId) found.push({
+      requestId: cleanReqId, action: String(r[1]), payloadHash: String(r[2]),
+      deviceId: String(r[3]), status: String(r[4]), createdAt: r[5], completedAt: r[6],
+      response: r[7] ? JSON.parse(r[7]) : null, sheetRowIndex: i + 2
+    });
+  });
+  if (found.length > 1) throw new Error('LEDGER_DUPLICATE_REQUIRES_REVIEW');
+  return found[0] || null;
 }
 
 /**
  * Guarda o actualiza un registro en el ledger (Cache, Properties y Hoja REQUESTS)
  */
 function saveRequestRecord_(record, spreadsheet) {
-  const cleanReqId = record.requestId;
-  const cacheKey = 'idemp:' + cleanReqId;
-  const serialized = JSON.stringify(record);
-
-  // 1. Cache rápida (6 horas)
-  try {
-    if (typeof CacheService !== 'undefined') {
-      CacheService.getScriptCache().put(cacheKey, serialized, 21600);
-    }
-  } catch (e) {}
-
-  // 2. ScriptProperties
-  try {
-    if (typeof PropertiesService !== 'undefined') {
-      PropertiesService.getScriptProperties().setProperty(cacheKey, serialized);
-    }
-  } catch (e) {}
-
-  // 3. Hoja REQUESTS
-  try {
-    const sheet = getOrCreateRequestsSheet_(spreadsheet);
-    if (sheet) {
-      const respStr = record.response !== undefined ? (typeof record.response === 'string' ? record.response : JSON.stringify(record.response)) : '';
-      if (record.sheetRowIndex && record.sheetRowIndex > 1) {
-        // Actualizar fila existente
-        sheet.getRange(record.sheetRowIndex, 5, 1, 4).setValues([[
-          record.status,
-          record.createdAt || '',
-          record.completedAt || '',
-          respStr
-        ]]);
-      } else {
-        // Nueva fila
-        sheet.appendRow([
-          record.requestId,
-          record.action || '',
-          record.payloadHash || '',
-          record.deviceId || '',
-          record.status,
-          record.createdAt || new Date().toISOString(),
-          record.completedAt || '',
-          respStr
-        ]);
-        record.sheetRowIndex = sheet.getLastRow();
-      }
-    }
-  } catch (e) {
-    console.warn('[IDEMPOTENCY] Error al persistir en hoja REQUESTS:', e);
-  }
+  const sheet = getOrCreateRequestsSheet_(spreadsheet);
+  if (!sheet) throw new Error('LEDGER_UNAVAILABLE');
+  // The durable ledger is authoritative. No cache can publish completion before Sheets.
+  if (!record.sheetRowIndex) record.sheetRowIndex = Math.max(2, sheet.getLastRow() + 1);
+  sheet.getRange(record.sheetRowIndex, 1, 1, 8).setValues([[
+    record.requestId, record.action, record.payloadHash, record.deviceId,
+    record.status, record.createdAt, record.completedAt || '', JSON.stringify(record.response)
+  ]]);
+  SpreadsheetApp.flush();
 }
 
 /**
@@ -257,103 +168,39 @@ function saveRequestRecord_(record, spreadsheet) {
  * 4. Registro continuo de estados: PROCESSING -> COMPLETED / FAILED / REQUIRES_REVIEW
  */
 function idempotentExecute_(requestId, action, payload, deviceId, fn) {
-  // Soporte retrocompatible si se llama como (requestId, fn)
-  if (typeof action === 'function') {
-    fn = action;
-    action = 'MUTATION';
-    payload = null;
-    deviceId = '';
-  }
-
-  if (!requestId || typeof requestId !== 'string') {
-    return withLock_(CONFIG.lockTimeoutMs, fn);
-  }
-
+  if (!requestId || typeof requestId !== 'string' || !requestId.trim()) throw new Error('REQUEST_ID_REQUIRED');
   const cleanReqId = requestId.trim();
   const currentPayloadHash = computePayloadHash_({ action: action, payload: payload });
   const devId = String(deviceId || '');
-  const actName = String(action || 'MUTATION');
-
-  // 1. Verificación rápida antes de solicitar el lock
-  const existingRecord = findRequestRecord_(cleanReqId);
-  if (existingRecord) {
-    // Si el requestId ya existe pero con distinto contenido/acción:
-    if (existingRecord.payloadHash && existingRecord.payloadHash !== currentPayloadHash) {
-      const err = new Error(`IDEMPOTENCY_KEY_REUSED: El requestId "${cleanReqId}" ya fue utilizado previamente con una acción o payload diferente.`);
-      err.status = 409;
-      err.code = 'IDEMPOTENCY_KEY_REUSED';
-      throw err;
-    }
-
-    // Si ya completó exitosamente con el mismo payload exacto, devolver el resultado original
-    if (existingRecord.status === REQUEST_STATUS.COMPLETED) {
-      console.log(`[IDEMPOTENCY] Deduplicación exitosa para requestId: ${cleanReqId}. Devolviendo comprobante original.`);
-      return existingRecord.response;
-    }
-
-    // Si está en revisión o falló permanentemente
-    if (existingRecord.status === REQUEST_STATUS.REQUIRES_REVIEW) {
-      const err = new Error(`IDEMPOTENCY_REQUIRES_REVIEW: La transacción con requestId "${cleanReqId}" se encuentra en revisión manual.`);
-      err.status = 409;
-      err.code = 'IDEMPOTENCY_REQUIRES_REVIEW';
-      throw err;
-    }
-  }
-
-  // 2. Ejecutar de forma atómica bajo candado de script
+  if (!devId) throw new Error('DEVICE_ID_REQUIRED');
   return withLock_(CONFIG.lockTimeoutMs, () => {
-    // Doble verificación dentro de la sección crítica
-    const lockedRecord = findRequestRecord_(cleanReqId);
-    if (lockedRecord) {
-      if (lockedRecord.payloadHash && lockedRecord.payloadHash !== currentPayloadHash) {
-        const err = new Error(`IDEMPOTENCY_KEY_REUSED: El requestId "${cleanReqId}" ya fue utilizado previamente con una acción o payload diferente.`);
-        err.status = 409;
-        err.code = 'IDEMPOTENCY_KEY_REUSED';
-        throw err;
-      }
-      if (lockedRecord.status === REQUEST_STATUS.COMPLETED) {
-        return lockedRecord.response;
-      }
-      if (lockedRecord.status === REQUEST_STATUS.REQUIRES_REVIEW) {
-        const err = new Error(`IDEMPOTENCY_REQUIRES_REVIEW: La transacción con requestId "${cleanReqId}" se encuentra en revisión manual.`);
-        err.status = 409;
-        err.code = 'IDEMPOTENCY_REQUIRES_REVIEW';
-        throw err;
-      }
+    const m = SpreadsheetApp.openById(CONFIG.mainSheetId);
+    const prior = findRequestRecord_(cleanReqId, m);
+    if (prior && (prior.payloadHash !== currentPayloadHash || prior.action !== action || prior.deviceId !== devId)) {
+      const err = new Error('IDEMPOTENCY_KEY_REUSED'); err.status = 409; err.code = 'IDEMPOTENCY_KEY_REUSED'; throw err;
     }
-
-    // Registrar inicio en estado PROCESSING
-    const record = lockedRecord || {
-      requestId: cleanReqId,
-      action: actName,
-      payloadHash: currentPayloadHash,
-      deviceId: devId,
-      status: REQUEST_STATUS.PROCESSING,
-      createdAt: new Date().toISOString(),
-      completedAt: '',
-      response: null
-    };
-    record.status = REQUEST_STATUS.PROCESSING;
-    saveRequestRecord_(record);
-
-    let result;
+    if (prior && prior.status === REQUEST_STATUS.COMPLETED) return prior.response;
+    if (prior) {
+      const resumed = journalResume_(cleanReqId, action, m);
+      if (resumed) {
+        prior.status = REQUEST_STATUS.COMPLETED; prior.response = resumed;
+        prior.completedAt = new Date().toISOString(); saveRequestRecord_(prior, m); return resumed;
+      }
+      // Old code may have written effects before FAILED. Never rerun it blindly.
+      const err = new Error('IDEMPOTENCY_REQUIRES_REVIEW: intención previa sin plan recuperable.');
+      err.status = 409; err.code = 'IDEMPOTENCY_REQUIRES_REVIEW'; throw err;
+    }
+    const record = {requestId: cleanReqId, action: action, payloadHash: currentPayloadHash,
+      deviceId: devId, status: REQUEST_STATUS.PROCESSING, createdAt: new Date().toISOString(), response: null};
+    saveRequestRecord_(record, m);
     try {
-      result = fn();
-      
-      // Marcar como COMPLETED
-      record.status = REQUEST_STATUS.COMPLETED;
-      record.completedAt = new Date().toISOString();
-      record.response = result;
-      saveRequestRecord_(record);
-      
-      return result;
+      const result = fn();
+      record.status = REQUEST_STATUS.COMPLETED; record.response = result;
+      record.completedAt = new Date().toISOString(); saveRequestRecord_(record, m); return result;
     } catch (err) {
-      // Marcar como FAILED
-      record.status = REQUEST_STATUS.FAILED;
-      record.completedAt = new Date().toISOString();
-      record.response = { error: err.message || String(err) };
-      saveRequestRecord_(record);
-      throw err;
+      record.status = REQUEST_STATUS.REQUIRES_REVIEW;
+      record.response = {error: String(err.message || err)};
+      record.completedAt = new Date().toISOString(); saveRequestRecord_(record, m); throw err;
     }
   });
 }

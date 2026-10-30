@@ -44,6 +44,9 @@ function getActiveEnvironment_() {
       if (propEnv === 'STAGING') {
         const customMain = props.getProperty('STAGING_MAIN_SHEET_ID') || ENVIRONMENTS.STAGING.mainSheetId;
         const customOps = props.getProperty('STAGING_OPS_SHEET_ID') || ENVIRONMENTS.STAGING.opsSheetId;
+        if (customMain !== ENVIRONMENTS.STAGING.mainSheetId || customOps !== ENVIRONMENTS.STAGING.opsSheetId) {
+          throw new Error('ENVIRONMENT_MISMATCH: STAGING debe usar ambos libros aislados aprobados.');
+        }
         return {
           name: 'STAGING',
           mainSheetId: customMain,
@@ -51,18 +54,10 @@ function getActiveEnvironment_() {
         };
       }
     }
-  } catch (e) {}
+  } catch (e) { throw e; }
 
-  if (typeof D !== 'undefined' && D.env && ENVIRONMENTS[D.env]) {
-    return ENVIRONMENTS[D.env];
-  }
-
-  // Por seguridad en branch de aislamiento, si los IDs de Staging están configurados se usa STAGING
-  if (ENVIRONMENTS.STAGING.mainSheetId && ENVIRONMENTS.STAGING.opsSheetId) {
-    return ENVIRONMENTS.PRODUCTION;
-  }
-
-  return ENVIRONMENTS.PRODUCTION;
+  // An unconfigured installation must never silently select real money books.
+  return ENVIRONMENTS.STAGING;
 }
 
 const ACTIVE_ENV = getActiveEnvironment_();
@@ -73,8 +68,8 @@ const CONFIG = Object.freeze({
   isStaging: ACTIVE_ENV.name === 'STAGING',
   
   // Identificadores de Google Sheets
-  mainSheetId: typeof D !== 'undefined' && D.main ? D.main : ACTIVE_ENV.mainSheetId,
-  opsSheetId: typeof D !== 'undefined' && D.ops ? D.ops : ACTIVE_ENV.opsSheetId,
+  mainSheetId: ACTIVE_ENV.mainSheetId,
+  opsSheetId: ACTIVE_ENV.opsSheetId,
   
   // Lista de Gerencia & Supervisión
   managers: typeof D !== 'undefined' && D.managers ? D.managers : ['direccion@domusccc.net', 'sadotechfet@gmail.com'],
