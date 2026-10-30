@@ -1071,7 +1071,8 @@ function comandasSimpleDatos(token) {
 /**
  * Aplica una acción sobre una comanda (TOMAR, LISTA, ENTREGAR, ALMACEN, AGOTADO)
  */
-function comandasSimpleAccion(token, body) {
+function comandasSimpleAccion(tokenOrBody, maybeBody) {
+  const body = (maybeBody && typeof maybeBody === 'object') ? maybeBody : tokenOrBody;
   if (!body || !body.key || !body.action) {
     throw new Error('Parámetros de acción de comanda incompletos.');
   }
@@ -1304,7 +1305,8 @@ function comandasSimpleAccion(token, body) {
 /**
  * Resuelve una incidencia de resurtido
  */
-function comandasSimpleResolver(token, body) {
+function comandasSimpleResolver(tokenOrBody, maybeBody) {
+  const body = (maybeBody && typeof maybeBody === 'object') ? maybeBody : tokenOrBody;
   if (!body || !body.id) throw new Error('ID de solicitud de resurtido no especificado.');
 
   return withLock_(CONFIG.lockTimeoutMs, () => {
@@ -2258,7 +2260,102 @@ function domusCajaDoGetOriginal_(e) {
 }
 
 /**
- * Enrutador POST: Recepción de mutaciones transaccionales y RPC
+ * Ejecutor centralizado de acciones DOMUS con validación RBAC e Idempotencia
+ * Compartido por doPost (HTTP REST / GitHub Pages) y dispatchNativeAction (google.script.run / Apps Script UI)
+ */
+function executeDomusAction_(action, payload, params) {
+  const p = payload || {};
+  const args = p.args || [];
+  const sessionToken = p.sessionToken || (params && params.token) || '';
+  const role = p.role || (params && params.role) || '';
+  const deviceId = p.deviceId || (params && params.deviceId) || '';
+  const requestId = p.requestId || (args && args[0] && (args[0].id || args[0].requestId)) || (args && args[1] && (args[1].id || args[1].requestId)) || '';
+
+  if (!action) {
+    throw new Error('Parámetro "action" no especificado en la solicitud.');
+  }
+
+  // 1. Validación de Roles y Seguridad del Servidor (RBAC)
+  const authContext = authValidateAction(action, sessionToken, role, deviceId);
+
+  // 2. Enrutamiento con Idempotencia y Candado para Operaciones Mutativas
+  let result;
+
+  switch (action) {
+    // --- AUTENTICACIÓN ---
+    case 'authCrearSesion':
+      result = authCreateSession(args[0] || role, deviceId, args[1] || 'Operador');
+      break;
+
+    // --- CAJA / POS ---
+    case 'cajaSimpleDatos':
+      result = cajaSimpleDatos();
+      break;
+    case 'cajaSimpleRegistrar':
+      result = idempotentExecute_(requestId, action, args[0], deviceId, () => cajaSimpleRegistrar(args[0]));
+      break;
+    case 'cajaSimpleEstado':
+      result = cajaSimpleEstado(args[0]);
+      break;
+    case 'cajaSimplePreparar':
+      result = cajaSimplePreparar(args[0]);
+      break;
+
+    // --- COMANDAS / KDS ---
+    case 'comandasSimpleDatos':
+      result = comandasSimpleDatos(sessionToken || args[0]);
+      break;
+    case 'comandasSimpleAccion':
+      result = idempotentExecute_(requestId, action, args, deviceId, () => comandasSimpleAccion(sessionToken, args[0] || args[1]));
+      break;
+    case 'comandasSimpleResolver':
+      result = idempotentExecute_(requestId, action, args, deviceId, () => comandasSimpleResolver(sessionToken, args[0] || args[1]));
+      break;
+    case 'comandasSimpleEntrar':
+      result = comandasSimpleEntrar(args[0]);
+      break;
+
+    // --- ACCESOS & GUARDARROPA ---
+    case 'accesoSimpleDatos':
+      result = accesoSimpleDatos();
+      break;
+    case 'accesoSimpleRegistrar':
+      result = idempotentExecute_(requestId, action, args[0], deviceId, () => accesoSimpleRegistrar(args[0]));
+      break;
+    case 'guardarropaDevolver':
+      result = idempotentExecute_(requestId, action, args[0], deviceId, () => guardarropaDevolver(args[0]));
+      break;
+    case 'accesoCambiarActividad':
+      result = idempotentExecute_(requestId, action, args[0], deviceId, () => accesoCambiarActividad(args[0]));
+      break;
+    case 'registrarNuevoEvento':
+      result = idempotentExecute_(requestId, action, args[0], deviceId, () => registrarNuevoEvento(args[0]));
+      break;
+
+    // --- INVENTARIO & CATÁLOGO ---
+    case 'sincronizarCartaConCatalogoDOMUS':
+      result = idempotentExecute_(requestId, action, null, deviceId, () => sincronizarCartaConCatalogoDOMUS());
+      break;
+    case 'registrarNuevoProducto':
+      result = idempotentExecute_(requestId, action, args[0], deviceId, () => registrarNuevoProducto(args[0]));
+      break;
+    case 'sincronizarJujutsuShi':
+      result = idempotentExecute_(requestId, action, null, deviceId, () => sincronizarJujutsuShi());
+      break;
+
+    default:
+      throw new Error('Acción no soportada en API DOMUS: ' + action);
+  }
+
+  return {
+    result: result,
+    requestId: requestId,
+    role: authContext.role
+  };
+}
+
+/**
+ * Enrutador POST: Recepción de mutaciones transaccionales y RPC (HTTP / GitHub Pages)
  */
 function doPost(e) {
   try {
@@ -2268,93 +2365,13 @@ function doPost(e) {
     }
 
     const action = (e && e.parameter && e.parameter.action) || payload.action;
-    const args = payload.args || [];
-    const sessionToken = payload.sessionToken || (e && e.parameter && e.parameter.token) || '';
-    const role = payload.role || (e && e.parameter && e.parameter.role) || '';
-    const deviceId = payload.deviceId || (e && e.parameter && e.parameter.deviceId) || '';
-    const requestId = payload.requestId || (payload.args && payload.args[0] && (payload.args[0].id || payload.args[0].requestId)) || '';
-
-    if (!action) {
-      throw new Error('Parámetro "action" no especificado en la solicitud.');
-    }
-
-    // 1. Validación de Roles y Seguridad del Servidor (RBAC)
-    const authContext = authValidateAction(action, sessionToken, role, deviceId);
-
-    // 2. Enrutamiento con Idempotencia y Candado para Operaciones Mutativas
-    let result;
-
-    switch (action) {
-      // --- AUTENTICACIÓN ---
-      case 'authCrearSesion':
-        result = authCreateSession(args[0] || role, deviceId, args[1] || 'Operador');
-        break;
-
-      // --- CAJA / POS ---
-      case 'cajaSimpleDatos':
-        result = cajaSimpleDatos();
-        break;
-      case 'cajaSimpleRegistrar':
-        result = idempotentExecute_(requestId, action, args[0], deviceId, () => cajaSimpleRegistrar(args[0]));
-        break;
-      case 'cajaSimpleEstado':
-        result = cajaSimpleEstado(args[0]);
-        break;
-      case 'cajaSimplePreparar':
-        result = cajaSimplePreparar(args[0]);
-        break;
-
-      // --- COMANDAS / KDS ---
-      case 'comandasSimpleDatos':
-        result = comandasSimpleDatos(sessionToken || args[0]);
-        break;
-      case 'comandasSimpleAccion':
-        result = idempotentExecute_(requestId, action, args, deviceId, () => comandasSimpleAccion(sessionToken, args[1] || args[0]));
-        break;
-      case 'comandasSimpleResolver':
-        result = idempotentExecute_(requestId, action, args, deviceId, () => comandasSimpleResolver(sessionToken, args[1] || args[0]));
-        break;
-      case 'comandasSimpleEntrar':
-        result = comandasSimpleEntrar(args[0]);
-        break;
-
-      // --- ACCESOS & GUARDARROPA ---
-      case 'accesoSimpleDatos':
-        result = accesoSimpleDatos();
-        break;
-      case 'accesoSimpleRegistrar':
-        result = idempotentExecute_(requestId, action, args[0], deviceId, () => accesoSimpleRegistrar(args[0]));
-        break;
-      case 'guardarropaDevolver':
-        result = idempotentExecute_(requestId, action, args[0], deviceId, () => guardarropaDevolver(args[0]));
-        break;
-      case 'accesoCambiarActividad':
-        result = idempotentExecute_(requestId, action, args[0], deviceId, () => accesoCambiarActividad(args[0]));
-        break;
-      case 'registrarNuevoEvento':
-        result = idempotentExecute_(requestId, action, args[0], deviceId, () => registrarNuevoEvento(args[0]));
-        break;
-
-      // --- INVENTARIO & CATÁLOGO ---
-      case 'sincronizarCartaConCatalogoDOMUS':
-        result = idempotentExecute_(requestId, action, null, deviceId, () => sincronizarCartaConCatalogoDOMUS());
-        break;
-      case 'registrarNuevoProducto':
-        result = idempotentExecute_(requestId, action, args[0], deviceId, () => registrarNuevoProducto(args[0]));
-        break;
-      case 'sincronizarJujutsuShi':
-        result = idempotentExecute_(requestId, action, null, deviceId, () => sincronizarJujutsuShi());
-        break;
-
-      default:
-        throw new Error('Acción no soportada en API DOMUS: ' + action);
-    }
+    const res = executeDomusAction_(action, payload, e && e.parameter);
 
     return ContentService.createTextOutput(JSON.stringify({
       ok: true,
-      data: result,
-      requestId: requestId,
-      role: authContext.role
+      data: res.result,
+      requestId: res.requestId,
+      role: res.role
     })).setMimeType(ContentService.MimeType.JSON);
 
   } catch (err) {
@@ -2367,6 +2384,35 @@ function doPost(e) {
       code: errorCode,
       error: err.message || String(err)
     })).setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+/**
+ * Dispatcher canónico común para ejecuciones nativas de Apps Script (google.script.run)
+ * Garantiza que Apps Script y GitHub Pages ejecuten exactamente el mismo pipeline:
+ * authValidateAction -> RBAC -> idempotentExecute_ -> función operativa
+ */
+function dispatchNativeAction(payload) {
+  try {
+    const pl = typeof payload === 'string' ? JSON.parse(payload) : (payload || {});
+    const action = pl.action;
+    const res = executeDomusAction_(action, pl, null);
+    return {
+      ok: true,
+      data: res.result,
+      requestId: res.requestId,
+      role: res.role
+    };
+  } catch (err) {
+    console.error('[NATIVE DISPATCH ERROR]', err);
+    const statusCode = err.status || (err.message && err.message.includes('IDEMPOTENCY_KEY_REUSED') ? 409 : 500);
+    const errorCode = err.code || (statusCode === 409 ? 'IDEMPOTENCY_KEY_REUSED' : 'SERVER_ERROR');
+    return {
+      ok: false,
+      status: statusCode,
+      code: errorCode,
+      error: err.message || String(err)
+    };
   }
 }
 

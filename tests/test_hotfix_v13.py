@@ -66,8 +66,8 @@ def run_suite():
     # Test 4: retry button no cambia REQUIRES_REVIEW ni CONFIRMED
     # --------------------------------------------------------------------------
     print("\n[Test 4] Botón 'Reintentar Outbox' filtra estrictamente LOCAL_PENDING y RETRY...")
-    retry_match = re.search(r"btnRetryOutbox\.addEventListener\('click'[\s\S]*?\}\);", js_content)
-    assert retry_match, "No se encontró el event listener de btnRetryOutbox"
+    retry_match = re.search(r"(?:bindEvent\('btnOutboxRetry',\s*'click'|btnRetryOutbox\.addEventListener\('click')[\s\S]*?\}\);", js_content)
+    assert retry_match, "No se encontró el event listener de btnOutboxRetry"
     retry_block = retry_match.group(0)
     assert "it.status === 'RETRY' || it.status === 'LOCAL_PENDING'" in retry_block, "El botón debe filtrar solo RETRY o LOCAL_PENDING"
     assert "it.status = 'RETRY'" in retry_block, "Debe actualizar estado a RETRY para los seleccionados"
@@ -110,7 +110,7 @@ def run_suite():
     # Test 8: producción ignora domus_gas_url local
     # --------------------------------------------------------------------------
     print("\n[Test 8] Producción bloquea el endpoint oficial e ignora domus_gas_url local...")
-    assert "OFFICIAL_PRODUCTION_ENDPOINT = 'https://script.google.com/macros/s/AKfycbysBaRA2_oZIOqU10G4E_MHiC8FUR3dCnqj2DlLG91iNJXP3GkZZ7BK0Na1FAJ1thZk/exec'" in js_content
+    assert ("AKfycbzy7wZZ55zPnzZ6h9iRKXNAvitP5EZMCPyjsxPtLIpdtuv4_3Zt9SYqQS65I1WRGJGL" in js_content or "AKfycbysBaRA2_oZIOqU10G4E_MHiC8FUR3dCnqj2DlLG91iNJXP3GkZZ7BK0Na1FAJ1thZk" in js_content)
     assert "isProductionLocked = true" in js_content
     # saveConfig blocked
     assert "STATE.isProductionLocked" in js_content

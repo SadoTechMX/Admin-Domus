@@ -99,7 +99,8 @@ function comandasSimpleDatos(token) {
 /**
  * Aplica una acción sobre una comanda (TOMAR, LISTA, ENTREGAR, ALMACEN, AGOTADO)
  */
-function comandasSimpleAccion(token, body) {
+function comandasSimpleAccion(tokenOrBody, maybeBody) {
+  const body = (maybeBody && typeof maybeBody === 'object') ? maybeBody : tokenOrBody;
   if (!body || !body.key || !body.action) {
     throw new Error('Parámetros de acción de comanda incompletos.');
   }
@@ -332,7 +333,8 @@ function comandasSimpleAccion(token, body) {
 /**
  * Resuelve una incidencia de resurtido
  */
-function comandasSimpleResolver(token, body) {
+function comandasSimpleResolver(tokenOrBody, maybeBody) {
+  const body = (maybeBody && typeof maybeBody === 'object') ? maybeBody : tokenOrBody;
   if (!body || !body.id) throw new Error('ID de solicitud de resurtido no especificado.');
 
   return withLock_(CONFIG.lockTimeoutMs, () => {

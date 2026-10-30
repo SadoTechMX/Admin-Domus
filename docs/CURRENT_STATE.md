@@ -246,6 +246,37 @@
 * **Estado Transaccional en Vivo:**
   - Comanda `C2-43` (Héctor Tate, `Onírica IPA · lata`): Estado `En preparación`, responsable `Taichi Mike`. Circuito KDS operacional y validado en caliente. No ejecutar más mutaciones sintéticas de diagnóstico en Producción.
 
+### 🛡️ Hotfix P0: Unificación de Transporte Transaccional, Idempotencia KDS de Llave Única, Purga de `domus_token` y Asset Cache-Busting (29-Oct-2026 · UI 20261029-05)
+* **Estado de Taxonomía:** `IMPLEMENTED` | `LOCAL_TESTED`.
+* **Diagnóstico de Causa Raíz:**
+  1. **Desincronización de Versiones (Split-Brain Frontend):** GitHub Pages y Google Apps Script Web App nativo ejecutaban frontends desfasados. Modificaciones en JavaScript se publicaban sin renovar el parámetro de versión de assets (`?v=`), permitiendo que navegadores ejecutaran código en caché desalineado.
+  2. **Ruptura de Idempotencia en KDS (P0):** En `claimOrder`, `markOrderReady`, `deliverOrder`, `reportIncident` y `resolveRestock`, los argumentos se enviaban como `[token, body]`. Al ser `args[0]` una cadena de texto y no un objeto, `callBackend` no extraía `body.requestId` y generaba una llave `REQ-...` sintética para el POST HTTP. Ante fallos de red o respuestas lentas, `enqueueOutbox` volvía a fallar en leer `args[0]` y generaba una **tercera llave distinta**, destruyendo la garantía de idempotencia estipulada en ADR-002 y posibilitando mutaciones duplicadas o fallas de descarte.
+  3. **Bifurcación de Transporte Servidor:** La ejecución externa (GitHub Pages) atravesaba `doPost -> authValidateAction -> idempotentExecute_ -> función`, mientras que Apps Script nativo llamaba directamente `google.script.run[fnName]`, omitiendo RBAC, candados de idempotencia y bitácora de auditoría en la hoja `REQUESTS`.
+  4. **Coexistencia de Esquemas de Sesión Legacy y Nuevos:** Persistían 6 llamadas activas a `sessionStorage.getItem('domus_token')` conviviendo con el esquema `getSessionToken(role)`.
+* **Solución Canónica Implementada:**
+  1. **Bump UI 20261029-05 y Cache-Busting de Assets:**
+     - Actualización estricta de `DOMUS_BUILD.ui = '20261029-05'`.
+     - Actualización de footer visual en `index.html` y `Index.html`: `DOMUS OS · UI 20261029-05 · PRODUCTION`.
+     - Renovación obligatoria de script tag en `index.html`: `<script src="js/app.js?v=20261029-05"></script>`.
+  2. **Garantía de Llave Única de Idempotencia End-to-End:**
+     - Se genera `reqId` una única vez al pulsar el botón de acción en KDS y se asocia de forma inmutable a `body.requestId`.
+     - `callBackend` inspecciona tanto `args[0]` como `args[1]` para localizar el identificador original y propagarlo sin mutar.
+     - `enqueueOutbox(action, args, explicitRequestId, type)` recibe el `reqId` explícito de la llamada original, impidiendo terminantemente la fabricación de llaves secundarias en el Outbox.
+  3. **Unificación de Handlers y Payloads KDS:**
+     - `claimOrder`, `markOrderReady`, `deliverOrder`, `reportIncident` y `resolveRestock` ahora llaman unívocamente `callBackend('comandasSimpleAccion', [body])` y `callBackend('comandasSimpleResolver', [body])`.
+     - `comandasSimpleDatos` se invoca con `[]` en lugar del token legado.
+  4. **Purga Total de `domus_token`:** Erradicadas el 100% de las referencias residuales en toda la base de código.
+  5. **Dispatcher Canónico Unificado (`dispatchNativeAction`):**
+     - Se extrajo el pipeline común `executeDomusAction_(action, payload, params)` en `Api.gs` y `DOMUS_PRODUCTION_BUNDLE.gs`.
+     - Se creó `dispatchNativeAction(payload)` en el servidor y se conectó en `callBackend` para que `google.script.run` atraviese exactamente el mismo pipeline de validación RBAC, candado de idempotencia `idempotentExecute_` y bitácora oficial en `REQUESTS`.
+  6. **Compatibilidad Híbrida en Backend:**
+     - `comandasSimpleAccion(tokenOrBody, maybeBody)` y `comandasSimpleResolver(tokenOrBody, maybeBody)` procesan con resiliencia llamadas tanto en formato unificado `[body]` como legacy `[token, body]`.
+* **Validación:**
+  - Suite de guardrails de seguridad y producción: `PASS (4/4)`.
+  - Suite de guardrails de KDS e inventario: `PASS (11/11)`.
+  - Suite de Outbox, idempotencia y clasificación de errores v13: `PASS (12/12)`.
+  - Smoke test de lecturas oficiales de producción en caliente: `PASS (100% HEALTHY)`.
+
 ### 🚨 Directivas Inmediatas de Seguridad y Congelación Operativa
 1. **Congelación Operativa en Caliente:** No desplegar cambios de backend en Producción durante el servicio activo de Fase Solar.
 2. **Acceso a Caja Maestra:** Usar preferentemente la versión nativa de Google Workspace (`direccion@domusccc.net` / `sadotechfet@gmail.com`).

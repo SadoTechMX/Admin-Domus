@@ -30,8 +30,8 @@
 
   // Metadatos canónicos del build de frontend
   window.DOMUS_BUILD = {
-    commit: 'f2ab131',
-    ui: '20261029-04',
+    commit: '171aa04',
+    ui: '20261029-05',
     environment: isProductionLocked ? 'PRODUCTION' : 'STAGING'
   };
 
@@ -2435,19 +2435,30 @@ const DEFAULT_CATALOG = [
     notifyOutboxTabs();
   }
 
-  function enqueueOutbox(action, args, type = 'MUTATION') {
+  function enqueueOutbox(action, args, explicitRequestId = null, type = 'MUTATION') {
+    // Si se pasa como 3er argumento 'MUTATION' en lugar de explicitRequestId (llamada legacy)
+    if (typeof explicitRequestId === 'string' && (explicitRequestId === 'MUTATION' || explicitRequestId === 'QUERY')) {
+      type = explicitRequestId;
+      explicitRequestId = null;
+    }
     // Protección estricta (Issue #1): nunca encolar una orden de caja sin productos
     if (action === 'cajaSimpleRegistrar' && (!args || !args[0] || !args[0].items || !args[0].items.length)) {
       console.warn('[OUTBOX] Rechazado intento de encolar orden de caja vacía sin productos.');
       return null;
     }
     const queue = getOutbox();
-    const existingReq = (args && args[0] && (args[0].id || args[0].requestId)) ? (args[0].id || args[0].requestId) : null;
+    const existingReq = explicitRequestId 
+      || (args && args[0] && (args[0].requestId || args[0].id))
+      || (args && args[1] && (args[1].requestId || args[1].id))
+      || null;
     const reqId = existingReq || ('REQ-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8).toUpperCase());
 
     if (args && args[0] && typeof args[0] === 'object') {
       args[0].requestId = reqId;
       if (!args[0].id) args[0].id = reqId;
+    } else if (args && args[1] && typeof args[1] === 'object') {
+      args[1].requestId = reqId;
+      if (!args[1].id) args[1].id = reqId;
     }
 
     const item = {
@@ -2789,31 +2800,56 @@ const DEFAULT_CATALOG = [
     updateSyncPill();
 
     const isMutation = MUTATION_ACTIONS.has(fnName);
-    const reqId = (args && args[0] && (args[0].id || args[0].requestId)) 
-      ? (args[0].id || args[0].requestId) 
-      : ('REQ-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7).toUpperCase());
+    const existingReq = (args && args[0] && (args[0].requestId || args[0].id))
+      || (args && args[1] && (args[1].requestId || args[1].id))
+      || null;
+    const reqId = existingReq || ('REQ-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7).toUpperCase());
 
     if (args && args[0] && typeof args[0] === 'object') {
       if (!args[0].id) args[0].id = reqId;
       args[0].requestId = reqId;
+    } else if (args && args[1] && typeof args[1] === 'object') {
+      if (!args[1].id) args[1].id = reqId;
+      args[1].requestId = reqId;
     }
 
-    // 1. Modo nativo dentro de Google Apps Script Web App
+    // 1. Modo nativo dentro de Google Apps Script Web App (Transaccional unificado vía dispatchNativeAction)
     if (STATE.isNativeGas && window.google && google.script && google.script.run) {
+      const stationRole = getStationRole();
+      const nativePayload = {
+        action: fnName,
+        args: args,
+        requestId: reqId,
+        deviceId: getDeviceId(),
+        operator: STATE.operator || 'Operador',
+        role: stationRole,
+        sessionToken: getSessionToken(stationRole)
+      };
+
       google.script.run
         .withSuccessHandler(res => {
           STATE.isSyncing = false;
           STATE.lastSyncTimestamp = Date.now();
+          if (res && res.ok === false) {
+            const err = new Error(res.error || 'Error nativo en servidor');
+            err.code = res.code;
+            err.status = res.status;
+            updateSyncPill('error');
+            if (onError) onError(err);
+            return;
+          }
           updateSyncPill('ok');
-          if (!isMutation) cacheQuerySnapshot(fnName, res);
-          if (onSuccess) onSuccess(res);
+          const data = (res && res.data !== undefined) ? res.data : res;
+          if (!isMutation) cacheQuerySnapshot(fnName, data);
+          if (onSuccess) onSuccess(data);
+          if (isMutation) processOutbox();
         })
         .withFailureHandler(err => {
           STATE.isSyncing = false;
           STATE.lastSyncTimestamp = Date.now();
           updateSyncPill('error');
           if (onError) onError(err);
-        })[fnName](...args);
+        }).dispatchNativeAction(nativePayload);
       return;
     }
 
@@ -2898,8 +2934,8 @@ const DEFAULT_CATALOG = [
       STATE.lastSyncTimestamp = Date.now();
       updateSyncPill('error');
 
-      // Encolar de forma segura en Outbox (si no fue descartado por validación de orden vacía)
-      const item = enqueueOutbox(fnName, args, 'MUTATION');
+      // Encolar de forma segura en Outbox usando el reqId generado originalmente (Issue #1 & UI 20261029-05)
+      const item = enqueueOutbox(fnName, args, reqId, 'MUTATION');
       if (item) {
         const classification = classifyMutationFailure(err);
         item.lastError = err.message || String(err);
@@ -3082,7 +3118,7 @@ const DEFAULT_CATALOG = [
 
     // 2. Comandas en Modo Comandas y Modo Caja
     if (STATE.mode === 'comandas' || STATE.mode === 'caja') {
-      callBackend('comandasSimpleDatos', [sessionStorage.getItem('domus_token') || ''], d => {
+      callBackend('comandasSimpleDatos', [], d => {
         if (d.orders) {
           const currentKeys = new Set(d.orders.map(o => o.key));
           if (STATE.seenOrderKeys.size > 0) {
@@ -3813,14 +3849,15 @@ const DEFAULT_CATALOG = [
       syncBackendData();
       return;
     }
+    const reqId = `REQ-${Date.now()}-${Math.random().toString(36).slice(2, 7).toUpperCase()}`;
     const body = {
       key: orderKey,
       action: 'TOMAR',
       operator: STATE.operator,
-      requestId: `REQ-${Date.now()}`
+      requestId: reqId
     };
 
-    callBackend('comandasSimpleAccion', [sessionStorage.getItem('domus_token') || '', body], res => {
+    callBackend('comandasSimpleAccion', [body], res => {
       toast('Comanda tomada para preparación.', 'ok');
       syncBackendData();
     }, err => {
@@ -3837,14 +3874,15 @@ const DEFAULT_CATALOG = [
       syncBackendData();
       return;
     }
+    const reqId = `REQ-${Date.now()}-${Math.random().toString(36).slice(2, 7).toUpperCase()}`;
     const body = {
       key: orderKey,
       action: 'LISTA',
       operator: STATE.operator,
-      requestId: `REQ-${Date.now()}`
+      requestId: reqId
     };
 
-    callBackend('comandasSimpleAccion', [sessionStorage.getItem('domus_token') || '', body], res => {
+    callBackend('comandasSimpleAccion', [body], res => {
       toast('Producto marcado como Listo para entrega.', 'ok');
       syncBackendData();
     }, err => {
@@ -3867,14 +3905,15 @@ const DEFAULT_CATALOG = [
       return;
     }
 
+    const reqId = `REQ-${Date.now()}-${Math.random().toString(36).slice(2, 7).toUpperCase()}`;
     const body = {
       key: orderKey,
       action: 'ENTREGAR',
       operator: STATE.operator,
-      requestId: `REQ-${Date.now()}`
+      requestId: reqId
     };
 
-    callBackend('comandasSimpleAccion', [sessionStorage.getItem('domus_token') || '', body], res => {
+    callBackend('comandasSimpleAccion', [body], res => {
       toast('Entrega registrada exitosamente.', 'ok');
       playChime('success');
       syncBackendData();
@@ -3890,14 +3929,15 @@ const DEFAULT_CATALOG = [
     if (!opcion) return;
 
     const action = opcion.trim() === '2' ? 'AGOTADO' : 'ALMACEN';
+    const reqId = `REQ-${Date.now()}-${Math.random().toString(36).slice(2, 7).toUpperCase()}`;
     const body = {
       key: orderKey,
       action: action,
       operator: STATE.operator,
-      requestId: `REQ-${Date.now()}`
+      requestId: reqId
     };
 
-    callBackend('comandasSimpleAccion', [sessionStorage.getItem('domus_token') || '', body], res => {
+    callBackend('comandasSimpleAccion', [body], res => {
       toast('Incidencia y solicitud de resurtido generada.', 'warn');
       syncBackendData();
     }, err => toast(err.message || String(err), 'error'));
@@ -3924,7 +3964,9 @@ const DEFAULT_CATALOG = [
 
   function resolveRestock(id) {
     if (!ensureOperator()) return;
-    callBackend('comandasSimpleResolver', [sessionStorage.getItem('domus_token') || '', { id, operator: STATE.operator }], res => {
+    const reqId = `REQ-${Date.now()}-${Math.random().toString(36).slice(2, 7).toUpperCase()}`;
+    const body = { id, operator: STATE.operator, requestId: reqId };
+    callBackend('comandasSimpleResolver', [body], res => {
       toast('Disponibilidad confirmada.', 'ok');
       syncBackendData();
     }, err => toast(err.message || String(err), 'error'));
