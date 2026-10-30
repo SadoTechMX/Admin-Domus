@@ -1082,8 +1082,16 @@ function comandasSimpleAccion(token, body) {
     const operator = String(body.operator || 'Operador').trim();
 
     if (action === 'TOMAR') {
+      if (targetItem.state !== 'Pendiente') {
+        if (targetItem.state === 'En preparación') {
+          return { ok: true, message: `Comanda ya en preparación por ${targetItem.responsible || operator}.`, state: targetItem.state, responsible: targetItem.responsible };
+        }
+        throw new Error(`INVALID_KDS_TRANSITION: TOMAR requiere estado Pendiente; estado actual: ${targetItem.state}.`);
+      }
+
       // Reclamar lote completo
       const batchId = targetItem.batch;
+      const claimedAt = new Date().toISOString();
       for (let i = 0; i < masterRaw.length; i++) {
         if (masterRaw[i][0]) {
           try {
@@ -1091,25 +1099,43 @@ function comandasSimpleAccion(token, body) {
             if (it.batch === batchId && it.state === 'Pendiente') {
               it.state = 'En preparación';
               it.responsible = operator;
+              it.claimed = claimedAt;
               it.version = String(Number(it.version || 1) + 1);
               sComandas.getRange(i + 7, 13).setValue(JSON.stringify(it));
+              sComandas.getRange(i + 7, 8).setValue('Preparando');
               sComandas.getRange(i + 7, 14).setValue('En preparación (' + operator + ')');
             }
           } catch (e) {}
         }
       }
+      SpreadsheetApp.flush();
+      return { ok: true, message: `Lote '${batchId}' tomado para preparación por ${operator}.`, state: 'En preparación', responsible: operator };
     } else if (action === 'LISTA') {
+      if (targetItem.state !== 'En preparación') {
+        if (targetItem.state === 'Lista') {
+          return { ok: true, message: `Comanda ya marcada como Lista.`, state: targetItem.state };
+        }
+        throw new Error(`INVALID_KDS_TRANSITION: LISTA requiere estado En preparación; estado actual: ${targetItem.state}.`);
+      }
       targetItem.state = 'Lista';
+      targetItem.ready = new Date().toISOString();
       targetItem.version = String(Number(targetItem.version || 1) + 1);
       sComandas.getRange(targetRow, 13).setValue(JSON.stringify(targetItem));
+      sComandas.getRange(targetRow, 8).setValue('Lista');
       sComandas.getRange(targetRow, 14).setValue('Lista para entrega');
+      SpreadsheetApp.flush();
+      return { ok: true, message: `Comanda '${body.key}' marcada como Lista.`, state: 'Lista' };
     } else if (action === 'ENTREGAR') {
       if (targetItem.state === 'Entregada') {
-        throw new Error(`La comanda '${body.key}' (${targetItem.product}) ya fue entregada previamente.`);
+        return { ok: true, message: `La comanda '${body.key}' (${targetItem.product}) ya fue entregada previamente.`, state: targetItem.state };
+      }
+      if (targetItem.state !== 'Lista') {
+        throw new Error(`INVALID_KDS_TRANSITION: ENTREGAR requiere estado Lista; estado actual: ${targetItem.state}.`);
       }
       targetItem.state = 'Entregada';
       targetItem.delivered = new Date().toISOString();
       targetItem.deliveredBy = operator;
+      targetItem.version = String(Number(targetItem.version || 1) + 1);
       sComandas.getRange(targetRow, 13).setValue(JSON.stringify(targetItem));
       sComandas.getRange(targetRow, 8).setValue('Entregada');
       sComandas.getRange(targetRow, 14).setValue('Entregada por ' + operator);

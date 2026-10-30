@@ -3804,7 +3804,10 @@ const DEFAULT_CATALOG = [
     callBackend('comandasSimpleAccion', [sessionStorage.getItem('domus_token') || '', body], res => {
       toast('Comanda tomada para preparación.', 'ok');
       syncBackendData();
-    }, err => toast(err.message || String(err), 'error'));
+    }, err => {
+      toast(err.message || String(err), 'warn');
+      syncBackendData();
+    });
   }
 
   function markOrderReady(orderKey) {
@@ -3825,7 +3828,10 @@ const DEFAULT_CATALOG = [
     callBackend('comandasSimpleAccion', [sessionStorage.getItem('domus_token') || '', body], res => {
       toast('Producto marcado como Listo para entrega.', 'ok');
       syncBackendData();
-    }, err => toast(err.message || String(err), 'error'));
+    }, err => {
+      toast(err.message || String(err), 'warn');
+      syncBackendData();
+    });
   }
 
   function deliverOrder(orderKey) {
@@ -3853,7 +3859,10 @@ const DEFAULT_CATALOG = [
       toast('Entrega registrada exitosamente.', 'ok');
       playChime('success');
       syncBackendData();
-    }, err => toast(err.message || String(err), 'error'));
+    }, err => {
+      toast(err.message || String(err), 'warn');
+      syncBackendData();
+    });
   }
 
   function reportIncident(orderKey) {
@@ -3904,9 +3913,30 @@ const DEFAULT_CATALOG = [
 
   function ensureOperator() {
     if (!STATE.operator) {
-      toast('Por favor selecciona tu nombre de operador en la barra superior.', 'warn');
-      $('staffSelect').focus();
-      return false;
+      const defaultOp = STATE.mode === 'comandas' ? 'Barra / Cocina' : 'Operador';
+      const chosen = prompt('¿Quién atiende o toma esta orden? (Escribe tu nombre o apodo):', defaultOp);
+      if (chosen && chosen.trim()) {
+        STATE.operator = chosen.trim();
+        sessionStorage.setItem('domus_operator', STATE.operator);
+        localStorage.setItem('domus_operator', STATE.operator);
+        if ($('staffSelect')) {
+          let found = false;
+          for (let i = 0; i < $('staffSelect').options.length; i++) {
+            if ($('staffSelect').options[i].value === STATE.operator) {
+              $('staffSelect').value = STATE.operator;
+              found = true;
+              break;
+            }
+          }
+          if (!found) {
+            $('staffSelect').add(new Option(STATE.operator, STATE.operator, true, true));
+          }
+        }
+        return true;
+      }
+      STATE.operator = defaultOp;
+      sessionStorage.setItem('domus_operator', STATE.operator);
+      return true;
     }
     return true;
   }

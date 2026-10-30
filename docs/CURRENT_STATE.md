@@ -212,6 +212,16 @@
 * **Circuito Confirmado:** Caja -> `CAJA 2` -> `COBROS` -> `COMANDAS` -> Preparación -> Lista -> Entregada (por Steven).
 * **Nota de Inventario:** Circuito comercial y operativo certificado; conciliación de inventario de sushi pendiente de alta en rango operativo de `INVENTARIO`.
 
+### 🛠️ Hotfix KDS: Desbloqueo de "Tomar comanda" e Idempotencia (29-Oct-2026)
+* **Diagnóstico de Causa Raíz:**
+  1. En pantallas táctiles de KDS sin operador preseleccionado en la cabecera, `ensureOperator()` mostraba una notificación breve y abortaba silenciosamente (`return false`), dejando la orden sin tomar.
+  2. Dobles pulsaciones en pantalla táctil arrojaban error `INVALID_KDS_TRANSITION` en lugar de responder de forma idempotente, desfasando la vista del navegador.
+* **Solución Aplicada:**
+  1. `ensureOperator()` interactivo: Solicita nombre/apodo con prompt si no está configurado, guarda en storage de sesión y hace fallback automático seguro a `Barra / Cocina` para no bloquear jamás la operación en cocina.
+  2. Idempotencia en KDS (`KDS.gs`, `DOMUS_PRODUCTION_BUNDLE.gs`, `DOMUS_STAGING_BUNDLE.gs`): `TOMAR` sobre una orden ya en preparación, `LISTA` sobre una ya lista, y `ENTREGAR` sobre una ya entregada retornan `{ ok: true }` y sincronizan el estado sin lanzar excepciones.
+  3. Recuperación en Frontend (`Index.html`, `js/app.js`): Los manejadores de error/alerta invocan automáticamente `syncBackendData()` para mantener la pantalla sincronizada con la hoja de cálculo.
+
+
 ### 🚨 Directivas Inmediatas de Seguridad y Operación
 1. **Acceso a Caja Maestra:** Usar preferentemente la versión nativa de Google Workspace (`direccion@domusccc.net` / `sadotechfet@gmail.com`).
 2. **Terminales de Piso (GitHub Pages):** Operar únicamente en dispositivos físicos del club bajo red interna controlada; no difundir URLs.
