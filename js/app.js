@@ -30,8 +30,7 @@
 
   // Metadatos canónicos del build de frontend
   window.DOMUS_BUILD = {
-    commit: 'e93a52d',
-    ui: '20261029-06',
+    ui: '20261029-07',
     environment: isProductionLocked ? 'PRODUCTION' : 'STAGING'
   };
 
@@ -53,8 +52,10 @@
     activity: 'Visita general DOMUS',
     accountType: '', // '' | 'Amigo' | 'Creador de proyecto'
     
-    // DOMUS Print Bridge
-    printerStatus: 'offline', // 'ready' | 'busy' | 'offline'
+    // DOMUS Print & Drawer Bridge
+    printerStatus: 'offline', // 'ready' | 'busy' | 'offline' | 'unpaired'
+    drawerConfigured: false,
+    drawerChannel: 0,
     lastReceiptData: null,
     lastAccessRecord: null,
 
@@ -3036,17 +3037,18 @@ const DEFAULT_CATALOG = [
     }
   }
 
-  // --- DOMUS LOCAL PRINT BRIDGE (127.0.0.1:17321) ---
+  // --- DOMUS LOCAL PRINT & CASH DRAWER BRIDGE (127.0.0.1:17321) ---
   const PRINT_BRIDGE_URL = 'http://127.0.0.1:17321';
-  const DEFAULT_PRINT_TOKEN = 'domus_prn_aa90ed078afb26e877fcab7a2a98dd0c';
 
   function getPrintToken() {
-    return (localStorage.getItem('domus_print_token') || DEFAULT_PRINT_TOKEN).trim();
+    return (localStorage.getItem('domus_print_token') || '').trim();
   }
 
   function setPrintToken(token) {
     if (token) {
       localStorage.setItem('domus_print_token', token.trim());
+    } else {
+      localStorage.removeItem('domus_print_token');
     }
   }
 
@@ -3062,8 +3064,12 @@ const DEFAULT_CATALOG = [
       if (pill) pill.title = title || 'DOMUS Print Bridge: DOMUS_TICKETS lista para imprimir';
     } else if (state === 'busy') {
       dot.className = 'status-dot warn';
-      label.textContent = text || '🖨️ Imprimiendo…';
+      label.textContent = text || '🖨️ Enviando…';
       if (pill) pill.title = title || 'DOMUS Print Bridge: Enviando datos a impresora térmica...';
+    } else if (state === 'unpaired') {
+      dot.className = 'status-dot warn';
+      label.textContent = text || '🖨️ No emparejada';
+      if (pill) pill.title = title || 'DOMUS Print Bridge no emparejado. Haz clic para configurar token local.';
     } else {
       dot.className = 'status-dot error';
       label.textContent = text || '🖨️ Desconectada';
@@ -3072,21 +3078,32 @@ const DEFAULT_CATALOG = [
   }
 
   function checkPrinterStatus(callback) {
+    const token = getPrintToken();
+    if (!token) {
+      STATE.printerStatus = 'unpaired';
+      updatePrinterPill('unpaired', '🖨️ No emparejada', 'DOMUS Print Bridge no emparejado. Haz clic para ingresar el token local.');
+      if (callback) callback(false, { error: 'UNPAIRED', message: 'Sin token local configurado' });
+      return;
+    }
+
     fetch(`${PRINT_BRIDGE_URL}/health`, {
       method: 'GET',
       headers: {
-        'X-Domus-Print-Token': getPrintToken()
+        'X-Domus-Print-Token': token
       }
     })
     .then(r => r.json())
     .then(data => {
-      if (data && data.ok && data.status === 'READY') {
+      if (data && data.ok && data.queue === 'READY') {
         STATE.printerStatus = 'ready';
-        updatePrinterPill('ready', '🖨️ Conectada', `DOMUS_TICKETS: Lista (${data.printer})`);
+        STATE.drawerConfigured = Boolean(data.drawerConfigured);
+        STATE.drawerChannel = Number(data.drawerChannel || 0);
+        updatePrinterPill('ready', '🖨️ Conectada', `DOMUS_TICKETS: Lista en cola (${data.printer})`);
         if (callback) callback(true, data);
       } else {
         STATE.printerStatus = 'offline';
-        updatePrinterPill('offline', '🖨️ No disponible', `DOMUS_TICKETS: ${data ? data.status : 'Inactiva'}`);
+        const qState = data ? (data.queue || data.status || 'Inactiva') : 'Inactiva';
+        updatePrinterPill('offline', '🖨️ No disponible', `DOMUS_TICKETS: ${qState}`);
         if (callback) callback(false, data);
       }
     })
@@ -3101,6 +3118,13 @@ const DEFAULT_CATALOG = [
     if (!receiptData) {
       toast('No hay datos de comprobante para imprimir.', 'warn');
       return Promise.reject(new Error('Sin datos de ticket'));
+    }
+
+    const token = getPrintToken();
+    if (!token) {
+      toast('⚠️ Impresora no emparejada. Configura el token local en Ajustes.', 'warn');
+      openConfigModal();
+      return Promise.reject(new Error('Print Bridge no emparejado'));
     }
 
     const folio = receiptData.receipt || receiptData.ticket || `REC-${Date.now()}`;
@@ -3120,6 +3144,8 @@ const DEFAULT_CATALOG = [
       })) : [],
       total: receiptData.total || 0,
       method: receiptData.method || 'Efectivo',
+      paymentStatus: receiptData.paymentStatus || '',
+      verified: receiptData.verified !== false,
       received: receiptData.received !== undefined ? receiptData.received : null,
       tip: receiptData.tip || 0,
       change: receiptData.change !== undefined ? receiptData.change : null,
@@ -3132,7 +3158,7 @@ const DEFAULT_CATALOG = [
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-Domus-Print-Token': getPrintToken()
+        'X-Domus-Print-Token': token
       },
       body: JSON.stringify(payload)
     })
@@ -3141,9 +3167,10 @@ const DEFAULT_CATALOG = [
       if (res.ok && res.body.ok) {
         updatePrinterPill('ready');
         if (res.body.alreadyPrinted) {
-          toast('✓ Comprobante previamente impreso (usa Reimprimir si requieres otra copia)', 'info');
+          toast('✓ Comprobante previamente encolado (usa Reimprimir para otra copia)', 'info');
         } else {
-          toast(isReprint ? '✓ Reimpresión de ticket enviada' : '✓ Ticket impreso', 'ok');
+          // P0-3: Semántica real: ticket enviado a cola
+          toast(isReprint ? '✓ Reimpresión enviada a impresora' : '✓ Ticket enviado a impresora', 'ok');
         }
         return res.body;
       } else {
@@ -3166,6 +3193,87 @@ const DEFAULT_CATALOG = [
         window.print();
       }
       throw err;
+    });
+  }
+
+  // --- CASH DRAWER (DK PORT) CONTROLLERS (P0-6 & P0-8) ---
+  function requestDrawerOpen(opts = {}) {
+    const token = getPrintToken();
+    if (!token) {
+      console.warn('[DOMUS DRAWER] No se puede abrir cajón: Print Bridge no emparejado.');
+      return Promise.reject(new Error('Sin token de Print Bridge'));
+    }
+
+    const payload = {
+      requestId: opts.requestId || `DRAWER-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      reason: opts.reason || 'CASH_PAYMENT',
+      receipt: opts.receipt || '',
+      operator: opts.operator || (STATE.staffList && STATE.staffList.find(s => s.id === STATE.operator))?.name || STATE.operator || 'Caja DOMUS'
+    };
+
+    return fetch(`${PRINT_BRIDGE_URL}/drawer/open`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Domus-Print-Token': token
+      },
+      body: JSON.stringify(payload)
+    })
+    .then(r => r.json().then(b => ({ status: r.status, ok: r.ok, body: b })))
+    .then(res => {
+      if (res.ok && res.body.ok) {
+        return res.body;
+      }
+      throw new Error((res.body && res.body.error) || 'Error al emitir pulso de cajón');
+    });
+  }
+
+  // P0-9: Apertura Manual de Cajón
+  function handleManualDrawerOpen() {
+    if (STATE.mode !== 'caja') {
+      toast('La apertura manual del cajón sólo está disponible en Modo Caja.', 'warn');
+      return;
+    }
+
+    const token = getPrintToken();
+    if (!token) {
+      toast('⚠️ Impresora no emparejada. Ingresa el token local en Configuración.', 'warn');
+      openConfigModal();
+      return;
+    }
+
+    const op = STATE.operator || '';
+    const staffObj = STATE.staffList && STATE.staffList.find(s => s.id === op);
+    const opName = staffObj ? staffObj.name : op;
+
+    if (!opName) {
+      toast('⚠️ Debes seleccionar un operador responsable antes de abrir el cajón.', 'error');
+      if ($('staffSelect')) $('staffSelect').focus();
+      return;
+    }
+
+    if (!confirm(`¿Confirmas la apertura manual del cajón de dinero?\n\nOperador responsable: ${opName}`)) {
+      return;
+    }
+
+    const btn = $('btnManualOpenDrawer');
+    if (btn) {
+      btn.disabled = true;
+      setTimeout(() => { if (btn) btn.disabled = false; }, 3000);
+    }
+
+    const reqId = `DRAWER-MANUAL-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+    requestDrawerOpen({
+      requestId: reqId,
+      reason: 'MANUAL',
+      operator: opName
+    })
+    .then(() => {
+      // P0-9: No afirmar "Cajón abierto" porque no existe sensor de confirmación física
+      toast('✓ Solicitud de apertura enviada', 'ok');
+    })
+    .catch(err => {
+      toast(`⚠️ No se pudo enviar el pulso al cajón: ${err.message || 'Error de conexión'}`, 'error');
     });
   }
 
@@ -3789,15 +3897,19 @@ const DEFAULT_CATALOG = [
       playChime('success');
       toast(res.message || 'Pedido guardado y enviado.', 'ok');
       const operatorName = (STATE.staffList && STATE.staffList.find(s => s.id === STATE.operator))?.name || STATE.operator || 'Caja DOMUS';
+      const isCash = isPaid && activePaymentMethod === 'Efectivo';
+      const isTransfer = isPaid && activePaymentMethod === 'Transferencia';
       const receiptData = {
         ticket: res.ticket,
         receipt: res.receipt,
         customer: customer,
         date: new Date().toLocaleString('es-MX'),
         operator: operatorName,
-        items: [...STATE.cart],
-        total: total,
+        items: (res.items && Array.isArray(res.items)) ? res.items : [...STATE.cart],
+        total: (typeof res.total === 'number') ? res.total : total,
         paid: isPaid,
+        paymentStatus: isTransfer ? 'PENDIENTE' : (isPaid ? 'CONFIRMADO' : 'PENDIENTE'),
+        verified: !isTransfer && isPaid,
         method: activePaymentMethod,
         received: received,
         tip: tip,
@@ -3806,10 +3918,24 @@ const DEFAULT_CATALOG = [
       STATE.lastReceiptData = receiptData;
       showReceiptModal(receiptData);
 
-      // Auto-imprimir ticket con DOMUS Print Bridge si es cobro confirmado
+      // Auto-imprimir ticket con DOMUS Print Bridge si es cobro confirmado o registrado
       if (isPaid) {
         printReceiptDirect(receiptData, false).catch(e => {
           console.warn('[DOMUS PRINT] Fallo al imprimir comprobante automático:', e);
+        });
+      }
+
+      // P0-8: Apertura automática del cajón ÚNICAMENTE para cobros en EFECTIVO confirmados por backend
+      // NO abrir en Terminal 1, Terminal 2, Transferencia, Cortesía, Crédito o reimpresión
+      // La falla del cajón no altera ni repite el cobro
+      if (isCash && res.receipt) {
+        requestDrawerOpen({
+          requestId: `DRAWER-${res.receipt}`,
+          reason: 'CASH_PAYMENT',
+          receipt: res.receipt,
+          operator: operatorName
+        }).catch(e => {
+          console.warn('[DOMUS DRAWER] Fallo en apertura automática de cajón:', e);
         });
       }
 
@@ -4207,12 +4333,22 @@ const DEFAULT_CATALOG = [
         ? '✓ Conexión establecida con DOMUS Print Bridge (127.0.0.1:17321).'
         : 'Estado: Desconectado o pendiente de verificación.';
     }
+    if ($('drawerChannelSelect') && STATE.drawerConfigured) {
+      $('drawerChannelSelect').value = String(STATE.drawerChannel || 0);
+    }
+    if ($('drawerStatusMsg')) {
+      $('drawerStatusMsg').textContent = STATE.drawerConfigured
+        ? `✓ Cajón configurado en Canal ${STATE.drawerChannel} (m=${STATE.drawerChannel})`
+        : 'Estado: Cajón no confirmado físicamente.';
+      $('drawerStatusMsg').style.color = STATE.drawerConfigured ? 'var(--emerald-500)' : 'var(--text-muted)';
+    }
     $('configModal').classList.add('open');
   }
 
   function saveConfig() {
     if (STATE.isProductionLocked) {
-      toast('🔒 El backend está bloqueado en PRODUCCIÓN oficial (AKfycbysBa...).', 'warn');
+      // P0-14: Referencia oficial actual de Producción
+      toast('🔒 El backend está bloqueado en PRODUCCIÓN oficial (AKfycbzy7w...).', 'warn');
       if ($('gasApiUrlInput')) $('gasApiUrlInput').value = OFFICIAL_PRODUCTION_ENDPOINT;
     } else {
       const url = $('gasApiUrlInput').value.trim();
@@ -4236,6 +4372,86 @@ const DEFAULT_CATALOG = [
     toast('Configuración guardada.', 'ok');
     syncBackendData();
     checkPrinterStatus();
+  }
+
+  function testDrawerChannel(channel) {
+    const token = getPrintToken();
+    if (!token) {
+      toast('⚠️ Configura el token local de Print Bridge primero.', 'warn');
+      return;
+    }
+    const msg = $('drawerStatusMsg');
+    if (msg) {
+      msg.textContent = `Enviando pulso de prueba al Canal ${channel} (m=${channel})...`;
+      msg.style.color = 'var(--amber-400)';
+    }
+    fetch(`${PRINT_BRIDGE_URL}/drawer/test`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Domus-Print-Token': token
+      },
+      body: JSON.stringify({ channel: channel })
+    })
+    .then(r => r.json().then(b => ({ ok: r.ok, body: b })))
+    .then(res => {
+      if (res.ok && res.body.ok) {
+        toast(`✓ Pulso enviado al Canal ${channel}. ¿Abrió el cajón?`, 'ok');
+        if (msg) {
+          msg.textContent = `✓ Pulso emitido al Canal ${channel}. Si abrió físicamente, selecciona Canal ${channel} y haz clic en "Guardar Canal Verificado".`;
+          msg.style.color = 'var(--text-main)';
+        }
+      } else {
+        const err = (res.body && res.body.error) || 'Fallo al emitir pulso';
+        toast(`⚠️ Error: ${err}`, 'error');
+        if (msg) {
+          msg.textContent = `⚠️ Error: ${err}`;
+          msg.style.color = 'var(--rose-500)';
+        }
+      }
+    })
+    .catch(e => {
+      toast('⚠️ Error al conectar con Print Bridge', 'error');
+      if (msg) {
+        msg.textContent = '⚠️ Fallo de conexión con 127.0.0.1:17321';
+        msg.style.color = 'var(--rose-500)';
+      }
+    });
+  }
+
+  function confirmDrawerChannel(channel) {
+    const token = getPrintToken();
+    if (!token) {
+      toast('⚠️ Configura el token local de Print Bridge primero.', 'warn');
+      return;
+    }
+    fetch(`${PRINT_BRIDGE_URL}/drawer/confirm`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Domus-Print-Token': token
+      },
+      body: JSON.stringify({ channel: channel })
+    })
+    .then(r => r.json().then(b => ({ ok: r.ok, body: b })))
+    .then(res => {
+      if (res.ok && res.body.ok) {
+        STATE.drawerConfigured = true;
+        STATE.drawerChannel = channel;
+        toast(`✓ Canal ${channel} guardado como verificado`, 'ok');
+        const msg = $('drawerStatusMsg');
+        if (msg) {
+          msg.textContent = `✓ Configuración guardada: Canal ${channel} verificado físicamente.`;
+          msg.style.color = 'var(--emerald-500)';
+        }
+      } else {
+        const err = (res.body && res.body.error) || 'Error al guardar canal';
+        toast(`⚠️ Error: ${err}`, 'error');
+      }
+    })
+    .catch(e => {
+      toast('⚠️ Error al conectar con Print Bridge', 'error');
+    });
   }
 
   // --- ALTA / REGISTRO DE NUEVOS PRODUCTOS (ADMIN CAJA) ---
@@ -5771,6 +5987,18 @@ const DEFAULT_CATALOG = [
       });
     });
 
+    // P0-9: Apertura manual de cajón
+    bindEvent('btnManualOpenDrawer', 'click', handleManualDrawerOpen);
+
+    // P0-7: Pruebas de canales de cajón y guardado de canal verificado
+    bindEvent('btnTestDrawer0', 'click', () => testDrawerChannel(0));
+    bindEvent('btnTestDrawer1', 'click', () => testDrawerChannel(1));
+    bindEvent('btnConfirmDrawerChannel', 'click', () => {
+      const select = $('drawerChannelSelect');
+      const ch = select ? parseInt(select.value, 10) : 0;
+      confirmDrawerChannel(isNaN(ch) ? 0 : ch);
+    });
+
     // Modals: Edit Access Record
     bindEvent('btnCloseEditAccessModal', 'click', closeEditAccessModal);
     bindEvent('btnCancelEditAccess', 'click', closeEditAccessModal);
@@ -5989,7 +6217,9 @@ const DEFAULT_CATALOG = [
     closeNewProductModal: closeNewProductModal,
     saveNewProduct: saveNewProduct,
     printReceiptDirect: printReceiptDirect,
-    checkPrinterStatus: checkPrinterStatus
+    checkPrinterStatus: checkPrinterStatus,
+    requestDrawerOpen: requestDrawerOpen,
+    handleManualDrawerOpen: handleManualDrawerOpen
   };
 
 })();

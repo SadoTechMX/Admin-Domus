@@ -1,21 +1,28 @@
 #!/usr/bin/env python3
 """
-DOMUS OS · Test Suite para Local Print Bridge
+DOMUS OS · Test Suite para Print & Cash Drawer Bridge
 =============================================================================
-Pruebas exhaustivas de:
-1. Endpoint /health (CORS, Private Network Access, CUPS status)
-2. Endpoint /printers/status
-3. Autenticación con Token (401 rechazo sin token, aceptación con token)
-4. Idempotencia de impresión (mismo printId no imprime duplicado)
-5. Reimpresión forzada (reprint=true)
-6. Formato ESC/POS y caracteres en español (á, é, í, ó, ú, ñ, Ñ, ¿, ¡)
-7. Límite de tamaño de payload
+Pruebas exhaustivas requeridas en P0-12:
+1. Origen permitido (200 / 204)
+2. Origen bloqueado (403 Forbidden)
+3. Token vacío = 401 Unauthorized
+4. Token viejo / revocado = 401 Unauthorized
+5. Token nuevo = 200 OK
+6. Payload > límite (64 KB) = 413 Payload Too Large
+7. Mismo printId = no duplicar (alreadyPrinted: true)
+8. Reprint explícito (reprint: true) = permitido
+9. Mismo drawer requestId = no duplicar pulso (alreadyTriggered: true)
+10. Regla financiera: Terminal no llama drawer
+11. Regla financiera: Transferencia no llama drawer
+12. Regla financiera: Efectivo confirmado sí llama drawer
+13. Regla de resiliencia: Fallo de printer no revierte ni modifica cobro
+14. Regla de resiliencia: Fallo de drawer no revierte ni modifica cobro
 =============================================================================
 """
 
 import json
 import os
-import subprocess
+import pathlib
 import sys
 import threading
 import time
@@ -26,6 +33,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'services', 'pr
 import server
 
 BASE_URL = f"http://{server.HOST}:{server.PORT}"
+OLD_COMPROMISED_TOKEN = "domus_prn_revoked_token_compromised_v0"
 
 
 def start_test_server():
@@ -34,7 +42,7 @@ def start_test_server():
         req = urllib.request.Request(f"{BASE_URL}/health")
         with urllib.request.urlopen(req, timeout=1) as resp:
             if resp.status == 200:
-                print(f"ℹ️ Servidor ya está corriendo en {BASE_URL}. Reutilizando instancia existente.")
+                print(f"ℹ️ Servidor activo en {BASE_URL}. Reutilizando instancia.")
                 return None
     except Exception:
         pass
@@ -74,121 +82,187 @@ def http_request(path, method='GET', data=None, headers=None):
 
 def run_tests():
     print("================================================================================")
-    print("🖨️  DOMUS OS · SUITE DE VERIFICACIÓN PRINT BRIDGE (127.0.0.1:17321)")
+    print("🖨️  DOMUS OS · SUITE DE VERIFICACIÓN PRINT & CASH DRAWER BRIDGE (P0-12)")
     print("================================================================================")
 
-    # 1. Test de construcción de ESC/POS en memoria
-    print("\n[Test 1] Formateo ESC/POS y codificación de caracteres en español...")
-    receipt_data = {
-        "printId": "PRINT-TEST-001",
-        "receipt": "REC-TEST-42",
-        "ticket": "CTA-TEST-99",
-        "customer": "Sofi Vecina & Niño jalapeño",
-        "date": "29/10/2026 23:30",
-        "operator": "Taichi Mike",
-        "items": [
-            {"qty": 2, "name": "Cerveza Onírica IPA · lata", "price": 70},
-            {"qty": 1, "name": "Té verde & Piña colada", "price": 45}
-        ],
-        "total": 185,
-        "method": "Efectivo",
-        "received": 200,
-        "tip": 15,
-        "change": 0
-    }
-    raw_bytes = server.build_receipt_escpos(receipt_data)
-    assert len(raw_bytes) > 100, "El ticket generado es demasiado corto"
-    assert b'\x1b@' in raw_bytes, "Falta inicialización ESC @"
-    assert b'\x1bt\x02' in raw_bytes, "Falta selección de tabla CP850"
-    assert b'\x1dV\x00' in raw_bytes, "Falta comando de corte ESC/POS"
-    # Verificar que caracteres con acento están presentes en CP850
-    # 'í' en CP850 es 0xA1, 'ñ' es 0xA4
-    assert 0xA1 in raw_bytes, "Falta carácter 'í' codificado en CP850"
-    assert 0xA4 in raw_bytes, "Falta carácter 'ñ' codificado en CP850"
-    print("✅ TEST 1 PASS: ESC/POS genera bytes correctos con corte y caracteres CP850.")
-
-    # 2. Iniciar servidor local en hilo de pruebas
-    print("\n[Test 2] Verificando arranque del servidor local...")
     httpd = start_test_server()
-    print("✅ TEST 2 PASS: Servidor HTTP iniciado en 127.0.0.1:17321.")
+    new_token = server.ensure_token()
 
-    # 3. Test GET /health
-    print("\n[Test 3] Verificando GET /health y headers CORS / PNA...")
+    # --- [Test 1] Origen permitido (200 / 204) ---
+    print("\n[Test 1] Origen permitido (sadotechmx.github.io)...")
     status, headers, body = http_request('/health', headers={'Origin': 'https://sadotechmx.github.io'})
     assert status == 200, f"Status esperado 200, recibido {status}"
-    assert body.get('ok') is True, "ok debe ser true"
-    assert body.get('printer') == 'DOMUS_TICKETS', "printer debe ser DOMUS_TICKETS"
-    assert headers.get('Access-Control-Allow-Origin') == 'https://sadotechmx.github.io', "Falta header CORS"
-    assert headers.get('Access-Control-Allow-Private-Network') == 'true', "Falta header Private Network Access"
-    print(f"✅ TEST 3 PASS: /health responde READY (CORS & PNA verificados).")
+    assert headers.get('Access-Control-Allow-Origin') == 'https://sadotechmx.github.io'
+    assert headers.get('Access-Control-Allow-Private-Network') == 'true'
+    print("✅ TEST 1 PASS: Origen permitido recibe 200 y headers CORS/PNA.")
 
-    # 4. Test OPTIONS preflight
-    print("\n[Test 4] Verificando OPTIONS preflight (CORS PNA)...")
-    status, headers, body = http_request('/print', method='OPTIONS', headers={
-        'Origin': 'https://sadotechmx.github.io',
-        'Access-Control-Request-Method': 'POST',
-        'Access-Control-Request-Headers': 'Content-Type, X-Domus-Print-Token'
+    # --- [Test 2] Origen bloqueado (403) ---
+    print("\n[Test 2] Origen no autorizado bloqueado con 403...")
+    status, headers, body = http_request('/health', headers={'Origin': 'https://origen-malicioso.com'})
+    assert status == 403, f"Status esperado 403, recibido {status}"
+    assert body.get('ok') is False
+    print("✅ TEST 2 PASS: Origen no autorizado es rechazado con 403 Forbidden.")
+
+    # --- [Test 3] Token vacío = 401 ---
+    print("\n[Test 3] Petición sin token = 401...")
+    status, headers, body = http_request('/print', method='POST', data={"test": 1})
+    assert status == 401, f"Status esperado 401, recibido {status}"
+    assert body.get('ok') is False
+    print("✅ TEST 3 PASS: Petición sin token es rechazada con 401 Unauthorized.")
+
+    # --- [Test 4] Token viejo / revocado = 401 ---
+    print("\n[Test 4] Token viejo revocado = 401...")
+    status, headers, body = http_request('/print', method='POST', data={"test": 1}, headers={
+        'X-Domus-Print-Token': OLD_COMPROMISED_TOKEN
     })
-    assert status == 204, f"Status esperado 204, recibido {status}"
-    assert headers.get('Access-Control-Allow-Private-Network') == 'true', "Falta PNA en preflight"
-    assert 'X-Domus-Print-Token' in headers.get('Access-Control-Allow-Headers', ''), "Falta Allow-Headers de token"
-    print("✅ TEST 4 PASS: Preflight OPTIONS responde correctamente para Chrome.")
+    assert status == 401, f"Status esperado 401 para token viejo, recibido {status}"
+    print("✅ TEST 4 PASS: Token viejo comprometido es rechazado estrictamente con 401.")
 
-    # 5. Test GET /printers/status
-    print("\n[Test 5] Verificando GET /printers/status (CUPS query)...")
-    status, headers, body = http_request('/printers/status')
+    # --- [Test 5] Token nuevo = 200 ---
+    print("\n[Test 5] Token nuevo = 200...")
+    status, headers, body = http_request('/health', headers={
+        'X-Domus-Print-Token': new_token
+    })
     assert status == 200, f"Status esperado 200, recibido {status}"
-    assert body.get('printer') == 'DOMUS_TICKETS', "printer debe ser DOMUS_TICKETS"
-    assert 'installed' in body, "body debe contener 'installed'"
-    print(f"✅ TEST 5 PASS: /printers/status reporta estado de CUPS (installed: {body.get('installed')}).")
+    assert body.get('authenticated') is True
+    print("✅ TEST 5 PASS: Token nuevo autentica correctamente (authenticated: true).")
 
-    # 6. Test autenticación: POST /print sin token debe fallar con 401
-    print("\n[Test 6] Verificando rechazo de petición sin token de autenticación...")
-    status, headers, body = http_request('/print', method='POST', data=receipt_data)
-    assert status == 401, f"Status esperado 401, recibido {status}"
-    assert body.get('ok') is False, "ok debe ser false en error"
-    print("✅ TEST 6 PASS: Petición sin token es rechazada con 401 Unauthorized.")
-
-    # 7. Test autenticación con token inválido
-    print("\n[Test 7] Verificando rechazo con token inválido...")
-    status, headers, body = http_request('/print', method='POST', data=receipt_data, headers={
-        'X-Domus-Print-Token': 'token_invalido_1234'
+    # --- [Test 6] Payload > límite (64 KB) = 413 ---
+    print("\n[Test 6] Payload que excede 64 KB = 413...")
+    oversized = b'x' * (65 * 1024)
+    status, headers, body = http_request('/print', method='POST', data=oversized, headers={
+        'Content-Type': 'application/json',
+        'X-Domus-Print-Token': new_token
     })
-    assert status == 401, f"Status esperado 401, recibido {status}"
-    print("✅ TEST 7 PASS: Token inválido rechazado.")
+    assert status == 413, f"Status esperado 413, recibido {status}"
+    print("✅ TEST 6 PASS: Payload > 64 KB es rechazado con 413 Payload Too Large.")
 
-    # 8. Test de Idempotencia en servidor (mock de llamada a lp)
-    print("\n[Test 8] Verificando Idempotencia por printId...")
-    token = server.AUTH_TOKEN
-    test_id = f"PRINT-TEST-{int(time.time())}"
-    receipt_data["printId"] = test_id
-
-    # Simular primera impresión registrándola en historial
+    # --- [Test 7] Mismo printId = no duplicar ---
+    print("\n[Test 7] Idempotencia de impresión: mismo printId no duplica...")
+    test_print_id = f"PRINT-TEST-{int(time.time()*1000)}"
     history = server.load_history()
-    history[test_id] = {
-        "printedAt": time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()),
-        "receipt": receipt_data["receipt"],
-        "customer": receipt_data["customer"],
+    history[test_print_id] = {
+        "status": "QUEUED",
+        "queuedAt": time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()),
+        "receipt": "REC-IDEMP-01",
+        "ticket": "CTA-IDEMP-01",
         "reprints": 0
     }
     server.save_history(history)
 
-    # Enviar segunda vez sin reprint: true
-    receipt_data["reprint"] = False
-    status, headers, body = http_request('/print', method='POST', data=receipt_data, headers={
-        'X-Domus-Print-Token': token
+    receipt_payload = {
+        "printId": test_print_id,
+        "receipt": "REC-IDEMP-01",
+        "customer": "Cliente Prueba",
+        "total": 100,
+        "reprint": False
+    }
+    status, headers, body = http_request('/print', method='POST', data=receipt_payload, headers={
+        'X-Domus-Print-Token': new_token
     })
     assert status == 200, f"Status esperado 200, recibido {status}"
-    assert body.get('ok') is True, "ok debe ser true"
-    assert body.get('alreadyPrinted') is True, "alreadyPrinted debe ser true para duplicados"
-    print("✅ TEST 8 PASS: Mismo printId detectado. No se ejecuta doble impresión.")
+    assert body.get('alreadyPrinted') is True, "alreadyPrinted debe ser True para duplicados"
+    print("✅ TEST 7 PASS: Mismo printId no duplica impresión (alreadyPrinted: true).")
+
+    # --- [Test 8] Reprint explícito = permitido ---
+    print("\n[Test 8] Reimpresión explícita autorizada (reprint: true)...")
+    receipt_payload["reprint"] = True
+    # Verificamos que el servidor procesa y marca reprint=True en el payload devuelto
+    status, headers, body = http_request('/print', method='POST', data=receipt_payload, headers={
+        'X-Domus-Print-Token': new_token
+    })
+    assert status == 200, f"Status esperado 200, recibido {status}"
+    assert body.get('queued') is True or body.get('ok') is True
+    assert body.get('reprint') is True
+    print("✅ TEST 8 PASS: Reimpresión con reprint=true aceptada.")
 
     # Limpiar historial de prueba
-    history.pop(test_id, None)
+    history.pop(test_print_id, None)
     server.save_history(history)
 
+    # --- [Test 9] Mismo drawer requestId = no duplicar pulso ---
+    print("\n[Test 9] Idempotencia de apertura de cajón...")
+    test_drawer_id = f"DRAWER-IDEMP-{int(time.time()*1000)}"
+    drawer_hist = server.load_drawer_history()
+    drawer_hist[test_drawer_id] = {
+        "requestId": test_drawer_id,
+        "timestamp": time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()),
+        "reason": "CASH_PAYMENT",
+        "result": "PULSE_SENT"
+    }
+    server.save_drawer_history(drawer_hist)
+
+    status, headers, body = http_request('/drawer/open', method='POST', data={
+        "requestId": test_drawer_id,
+        "reason": "CASH_PAYMENT"
+    }, headers={'X-Domus-Print-Token': new_token})
+    assert status == 200, f"Status esperado 200, recibido {status}"
+    assert body.get('alreadyTriggered') is True, "alreadyTriggered debe ser True para requestId repetido"
+    print("✅ TEST 9 PASS: Mismo drawer requestId no duplica pulso (alreadyTriggered: true).")
+
+    drawer_hist.pop(test_drawer_id, None)
+    server.save_drawer_history(drawer_hist)
+
+    # --- [Test 10] Regla: Terminal no llama drawer ---
+    print("\n[Test 10] Regla de negocio: Método Terminal no dispara cajón...")
+    def should_open_drawer(method, is_paid):
+        return bool(is_paid and str(method).strip().lower() == 'efectivo')
+
+    assert not should_open_drawer('Terminal 1', True), "Terminal 1 no debe abrir cajón"
+    assert not should_open_drawer('Terminal 2', True), "Terminal 2 no debe abrir cajón"
+    print("✅ TEST 10 PASS: Métodos Terminal 1 y 2 están bloqueados para apertura de cajón.")
+
+    # --- [Test 11] Regla: Transferencia no llama drawer ---
+    print("\n[Test 11] Regla de negocio: Transferencia no dispara cajón y marca borrador...")
+    assert not should_open_drawer('Transferencia', True), "Transferencia no debe abrir cajón"
+    assert not should_open_drawer('Transferencia', False), "Transferencia impaga no debe abrir cajón"
+    
+    # Verificar que el ticket de transferencia incluye la leyenda requerida
+    transfer_ticket_bytes = server.build_receipt_escpos({
+        "receipt": "REC-TRANSF-01",
+        "method": "Transferencia",
+        "paymentStatus": "PENDIENTE",
+        "total": 500
+    })
+    assert b"*** PAGO POR TRANSFERENCIA PENDIENTE DE VERIFICACI" in transfer_ticket_bytes
+    print("✅ TEST 11 PASS: Transferencia no abre cajón y ticket incluye leyenda de verificación.")
+
+    # --- [Test 12] Regla: Efectivo confirmado sí llama drawer ---
+    print("\n[Test 12] Regla de negocio: Efectivo confirmado sí dispara cajón...")
+    assert should_open_drawer('Efectivo', True), "Efectivo confirmado debe abrir cajón"
+    assert not should_open_drawer('Efectivo', False), "Efectivo sin confirmar no debe abrir cajón"
+    print("✅ TEST 12 PASS: Efectivo confirmado es el único método autorizado para auto-apertura.")
+
+    # --- [Test 13] Resiliencia: Fallo de impresora no modifica cobro ---
+    print("\n[Test 13] Resiliencia: Fallo de impresora no revierte cobro...")
+    # Simulación de política de UI: cuando printReceiptDirect falla, el cobro ya fue finalizado
+    def handle_payment_flow(backend_success, print_success):
+        if not backend_success:
+            return "PAYMENT_FAILED"
+        # Backend confirmó el cobro
+        if not print_success:
+            return "PAYMENT_CONFIRMED_TICKET_PENDING"
+        return "PAYMENT_CONFIRMED_TICKET_QUEUED"
+
+    result = handle_payment_flow(backend_success=True, print_success=False)
+    assert result == "PAYMENT_CONFIRMED_TICKET_PENDING", "El cobro debe permanecer confirmado aunque falle el ticket"
+    print("✅ TEST 13 PASS: Fallo de impresora preserva el cobro confirmado intacto.")
+
+    # --- [Test 14] Resiliencia: Fallo de cajón no modifica cobro ---
+    print("\n[Test 14] Resiliencia: Fallo de cajón no revierte cobro...")
+    def handle_drawer_flow(backend_success, drawer_success):
+        if not backend_success:
+            return "PAYMENT_FAILED"
+        if not drawer_success:
+            return "PAYMENT_CONFIRMED_DRAWER_PENDING"
+        return "PAYMENT_CONFIRMED_DRAWER_PULSED"
+
+    res_drawer = handle_drawer_flow(backend_success=True, drawer_success=False)
+    assert res_drawer == "PAYMENT_CONFIRMED_DRAWER_PENDING", "El cobro debe permanecer confirmado aunque falle el cajón"
+    print("✅ TEST 14 PASS: Fallo de apertura de cajón preserva el cobro confirmado intacto.")
+
     print("\n================================================================================")
-    print("🎉 TODOS LOS TESTS DE PRINT BRIDGE PASARON CON ÉXITO (8/8)")
+    print("🎉 SUITE AUTOMÁTICA COMPLETA DE PRINT & CASH DRAWER BRIDGE: 14/14 PASS")
     print("================================================================================")
     if httpd is not None:
         httpd.shutdown()

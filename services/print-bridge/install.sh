@@ -17,8 +17,9 @@ echo "============================================================"
 echo "🖨️  DOMUS OS · INSTALADOR DE LOCAL PRINT BRIDGE"
 echo "============================================================"
 
-# 1. Crear carpeta .domus
+# 1. Crear carpeta .domus con permisos restringidos
 mkdir -p "$DOMUS_DIR"
+chmod 700 "$DOMUS_DIR"
 mkdir -p "$HOME_DIR/Library/LaunchAgents"
 
 # 2. Generar token de seguridad si no existe
@@ -28,10 +29,9 @@ if [ ! -f "$TOKEN_FILE" ] || [ ! -s "$TOKEN_FILE" ]; then
     chmod 600 "$TOKEN_FILE"
     echo "✓ Token generado en $TOKEN_FILE"
 else
+    chmod 600 "$TOKEN_FILE"
     echo "✓ Token existente conservado en $TOKEN_FILE"
 fi
-
-TOKEN_VALUE="$(cat "$TOKEN_FILE" | tr -d '\n\r')"
 
 # 3. Copiar script de servidor a ~/.domus/
 cp "$SCRIPT_DIR/server.py" "$DOMUS_DIR/server.py"
@@ -42,14 +42,14 @@ echo "✓ server.py copiado a $DOMUS_DIR/server.py"
 cp "$PLIST_SRC" "$PLIST_DEST"
 echo "✓ LaunchAgent copiado a $PLIST_DEST"
 
-# 4. Detener instancia previa si estaba cargada
+# 5. Detener instancia previa si estaba cargada
 launchctl unload "$PLIST_DEST" 2>/dev/null || true
 
-# 5. Cargar LaunchAgent persistente
+# 6. Cargar LaunchAgent persistente
 launchctl load -w "$PLIST_DEST"
 echo "✓ LaunchAgent cargado en launchd"
 
-# 6. Esperar a que el servicio responda en 127.0.0.1:17321
+# 7. Esperar a que el servicio responda en 127.0.0.1:17321
 echo "Esperando inicio de DOMUS Print Bridge..."
 ATTEMPTS=0
 MAX_ATTEMPTS=10
@@ -66,13 +66,13 @@ if [ "$HTTP_CODE" = "200" ]; then
     echo "============================================================"
     echo "🎉 DOMUS Print Bridge está ACTIVO y CORRIENDO en segundo plano"
     echo "URL de Servicio:  http://127.0.0.1:17321"
-    echo "Token de Acceso:  $TOKEN_VALUE"
     echo "Impresora CUPS:   DOMUS_TICKETS"
+    echo "Token file:       $TOKEN_FILE (0o600)"
     echo "Log:              $DOMUS_DIR/print_bridge.log"
     echo "============================================================"
     echo ""
-    echo "Copia este token en la Configuración de DOMUS OS en Chrome:"
-    echo "localStorage.setItem('domus_print_token', '$TOKEN_VALUE');"
+    echo "Para emparejar DOMUS OS en Chrome:"
+    echo "Copia el token desde $TOKEN_FILE y pégalo en Configuración de DOMUS OS."
     echo "============================================================"
 else
     echo "⚠️ El servicio tardó más de lo esperado en arrancar."

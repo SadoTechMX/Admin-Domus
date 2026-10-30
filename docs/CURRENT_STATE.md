@@ -39,8 +39,9 @@
 | **Aislamiento de Libros Oficiales** | `Config.gs` | `PROD_VERIFIED` | Confirmado en vivo: Main `1KQz8oJ4...` y Ops `1DiwPa1c...` vinculados estrictamente. |
 | **Fase 0: Transaccional Core** | Backend Modular (11 archivos) | `PROD_VERIFIED` | Merge a `main` completado y certificado. |
 | **Fase 0.5: Ticketing & Access Commerce** | `Access.gs`, `Events.gs`, `index.html` | `PROD_VERIFIED` | Modelo de 4 canales comerciales (Taquilla, Boletera, Transferencias, Cortesías) integrado en `main`. |
-| **Frontend GitHub Pages (UI 20261029-04)** | `index.html`, `js/app.js` | `PROD_VERIFIED` | Desplegado y verificado en GitHub Pages (`app.js?v=20261029-04`). |
-| **Frontend Apps Script Nativo (`Index.html`)** | `google-apps-script/Index.html` | `APPS_SCRIPT_UI_PENDING_CERTIFICATION` | Código fuente alineado en repo; pendiente actualización y despliegue de nueva versión en proyecto `DOMUS - Caja y barra`. |
+| **Frontend GitHub Pages (UI 20261029-07)** | `index.html`, `js/app.js` | `LOCAL_TESTED` | Cache bust `app.js?v=20261029-07`. Token rotado, semántica QUEUED, apertura de cajón automático en efectivo y botón manual con operador. |
+| **Frontend Apps Script Nativo (`Index.html`)** | `google-apps-script/Index.html` | `APPS_SCRIPT_UI_PENDING_CERTIFICATION` | Código fuente alineado a UI 20261029-07; pendiente actualización y despliegue en proyecto `DOMUS - Caja y barra`. |
+| **DOMUS Print Bridge & Cash Drawer** | `services/print-bridge/server.py`, `tests/test_print_bridge.py` | `AUTOMATED_PASS_PENDING_PHYSICAL` | Token revocado y rotado (0o600). CORS restringido a origin seguro. 14/14 tests automáticos PASS. Endpoint `/drawer/open` con idempotencia. Pulso m=0 enviado; pendiente confirmación física. |
 | **Autenticación Fuerte de Estaciones** | `authCrearSesion` (Backend/Frontend) | `AUTH_HARDENING_PENDING` | P0 Technical Debt: Eliminación de token falso completada; pendiente secreto de estación / Workspace identity / PIN servidor. |
 | **Fase 1: Apertura / Turnos / Corte X / Z** | N/A | `READY_FOR_DEVELOPMENT` | Desbloqueada para iniciar desarrollo en la rama aislada `feature/phase-1-shifts-cuts`. |
 
