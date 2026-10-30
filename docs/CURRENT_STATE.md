@@ -227,6 +227,21 @@
   - **Modelo B (Implementación activa en `KDS.gs` / bundles en `ENTREGAR`):** Actualización directa donde KDS calcula `newOut` y `newDisp` y escribe directamente en las columnas 7 (`Salidas`) y 8 (`Disponible`) de la hoja `INVENTARIO`.
 * **Directiva Operativa:** Se mantiene el **Modelo B** activo durante el servicio Solar para garantizar estabilidad y no alterar el flujo transaccional en caliente. Se agenda conciliación y formalización arquitectónica en la ventana de mantenimiento post-servicio.
 
+### 🛠️ Hotfix Frontend: Tolerancia a Nodos Faltantes (`bindEvent`), Eliminación de Fallback Sintético y Unificación de Handlers (29-Oct-2026 · UI 20261029-04)
+* **Diagnóstico de Causa Raíz:**
+  1. `setupEventListeners()` llamaba directamente a `$('...').addEventListener(...)` sin validar la existencia previa de los elementos DOM. Al faltar un solo ID en interfaces o vistas parciales, se producía una excepción `TypeError` no recuperable que detenía la ejecución del método y dejaba inactivos todos los botones posteriores.
+  2. Riesgo de ejecución doble: Botones de modal combinaban atributos `onclick` inline con escuchadores registrados vía `addEventListener`.
+  3. Autenticación externa con fallback inválido: Al fallar la negociación de sesión, `ensureSessionToken()` generaba localmente un token sintético (`DOMUS-SES-...`) rechazado por el backend (401/403), causando errores de enlace y operaciones atascadas en Outbox.
+  4. Desincronización entre `js/app.js` y `google-apps-script/Index.html`: El archivo integrado de Apps Script conservaba una referencia obsoleta de staging y una versión desfasada de la lógica KDS.
+* **Solución Implementada:**
+  1. **Vinculación Segura con `bindEvent(idOrEl, eventName, handler)`:** Todo registro de eventos valida la presencia del elemento en el DOM y registra un warning en consola si falta, garantizando que el resto de los botones continúen registrándose sin interrupción.
+  2. **Unificación de Handlers:** Se retiraron todos los atributos `onclick` inline redundantes en modales de producto y tickets, delegando exclusivamente el manejo a `bindEvent`.
+  3. **Limpieza de Tokens Falsos:** Se eliminó la fabricación de tokens sintéticos. Ante fallos de autenticación, la aplicación marca limpiamente el estado en error (`updateSyncPill('error')`) y alerta al operador sin contaminar el almacén local ni el backend.
+  4. **Identificador de Versión Visible (`DOMUS_BUILD`):** Se definió `window.DOMUS_BUILD` (UI `20261029-04`, `PRODUCTION`) y se agregó un pie visible en la interfaz para permitir auditoría visual inmediata de versión en cada estación.
+  5. **Paridad Canónica de Archivos:** Se alinearon `js/app.js`, `index.html` y `google-apps-script/Index.html`.
+* **Estado Transaccional en Vivo:**
+  - Comanda `C2-43` (Héctor Tate, `Onírica IPA · lata`): Estado `En preparación`, responsable `Taichi Mike`. Circuito KDS operacional y validado en caliente.
+
 ### 🚨 Directivas Inmediatas de Seguridad y Congelación Operativa
 1. **Congelación Operativa en Caliente:** No desplegar cambios de backend en Producción durante el servicio activo de Fase Solar.
 2. **Acceso a Caja Maestra:** Usar preferentemente la versión nativa de Google Workspace (`direccion@domusccc.net` / `sadotechfet@gmail.com`).
@@ -237,5 +252,6 @@
    - Endurecer `authCrearSesion` con validación fuerte de contraseñas/PINs en el servidor.
    - Rotar el PIN de pantalla expuesto en chat.
    - Desarrollar módulo formal de Apertura / Turnos / Cortes X y Z en la rama de aislamiento `feature/phase-1-shifts-cuts`.
+
 
 

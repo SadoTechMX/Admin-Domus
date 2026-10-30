@@ -28,6 +28,13 @@
     isProductionLocked = false;
   }
 
+  // Metadatos canónicos del build de frontend
+  window.DOMUS_BUILD = {
+    commit: 'd868d78',
+    ui: '20261029-04',
+    environment: isProductionLocked ? 'PRODUCTION' : 'STAGING'
+  };
+
   const STATE = {
     mode: 'caja', // 'caja' | 'comandas'
     phase: 'Solar', // 'Solar' | 'Lunar'
@@ -2369,22 +2376,22 @@ const DEFAULT_CATALOG = [
       if (res && res.data && res.data.token) {
         setSessionToken(res.data.token, role);
         console.log('[DOMUS AUTO-AUTH] Sesión creada exitosamente:', role, res.data.token);
+        const cbs = [...pendingSessionCallbacks];
+        pendingSessionCallbacks.length = 0;
+        cbs.forEach(cb => cb());
       } else {
-        const fallbackToken = 'DOMUS-SES-' + role + '-' + devId;
-        setSessionToken(fallbackToken, role);
+        console.warn('[DOMUS AUTO-AUTH] El backend no devolvió un token de sesión válido:', res);
+        pendingSessionCallbacks.length = 0;
+        updateSyncPill('error');
+        toast('No fue posible autenticar esta estación con el servidor. Verifica la conexión.', 'error');
       }
-      const cbs = [...pendingSessionCallbacks];
-      pendingSessionCallbacks.length = 0;
-      cbs.forEach(cb => cb());
     })
     .catch(err => {
       isEnsuringSession = false;
       console.warn('[DOMUS AUTO-AUTH] Error al crear sesión automática:', err);
-      const fallbackToken = 'DOMUS-SES-' + role + '-' + devId;
-      setSessionToken(fallbackToken, role);
-      const cbs = [...pendingSessionCallbacks];
       pendingSessionCallbacks.length = 0;
-      cbs.forEach(cb => cb());
+      updateSyncPill('error');
+      toast('No fue posible autenticar esta estación. La operación no fue enviada.', 'error');
     });
   }
 
@@ -2949,6 +2956,15 @@ const DEFAULT_CATALOG = [
     // En producción, no mostrar productos hasta recibir el catálogo autorizado del backend.
     // Evita vender entradas obsoletas del catálogo local que Google Sheets rechazará.
     STATE.products = STATE.isProductionLocked ? [] : [...DEFAULT_CATALOG];
+
+    const buildEl = $('domusBuildLabel');
+    if (buildEl && window.DOMUS_BUILD) {
+      buildEl.textContent = `DOMUS OS · UI ${window.DOMUS_BUILD.ui} · ${window.DOMUS_BUILD.environment}`;
+    }
+    const pill = $('connectionPill');
+    if (pill && window.DOMUS_BUILD) {
+      pill.setAttribute('title', `DOMUS OS · UI ${window.DOMUS_BUILD.ui} · ${window.DOMUS_BUILD.environment} (${window.DOMUS_BUILD.commit})`);
+    }
     // Migración segura de operaciones Outbox a v13 (conservando historial en cuarentena)
     migrateLegacyOutbox_();
 
@@ -5088,26 +5104,33 @@ const DEFAULT_CATALOG = [
     renderAccesosView();
   }
 
-  // --- EVENT LISTENERS ---
+  // --- EVENT LISTENERS CON VINCULACIÓN SEGURA (bindEvent) ---
+  function bindEvent(idOrEl, eventName, handler) {
+    const el = typeof idOrEl === 'string' ? document.getElementById(idOrEl) : idOrEl;
+    if (!el) {
+      console.warn(`[DOMUS UI] Elemento no encontrado para evento '${eventName}': #${typeof idOrEl === 'string' ? idOrEl : (idOrEl && idOrEl.id)}`);
+      return false;
+    }
+    el.addEventListener(eventName, handler);
+    return true;
+  }
+
   function setupEventListeners() {
     // Mode Switcher
-    $('btnModeCaja').addEventListener('click', () => setMode('caja'));
-    $('btnModeComandas').addEventListener('click', () => setMode('comandas'));
+    bindEvent('btnModeCaja', 'click', () => setMode('caja'));
+    bindEvent('btnModeComandas', 'click', () => setMode('comandas'));
 
     // Bloquear Caja Button
-    const btnLock = $('btnLockCaja');
-    if (btnLock) {
-      btnLock.addEventListener('click', lockCajaOnDevice);
-    }
+    bindEvent('btnLockCaja', 'click', lockCajaOnDevice);
 
     // Modal de Bloqueo de Caja / PIN Keypad
-    $('btnSubmitCajaPin').addEventListener('click', unlockCajaWithPin);
-    $('btnCancelCajaUnlock').addEventListener('click', () => {
+    bindEvent('btnSubmitCajaPin', 'click', unlockCajaWithPin);
+    bindEvent('btnCancelCajaUnlock', 'click', () => {
       closeCajaLockModal();
       setMode('comandas');
     });
 
-    $('cajaPinInput').addEventListener('keydown', e => {
+    bindEvent('cajaPinInput', 'keydown', e => {
       if (e.key === 'Enter') unlockCajaWithPin();
     });
 
@@ -5116,118 +5139,126 @@ const DEFAULT_CATALOG = [
       btn.addEventListener('click', () => {
         const key = btn.getAttribute('data-key');
         const input = $('cajaPinInput');
-        if (input.value.length < 20) {
+        if (input && input.value.length < 20) {
           input.value += key;
         }
       });
     });
 
-    $('btnPinClear').addEventListener('click', () => {
-      $('cajaPinInput').value = '';
-      $('cajaPinError').textContent = '';
-      $('cajaPinInput').focus();
+    bindEvent('btnPinClear', 'click', () => {
+      const input = $('cajaPinInput');
+      if (input) {
+        input.value = '';
+        const err = $('cajaPinError');
+        if (err) err.textContent = '';
+        input.focus();
+      }
     });
 
-    $('btnPinBackspace').addEventListener('click', () => {
+    bindEvent('btnPinBackspace', 'click', () => {
       const input = $('cajaPinInput');
-      input.value = input.value.slice(0, -1);
-      input.focus();
+      if (input) {
+        input.value = input.value.slice(0, -1);
+        input.focus();
+      }
     });
 
     // Staff Selector
-    $('staffSelect').addEventListener('change', e => {
+    bindEvent('staffSelect', 'change', e => {
       STATE.operator = e.target.value;
       sessionStorage.setItem('domus_operator', STATE.operator);
     });
 
     // Sound Toggle
-    $('btnToggleSound').addEventListener('click', () => {
+    bindEvent('btnToggleSound', 'click', () => {
       STATE.sound = !STATE.sound;
       localStorage.setItem('domus_sound', String(STATE.sound));
-      $('btnToggleSound').classList.toggle('active', STATE.sound);
-      $('btnToggleSound').textContent = STATE.sound ? '🔔 Sonido: On' : '🔕 Sonido: Off';
+      const btn = $('btnToggleSound');
+      if (btn) {
+        btn.classList.toggle('active', STATE.sound);
+        btn.textContent = STATE.sound ? '🔔 Sonido: On' : '🔕 Sonido: Off';
+      }
       if (STATE.sound) playChime('alert');
     });
     if (STATE.sound) {
-      $('btnToggleSound').classList.add('active');
-      $('btnToggleSound').textContent = '🔔 Sonido: On';
+      const btn = $('btnToggleSound');
+      if (btn) {
+        btn.classList.add('active');
+        btn.textContent = '🔔 Sonido: On';
+      }
     }
 
     // Phase Switcher (Solar / Lunar)
-    $('btnPhaseToggle').addEventListener('click', () => {
+    bindEvent('btnPhaseToggle', 'click', () => {
       STATE.phase = STATE.phase === 'Solar' ? 'Lunar' : 'Solar';
-      $('currentPhaseBadge').textContent = `Fase ${STATE.phase}`;
+      const badge = $('currentPhaseBadge');
+      if (badge) badge.textContent = `Fase ${STATE.phase}`;
       toast(`Carta cambiada a Fase ${STATE.phase}`, 'ok');
       renderCatalog();
       renderCart();
     });
 
-    // Botón Reintentar Outbox (Issue #1 - FASE 1.G):
-    // Reintentar ÚNICAMENTE LOCAL_PENDING y RETRY. NUNCA REQUIRES_REVIEW ni CONFIRMED.
-    const btnRetryOutbox = $('btnOutboxRetry');
-    if (btnRetryOutbox) {
-      btnRetryOutbox.addEventListener('click', () => {
-        let retriedCount = 0;
-        const queue = getOutbox().map(it => {
-          if (it.status === 'RETRY' || it.status === 'LOCAL_PENDING') {
-            it.status = 'RETRY';
-            it.attempts = 0;
-            retriedCount++;
-          }
-          return it;
-        });
-        saveOutbox(queue);
-        if (retriedCount > 0) {
-          toast(`Reintentando ${retriedCount} operación(es) transitorias pendientes…`, 'ok');
-          processOutbox();
-        } else {
-          toast('No hay operaciones transitorias pendientes para reintentar.', 'info');
+    // Botón Reintentar Outbox
+    bindEvent('btnOutboxRetry', 'click', () => {
+      let retriedCount = 0;
+      const queue = getOutbox().map(it => {
+        if (it.status === 'RETRY' || it.status === 'LOCAL_PENDING') {
+          it.status = 'RETRY';
+          it.attempts = 0;
+          retriedCount++;
         }
+        return it;
       });
-    }
+      saveOutbox(queue);
+      if (retriedCount > 0) {
+        toast(`Reintentando ${retriedCount} operación(es) transitorias pendientes…`, 'ok');
+        processOutbox();
+      } else {
+        toast('No hay operaciones transitorias pendientes para reintentar.', 'info');
+      }
+    });
 
-    const btnClearOutbox = $('btnOutboxClear');
-    if (btnClearOutbox) {
-      btnClearOutbox.addEventListener('click', () => {
-        const queue = getOutbox();
-        const reviewItems = queue.filter(q => q.status === 'REQUIRES_REVIEW');
-        saveOutbox(reviewItems); // Issue #1: REQUIRES_REVIEW debe persistir y no ser purgado
-        updateOutboxUI();
-        updateSyncPill('ok');
-        toast('Operaciones pendientes descartadas. Los registros en revisión manual se conservan.', 'ok');
-      });
-    }
+    bindEvent('btnOutboxClear', 'click', () => {
+      const queue = getOutbox();
+      const reviewItems = queue.filter(q => q.status === 'REQUIRES_REVIEW');
+      saveOutbox(reviewItems);
+      updateOutboxUI();
+      updateSyncPill('ok');
+      toast('Operaciones pendientes descartadas. Los registros en revisión manual se conservan.', 'ok');
+    });
 
-    $('btnSyncNow').addEventListener('click', () => {
+    bindEvent('btnSyncNow', 'click', () => {
       toast('Sincronizando con Google…', 'ok');
       syncBackendData();
     });
 
     // Search Input
-    $('catalogSearchInput').addEventListener('input', e => {
+    bindEvent('catalogSearchInput', 'input', e => {
       STATE.searchQuery = e.target.value;
       renderCatalog();
     });
 
     // Account Selector
-    $('openAccountsSelect').addEventListener('change', e => {
+    bindEvent('openAccountsSelect', 'change', e => {
       STATE.selectedAccountTicket = e.target.value;
       if (STATE.selectedAccountTicket) {
         const acc = STATE.openAccounts.find(a => a.ticket === STATE.selectedAccountTicket);
         if (acc) {
-          $('customerNameInput').value = acc.customer || '';
-          $('activitySelect').value = acc.activity || 'Visita general DOMUS';
+          const cust = $('customerNameInput');
+          if (cust) cust.value = acc.customer || '';
+          const act = $('activitySelect');
+          if (act) act.value = acc.activity || 'Visita general DOMUS';
         }
       }
     });
 
     // Clear Cart
-    $('btnClearCart').addEventListener('click', clearCart);
+    bindEvent('btnClearCart', 'click', clearCart);
 
-    // Open Payment Modal
-    $('btnOpenPaymentModal').addEventListener('click', openPaymentModal);
-    $('btnClosePayModal').addEventListener('click', closePaymentModal);
-    $('btnCancelPayment').addEventListener('click', closePaymentModal);
+    // Payment Modal
+    bindEvent('btnOpenPaymentModal', 'click', openPaymentModal);
+    bindEvent('btnClosePayModal', 'click', closePaymentModal);
+    bindEvent('btnCancelPayment', 'click', closePaymentModal);
 
     // Payment Methods Selection
     document.querySelectorAll('.payment-method-btn').forEach(btn => {
@@ -5238,29 +5269,39 @@ const DEFAULT_CATALOG = [
     });
 
     // Cash Calculator inputs
-    $('cashReceivedInput').addEventListener('input', updateChangeDisplay);
-    $('cashTipInput').addEventListener('input', updateChangeDisplay);
+    bindEvent('cashReceivedInput', 'input', updateChangeDisplay);
+    bindEvent('cashTipInput', 'input', updateChangeDisplay);
 
     // Preset Cash Buttons ($50, $100, $200, $500, Exacto)
     document.querySelectorAll('.btn-cash-preset').forEach(btn => {
       btn.addEventListener('click', () => {
         const val = btn.getAttribute('data-val');
-        if (val === 'exact') {
-          $('cashReceivedInput').value = calculateCartTotal().toFixed(2);
-        } else {
-          $('cashReceivedInput').value = parseFloat(val).toFixed(2);
+        const cashInput = $('cashReceivedInput');
+        if (cashInput) {
+          if (val === 'exact') {
+            cashInput.value = calculateCartTotal().toFixed(2);
+          } else {
+            cashInput.value = parseFloat(val).toFixed(2);
+          }
         }
         updateChangeDisplay();
       });
     });
 
     // Confirm Payment
-    $('btnConfirmChargeAndSend').addEventListener('click', () => confirmPaymentAndDispatch(true));
-    $('btnSendPendingPayment').addEventListener('click', () => confirmPaymentAndDispatch(false));
+    bindEvent('btnConfirmChargeAndSend', 'click', () => confirmPaymentAndDispatch(true));
+    bindEvent('btnSendPendingPayment', 'click', () => confirmPaymentAndDispatch(false));
 
     // Receipt Close & Print
-    $('btnCloseReceipt').addEventListener('click', () => $('receiptModal').classList.remove('open'));
-    $('btnPrintReceipt').addEventListener('click', () => window.print());
+    bindEvent('btnCloseReceipt', 'click', () => {
+      const m = $('receiptModal');
+      if (m) m.classList.remove('open');
+    });
+    bindEvent('btnAcceptReceipt', 'click', () => {
+      const m = $('receiptModal');
+      if (m) m.classList.remove('open');
+    });
+    bindEvent('btnPrintReceipt', 'click', () => window.print());
 
     // KDS Tabs
     document.querySelectorAll('.kds-tab-btn').forEach(btn => {
@@ -5273,75 +5314,60 @@ const DEFAULT_CATALOG = [
     });
 
     // KDS Destination Filter
-    $('kdsDestFilter').addEventListener('change', e => {
+    bindEvent('kdsDestFilter', 'change', e => {
       STATE.kdsFilterDest = e.target.value;
       renderComandasBoard();
     });
 
     // KDS Search
-    $('kdsSearchInput').addEventListener('input', e => {
+    bindEvent('kdsSearchInput', 'input', e => {
       STATE.kdsSearch = e.target.value;
       renderComandasBoard();
     });
 
     // Config Modal
-    $('btnOpenSettings').addEventListener('click', openConfigModal);
-    $('btnCloseConfig').addEventListener('click', () => $('configModal').classList.remove('open'));
-    $('btnSaveConfig').addEventListener('click', saveConfig);
+    bindEvent('btnOpenSettings', 'click', openConfigModal);
+    bindEvent('btnCloseConfig', 'click', () => {
+      const m = $('configModal');
+      if (m) m.classList.remove('open');
+    });
+    bindEvent('btnCancelConfig', 'click', () => {
+      const m = $('configModal');
+      if (m) m.classList.remove('open');
+    });
+    bindEvent('btnSaveConfig', 'click', saveConfig);
 
-    const btnSyncCarta = $('btnSyncOfficialCarta');
-    if (btnSyncCarta) {
-      btnSyncCarta.addEventListener('click', () => {
-        toast('Iniciando sincronización con la Carta Oficial de DOMUS…', 'ok');
-        callBackend('sincronizarCartaConCatalogoDOMUS', [], res => {
-          toast(res.message || 'Catálogo e Inventario actualizados exitosamente en Google Sheets.', 'ok');
-          playChime('success');
-          syncBackendData();
-        }, err => {
-          toast('Error en sincronización: ' + (err.message || String(err)), 'error');
-        });
+    bindEvent('btnSyncOfficialCarta', 'click', () => {
+      toast('Iniciando sincronización con la Carta Oficial de DOMUS…', 'ok');
+      callBackend('sincronizarCartaConCatalogoDOMUS', [], res => {
+        toast(res.message || 'Catálogo e Inventario actualizados exitosamente en Google Sheets.', 'ok');
+        playChime('success');
+        syncBackendData();
+      }, err => {
+        toast('Error en sincronización: ' + (err.message || String(err)), 'error');
       });
-    }
+    });
 
     // Modal Alta / Registro de Nuevo Producto (Admin Caja)
-    const btnOpenNewProd = $('btnOpenNewProductModal');
-    if (btnOpenNewProd) {
-      btnOpenNewProd.addEventListener('click', openNewProductModal);
-    }
-    const btnCloseNewProd = $('btnCloseNewProductModal');
-    if (btnCloseNewProd) {
-      btnCloseNewProd.addEventListener('click', closeNewProductModal);
-    }
-    const btnCancelNewProd = $('btnCancelNewProduct');
-    if (btnCancelNewProd) {
-      btnCancelNewProd.addEventListener('click', closeNewProductModal);
-    }
-    const btnSaveNewProd = $('btnSaveNewProduct');
-    if (btnSaveNewProd) {
-      btnSaveNewProd.addEventListener('click', saveNewProduct);
-    }
-    const selectNewCat = $('newProdCategory');
-    if (selectNewCat) {
-      selectNewCat.addEventListener('change', e => {
-        const customWrapper = $('customCatWrapper');
-        if (customWrapper) {
-          const isNew = e.target.value === '__NEW__';
-          customWrapper.classList.toggle('hidden', !isNew);
-          if (isNew) {
-            $('newProdCustomCategory').focus();
-          }
+    bindEvent('btnOpenNewProductModal', 'click', openNewProductModal);
+    bindEvent('btnCloseNewProductModal', 'click', closeNewProductModal);
+    bindEvent('btnCancelNewProduct', 'click', closeNewProductModal);
+    bindEvent('btnSaveNewProduct', 'click', saveNewProduct);
+
+    bindEvent('newProdCategory', 'change', e => {
+      const customWrapper = $('customCatWrapper');
+      if (customWrapper) {
+        const isNew = e.target.value === '__NEW__';
+        customWrapper.classList.toggle('hidden', !isNew);
+        if (isNew && $('newProdCustomCategory')) {
+          $('newProdCustomCategory').focus();
         }
-      });
-    }
+      }
+    });
 
     // --- MODO ACCESOS, EVENTOS Y GUARDARROPA ---
-    if ($('btnModeAccesos')) {
-      $('btnModeAccesos').addEventListener('click', () => setMode('accesos'));
-    }
-
-    if ($('accessActivitySelect')) {
-      $('accessActivitySelect').addEventListener('change', e => changeActiveEvent(e.target.value));
-    }
+    bindEvent('btnModeAccesos', 'click', () => setMode('accesos'));
+    bindEvent('accessActivitySelect', 'change', e => changeActiveEvent(e.target.value));
 
     // Wardrobe Selector Buttons
     document.querySelectorAll('#wardrobeSelectorGroup .wardrobe-btn').forEach(btn => {
@@ -5358,56 +5384,47 @@ const DEFAULT_CATALOG = [
     });
 
     // Cash Calculator for Access
-    if ($('accessCashReceived')) {
-      $('accessCashReceived').addEventListener('input', updateAccessSummary);
-    }
-
-    // Confirm Access & Register Button (gestionado dinámicamente en renderAccesosView para evitar listeners duplicados)
+    bindEvent('accessCashReceived', 'input', updateAccessSummary);
 
     // Operations Tabs
-    if ($('tabBtnAccessLog')) $('tabBtnAccessLog').addEventListener('click', () => setAccessTab('log'));
-    if ($('tabBtnWardrobe')) $('tabBtnWardrobe').addEventListener('click', () => setAccessTab('wardrobe'));
-    if ($('tabBtnEvents')) $('tabBtnEvents').addEventListener('click', () => setAccessTab('events'));
+    bindEvent('tabBtnAccessLog', 'click', () => setAccessTab('log'));
+    bindEvent('tabBtnWardrobe', 'click', () => setAccessTab('wardrobe'));
+    bindEvent('tabBtnEvents', 'click', () => setAccessTab('events'));
 
     // Search Inputs for Tabs
-    if ($('accessLogSearchInput')) {
-      $('accessLogSearchInput').addEventListener('input', e => {
-        STATE.accessSearch = e.target.value;
-        renderAccessLogTable();
-      });
-    }
-    if ($('wardrobeSearchInput')) {
-      $('wardrobeSearchInput').addEventListener('input', e => {
-        STATE.accessSearch = e.target.value;
-        renderWardrobeTable();
-      });
-    }
+    bindEvent('accessLogSearchInput', 'input', e => {
+      STATE.accessSearch = e.target.value;
+      renderAccessLogTable();
+    });
+    bindEvent('wardrobeSearchInput', 'input', e => {
+      STATE.accessSearch = e.target.value;
+      renderWardrobeTable();
+    });
 
     // Modals: Eventos
-    if ($('btnOpenNewEventModal')) $('btnOpenNewEventModal').addEventListener('click', openNewEventModal);
-    if ($('btnOpenNewEventModal2')) $('btnOpenNewEventModal2').addEventListener('click', openNewEventModal);
-    if ($('btnCloseNewEventModal')) $('btnCloseNewEventModal').addEventListener('click', closeNewEventModal);
-    if ($('btnCancelNewEvent')) $('btnCancelNewEvent').addEventListener('click', closeNewEventModal);
-    if ($('btnSaveNewEvent')) $('btnSaveNewEvent').addEventListener('click', saveNewEvent);
+    bindEvent('btnOpenNewEventModal', 'click', openNewEventModal);
+    bindEvent('btnOpenNewEventModal2', 'click', openNewEventModal);
+    bindEvent('btnCloseNewEventModal', 'click', closeNewEventModal);
+    bindEvent('btnCancelNewEvent', 'click', closeNewEventModal);
+    bindEvent('btnSaveNewEvent', 'click', saveNewEvent);
 
     // Modals: Access Receipt
-    if ($('btnCloseAccessReceipt')) $('btnCloseAccessReceipt').addEventListener('click', closeAccessReceiptModal);
-    if ($('btnDismissAccessReceipt')) $('btnDismissAccessReceipt').addEventListener('click', closeAccessReceiptModal);
-    if ($('btnPrintAccessReceipt')) $('btnPrintAccessReceipt').addEventListener('click', () => window.print());
+    bindEvent('btnCloseAccessReceipt', 'click', closeAccessReceiptModal);
+    bindEvent('btnDismissAccessReceipt', 'click', closeAccessReceiptModal);
+    bindEvent('btnPrintAccessReceipt', 'click', () => window.print());
 
     // Modals: Edit Access Record
-    if ($('btnCloseEditAccessModal')) $('btnCloseEditAccessModal').addEventListener('click', closeEditAccessModal);
-    if ($('btnCancelEditAccess')) $('btnCancelEditAccess').addEventListener('click', closeEditAccessModal);
-    if ($('btnSaveEditAccess')) $('btnSaveEditAccess').addEventListener('click', saveEditAccessRecord);
-    if ($('btnDeleteAccessFromModal')) {
-      $('btnDeleteAccessFromModal').addEventListener('click', () => {
-        const id = $('editAccessId').value;
-        closeEditAccessModal();
-        deleteAccessRecord(id);
-      });
-    }
-    if ($('editAccessChannel')) $('editAccessChannel').addEventListener('change', updateEditAccessModalSummary);
-    if ($('editAccessPersons')) $('editAccessPersons').addEventListener('change', updateEditAccessModalSummary);
+    bindEvent('btnCloseEditAccessModal', 'click', closeEditAccessModal);
+    bindEvent('btnCancelEditAccess', 'click', closeEditAccessModal);
+    bindEvent('btnSaveEditAccess', 'click', saveEditAccessRecord);
+    bindEvent('btnDeleteAccessFromModal', 'click', () => {
+      const input = $('editAccessId');
+      const id = input ? input.value : '';
+      closeEditAccessModal();
+      deleteAccessRecord(id);
+    });
+    bindEvent('editAccessChannel', 'change', updateEditAccessModalSummary);
+    bindEvent('editAccessPersons', 'change', updateEditAccessModalSummary);
   }
 
   // --- CONTROLADOR DE EDICIÓN Y ELIMINACIÓN DE REGISTROS DE ACCESO ---
