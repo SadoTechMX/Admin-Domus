@@ -85,8 +85,8 @@
     accessPaymentMethod: 'Efectivo',
     accessSearch: '',
     accessTab: 'log', // 'log' | 'wardrobe' | 'events'
-    openingFloat: 600,
-    openingFloatProvider: 'Steven',
+    openingFloat: 1000,
+    openingFloatProvider: 'Universidad del Swinger',
     openingFloatConcept: 'Fondo inicial / fondo de cambio',
     deletedAccessIds: new Set(),
     editedAccessMap: {},
@@ -3076,8 +3076,8 @@ const DEFAULT_CATALOG = [
               // Conservar SIEMPRE el nombre y precio exactos entregados por el servidor.
               name: serverName,
               price: Number(bp.price),
-              priceSolar: Number(bp.price),
-              priceLunar: Number(bp.price),
+              priceSolar: Number(bp.priceSolar != null ? bp.priceSolar : bp.price),
+              priceLunar: Number(bp.priceLunar != null ? bp.priceLunar : bp.price),
               group: group,
               destination: destination
             });
@@ -5691,7 +5691,7 @@ const DEFAULT_CATALOG = [
 
   // Arqueo de Caja / Cierre: Efectivo esperado = $600 + cobros reales efectivo - retiros - devoluciones - gastos autorizados
   function calculateExpectedCashArqueo(cashCollected = 0, withdrawals = 0, refunds = 0, expenses = 0) {
-    const openingFloat = STATE.openingFloat || 600;
+    const openingFloat = STATE.openingFloat || 1000;
     return openingFloat + Number(cashCollected) - Number(withdrawals) - Number(refunds) - Number(expenses);
   }
 
