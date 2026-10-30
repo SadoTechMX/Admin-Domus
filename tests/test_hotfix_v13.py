@@ -29,6 +29,7 @@ with open(GAS_INDEX_PATH, 'r', encoding='utf-8') as f:
 def run_suite():
     print("=" * 80)
     print("🛡️ DOMUS OS · SUITE DE VERIFICACIÓN HOTFIX v13 (ISSUE #1)")
+    print("ALCANCE: comprobaciones estructurales de fuente y caso cliente aislado; no certifica dos pestañas reales, Apps Script ni hardware.")
     print("=" * 80)
     
     passed = 0
@@ -132,7 +133,7 @@ def run_suite():
     # --------------------------------------------------------------------------
     print("\n[Test 10] Mutex entre pestañas vía Web Locks API ('domus-outbox-sync')...")
     assert "window.navigator.locks.request('domus-outbox-sync'" in js_content, "Falta Web Locks mutex"
-    print("✅ TEST 10 PASS: Web Locks API garantiza un único POST concurrente entre pestañas.")
+    print("✅ TEST 10 PASS (SOURCE): llamada Web Locks presente; concurrencia real no ejecutada por esta comprobación.")
     passed += 1
 
     # --------------------------------------------------------------------------
