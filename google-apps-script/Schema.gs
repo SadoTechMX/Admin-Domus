@@ -9,10 +9,11 @@ const CASH_FORMULAS_ = {
   "22": "=IF(AND(P25=\"Enviar\",X25=\"Entregada\",H25>0),H25,0)",
   "23": "=IF(G25=\"\",\"\",IF(P25=\"Cancelado\",\"CANCELADO\",IF(OR(B25=\"\",C25<SEMANA!$B$7,C25>=SEMANA!$B$8+1,C25=\"\",D25=\"\",H25<=0,I25=\"\",P25<>\"Enviar\"),\"FALTAN DATOS\",IF(OR(COUNTIFS($B$7:$B,B25,$C$7:$C,\"<>\"&C25)>0,COUNTIFS($B$7:$B,B25,$D$7:$D,\"<>\"&D25)>0,COUNTIFS($B$7:$B,B25,$E$7:$E,\"<>\"&E25)>0),\"TICKET REUTILIZADO · REVISAR\",IF(IFERROR(VLOOKUP(G25,CATALOGO!$A$7:$O$326,2,FALSE),\"\")<>F25,\"REVISAR CATEGORÍA\",IF(IFERROR(VLOOKUP(G25,CATALOGO!$A$7:$O$326,9,FALSE),\"\")<>\"Sí\",\"PRODUCTO INACTIVO\",IF(OR(NOT(ISNUMBER(R25)),S25=\"\",S25=0),\"REPARTO POR CONFIRMAR\",IF(AND(OR(I25=\"Cortesía\",K25<>\"\"),AE25=\"\"),\"FALTA AUTORIZACIÓN\",IF(AND(I25<>\"Cortesía\",K25=\"\",J25=\"\"),\"FALTA PRECIO\",\"LISTO\")))))))))",
   "24": "=IF(G25=\"\",\"\",IFERROR(INDEX(COMANDAS!$H$7:$H,MATCH(A25,COMANDAS!$A$7:$A,0)),\"\"))",
-  "27": "=IF(AND(W25=\"LISTO\",ISNUMBER(R25)),ROUND(M25*R25,2),0)",
-  "28": "=IF(AND(W25=\"LISTO\",ISNUMBER(R25)),ROUND(M25*(1-R25),2)-AL25,IF(P25=\"Cancelado\",-AL25,0))",
+  "27": "=IF(AND(W25=\"LISTO\",ISNUMBER(R25),L25>0),ROUND((M25*J25/L25)*R25,2),0)",
+  "28": "=IF(AND(W25=\"LISTO\",ISNUMBER(R25),L25>0),ROUND((M25*J25/L25)*(1-R25),2)-AL25,IF(P25=\"Cancelado\",-AL25,0))",
   "29": "=IF(V25=0,0,IFERROR(VLOOKUP(G25,CATALOGO!$A$7:$O$326,6,FALSE)*V25,0))",
-  "30": "=IF(B25=\"\",\"\",SUMIFS($L$7:$L,$B$7:$B,B25,$P$7:$P,\"<>Cancelado\"))"
+  "30": "=IF(B25=\"\",\"\",SUMIFS($L$7:$L,$B$7:$B,B25,$P$7:$P,\"<>Cancelado\"))",
+  "48": "=IF(OR(G25=\"\",L25<=0),0,ROUND(MIN(1,M25/L25)*MAX(0,N(AT25)),2))"
 };
 
 function cashFormulaWrites_(sheet, row) {
