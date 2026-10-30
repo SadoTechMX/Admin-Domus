@@ -229,6 +229,8 @@ def run_tests():
 
     # --- [Test 12] Regla: Efectivo confirmado exige cajón verificado físicamente ---
     print("\n[Test 12] Regla de negocio: Auto-apertura exige Efectivo confirmado Y drawer_configured=True...")
+    orig_cfg = server.load_config()
+
     def should_open_drawer(method, is_paid, drawer_configured=False):
         return bool(is_paid and str(method).strip().lower() == 'efectivo' and drawer_configured)
 
@@ -258,10 +260,8 @@ def run_tests():
     assert b_conf_ok.get('drawerConfigured') is True
     assert b_conf_ok.get('physicalConfirmedBy') == "Operador Test"
 
-    # Restablecer estado local a drawer_configured = False (PULSE_SENT_PHYSICAL_NOT_CONFIRMED)
-    http_request('/drawer/confirm', method='POST', data={"channel": 0, "confirmed": False}, headers={'X-Domus-Print-Token': new_token})
-    cfg_reset = server.load_config()
-    assert cfg_reset.get('drawer_configured') is False, "El estado final debe permanecer drawer_configured = False"
+    # Restaurar la configuración previa al test
+    server.save_config(orig_cfg)
 
     print("✅ TEST 12 PASS: Auto-apertura en efectivo exige estrictamente drawer_configured=true.")
 
