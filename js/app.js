@@ -31,7 +31,7 @@
   // Metadatos canónicos del build de frontend
   window.DOMUS_BUILD = {
     commit: 'e93a52d',
-    ui: '20261029-05',
+    ui: '20261029-06',
     environment: isProductionLocked ? 'PRODUCTION' : 'STAGING'
   };
 
@@ -53,6 +53,11 @@
     activity: 'Visita general DOMUS',
     accountType: '', // '' | 'Amigo' | 'Creador de proyecto'
     
+    // DOMUS Print Bridge
+    printerStatus: 'offline', // 'ready' | 'busy' | 'offline'
+    lastReceiptData: null,
+    lastAccessRecord: null,
+
     // Datos en vivo / Caché
     products: [],
     openAccounts: [],
@@ -3031,6 +3036,139 @@ const DEFAULT_CATALOG = [
     }
   }
 
+  // --- DOMUS LOCAL PRINT BRIDGE (127.0.0.1:17321) ---
+  const PRINT_BRIDGE_URL = 'http://127.0.0.1:17321';
+  const DEFAULT_PRINT_TOKEN = 'domus_prn_aa90ed078afb26e877fcab7a2a98dd0c';
+
+  function getPrintToken() {
+    return (localStorage.getItem('domus_print_token') || DEFAULT_PRINT_TOKEN).trim();
+  }
+
+  function setPrintToken(token) {
+    if (token) {
+      localStorage.setItem('domus_print_token', token.trim());
+    }
+  }
+
+  function updatePrinterPill(state = 'offline', text = null, title = null) {
+    const pill = $('printerPill');
+    const dot = $('printerDot');
+    const label = $('printerLabel');
+    if (!dot || !label) return;
+
+    if (state === 'ready') {
+      dot.className = 'status-dot';
+      label.textContent = text || '🖨️ Conectada';
+      if (pill) pill.title = title || 'DOMUS Print Bridge: DOMUS_TICKETS lista para imprimir';
+    } else if (state === 'busy') {
+      dot.className = 'status-dot warn';
+      label.textContent = text || '🖨️ Imprimiendo…';
+      if (pill) pill.title = title || 'DOMUS Print Bridge: Enviando datos a impresora térmica...';
+    } else {
+      dot.className = 'status-dot error';
+      label.textContent = text || '🖨️ Desconectada';
+      if (pill) pill.title = title || 'DOMUS Print Bridge: Desconectado o impresora apagada (127.0.0.1:17321)';
+    }
+  }
+
+  function checkPrinterStatus(callback) {
+    fetch(`${PRINT_BRIDGE_URL}/health`, {
+      method: 'GET',
+      headers: {
+        'X-Domus-Print-Token': getPrintToken()
+      }
+    })
+    .then(r => r.json())
+    .then(data => {
+      if (data && data.ok && data.status === 'READY') {
+        STATE.printerStatus = 'ready';
+        updatePrinterPill('ready', '🖨️ Conectada', `DOMUS_TICKETS: Lista (${data.printer})`);
+        if (callback) callback(true, data);
+      } else {
+        STATE.printerStatus = 'offline';
+        updatePrinterPill('offline', '🖨️ No disponible', `DOMUS_TICKETS: ${data ? data.status : 'Inactiva'}`);
+        if (callback) callback(false, data);
+      }
+    })
+    .catch(err => {
+      STATE.printerStatus = 'offline';
+      updatePrinterPill('offline', '🖨️ Desconectada', 'DOMUS Print Bridge no responde en 127.0.0.1:17321');
+      if (callback) callback(false, err);
+    });
+  }
+
+  function printReceiptDirect(receiptData, isReprint = false) {
+    if (!receiptData) {
+      toast('No hay datos de comprobante para imprimir.', 'warn');
+      return Promise.reject(new Error('Sin datos de ticket'));
+    }
+
+    const folio = receiptData.receipt || receiptData.ticket || `REC-${Date.now()}`;
+    const printId = `PRINT-${folio}`;
+
+    const payload = {
+      printId: printId,
+      receipt: receiptData.receipt || folio,
+      ticket: receiptData.ticket || '',
+      customer: receiptData.customer || 'Cliente',
+      date: receiptData.date || new Date().toLocaleString('es-MX'),
+      operator: receiptData.operator || (STATE.staffList && STATE.staffList.find(s => s.id === STATE.operator))?.name || STATE.operator || 'Caja DOMUS',
+      items: Array.isArray(receiptData.items) ? receiptData.items.map(it => ({
+        qty: it.qty || 1,
+        name: it.name || 'Producto',
+        price: it.price || 0
+      })) : [],
+      total: receiptData.total || 0,
+      method: receiptData.method || 'Efectivo',
+      received: receiptData.received !== undefined ? receiptData.received : null,
+      tip: receiptData.tip || 0,
+      change: receiptData.change !== undefined ? receiptData.change : null,
+      reprint: Boolean(isReprint)
+    };
+
+    updatePrinterPill('busy');
+
+    return fetch(`${PRINT_BRIDGE_URL}/print`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Domus-Print-Token': getPrintToken()
+      },
+      body: JSON.stringify(payload)
+    })
+    .then(r => r.json().then(body => ({ status: r.status, ok: r.ok, body })))
+    .then(res => {
+      if (res.ok && res.body.ok) {
+        updatePrinterPill('ready');
+        if (res.body.alreadyPrinted) {
+          toast('✓ Comprobante previamente impreso (usa Reimprimir si requieres otra copia)', 'info');
+        } else {
+          toast(isReprint ? '✓ Reimpresión de ticket enviada' : '✓ Ticket impreso', 'ok');
+        }
+        return res.body;
+      } else {
+        const errMsg = (res.body && res.body.error) || 'Fallo de impresora';
+        updatePrinterPill('offline', '🖨️ Error térmico', errMsg);
+        if (!isReprint) {
+          toast('⚠ Cobro confirmado. Ticket pendiente de impresión.', 'warn');
+        } else {
+          toast(`⚠ Error al imprimir: ${errMsg}`, 'error');
+        }
+        throw new Error(errMsg);
+      }
+    })
+    .catch(err => {
+      updatePrinterPill('offline');
+      if (!isReprint) {
+        toast('⚠ Cobro confirmado. Ticket pendiente de impresión.', 'warn');
+      } else {
+        toast('⚠ Print Bridge no disponible. Abriendo diálogo del navegador…', 'warn');
+        window.print();
+      }
+      throw err;
+    });
+  }
+
   // --- CARGA INICIAL DE DATOS ---
   function loadInitialData() {
     // En producción, no mostrar productos hasta recibir el catálogo autorizado del backend.
@@ -3650,10 +3788,13 @@ const DEFAULT_CATALOG = [
     callBackend('cajaSimpleRegistrar', [payload], res => {
       playChime('success');
       toast(res.message || 'Pedido guardado y enviado.', 'ok');
-      showReceiptModal({
+      const operatorName = (STATE.staffList && STATE.staffList.find(s => s.id === STATE.operator))?.name || STATE.operator || 'Caja DOMUS';
+      const receiptData = {
         ticket: res.ticket,
         receipt: res.receipt,
         customer: customer,
+        date: new Date().toLocaleString('es-MX'),
+        operator: operatorName,
         items: [...STATE.cart],
         total: total,
         paid: isPaid,
@@ -3661,7 +3802,16 @@ const DEFAULT_CATALOG = [
         received: received,
         tip: tip,
         change: Math.max(0, received - total - tip)
-      });
+      };
+      STATE.lastReceiptData = receiptData;
+      showReceiptModal(receiptData);
+
+      // Auto-imprimir ticket con DOMUS Print Bridge si es cobro confirmado
+      if (isPaid) {
+        printReceiptDirect(receiptData, false).catch(e => {
+          console.warn('[DOMUS PRINT] Fallo al imprimir comprobante automático:', e);
+        });
+      }
 
       // Limpiar pedido actual
       clearCart();
@@ -3677,6 +3827,9 @@ const DEFAULT_CATALOG = [
 
   // --- MODAL DE RECIBO DE PAGO ---
   function showReceiptModal(data) {
+    if (data) {
+      STATE.lastReceiptData = data;
+    }
     const modal = $('receiptModal');
     $('receiptFolio').textContent = data.receipt ? `RECIBO: ${data.receipt}` : 'VENTA PENDIENTE DE COBRO';
     $('receiptTicket').textContent = `CUENTA: ${data.ticket}`;
@@ -4047,7 +4200,13 @@ const DEFAULT_CATALOG = [
 
   // --- CONFIGURACIÓN & MODAL API ---
   function openConfigModal() {
-    $('gasApiUrlInput').value = STATE.apiUrl;
+    if ($('gasApiUrlInput')) $('gasApiUrlInput').value = STATE.apiUrl;
+    if ($('printBridgeTokenInput')) $('printBridgeTokenInput').value = getPrintToken();
+    if ($('printerStatusMsg')) {
+      $('printerStatusMsg').textContent = STATE.printerStatus === 'ready'
+        ? '✓ Conexión establecida con DOMUS Print Bridge (127.0.0.1:17321).'
+        : 'Estado: Desconectado o pendiente de verificación.';
+    }
     $('configModal').classList.add('open');
   }
 
@@ -4069,9 +4228,14 @@ const DEFAULT_CATALOG = [
       toast('Nueva contraseña de Caja establecida.', 'ok');
       $('newCajaPasswordInput').value = '';
     }
+    const printToken = $('printBridgeTokenInput') ? $('printBridgeTokenInput').value.trim() : '';
+    if (printToken) {
+      setPrintToken(printToken);
+    }
     $('configModal').classList.remove('open');
     toast('Configuración guardada.', 'ok');
     syncBackendData();
+    checkPrinterStatus();
   }
 
   // --- ALTA / REGISTRO DE NUEVOS PRODUCTOS (ADMIN CAJA) ---
@@ -5027,6 +5191,7 @@ const DEFAULT_CATALOG = [
 
   function openAccessReceiptModal(record) {
     if (!record) return;
+    STATE.lastAccessRecord = record;
     const modal = $('accessReceiptModal');
     if (!modal) return;
 
@@ -5389,7 +5554,13 @@ const DEFAULT_CATALOG = [
       const m = $('receiptModal');
       if (m) m.classList.remove('open');
     });
-    bindEvent('btnPrintReceipt', 'click', () => window.print());
+    bindEvent('btnPrintReceipt', 'click', () => {
+      if (STATE.lastReceiptData) {
+        printReceiptDirect(STATE.lastReceiptData, true).catch(() => {});
+      } else {
+        window.print();
+      }
+    });
 
     // KDS Tabs
     document.querySelectorAll('.kds-tab-btn').forEach(btn => {
@@ -5499,7 +5670,106 @@ const DEFAULT_CATALOG = [
     // Modals: Access Receipt
     bindEvent('btnCloseAccessReceipt', 'click', closeAccessReceiptModal);
     bindEvent('btnDismissAccessReceipt', 'click', closeAccessReceiptModal);
-    bindEvent('btnPrintAccessReceipt', 'click', () => window.print());
+    bindEvent('btnPrintAccessReceipt', 'click', () => {
+      if (STATE.lastAccessRecord) {
+        const rec = STATE.lastAccessRecord;
+        const entryType = rec.entryType || rec.ticketTypeId || 'General';
+        const persons = rec.persons || rec.packages || 1;
+        const entryCost = rec.entryCost !== undefined ? rec.entryCost : (rec.doorEntryCharge || 0);
+        const wardrobeCost = rec.wardrobeCost !== undefined ? rec.wardrobeCost : (rec.wardrobeAmount || 0);
+        const totalPaid = rec.paid !== undefined ? rec.paid : (rec.doorCollected !== undefined ? rec.doorCollected : (rec.totalAmount || 0));
+        const items = [
+          { qty: persons, name: `Entrada: ${entryType}`, price: Number(entryCost) / Math.max(1, Number(persons)) }
+        ];
+        if (rec.wardrobeQty > 0) {
+          items.push({
+            qty: rec.wardrobeQty,
+            name: `Guardarropa (${rec.ticketGuardarropa || 'Prendas'})`,
+            price: Number(wardrobeCost) / Math.max(1, Number(rec.wardrobeQty))
+          });
+        }
+        const accessReceiptData = {
+          receipt: rec.id || rec.externalTicketId || 'ACCESO',
+          ticket: rec.ticketGuardarropa || rec.activity || 'DOMUS',
+          customer: rec.customer || 'General',
+          date: rec.date || new Date().toLocaleString('es-MX'),
+          operator: (STATE.staffList && STATE.staffList.find(s => s.id === STATE.operator))?.name || STATE.operator || 'Taquilla DOMUS',
+          items: items,
+          total: totalPaid,
+          method: rec.method || rec.paymentMethod || 'Efectivo',
+          received: null,
+          tip: 0,
+          change: null
+        };
+        printReceiptDirect(accessReceiptData, true).catch(() => {});
+      } else {
+        window.print();
+      }
+    });
+
+    // Printer Pill click & Config buttons
+    bindEvent('printerPill', 'click', () => {
+      checkPrinterStatus((ok, data) => {
+        if (ok) {
+          toast(`🖨️ Impresora lista: ${data.printer || 'DOMUS_TICKETS'}`, 'ok');
+        } else {
+          toast('🖨️ Print Bridge desconectado (127.0.0.1:17321). Revisa que el servicio esté activo.', 'warn');
+        }
+      });
+    });
+
+    bindEvent('btnCheckPrinterStatus', 'click', () => {
+      const msg = $('printerStatusMsg');
+      if (msg) {
+        msg.textContent = 'Consultando estado de impresora...';
+        msg.style.color = 'var(--text-muted)';
+      }
+      checkPrinterStatus((ok, data) => {
+        if (msg) {
+          msg.textContent = ok
+            ? `✓ Impresora conectada (${data.printer || 'DOMUS_TICKETS'}). Estado: ${data.status || 'READY'}`
+            : '⚠️ Error: No se pudo contactar con DOMUS Print Bridge en 127.0.0.1:17321';
+          msg.style.color = ok ? 'var(--emerald-500)' : 'var(--rose-500)';
+        }
+      });
+    });
+
+    bindEvent('btnTestPrinter', 'click', () => {
+      const msg = $('printerStatusMsg');
+      if (msg) {
+        msg.textContent = 'Enviando ticket de prueba a DOMUS_TICKETS...';
+        msg.style.color = 'var(--amber-400)';
+      }
+      fetch(`${PRINT_BRIDGE_URL}/test-print`, {
+        method: 'GET',
+        headers: { 'X-Domus-Print-Token': getPrintToken() }
+      })
+      .then(r => r.json().then(b => ({ ok: r.ok, body: b })))
+      .then(res => {
+        if (res.ok && res.body.ok) {
+          toast('✓ Ticket de prueba impreso', 'ok');
+          if (msg) {
+            msg.textContent = '✓ Ticket de prueba impreso correctamente en DOMUS_TICKETS.';
+            msg.style.color = 'var(--emerald-500)';
+          }
+          updatePrinterPill('ready');
+        } else {
+          const err = (res.body && res.body.error) || 'Error al imprimir prueba';
+          toast(`⚠ Error: ${err}`, 'error');
+          if (msg) {
+            msg.textContent = `⚠️ Error: ${err}`;
+            msg.style.color = 'var(--rose-500)';
+          }
+        }
+      })
+      .catch(e => {
+        toast('⚠ Error al conectar con Print Bridge', 'error');
+        if (msg) {
+          msg.textContent = '⚠️ Fallo de conexión con 127.0.0.1:17321';
+          msg.style.color = 'var(--rose-500)';
+        }
+      });
+    });
 
     // Modals: Edit Access Record
     bindEvent('btnCloseEditAccessModal', 'click', closeEditAccessModal);
@@ -5681,6 +5951,12 @@ const DEFAULT_CATALOG = [
     } catch (e) {
       console.error('[DOMUS BOOT] Error en initRouting:', e);
     }
+    try {
+      checkPrinterStatus();
+      setInterval(checkPrinterStatus, 30000);
+    } catch (e) {
+      console.warn('[DOMUS BOOT] Error iniciando monitor de DOMUS Print Bridge:', e);
+    }
   });
 
   // Arqueo de Caja / Cierre: Efectivo esperado = $600 + cobros reales efectivo - retiros - devoluciones - gastos autorizados
@@ -5711,7 +5987,9 @@ const DEFAULT_CATALOG = [
     deleteAccessRecord: deleteAccessRecord,
     openNewProductModal: openNewProductModal,
     closeNewProductModal: closeNewProductModal,
-    saveNewProduct: saveNewProduct
+    saveNewProduct: saveNewProduct,
+    printReceiptDirect: printReceiptDirect,
+    checkPrinterStatus: checkPrinterStatus
   };
 
 })();

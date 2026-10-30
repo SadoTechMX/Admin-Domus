@@ -300,5 +300,42 @@
    - Rotar el PIN de pantalla expuesto en chat.
    - Desarrollar módulo formal de Apertura / Turnos / Cortes X y Z en la rama de aislamiento `feature/phase-1-shifts-cuts`.
 
+---
+
+### 🖨️ DOMUS Print Bridge: Impresión Térmica Directa Sin QZ Tray (29-Oct-2026 · UI 20261029-06)
+* **Estado de Taxonomía Canónica:**
+  - Servicio Local (`services/print-bridge/`): `IMPLEMENTED` & `LOCAL_TESTED` (Activo vía LaunchAgent `net.domus.printbridge` en esta iMac)
+  - Suite de Pruebas (`tests/test_print_bridge.py`): `PASS (8/8)`
+  - Frontend (`index.html`, `js/app.js`, `google-apps-script/Index.html`): `IMPLEMENTED` (UI `20261029-06`)
+  - Impresora Física (`DOMUS_TICKETS`): `PHYSICALLY_VERIFIED` (Tickets reales de 80mm impresos con corte automático ESC/POS y caracteres CP850)
+* **Arquitectura:**
+  ```text
+  DOMUS OS (Navegador) 
+    → POST http://127.0.0.1:17321/print 
+    → DOMUS Print Bridge (Python 3 Daemon, 127.0.0.1:17321)
+    → CUPS RAW: /usr/bin/lp -d DOMUS_TICKETS -o raw
+    → Epos Now USB Receipt Printer
+    → Ticket 80mm + Corte Automático (\x1dV\x00)
+  ```
+* **Características Clave y Especificaciones de Seguridad:**
+  1. **Aislamiento de Red:** Escucha exclusivamente en `127.0.0.1:17321` (bloqueo total a `0.0.0.0`).
+  2. **Chrome Private Network Access (PNA):** Cumple con el estándar W3C PNA (`Access-Control-Allow-Private-Network: true` en OPTIONS y respuestas) para permitir peticiones desde orígenes HTTPS públicos (`https://sadotechmx.github.io`).
+  3. **Seguridad y Token Secreto:** Token local generado automáticamente en `~/.domus/print_bridge_token.txt` (`domus_prn_...`). Validación constante vía encabezado `X-Domus-Print-Token`.
+  4. **Idempotencia de Impresión:** Historial local persistente en `~/.domus/print_history.json`. Peticiones duplicadas con el mismo `printId` devuelven `{"ok": true, "alreadyPrinted": true}` sin activar la impresora física.
+  5. **Reimpresión Explícita:** Se requiere flag explícita `reprint: true` para emitir duplicados autorizados con la leyenda `*** COPIA / REIMPRESIÓN AUTORIZADA ***`.
+  6. **Formato ESC/POS 80mm:** Layout limpio a 42 columnas, encabezado DOMUS, desglose de ítems, totales, forma de pago, acentos y eñes codificados en Code Page CP850 (`\x1bt\x02`), avance y corte automático.
+  7. **macOS LaunchAgent (`net.domus.printbridge`):** Arranca automáticamente al iniciar sesión en macOS sin interacción del usuario. Copia aislada en `~/.domus/server.py` para evitar restricciones TCC de macOS sobre la carpeta `~/Documents`.
+  8. **Política de Falla Cero en Transacciones:** Los errores de impresora o caídas del puente local NUNCA revierten un cobro ni bloquean la Caja. El sistema notifica: `"⚠ Cobro confirmado. Ticket pendiente de impresión."` y mantiene el botón para reimpresión manual posterior.
+  9. **Indicador Visual en Caja:** Píldora interactiva en el encabezado:
+     - 🟢 Impresora conectada (`DOMUS_TICKETS`)
+     - 🟠 Impresora ocupada / imprimiendo
+     - 🔴 Impresora desconectada / apagada
+  10. **Comprobantes Soportados:** Recibos de Caja (POS) y Boletos / Comprobantes de Taquilla y Guardarropa (Modo Accesos).
+* **Endpoints:**
+  - `GET /health`: Consulta de estado y conectividad del servicio.
+  - `GET /printers/status`: Inspección del estado de la cola CUPS de `DOMUS_TICKETS`.
+  - `GET /test-print`: Impresión de ticket diagnóstico de alineación y caracteres.
+  - `POST /print`: Procesamiento e impresión de tickets transaccionales.
+
 
 
