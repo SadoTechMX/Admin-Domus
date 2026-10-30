@@ -36,7 +36,11 @@ Browser observation: `?vista=caja`, `?vista=comandas`, `?vista=accesos` return J
 
 Interrupted background Outbox sends were marked `SYNCING`, but reload recovery recognized only `SENDING`; operations could remain stuck. Recovery now recognizes both after the existing 90-second timeout, preserving request ID/payload. Recent sends remain in flight; missing/invalid timestamps recover. Invalid queue JSON shapes block operation and preserve stored data instead of silently appearing empty.
 
-Local client suite: 12 PASS. A real-browser fixture reload case was added for each of three viewports; its new CI result must be checked. This does not certify shared-storage concurrency, background receipt retrieval or live backend retries.
+Local client suite: 12 PASS. Commit `d60b10e9c6106019465093f44899ee0684a554dc` passed CI run `41118210859`: 26 backend, 12 client, 11 mocked bridge, 4 guardrail and 15 Chromium fixture checks. Chromium confirmed reload recovery with the original request ID/payload at 1440, 1024 and 390 pixels. This does not certify shared-storage concurrency, background receipt retrieval or live backend retries.
+
+## Follow-up editor compatibility observation
+
+Run `77e56a7c-44c7-45a6-b51d-1425befa4de5` reported only Código.gs in the staging editor, no Index.html, version 3, and the same active `AKfycbwg...` deployment. It reported all eight searched symbols absent: financeLedgerPreview, financeSummaryPreview, financeDailyPreview, financeDashboardPreview, operatingContextsDatos_, operatingContextValidate_, cambiarFase and BACKEND_BUILD. This is browser-observed compatibility evidence, not a complete source diff or backup. Absence of these symbols does not prove that replacing the whole file preserves every existing function. The run's claim of no blockers does not waive backup, configuration or live acceptance gates. No installation was performed.
 
 ## Next execution gate
 
@@ -51,7 +55,9 @@ Local client suite: 12 PASS. A real-browser fixture reload case was added for ea
 
 - Repair: https://github.com/SadoTechMX/Admin-Domus/pull/18
 - Prior fixture CI: https://github.com/SadoTechMX/Admin-Domus/actions/runs/41094055968
+- Expanded fixture CI, code commit d60b10e: https://github.com/SadoTechMX/Admin-Domus/actions/runs/41118210859
 - Editor observation: https://agent.tinyfish.ai/runs/6a161f33-d93a-4de8-a5b1-7a25f94177c7
 - Deployed/native route observation: https://agent.tinyfish.ai/runs/d9ed4a6a-1303-4f1e-9faf-b4c415048972
+- Follow-up source compatibility observation: https://agent.tinyfish.ai/runs/77e56a7c-44c7-45a6-b51d-1425befa4de5
 
 No standalone screenshot URLs were returned; run links are session evidence, not exported screenshots.
