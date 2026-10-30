@@ -103,12 +103,16 @@ function executeDomusAction_(action, payload, params) {
     case 'comandasSimpleDatos':
       result = comandasSimpleDatos(sessionToken || args[0]);
       break;
-    case 'comandasSimpleAccion':
-      result = idempotentExecute_(requestId, action, args, deviceId, () => comandasSimpleAccion(sessionToken, args[0] || args[1]));
+    case 'comandasSimpleAccion': {
+      const kdsBody = (args[0] && typeof args[0] === 'object') ? args[0] : args[1];
+      result = idempotentExecute_(requestId, action, kdsBody, deviceId, () => comandasSimpleAccion(sessionToken, kdsBody));
       break;
-    case 'comandasSimpleResolver':
-      result = idempotentExecute_(requestId, action, args, deviceId, () => comandasSimpleResolver(sessionToken, args[0] || args[1]));
+    }
+    case 'comandasSimpleResolver': {
+      const kdsBody = (args[0] && typeof args[0] === 'object') ? args[0] : args[1];
+      result = idempotentExecute_(requestId, action, kdsBody, deviceId, () => comandasSimpleResolver(sessionToken, kdsBody));
       break;
+    }
     case 'comandasSimpleEntrar':
       result = comandasSimpleEntrar(args[0]);
       break;

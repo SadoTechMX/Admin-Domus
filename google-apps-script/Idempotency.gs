@@ -18,26 +18,33 @@ const REQUEST_STATUS = Object.freeze({
   REQUIRES_REVIEW: 'REQUIRES_REVIEW'
 });
 
+let _scriptLockDepth = 0;
+
 /**
  * Ejecuta una función dentro de una sección crítica protegida con LockService
  * Garantiza que dos peticiones simultáneas no colisionen ni corrompan el libro
+ * Maneja re-entrancia segura: sólo el nivel superior adquiere y libera el script lock físico,
+ * evitando que llamadas anidadas (ej. idempotentExecute_ -> cajaSimpleRegistrar) liberen el lock prematuramente.
  */
 function withLock_(timeoutMs, fn) {
   const timeout = typeof timeoutMs === 'number' ? timeoutMs : (CONFIG.lockTimeoutMs || 30000);
   const lock = LockService.getScriptLock();
   
-  let acquired = false;
-  try {
-    lock.waitLock(timeout);
-    acquired = true;
-    return fn();
-  } catch (err) {
-    if (!acquired) {
+  const isTopLevel = (_scriptLockDepth === 0);
+  if (isTopLevel) {
+    try {
+      lock.waitLock(timeout);
+    } catch (err) {
       throw new Error('El sistema se encuentra procesando otra transacción concurrente. Por favor reintenta en un momento.');
     }
-    throw err;
+  }
+  _scriptLockDepth++;
+
+  try {
+    return fn();
   } finally {
-    if (acquired) {
+    _scriptLockDepth--;
+    if (isTopLevel && _scriptLockDepth === 0) {
       try {
         lock.releaseLock();
       } catch (e) {

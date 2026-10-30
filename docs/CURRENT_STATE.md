@@ -247,30 +247,42 @@
   - Comanda `C2-43` (Héctor Tate, `Onírica IPA · lata`): Estado `En preparación`, responsable `Taichi Mike`. Circuito KDS operacional y validado en caliente. No ejecutar más mutaciones sintéticas de diagnóstico en Producción.
 
 ### 🛡️ Hotfix P0: Unificación de Transporte Transaccional, Idempotencia KDS de Llave Única, Purga de `domus_token` y Asset Cache-Busting (29-Oct-2026 · UI 20261029-05)
-* **Estado de Taxonomía:** `IMPLEMENTED` | `LOCAL_TESTED`.
+* **Estado de Taxonomía Canónica:**
+  - Código `main`: `IMPLEMENTED` (`e93a52d`)
+  - GitHub Pages: `DEPLOYED` (sirviendo `UI 20261029-05` con `js/app.js?v=20261029-05`)
+  - Backend actual existente en Apps Script: `OPERATIVO` (Lecturas sanas, Fase Solar en curso)
+  - Backend `e93a52d` en Apps Script: `CODE_READY` | `NO_CERTIFICADO` (Pendiente ciclo completo de Staging)
+  - Apps Script UI 05: `NO_DESPLEGADO` | `BLOQUEADO` (Prohibido crear nueva versión productiva hasta certificar en Staging)
+  - Transporte nativo unificado: `SOLO_EN_CÓDIGO` (No activo en Web App de Apps Script)
+  - Botones nativos: `ESTRICTAMENTE_CONGELADOS` (No desplegar)
 * **Diagnóstico de Causa Raíz:**
   1. **Desincronización de Versiones (Split-Brain Frontend):** GitHub Pages y Google Apps Script Web App nativo ejecutaban frontends desfasados. Modificaciones en JavaScript se publicaban sin renovar el parámetro de versión de assets (`?v=`), permitiendo que navegadores ejecutaran código en caché desalineado.
   2. **Ruptura de Idempotencia en KDS (P0):** En `claimOrder`, `markOrderReady`, `deliverOrder`, `reportIncident` y `resolveRestock`, los argumentos se enviaban como `[token, body]`. Al ser `args[0]` una cadena de texto y no un objeto, `callBackend` no extraía `body.requestId` y generaba una llave `REQ-...` sintética para el POST HTTP. Ante fallos de red o respuestas lentas, `enqueueOutbox` volvía a fallar en leer `args[0]` y generaba una **tercera llave distinta**, destruyendo la garantía de idempotencia estipulada en ADR-002 y posibilitando mutaciones duplicadas o fallas de descarte.
   3. **Bifurcación de Transporte Servidor:** La ejecución externa (GitHub Pages) atravesaba `doPost -> authValidateAction -> idempotentExecute_ -> función`, mientras que Apps Script nativo llamaba directamente `google.script.run[fnName]`, omitiendo RBAC, candados de idempotencia y bitácora de auditoría en la hoja `REQUESTS`.
-  4. **Coexistencia de Esquemas de Sesión Legacy y Nuevos:** Persistían 6 llamadas activas a `sessionStorage.getItem('domus_token')` conviviendo con el esquema `getSessionToken(role)`.
+  4. **Coexistencia de Esquemas de Sesión Legacy y Nuevos:** Persistían llamadas activas a `sessionStorage.getItem('domus_token')` conviviendo con el esquema `getSessionToken(role)`.
+  5. **Sesión Nativa Inexistente en Arranque (P0-1):** En estaciones Apps Script nativas sin token previo, `callBackend()` despachaba de inmediato a `dispatchNativeAction()` sin invocar `ensureSessionToken()`, provocando `Acceso denegado` incluso para lecturas iniciales (`cajaSimpleDatos`, `comandasSimpleDatos`, `accesoSimpleDatos`).
+  6. **Falso Soporte Dual en Dispatcher (P0-2):** `executeDomusAction_()` utilizaba `args[0] || args[1]`, provocando que en llamadas legacy `[token, body]` ganara el string `args[0]`, enviando el token como payload y fallando en la validación.
+  7. **Lock Ownership y Liberación Prematura de ScriptLock (P0-4):** Al anidar `idempotentExecute_ -> withLock_` con funciones operativas que también invocaban `withLock_`, el bloque `finally` de la función interna liberaba el `ScriptLock` físico inmediatamente, dejando la escritura de `REQUESTS` desprotegida contra carreras.
 * **Solución Canónica Implementada:**
   1. **Bump UI 20261029-05 y Cache-Busting de Assets:**
-     - Actualización estricta de `DOMUS_BUILD.ui = '20261029-05'`.
-     - Actualización de footer visual en `index.html` y `Index.html`: `DOMUS OS · UI 20261029-05 · PRODUCTION`.
-     - Renovación obligatoria de script tag en `index.html`: `<script src="js/app.js?v=20261029-05"></script>`.
+     - `DOMUS_BUILD.ui = '20261029-05'`, `DOMUS_BUILD.commit = 'e6c0a92'`.
+     - Footer visual unificado: `DOMUS OS · UI 20261029-05 · PRODUCTION`.
+     - Renovación de tag de asset en `index.html`: `<script src="js/app.js?v=20261029-05"></script>`.
   2. **Garantía de Llave Única de Idempotencia End-to-End:**
-     - Se genera `reqId` una única vez al pulsar el botón de acción en KDS y se asocia de forma inmutable a `body.requestId`.
-     - `callBackend` inspecciona tanto `args[0]` como `args[1]` para localizar el identificador original y propagarlo sin mutar.
-     - `enqueueOutbox(action, args, explicitRequestId, type)` recibe el `reqId` explícito de la llamada original, impidiendo terminantemente la fabricación de llaves secundarias en el Outbox.
-  3. **Unificación de Handlers y Payloads KDS:**
-     - `claimOrder`, `markOrderReady`, `deliverOrder`, `reportIncident` y `resolveRestock` ahora llaman unívocamente `callBackend('comandasSimpleAccion', [body])` y `callBackend('comandasSimpleResolver', [body])`.
-     - `comandasSimpleDatos` se invoca con `[]` en lugar del token legado.
-  4. **Purga Total de `domus_token`:** Erradicadas el 100% de las referencias residuales en toda la base de código.
-  5. **Dispatcher Canónico Unificado (`dispatchNativeAction`):**
-     - Se extrajo el pipeline común `executeDomusAction_(action, payload, params)` en `Api.gs` y `DOMUS_PRODUCTION_BUNDLE.gs`.
-     - Se creó `dispatchNativeAction(payload)` en el servidor y se conectó en `callBackend` para que `google.script.run` atraviese exactamente el mismo pipeline de validación RBAC, candado de idempotencia `idempotentExecute_` y bitácora oficial en `REQUESTS`.
-  6. **Compatibilidad Híbrida en Backend:**
-     - `comandasSimpleAccion(tokenOrBody, maybeBody)` y `comandasSimpleResolver(tokenOrBody, maybeBody)` procesan con resiliencia llamadas tanto en formato unificado `[body]` como legacy `[token, body]`.
+     - Generación única de `requestId` antes del despacho (`body.requestId`).
+     - `callBackend` inspecciona `args[0]` y `args[1]` para propagar la llave intacta.
+     - `enqueueOutbox(action, args, explicitRequestId, type)` recibe el `reqId` explícito, bloqueando la creación de llaves secundarias.
+  3. **Resolución de Sesión Nativa (P0-1):**
+     - `callBackend()` verifica si la acción requiere sesión (`isMutation || ['cajaSimpleDatos', 'comandasSimpleDatos', 'accesoSimpleDatos'].includes(fnName)`) y, si falta el token, ejecuta `ensureSessionToken()` antes de `dispatchNativeAction`.
+     - `ensureSessionToken()` incorpora canalización nativa vía `google.script.run.dispatchNativeAction({ action: 'authCrearSesion', ... })`.
+  4. **Normalización Canónica de Payload KDS Dual (P0-2):**
+     - En `executeDomusAction_()`, `kdsBody` se extrae de forma determinista: `const kdsBody = (args[0] && typeof args[0] === 'object') ? args[0] : args[1];`.
+     - `idempotentExecute_` recibe exclusivamente `kdsBody` como payload a hashear, garantizando un hash de idempotencia idéntico sin importar el transporte.
+  5. **Lock Ownership y Re-entrancia Segura (P0-4):**
+     - Se implementó un contador de profundidad `_scriptLockDepth` en `withLock_` (`Idempotency.gs` y `DOMUS_PRODUCTION_BUNDLE.gs`).
+     - Sólo la invocación de nivel superior adquiere y libera el `LockService.getScriptLock()` físico, evitando liberaciones prematuras durante ejecuciones anidadas.
+  6. **Purga Total de `domus_token`:** Erradicadas el 100% de las referencias residuales en toda la base de código.
+  7. **Dispatcher Canónico Unificado (`dispatchNativeAction`):** Enrutamiento centralizado común mediante `executeDomusAction_` que garantiza paridad total de seguridad RBAC e Idempotencia.
 * **Validación:**
   - Suite de guardrails de seguridad y producción: `PASS (4/4)`.
   - Suite de guardrails de KDS e inventario: `PASS (11/11)`.

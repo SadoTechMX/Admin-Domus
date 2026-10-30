@@ -3479,7 +3479,7 @@ html, body {
 
   // Metadatos canónicos del build de frontend
   window.DOMUS_BUILD = {
-    commit: '171aa04',
+    commit: 'e93a52d',
     ui: '20261029-05',
     environment: isProductionLocked ? 'PRODUCTION' : 'STAGING'
   };
@@ -5808,6 +5808,41 @@ const DEFAULT_CATALOG = [
 
     const role = currentRole;
     const devId = getDeviceId();
+
+    // En entorno nativo Apps Script, obtener token vía dispatchNativeAction
+    if (STATE.isNativeGas && window.google && google.script && google.script.run) {
+      google.script.run
+        .withSuccessHandler(res => {
+          isEnsuringSession = false;
+          const data = (res && res.data) ? res.data : res;
+          if (data && data.token) {
+            setSessionToken(data.token, role);
+            console.log('[DOMUS AUTO-AUTH] Sesión nativa creada exitosamente:', role, data.token);
+            const cbs = [...pendingSessionCallbacks];
+            pendingSessionCallbacks.length = 0;
+            cbs.forEach(cb => cb());
+          } else {
+            console.warn('[DOMUS AUTO-AUTH] El backend nativo no devolvió un token de sesión válido:', res);
+            pendingSessionCallbacks.length = 0;
+            updateSyncPill('error');
+            toast('No fue posible autenticar esta estación con el servidor nativo.', 'error');
+          }
+        })
+        .withFailureHandler(err => {
+          isEnsuringSession = false;
+          console.warn('[DOMUS AUTO-AUTH] Error al crear sesión nativa:', err);
+          pendingSessionCallbacks.length = 0;
+          updateSyncPill('error');
+          toast('No fue posible autenticar esta estación nativa.', 'error');
+        }).dispatchNativeAction({
+          action: 'authCrearSesion',
+          args: [role, 'Operador ' + role, devId],
+          role: role,
+          deviceId: devId
+        });
+      return;
+    }
+
     const endpoint = `${STATE.apiUrl}?action=authCrearSesion`;
 
     fetch(endpoint, {
@@ -6265,6 +6300,14 @@ const DEFAULT_CATALOG = [
     // 1. Modo nativo dentro de Google Apps Script Web App (Transaccional unificado vía dispatchNativeAction)
     if (STATE.isNativeGas && window.google && google.script && google.script.run) {
       const stationRole = getStationRole();
+      const requiresSession = isMutation || ['cajaSimpleDatos', 'comandasSimpleDatos', 'accesoSimpleDatos'].includes(fnName);
+      if (requiresSession && !getSessionToken(stationRole)) {
+        ensureSessionToken(() => {
+          callBackend(fnName, args, onSuccess, onError);
+        }, stationRole);
+        return;
+      }
+
       const nativePayload = {
         action: fnName,
         args: args,
