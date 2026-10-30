@@ -1,0 +1,5985 @@
+{
+  "schema": "DOMUS_STATIC_CONTROLS_V1",
+  "sourceHashes": {
+    "index.html": "5c01f3b85d513a363a32135787e79285eae5abee7f73945b13dd8b09ad000376",
+    "google-apps-script/Index.html": "8f06c1dbd2dcb9f0c73f9a6551f7e8910c4caade99484f8ebdadecff4a1b633b"
+  },
+  "scope": "Candidate source, not deployed UI; Pages and Native are two representations, not two independent features.",
+  "counts": {
+    "index.html": 146,
+    "google-apps-script/Index.html": 146
+  },
+  "dynamicFamilyCount": 12,
+  "views": {
+    "index.html": [
+      {
+        "tag": "button",
+        "id": "btnModeCaja",
+        "type": "button",
+        "name": "",
+        "label": "Abrir Punto de Venta y Cobro 💰 Modo Caja",
+        "sourceLine": 41,
+        "containers": [],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-001",
+        "source": "index.html",
+        "locatorCandidate": "#btnModeCaja",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "btnModeComandas",
+        "type": "button",
+        "name": "",
+        "label": "Abrir Pantalla de Comandas y Barra 📋 Modo Comandas 0",
+        "sourceLine": 45,
+        "containers": [],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-002",
+        "source": "index.html",
+        "locatorCandidate": "#btnModeComandas",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "btnModeAccesos",
+        "type": "button",
+        "name": "",
+        "label": "Abrir Control de Accesos, Taquilla y Eventos 🎟️ Modo Accesos 0",
+        "sourceLine": 50,
+        "containers": [],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-003",
+        "source": "index.html",
+        "locatorCandidate": "#btnModeAccesos",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "select",
+        "id": "staffSelect",
+        "type": "",
+        "name": "",
+        "label": "Seleccionar operador responsable 👤 Operador…",
+        "sourceLine": 73,
+        "containers": [],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-004",
+        "source": "index.html",
+        "locatorCandidate": "#staffSelect",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "btnPhaseToggle",
+        "type": "button",
+        "name": "",
+        "label": "Cambiar carta entre Solar y Lunar 🌙 Fase",
+        "sourceLine": 79,
+        "containers": [],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-005",
+        "source": "index.html",
+        "locatorCandidate": "#btnPhaseToggle",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "btnToggleSound",
+        "type": "button",
+        "name": "",
+        "label": "Activar/Desactivar sonido de comandas 🔕 Sonido: Off",
+        "sourceLine": 84,
+        "containers": [],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-006",
+        "source": "index.html",
+        "locatorCandidate": "#btnToggleSound",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "btnSyncNow",
+        "type": "button",
+        "name": "",
+        "label": "Actualizar datos ahora 🔄",
+        "sourceLine": 89,
+        "containers": [],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-007",
+        "source": "index.html",
+        "locatorCandidate": "#btnSyncNow",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "btnOpenSettings",
+        "type": "button",
+        "name": "",
+        "label": "Configuración y Enlace con Google Apps Script ⚙️",
+        "sourceLine": 94,
+        "containers": [],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-008",
+        "source": "index.html",
+        "locatorCandidate": "#btnOpenSettings",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "btnLockCaja",
+        "type": "button",
+        "name": "",
+        "label": "Bloquear acceso a Caja en este equipo 🔒 Bloquear Caja",
+        "sourceLine": 100,
+        "containers": [],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-009",
+        "source": "index.html",
+        "locatorCandidate": "#btnLockCaja",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "btnOutboxRetry",
+        "type": "button",
+        "name": "",
+        "label": "🔄 Reintentar Sincronización",
+        "sourceLine": 113,
+        "containers": [
+          "outboxBanner"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-010",
+        "source": "index.html",
+        "locatorCandidate": "#btnOutboxRetry",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "btnOutboxClear",
+        "type": "button",
+        "name": "",
+        "label": "✕ Limpiar Cola",
+        "sourceLine": 114,
+        "containers": [
+          "outboxBanner"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-011",
+        "source": "index.html",
+        "locatorCandidate": "#btnOutboxClear",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "input",
+        "id": "catalogSearchInput",
+        "type": "text",
+        "name": "",
+        "label": "Buscar producto, menú cannábico, alitas, hamburguesa, cerveza…",
+        "sourceLine": 133,
+        "containers": [
+          "viewCaja"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-012",
+        "source": "index.html",
+        "locatorCandidate": "#catalogSearchInput",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "btnOpenNewProductModal",
+        "type": "button",
+        "name": "",
+        "label": "Registrar un nuevo producto en el catálogo e inventario ➕ Alta de Producto",
+        "sourceLine": 135,
+        "containers": [
+          "viewCaja"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-013",
+        "source": "index.html",
+        "locatorCandidate": "#btnOpenNewProductModal",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "btnClearCart",
+        "type": "button",
+        "name": "",
+        "label": "Vaciar pedido Vaciar",
+        "sourceLine": 158,
+        "containers": [
+          "viewCaja"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-014",
+        "source": "index.html",
+        "locatorCandidate": "#btnClearCart",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "select",
+        "id": "openAccountsSelect",
+        "type": "",
+        "name": "",
+        "label": "+ Nueva Cuenta / Folio",
+        "sourceLine": 168,
+        "containers": [
+          "viewCaja"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-015",
+        "source": "index.html",
+        "locatorCandidate": "#openAccountsSelect",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "input",
+        "id": "customerNameInput",
+        "type": "text",
+        "name": "",
+        "label": "Ej. Fernando L. / Mesa 4",
+        "sourceLine": 176,
+        "containers": [
+          "viewCaja"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-016",
+        "source": "index.html",
+        "locatorCandidate": "#customerNameInput",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "select",
+        "id": "activitySelect",
+        "type": "",
+        "name": "",
+        "label": "Visita general DOMUS",
+        "sourceLine": 181,
+        "containers": [
+          "viewCaja"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-017",
+        "source": "index.html",
+        "locatorCandidate": "#activitySelect",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "btnOpenPaymentModal",
+        "type": "button",
+        "name": "",
+        "label": "💳 Cobrar y Enviar a Comanda",
+        "sourceLine": 203,
+        "containers": [
+          "viewCaja"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-018",
+        "source": "index.html",
+        "locatorCandidate": "#btnOpenPaymentModal",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "",
+        "type": "button",
+        "name": "",
+        "label": "Todas Activas",
+        "sourceLine": 243,
+        "containers": [
+          "viewComandas",
+          "kdsTabs"
+        ],
+        "dataAttributes": {
+          "data-tab": "Todas"
+        },
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-019",
+        "source": "index.html",
+        "locatorCandidate": null,
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "",
+        "type": "button",
+        "name": "",
+        "label": "Pendientes",
+        "sourceLine": 244,
+        "containers": [
+          "viewComandas",
+          "kdsTabs"
+        ],
+        "dataAttributes": {
+          "data-tab": "Pendiente"
+        },
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-020",
+        "source": "index.html",
+        "locatorCandidate": null,
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "",
+        "type": "button",
+        "name": "",
+        "label": "En preparación",
+        "sourceLine": 245,
+        "containers": [
+          "viewComandas",
+          "kdsTabs"
+        ],
+        "dataAttributes": {
+          "data-tab": "En preparación"
+        },
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-021",
+        "source": "index.html",
+        "locatorCandidate": null,
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "",
+        "type": "button",
+        "name": "",
+        "label": "Listas",
+        "sourceLine": 246,
+        "containers": [
+          "viewComandas",
+          "kdsTabs"
+        ],
+        "dataAttributes": {
+          "data-tab": "Lista"
+        },
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-022",
+        "source": "index.html",
+        "locatorCandidate": null,
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "",
+        "type": "button",
+        "name": "",
+        "label": "Historial Entregadas",
+        "sourceLine": 247,
+        "containers": [
+          "viewComandas",
+          "kdsTabs"
+        ],
+        "dataAttributes": {
+          "data-tab": "Entregadas"
+        },
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-023",
+        "source": "index.html",
+        "locatorCandidate": null,
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "",
+        "type": "button",
+        "name": "",
+        "label": "Resurtido",
+        "sourceLine": 248,
+        "containers": [
+          "viewComandas",
+          "kdsTabs"
+        ],
+        "dataAttributes": {
+          "data-tab": "Resurtido"
+        },
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-024",
+        "source": "index.html",
+        "locatorCandidate": null,
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "select",
+        "id": "kdsDestFilter",
+        "type": "",
+        "name": "",
+        "label": "Filtrar por estación Todas las estaciones Solo Barra Solo Cocina",
+        "sourceLine": 252,
+        "containers": [
+          "viewComandas"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-025",
+        "source": "index.html",
+        "locatorCandidate": "#kdsDestFilter",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "input",
+        "id": "kdsSearchInput",
+        "type": "text",
+        "name": "",
+        "label": "Buscar folio, cliente…",
+        "sourceLine": 259,
+        "containers": [
+          "viewComandas"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-026",
+        "source": "index.html",
+        "locatorCandidate": "#kdsSearchInput",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "select",
+        "id": "accessActivitySelect",
+        "type": "",
+        "name": "",
+        "label": "Selecciona el evento en curso Forza · sábado (2026-10-24) - Club nocturno Sensorama fetish y kinky (2026-10-25) - Fiesta temática Chilangoticas · Haunted (2026-10-23) - Fiesta Drag",
+        "sourceLine": 278,
+        "containers": [
+          "viewAccesos"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-027",
+        "source": "index.html",
+        "locatorCandidate": "#accessActivitySelect",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "btnOpenNewEventModal",
+        "type": "button",
+        "name": "",
+        "label": "Programar o configurar un evento con sus tarifas ➕ Nuevo Evento / Tarifas",
+        "sourceLine": 286,
+        "containers": [
+          "viewAccesos"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-028",
+        "source": "index.html",
+        "locatorCandidate": "#btnOpenNewEventModal",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "",
+        "type": "button",
+        "name": "",
+        "label": "🎟️ Taquilla DOMUS",
+        "sourceLine": 341,
+        "containers": [
+          "viewAccesos",
+          "salesChannelContainer"
+        ],
+        "dataAttributes": {
+          "data-channel": "TAQUILLA_DOMUS"
+        },
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-029",
+        "source": "index.html",
+        "locatorCandidate": null,
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "",
+        "type": "button",
+        "name": "",
+        "label": "🏷️ Preventa DOMUS",
+        "sourceLine": 345,
+        "containers": [
+          "viewAccesos",
+          "salesChannelContainer"
+        ],
+        "dataAttributes": {
+          "data-channel": "PREVENTA_DOMUS"
+        },
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-030",
+        "source": "index.html",
+        "locatorCandidate": null,
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "",
+        "type": "button",
+        "name": "",
+        "label": "🌐 Boletera Externa",
+        "sourceLine": 349,
+        "containers": [
+          "viewAccesos",
+          "salesChannelContainer"
+        ],
+        "dataAttributes": {
+          "data-channel": "BOLETERA_EXTERNA"
+        },
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-031",
+        "source": "index.html",
+        "locatorCandidate": null,
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "",
+        "type": "button",
+        "name": "",
+        "label": "📱 Transferencia Previa",
+        "sourceLine": 353,
+        "containers": [
+          "viewAccesos",
+          "salesChannelContainer"
+        ],
+        "dataAttributes": {
+          "data-channel": "TRANSFERENCIA_DIRECTA"
+        },
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-032",
+        "source": "index.html",
+        "locatorCandidate": null,
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "",
+        "type": "button",
+        "name": "",
+        "label": "📋 Lista / Invitados",
+        "sourceLine": 357,
+        "containers": [
+          "viewAccesos",
+          "salesChannelContainer"
+        ],
+        "dataAttributes": {
+          "data-channel": "LISTA"
+        },
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-033",
+        "source": "index.html",
+        "locatorCandidate": null,
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "",
+        "type": "button",
+        "name": "",
+        "label": "⭐ Cortesía ($0)",
+        "sourceLine": 361,
+        "containers": [
+          "viewAccesos",
+          "salesChannelContainer"
+        ],
+        "dataAttributes": {
+          "data-channel": "CORTESIA"
+        },
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-034",
+        "source": "index.html",
+        "locatorCandidate": null,
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "input",
+        "id": "accessCustomerName",
+        "type": "text",
+        "name": "",
+        "label": "Ej. Alex / Nombre del invitado",
+        "sourceLine": 393,
+        "containers": [
+          "viewAccesos"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-035",
+        "source": "index.html",
+        "locatorCandidate": "#accessCustomerName",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "input",
+        "id": "accessCustomerPhone",
+        "type": "tel",
+        "name": "",
+        "label": "10 dígitos (opcional)",
+        "sourceLine": 399,
+        "containers": [
+          "viewAccesos"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-036",
+        "source": "index.html",
+        "locatorCandidate": "#accessCustomerPhone",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "input",
+        "id": "accessCustomerEmail",
+        "type": "email",
+        "name": "",
+        "label": "correo@ejemplo.com (opcional)",
+        "sourceLine": 403,
+        "containers": [
+          "viewAccesos"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-037",
+        "source": "index.html",
+        "locatorCandidate": "#accessCustomerEmail",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "select",
+        "id": "accessTicketProvider",
+        "type": "",
+        "name": "",
+        "label": "Boletia Passline Eventbrite Ticketmaster Otra Boletera Aliada",
+        "sourceLine": 413,
+        "containers": [
+          "viewAccesos",
+          "panelBoleteraDetail"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-038",
+        "source": "index.html",
+        "locatorCandidate": "#accessTicketProvider",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "input",
+        "id": "accessExternalTicketId",
+        "type": "text",
+        "name": "",
+        "label": "Ej. BOL-99482 / QR (Opcional)",
+        "sourceLine": 423,
+        "containers": [
+          "viewAccesos",
+          "panelBoleteraDetail"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-039",
+        "source": "index.html",
+        "locatorCandidate": "#accessExternalTicketId",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "input",
+        "id": "accessTransferRef",
+        "type": "text",
+        "name": "",
+        "label": "Ej. BBVA-884920",
+        "sourceLine": 434,
+        "containers": [
+          "viewAccesos",
+          "panelTransferDetail"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-040",
+        "source": "index.html",
+        "locatorCandidate": "#accessTransferRef",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "select",
+        "id": "accessTransferStatus",
+        "type": "",
+        "name": "",
+        "label": "✓ Verificada en Banco (Boleto Válido) ⏳ Pendiente de Verificación ❌ Rechazada",
+        "sourceLine": 438,
+        "containers": [
+          "viewAccesos",
+          "panelTransferDetail"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-041",
+        "source": "index.html",
+        "locatorCandidate": "#accessTransferStatus",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "input",
+        "id": "accessCourtesyAuth",
+        "type": "text",
+        "name": "",
+        "label": "Ej. Steven / Kas / Dirección",
+        "sourceLine": 452,
+        "containers": [
+          "viewAccesos",
+          "panelCourtesyDetail"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-042",
+        "source": "index.html",
+        "locatorCandidate": "#accessCourtesyAuth",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "input",
+        "id": "accessCourtesyReason",
+        "type": "text",
+        "name": "",
+        "label": "Ej. Artista / Prensa / Aliado",
+        "sourceLine": 456,
+        "containers": [
+          "viewAccesos",
+          "panelCourtesyDetail"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-043",
+        "source": "index.html",
+        "locatorCandidate": "#accessCourtesyReason",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "input",
+        "id": "accessPresaleDomusFolio",
+        "type": "text",
+        "name": "",
+        "label": "Ej. PRE-2026-088",
+        "sourceLine": 467,
+        "containers": [
+          "viewAccesos",
+          "panelPresaleDomusDetail"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-044",
+        "source": "index.html",
+        "locatorCandidate": "#accessPresaleDomusFolio",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "",
+        "type": "button",
+        "name": "",
+        "label": "💵 Efectivo",
+        "sourceLine": 477,
+        "containers": [
+          "viewAccesos",
+          "accessPaymentSection"
+        ],
+        "dataAttributes": {
+          "data-access-method": "Efectivo"
+        },
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-045",
+        "source": "index.html",
+        "locatorCandidate": null,
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "",
+        "type": "button",
+        "name": "",
+        "label": "💳 Terminal 1",
+        "sourceLine": 481,
+        "containers": [
+          "viewAccesos",
+          "accessPaymentSection"
+        ],
+        "dataAttributes": {
+          "data-access-method": "Terminal 1"
+        },
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-046",
+        "source": "index.html",
+        "locatorCandidate": null,
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "",
+        "type": "button",
+        "name": "",
+        "label": "💳 Terminal 2",
+        "sourceLine": 485,
+        "containers": [
+          "viewAccesos",
+          "accessPaymentSection"
+        ],
+        "dataAttributes": {
+          "data-access-method": "Terminal 2"
+        },
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-047",
+        "source": "index.html",
+        "locatorCandidate": null,
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "",
+        "type": "button",
+        "name": "",
+        "label": "📱 Transferencia en Vivo",
+        "sourceLine": 489,
+        "containers": [
+          "viewAccesos",
+          "accessPaymentSection"
+        ],
+        "dataAttributes": {
+          "data-access-method": "Transferencia"
+        },
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-048",
+        "source": "index.html",
+        "locatorCandidate": null,
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "input",
+        "id": "accessCashReceived",
+        "type": "number",
+        "name": "",
+        "label": "0.00",
+        "sourceLine": 501,
+        "containers": [
+          "viewAccesos",
+          "accessCashSection"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-049",
+        "source": "index.html",
+        "locatorCandidate": "#accessCashReceived",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "",
+        "type": "button",
+        "name": "",
+        "label": "0",
+        "sourceLine": 515,
+        "containers": [
+          "viewAccesos",
+          "wardrobeSelectorGroup"
+        ],
+        "dataAttributes": {
+          "data-qty": "0"
+        },
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-050",
+        "source": "index.html",
+        "locatorCandidate": null,
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "",
+        "type": "button",
+        "name": "",
+        "label": "1",
+        "sourceLine": 516,
+        "containers": [
+          "viewAccesos",
+          "wardrobeSelectorGroup"
+        ],
+        "dataAttributes": {
+          "data-qty": "1"
+        },
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-051",
+        "source": "index.html",
+        "locatorCandidate": null,
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "",
+        "type": "button",
+        "name": "",
+        "label": "2",
+        "sourceLine": 517,
+        "containers": [
+          "viewAccesos",
+          "wardrobeSelectorGroup"
+        ],
+        "dataAttributes": {
+          "data-qty": "2"
+        },
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-052",
+        "source": "index.html",
+        "locatorCandidate": null,
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "",
+        "type": "button",
+        "name": "",
+        "label": "3",
+        "sourceLine": 518,
+        "containers": [
+          "viewAccesos",
+          "wardrobeSelectorGroup"
+        ],
+        "dataAttributes": {
+          "data-qty": "3"
+        },
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-053",
+        "source": "index.html",
+        "locatorCandidate": null,
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "",
+        "type": "button",
+        "name": "",
+        "label": "4+",
+        "sourceLine": 519,
+        "containers": [
+          "viewAccesos",
+          "wardrobeSelectorGroup"
+        ],
+        "dataAttributes": {
+          "data-qty": "4"
+        },
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-054",
+        "source": "index.html",
+        "locatorCandidate": null,
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "input",
+        "id": "accessWardrobeNotes",
+        "type": "text",
+        "name": "",
+        "label": "Ej. Chamarra de cuero negra, mochila",
+        "sourceLine": 525,
+        "containers": [
+          "viewAccesos",
+          "wardrobeNotesWrapper"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-055",
+        "source": "index.html",
+        "locatorCandidate": "#accessWardrobeNotes",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "btnConfirmAccess",
+        "type": "button",
+        "name": "",
+        "label": "✓ Confirmar Acceso y Emitir Tickets",
+        "sourceLine": 548,
+        "containers": [
+          "viewAccesos"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-056",
+        "source": "index.html",
+        "locatorCandidate": "#btnConfirmAccess",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "tabBtnAccessLog",
+        "type": "button",
+        "name": "",
+        "label": "📋 Ingresos Hoy",
+        "sourceLine": 557,
+        "containers": [
+          "viewAccesos"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-057",
+        "source": "index.html",
+        "locatorCandidate": "#tabBtnAccessLog",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "tabBtnWardrobe",
+        "type": "button",
+        "name": "",
+        "label": "🧥 Guardarropa Activo 0",
+        "sourceLine": 561,
+        "containers": [
+          "viewAccesos"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-058",
+        "source": "index.html",
+        "locatorCandidate": "#tabBtnWardrobe",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "tabBtnEvents",
+        "type": "button",
+        "name": "",
+        "label": "📅 Eventos & Tarifas",
+        "sourceLine": 566,
+        "containers": [
+          "viewAccesos"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-059",
+        "source": "index.html",
+        "locatorCandidate": "#tabBtnEvents",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "input",
+        "id": "accessLogSearchInput",
+        "type": "text",
+        "name": "",
+        "label": "Buscar por asistente, teléfono, folio o tipo…",
+        "sourceLine": 577,
+        "containers": [
+          "viewAccesos",
+          "panelAccessLog"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-060",
+        "source": "index.html",
+        "locatorCandidate": "#accessLogSearchInput",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "input",
+        "id": "wardrobeSearchInput",
+        "type": "text",
+        "name": "",
+        "label": "Buscar por ticket GUA, nombre de cliente o prenda…",
+        "sourceLine": 605,
+        "containers": [
+          "viewAccesos",
+          "panelWardrobe"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-061",
+        "source": "index.html",
+        "locatorCandidate": "#wardrobeSearchInput",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "btnOpenNewEventModal2",
+        "type": "button",
+        "name": "",
+        "label": "➕ Nuevo Evento",
+        "sourceLine": 634,
+        "containers": [
+          "viewAccesos",
+          "panelEvents"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-062",
+        "source": "index.html",
+        "locatorCandidate": "#btnOpenNewEventModal2",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "btnClosePayModal",
+        "type": "button",
+        "name": "",
+        "label": "Cerrar ×",
+        "sourceLine": 673,
+        "containers": [
+          "paymentModal"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-063",
+        "source": "index.html",
+        "locatorCandidate": "#btnClosePayModal",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "",
+        "type": "button",
+        "name": "",
+        "label": "💵 Efectivo",
+        "sourceLine": 690,
+        "containers": [
+          "paymentModal"
+        ],
+        "dataAttributes": {
+          "data-method": "Efectivo"
+        },
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-064",
+        "source": "index.html",
+        "locatorCandidate": null,
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "",
+        "type": "button",
+        "name": "",
+        "label": "💳 Terminal 1",
+        "sourceLine": 693,
+        "containers": [
+          "paymentModal"
+        ],
+        "dataAttributes": {
+          "data-method": "Terminal 1"
+        },
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-065",
+        "source": "index.html",
+        "locatorCandidate": null,
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "",
+        "type": "button",
+        "name": "",
+        "label": "💳 Terminal 2",
+        "sourceLine": 696,
+        "containers": [
+          "paymentModal"
+        ],
+        "dataAttributes": {
+          "data-method": "Terminal 2"
+        },
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-066",
+        "source": "index.html",
+        "locatorCandidate": null,
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "",
+        "type": "button",
+        "name": "",
+        "label": "📱 Transferencia",
+        "sourceLine": 699,
+        "containers": [
+          "paymentModal"
+        ],
+        "dataAttributes": {
+          "data-method": "Transferencia"
+        },
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-067",
+        "source": "index.html",
+        "locatorCandidate": null,
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "input",
+        "id": "cashReceivedInput",
+        "type": "number",
+        "name": "",
+        "label": "0.00",
+        "sourceLine": 709,
+        "containers": [
+          "paymentModal",
+          "cashCalculatorSection"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-068",
+        "source": "index.html",
+        "locatorCandidate": "#cashReceivedInput",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "input",
+        "id": "cashDueInput",
+        "type": "hidden",
+        "name": "",
+        "label": "",
+        "sourceLine": 710,
+        "containers": [
+          "paymentModal",
+          "cashCalculatorSection"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-069",
+        "source": "index.html",
+        "locatorCandidate": "#cashDueInput",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "",
+        "type": "button",
+        "name": "",
+        "label": "Exacto",
+        "sourceLine": 714,
+        "containers": [
+          "paymentModal",
+          "cashCalculatorSection"
+        ],
+        "dataAttributes": {
+          "data-val": "exact"
+        },
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-070",
+        "source": "index.html",
+        "locatorCandidate": null,
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "",
+        "type": "button",
+        "name": "",
+        "label": "$50",
+        "sourceLine": 715,
+        "containers": [
+          "paymentModal",
+          "cashCalculatorSection"
+        ],
+        "dataAttributes": {
+          "data-val": "50"
+        },
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-071",
+        "source": "index.html",
+        "locatorCandidate": null,
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "",
+        "type": "button",
+        "name": "",
+        "label": "$100",
+        "sourceLine": 716,
+        "containers": [
+          "paymentModal",
+          "cashCalculatorSection"
+        ],
+        "dataAttributes": {
+          "data-val": "100"
+        },
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-072",
+        "source": "index.html",
+        "locatorCandidate": null,
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "",
+        "type": "button",
+        "name": "",
+        "label": "$200",
+        "sourceLine": 717,
+        "containers": [
+          "paymentModal",
+          "cashCalculatorSection"
+        ],
+        "dataAttributes": {
+          "data-val": "200"
+        },
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-073",
+        "source": "index.html",
+        "locatorCandidate": null,
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "",
+        "type": "button",
+        "name": "",
+        "label": "$500",
+        "sourceLine": 718,
+        "containers": [
+          "paymentModal",
+          "cashCalculatorSection"
+        ],
+        "dataAttributes": {
+          "data-val": "500"
+        },
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-074",
+        "source": "index.html",
+        "locatorCandidate": null,
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "input",
+        "id": "cashTipInput",
+        "type": "number",
+        "name": "",
+        "label": "0.00",
+        "sourceLine": 724,
+        "containers": [
+          "paymentModal",
+          "cashCalculatorSection"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-075",
+        "source": "index.html",
+        "locatorCandidate": "#cashTipInput",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "select",
+        "id": "creditAuthorizationSelect",
+        "type": "",
+        "name": "",
+        "label": "Selecciona una autorización explícita Amigo Creador de proyecto",
+        "sourceLine": 736,
+        "containers": [
+          "paymentModal"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-076",
+        "source": "index.html",
+        "locatorCandidate": "#creditAuthorizationSelect",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "btnCancelPayment",
+        "type": "button",
+        "name": "",
+        "label": "Cancelar",
+        "sourceLine": 748,
+        "containers": [
+          "paymentModal"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-077",
+        "source": "index.html",
+        "locatorCandidate": "#btnCancelPayment",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "btnSendPendingPayment",
+        "type": "button",
+        "name": "",
+        "label": "Enviar (Pagar después)",
+        "sourceLine": 751,
+        "containers": [
+          "paymentModal"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-078",
+        "source": "index.html",
+        "locatorCandidate": "#btnSendPendingPayment",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "btnConfirmChargeAndSend",
+        "type": "button",
+        "name": "",
+        "label": "✓ Confirmar Cobro y Enviar",
+        "sourceLine": 754,
+        "containers": [
+          "paymentModal"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-079",
+        "source": "index.html",
+        "locatorCandidate": "#btnConfirmChargeAndSend",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "btnCloseReceipt",
+        "type": "button",
+        "name": "",
+        "label": "Cerrar ×",
+        "sourceLine": 768,
+        "containers": [
+          "receiptModal"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-080",
+        "source": "index.html",
+        "locatorCandidate": "#btnCloseReceipt",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "btnPrintReceipt",
+        "type": "button",
+        "name": "",
+        "label": "🖨️ Imprimir Ticket",
+        "sourceLine": 799,
+        "containers": [
+          "receiptModal"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-081",
+        "source": "index.html",
+        "locatorCandidate": "#btnPrintReceipt",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "btnAcceptReceipt",
+        "type": "button",
+        "name": "",
+        "label": "Aceptar",
+        "sourceLine": 802,
+        "containers": [
+          "receiptModal"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-082",
+        "source": "index.html",
+        "locatorCandidate": "#btnAcceptReceipt",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "btnCloseConfig",
+        "type": "button",
+        "name": "",
+        "label": "Cerrar ×",
+        "sourceLine": 816,
+        "containers": [
+          "configModal"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-083",
+        "source": "index.html",
+        "locatorCandidate": "#btnCloseConfig",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "input",
+        "id": "gasApiUrlInput",
+        "type": "url",
+        "name": "",
+        "label": "https://script.google.com/a/macros/domusccc.net/s/.../exec",
+        "sourceLine": 826,
+        "containers": [
+          "configModal"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-084",
+        "source": "index.html",
+        "locatorCandidate": "#gasApiUrlInput",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "btnSyncOfficialCarta",
+        "type": "button",
+        "name": "",
+        "label": "🔄 Sincronizar CATALOGO e INVENTARIO en Google Sheets",
+        "sourceLine": 849,
+        "containers": [
+          "configModal"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-085",
+        "source": "index.html",
+        "locatorCandidate": "#btnSyncOfficialCarta",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "input",
+        "id": "newCajaPasswordInput",
+        "type": "password",
+        "name": "",
+        "label": "Ej. 2026 o clave segura",
+        "sourceLine": 866,
+        "containers": [
+          "configModal"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-086",
+        "source": "index.html",
+        "locatorCandidate": "#newCajaPasswordInput",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "input",
+        "id": "printBridgeTokenInput",
+        "type": "password",
+        "name": "",
+        "label": "domus_prn_...",
+        "sourceLine": 880,
+        "containers": [
+          "configModal"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-087",
+        "source": "index.html",
+        "locatorCandidate": "#printBridgeTokenInput",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "btnCheckPrinterStatus",
+        "type": "button",
+        "name": "",
+        "label": "🔍 Probar Conexión",
+        "sourceLine": 886,
+        "containers": [
+          "configModal"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-088",
+        "source": "index.html",
+        "locatorCandidate": "#btnCheckPrinterStatus",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "btnTestPrinter",
+        "type": "button",
+        "name": "",
+        "label": "🖨️ Imprimir Ticket de Prueba",
+        "sourceLine": 889,
+        "containers": [
+          "configModal"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-089",
+        "source": "index.html",
+        "locatorCandidate": "#btnTestPrinter",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "btnCancelConfig",
+        "type": "button",
+        "name": "",
+        "label": "Cancelar",
+        "sourceLine": 898,
+        "containers": [
+          "configModal"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-090",
+        "source": "index.html",
+        "locatorCandidate": "#btnCancelConfig",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "btnSaveConfig",
+        "type": "button",
+        "name": "",
+        "label": "Guardar Configuración",
+        "sourceLine": 901,
+        "containers": [
+          "configModal"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-091",
+        "source": "index.html",
+        "locatorCandidate": "#btnSaveConfig",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "input",
+        "id": "cajaPinInput",
+        "type": "password",
+        "name": "",
+        "label": "••••",
+        "sourceLine": 926,
+        "containers": [
+          "cajaLockModal"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-092",
+        "source": "index.html",
+        "locatorCandidate": "#cajaPinInput",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "",
+        "type": "button",
+        "name": "",
+        "label": "1",
+        "sourceLine": 934,
+        "containers": [
+          "cajaLockModal",
+          "pinKeypad"
+        ],
+        "dataAttributes": {
+          "data-key": "1"
+        },
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-093",
+        "source": "index.html",
+        "locatorCandidate": null,
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "",
+        "type": "button",
+        "name": "",
+        "label": "2",
+        "sourceLine": 935,
+        "containers": [
+          "cajaLockModal",
+          "pinKeypad"
+        ],
+        "dataAttributes": {
+          "data-key": "2"
+        },
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-094",
+        "source": "index.html",
+        "locatorCandidate": null,
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "",
+        "type": "button",
+        "name": "",
+        "label": "3",
+        "sourceLine": 936,
+        "containers": [
+          "cajaLockModal",
+          "pinKeypad"
+        ],
+        "dataAttributes": {
+          "data-key": "3"
+        },
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-095",
+        "source": "index.html",
+        "locatorCandidate": null,
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "",
+        "type": "button",
+        "name": "",
+        "label": "4",
+        "sourceLine": 937,
+        "containers": [
+          "cajaLockModal",
+          "pinKeypad"
+        ],
+        "dataAttributes": {
+          "data-key": "4"
+        },
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-096",
+        "source": "index.html",
+        "locatorCandidate": null,
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "",
+        "type": "button",
+        "name": "",
+        "label": "5",
+        "sourceLine": 938,
+        "containers": [
+          "cajaLockModal",
+          "pinKeypad"
+        ],
+        "dataAttributes": {
+          "data-key": "5"
+        },
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-097",
+        "source": "index.html",
+        "locatorCandidate": null,
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "",
+        "type": "button",
+        "name": "",
+        "label": "6",
+        "sourceLine": 939,
+        "containers": [
+          "cajaLockModal",
+          "pinKeypad"
+        ],
+        "dataAttributes": {
+          "data-key": "6"
+        },
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-098",
+        "source": "index.html",
+        "locatorCandidate": null,
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "",
+        "type": "button",
+        "name": "",
+        "label": "7",
+        "sourceLine": 940,
+        "containers": [
+          "cajaLockModal",
+          "pinKeypad"
+        ],
+        "dataAttributes": {
+          "data-key": "7"
+        },
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-099",
+        "source": "index.html",
+        "locatorCandidate": null,
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "",
+        "type": "button",
+        "name": "",
+        "label": "8",
+        "sourceLine": 941,
+        "containers": [
+          "cajaLockModal",
+          "pinKeypad"
+        ],
+        "dataAttributes": {
+          "data-key": "8"
+        },
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-100",
+        "source": "index.html",
+        "locatorCandidate": null,
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "",
+        "type": "button",
+        "name": "",
+        "label": "9",
+        "sourceLine": 942,
+        "containers": [
+          "cajaLockModal",
+          "pinKeypad"
+        ],
+        "dataAttributes": {
+          "data-key": "9"
+        },
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-101",
+        "source": "index.html",
+        "locatorCandidate": null,
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "btnPinClear",
+        "type": "button",
+        "name": "",
+        "label": "C",
+        "sourceLine": 943,
+        "containers": [
+          "cajaLockModal",
+          "pinKeypad"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-102",
+        "source": "index.html",
+        "locatorCandidate": "#btnPinClear",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "",
+        "type": "button",
+        "name": "",
+        "label": "0",
+        "sourceLine": 944,
+        "containers": [
+          "cajaLockModal",
+          "pinKeypad"
+        ],
+        "dataAttributes": {
+          "data-key": "0"
+        },
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-103",
+        "source": "index.html",
+        "locatorCandidate": null,
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "btnPinBackspace",
+        "type": "button",
+        "name": "",
+        "label": "⌫",
+        "sourceLine": 945,
+        "containers": [
+          "cajaLockModal",
+          "pinKeypad"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-104",
+        "source": "index.html",
+        "locatorCandidate": "#btnPinBackspace",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "input",
+        "id": "rememberCajaDeviceCheckbox",
+        "type": "checkbox",
+        "name": "",
+        "label": "",
+        "sourceLine": 950,
+        "containers": [
+          "cajaLockModal"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-105",
+        "source": "index.html",
+        "locatorCandidate": "#rememberCajaDeviceCheckbox",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "btnCancelCajaUnlock",
+        "type": "button",
+        "name": "",
+        "label": "Volver a Comandas",
+        "sourceLine": 959,
+        "containers": [
+          "cajaLockModal"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-106",
+        "source": "index.html",
+        "locatorCandidate": "#btnCancelCajaUnlock",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "btnSubmitCajaPin",
+        "type": "button",
+        "name": "",
+        "label": "✓ Desbloquear",
+        "sourceLine": 962,
+        "containers": [
+          "cajaLockModal"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-107",
+        "source": "index.html",
+        "locatorCandidate": "#btnSubmitCajaPin",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "btnCloseNewProductModal",
+        "type": "button",
+        "name": "",
+        "label": "Cerrar ×",
+        "sourceLine": 973,
+        "containers": [
+          "cajaLockModal",
+          "newProductModal"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-108",
+        "source": "index.html",
+        "locatorCandidate": "#btnCloseNewProductModal",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "input",
+        "id": "newProdName",
+        "type": "text",
+        "name": "",
+        "label": "Ej. Mezcalina de Jamaica · 500 ml",
+        "sourceLine": 984,
+        "containers": [
+          "cajaLockModal",
+          "newProductModal"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-109",
+        "source": "index.html",
+        "locatorCandidate": "#newProdName",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "select",
+        "id": "newProdCategory",
+        "type": "",
+        "name": "",
+        "label": "🌿 Menú Cannábico Cafetería Bebidas Cervezas Cheladas Coctelería Canna Treats Cocina Sushi Shots + Otra Categoría…",
+        "sourceLine": 990,
+        "containers": [
+          "cajaLockModal",
+          "newProductModal"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-110",
+        "source": "index.html",
+        "locatorCandidate": "#newProdCategory",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "select",
+        "id": "newProdDestination",
+        "type": "",
+        "name": "",
+        "label": "Barra Cocina",
+        "sourceLine": 1007,
+        "containers": [
+          "cajaLockModal",
+          "newProductModal"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-111",
+        "source": "index.html",
+        "locatorCandidate": "#newProdDestination",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "input",
+        "id": "newProdCustomCategory",
+        "type": "text",
+        "name": "",
+        "label": "Escribe el nombre de la nueva categoría…",
+        "sourceLine": 1016,
+        "containers": [
+          "cajaLockModal",
+          "newProductModal",
+          "customCatWrapper"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-112",
+        "source": "index.html",
+        "locatorCandidate": "#newProdCustomCategory",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "input",
+        "id": "newProdPriceSolar",
+        "type": "number",
+        "name": "",
+        "label": "0.00",
+        "sourceLine": 1022,
+        "containers": [
+          "cajaLockModal",
+          "newProductModal"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-113",
+        "source": "index.html",
+        "locatorCandidate": "#newProdPriceSolar",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "input",
+        "id": "newProdPriceLunar",
+        "type": "number",
+        "name": "",
+        "label": "0.00",
+        "sourceLine": 1027,
+        "containers": [
+          "cajaLockModal",
+          "newProductModal"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-114",
+        "source": "index.html",
+        "locatorCandidate": "#newProdPriceLunar",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "input",
+        "id": "newProdProvider",
+        "type": "text",
+        "name": "",
+        "label": "DOMUS",
+        "sourceLine": 1034,
+        "containers": [
+          "cajaLockModal",
+          "newProductModal"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-115",
+        "source": "index.html",
+        "locatorCandidate": "#newProdProvider",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "input",
+        "id": "newProdSku",
+        "type": "text",
+        "name": "",
+        "label": "Auto-generado si está vacío",
+        "sourceLine": 1039,
+        "containers": [
+          "cajaLockModal",
+          "newProductModal"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-116",
+        "source": "index.html",
+        "locatorCandidate": "#newProdSku",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "input",
+        "id": "newProdStock",
+        "type": "number",
+        "name": "",
+        "label": "",
+        "sourceLine": 1045,
+        "containers": [
+          "cajaLockModal",
+          "newProductModal"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-117",
+        "source": "index.html",
+        "locatorCandidate": "#newProdStock",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "btnCancelNewProduct",
+        "type": "button",
+        "name": "",
+        "label": "Cancelar",
+        "sourceLine": 1050,
+        "containers": [
+          "cajaLockModal",
+          "newProductModal"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-118",
+        "source": "index.html",
+        "locatorCandidate": "#btnCancelNewProduct",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "btnSaveNewProduct",
+        "type": "button",
+        "name": "",
+        "label": "✓ Guardar y Dar de Alta",
+        "sourceLine": 1053,
+        "containers": [
+          "cajaLockModal",
+          "newProductModal"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-119",
+        "source": "index.html",
+        "locatorCandidate": "#btnSaveNewProduct",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "btnCloseAccessReceipt",
+        "type": "button",
+        "name": "",
+        "label": "Cerrar ×",
+        "sourceLine": 1068,
+        "containers": [
+          "cajaLockModal",
+          "accessReceiptModal"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-120",
+        "source": "index.html",
+        "locatorCandidate": "#btnCloseAccessReceipt",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "btnDismissAccessReceipt",
+        "type": "button",
+        "name": "",
+        "label": "Cerrar",
+        "sourceLine": 1116,
+        "containers": [
+          "cajaLockModal",
+          "accessReceiptModal"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-121",
+        "source": "index.html",
+        "locatorCandidate": "#btnDismissAccessReceipt",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "btnPrintAccessReceipt",
+        "type": "button",
+        "name": "",
+        "label": "🖨️ Imprimir Ticket",
+        "sourceLine": 1119,
+        "containers": [
+          "cajaLockModal",
+          "accessReceiptModal"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-122",
+        "source": "index.html",
+        "locatorCandidate": "#btnPrintAccessReceipt",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "btnCloseNewEventModal",
+        "type": "button",
+        "name": "",
+        "label": "Cerrar ×",
+        "sourceLine": 1133,
+        "containers": [
+          "cajaLockModal",
+          "newEventModal"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-123",
+        "source": "index.html",
+        "locatorCandidate": "#btnCloseNewEventModal",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "input",
+        "id": "eventFormName",
+        "type": "text",
+        "name": "",
+        "label": "Ej. Sensorama fetish y kinky",
+        "sourceLine": 1144,
+        "containers": [
+          "cajaLockModal",
+          "newEventModal"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-124",
+        "source": "index.html",
+        "locatorCandidate": "#eventFormName",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "input",
+        "id": "eventFormDate",
+        "type": "date",
+        "name": "",
+        "label": "",
+        "sourceLine": 1150,
+        "containers": [
+          "cajaLockModal",
+          "newEventModal"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-125",
+        "source": "index.html",
+        "locatorCandidate": "#eventFormDate",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "select",
+        "id": "eventFormType",
+        "type": "",
+        "name": "",
+        "label": "Fiesta temática Club nocturno Social / Gaming Comunidad / Privado Taller / Performance Operación diaria",
+        "sourceLine": 1154,
+        "containers": [
+          "cajaLockModal",
+          "newEventModal"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-126",
+        "source": "index.html",
+        "locatorCandidate": "#eventFormType",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "input",
+        "id": "eventFormOrganizer",
+        "type": "text",
+        "name": "",
+        "label": "DOMUS",
+        "sourceLine": 1168,
+        "containers": [
+          "cajaLockModal",
+          "newEventModal"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-127",
+        "source": "index.html",
+        "locatorCandidate": "#eventFormOrganizer",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "input",
+        "id": "eventFormCapacity",
+        "type": "number",
+        "name": "",
+        "label": "",
+        "sourceLine": 1172,
+        "containers": [
+          "cajaLockModal",
+          "newEventModal"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-128",
+        "source": "index.html",
+        "locatorCandidate": "#eventFormCapacity",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "input",
+        "id": "eventFormPriceGeneral",
+        "type": "number",
+        "name": "",
+        "label": "100.00",
+        "sourceLine": 1184,
+        "containers": [
+          "cajaLockModal",
+          "newEventModal"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-129",
+        "source": "index.html",
+        "locatorCandidate": "#eventFormPriceGeneral",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "input",
+        "id": "eventFormPricePareja",
+        "type": "number",
+        "name": "",
+        "label": "180.00",
+        "sourceLine": 1188,
+        "containers": [
+          "cajaLockModal",
+          "newEventModal"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-130",
+        "source": "index.html",
+        "locatorCandidate": "#eventFormPricePareja",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "input",
+        "id": "eventFormPriceTrio",
+        "type": "number",
+        "name": "",
+        "label": "250.00",
+        "sourceLine": 1194,
+        "containers": [
+          "cajaLockModal",
+          "newEventModal"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-131",
+        "source": "index.html",
+        "locatorCandidate": "#eventFormPriceTrio",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "input",
+        "id": "eventFormPriceWardrobe",
+        "type": "number",
+        "name": "",
+        "label": "",
+        "sourceLine": 1198,
+        "containers": [
+          "cajaLockModal",
+          "newEventModal"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-132",
+        "source": "index.html",
+        "locatorCandidate": "#eventFormPriceWardrobe",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "input",
+        "id": "eventFormNotes",
+        "type": "text",
+        "name": "",
+        "label": "Detalles de admisión, dress code o requerimientos",
+        "sourceLine": 1205,
+        "containers": [
+          "cajaLockModal",
+          "newEventModal"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-133",
+        "source": "index.html",
+        "locatorCandidate": "#eventFormNotes",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "btnCancelNewEvent",
+        "type": "button",
+        "name": "",
+        "label": "Cancelar",
+        "sourceLine": 1211,
+        "containers": [
+          "cajaLockModal",
+          "newEventModal"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-134",
+        "source": "index.html",
+        "locatorCandidate": "#btnCancelNewEvent",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "btnSaveNewEvent",
+        "type": "button",
+        "name": "",
+        "label": "✓ Guardar en ACTIVIDADES",
+        "sourceLine": 1214,
+        "containers": [
+          "cajaLockModal",
+          "newEventModal"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-135",
+        "source": "index.html",
+        "locatorCandidate": "#btnSaveNewEvent",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "btnCloseEditAccessModal",
+        "type": "button",
+        "name": "",
+        "label": "Cerrar ×",
+        "sourceLine": 1228,
+        "containers": [
+          "cajaLockModal",
+          "editAccessModal"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-136",
+        "source": "index.html",
+        "locatorCandidate": "#btnCloseEditAccessModal",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "input",
+        "id": "editAccessId",
+        "type": "hidden",
+        "name": "",
+        "label": "",
+        "sourceLine": 1232,
+        "containers": [
+          "cajaLockModal",
+          "editAccessModal"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-137",
+        "source": "index.html",
+        "locatorCandidate": "#editAccessId",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "input",
+        "id": "editAccessCustomer",
+        "type": "text",
+        "name": "",
+        "label": "Ej. Alex / Nombre del invitado",
+        "sourceLine": 1247,
+        "containers": [
+          "cajaLockModal",
+          "editAccessModal"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-138",
+        "source": "index.html",
+        "locatorCandidate": "#editAccessCustomer",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "input",
+        "id": "editAccessPhone",
+        "type": "tel",
+        "name": "",
+        "label": "10 dígitos (opcional)",
+        "sourceLine": 1253,
+        "containers": [
+          "cajaLockModal",
+          "editAccessModal"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-139",
+        "source": "index.html",
+        "locatorCandidate": "#editAccessPhone",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "select",
+        "id": "editAccessPersons",
+        "type": "",
+        "name": "",
+        "label": "1 Asistente (General) 2 Asistentes (Pareja) 3 Asistentes (Trío)",
+        "sourceLine": 1257,
+        "containers": [
+          "cajaLockModal",
+          "editAccessModal"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-140",
+        "source": "index.html",
+        "locatorCandidate": "#editAccessPersons",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "select",
+        "id": "editAccessChannel",
+        "type": "",
+        "name": "",
+        "label": "🌐 Boletera Externa (Genera $150 para DOMUS · $0 en Puerta) 📋 Lista / Invitados (Genera $150 para DOMUS · $0 en Puerta) ⭐ Cortesía ($0 para DOMUS · Exenta de cuota) 🎟️ Taquilla Dire",
+        "sourceLine": 1267,
+        "containers": [
+          "cajaLockModal",
+          "editAccessModal"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-141",
+        "source": "index.html",
+        "locatorCandidate": "#editAccessChannel",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "input",
+        "id": "editAccessCourtesyAuth",
+        "type": "text",
+        "name": "",
+        "label": "Ej. Steven / Dirección / Staff",
+        "sourceLine": 1284,
+        "containers": [
+          "cajaLockModal",
+          "editAccessModal",
+          "editAccessCourtesySection"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-142",
+        "source": "index.html",
+        "locatorCandidate": "#editAccessCourtesyAuth",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "input",
+        "id": "editAccessCourtesyReason",
+        "type": "text",
+        "name": "",
+        "label": "Ej. Invitado especial, staff del evento",
+        "sourceLine": 1288,
+        "containers": [
+          "cajaLockModal",
+          "editAccessModal",
+          "editAccessCourtesySection"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-143",
+        "source": "index.html",
+        "locatorCandidate": "#editAccessCourtesyReason",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "btnDeleteAccessFromModal",
+        "type": "button",
+        "name": "",
+        "label": "🗑️ Eliminar Registro",
+        "sourceLine": 1298,
+        "containers": [
+          "cajaLockModal",
+          "editAccessModal"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-144",
+        "source": "index.html",
+        "locatorCandidate": "#btnDeleteAccessFromModal",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "btnCancelEditAccess",
+        "type": "button",
+        "name": "",
+        "label": "Cancelar",
+        "sourceLine": 1302,
+        "containers": [
+          "cajaLockModal",
+          "editAccessModal"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-145",
+        "source": "index.html",
+        "locatorCandidate": "#btnCancelEditAccess",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "btnSaveEditAccess",
+        "type": "button",
+        "name": "",
+        "label": "✓ Guardar Cambios",
+        "sourceLine": 1305,
+        "containers": [
+          "cajaLockModal",
+          "editAccessModal"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "PAGES-146",
+        "source": "index.html",
+        "locatorCandidate": "#btnSaveEditAccess",
+        "locatorNeedsRuntimeReview": true
+      }
+    ],
+    "google-apps-script/Index.html": [
+      {
+        "tag": "button",
+        "id": "btnModeCaja",
+        "type": "button",
+        "name": "",
+        "label": "Abrir Punto de Venta y Cobro 💰 Modo Caja",
+        "sourceLine": 2198,
+        "containers": [],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-001",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": "#btnModeCaja",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "btnModeComandas",
+        "type": "button",
+        "name": "",
+        "label": "Abrir Pantalla de Comandas y Barra 📋 Modo Comandas 0",
+        "sourceLine": 2202,
+        "containers": [],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-002",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": "#btnModeComandas",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "btnModeAccesos",
+        "type": "button",
+        "name": "",
+        "label": "Abrir Control de Accesos, Taquilla y Eventos 🎟️ Modo Accesos 0",
+        "sourceLine": 2207,
+        "containers": [],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-003",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": "#btnModeAccesos",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "select",
+        "id": "staffSelect",
+        "type": "",
+        "name": "",
+        "label": "Seleccionar operador responsable 👤 Operador…",
+        "sourceLine": 2230,
+        "containers": [],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-004",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": "#staffSelect",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "btnPhaseToggle",
+        "type": "button",
+        "name": "",
+        "label": "Cambiar carta entre Solar y Lunar 🌙 Fase",
+        "sourceLine": 2236,
+        "containers": [],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-005",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": "#btnPhaseToggle",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "btnToggleSound",
+        "type": "button",
+        "name": "",
+        "label": "Activar/Desactivar sonido de comandas 🔕 Sonido: Off",
+        "sourceLine": 2241,
+        "containers": [],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-006",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": "#btnToggleSound",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "btnSyncNow",
+        "type": "button",
+        "name": "",
+        "label": "Actualizar datos ahora 🔄",
+        "sourceLine": 2246,
+        "containers": [],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-007",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": "#btnSyncNow",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "btnOpenSettings",
+        "type": "button",
+        "name": "",
+        "label": "Configuración y Enlace con Google Apps Script ⚙️",
+        "sourceLine": 2251,
+        "containers": [],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-008",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": "#btnOpenSettings",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "btnLockCaja",
+        "type": "button",
+        "name": "",
+        "label": "Bloquear acceso a Caja en este equipo 🔒 Bloquear Caja",
+        "sourceLine": 2257,
+        "containers": [],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-009",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": "#btnLockCaja",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "btnOutboxRetry",
+        "type": "button",
+        "name": "",
+        "label": "🔄 Reintentar Sincronización",
+        "sourceLine": 2270,
+        "containers": [
+          "outboxBanner"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-010",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": "#btnOutboxRetry",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "btnOutboxClear",
+        "type": "button",
+        "name": "",
+        "label": "✕ Limpiar Cola",
+        "sourceLine": 2271,
+        "containers": [
+          "outboxBanner"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-011",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": "#btnOutboxClear",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "input",
+        "id": "catalogSearchInput",
+        "type": "text",
+        "name": "",
+        "label": "Buscar producto, menú cannábico, alitas, hamburguesa, cerveza…",
+        "sourceLine": 2290,
+        "containers": [
+          "viewCaja"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-012",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": "#catalogSearchInput",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "btnOpenNewProductModal",
+        "type": "button",
+        "name": "",
+        "label": "Registrar un nuevo producto en el catálogo e inventario ➕ Alta de Producto",
+        "sourceLine": 2292,
+        "containers": [
+          "viewCaja"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-013",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": "#btnOpenNewProductModal",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "btnClearCart",
+        "type": "button",
+        "name": "",
+        "label": "Vaciar pedido Vaciar",
+        "sourceLine": 2315,
+        "containers": [
+          "viewCaja"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-014",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": "#btnClearCart",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "select",
+        "id": "openAccountsSelect",
+        "type": "",
+        "name": "",
+        "label": "+ Nueva Cuenta / Folio",
+        "sourceLine": 2325,
+        "containers": [
+          "viewCaja"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-015",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": "#openAccountsSelect",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "input",
+        "id": "customerNameInput",
+        "type": "text",
+        "name": "",
+        "label": "Ej. Fernando L. / Mesa 4",
+        "sourceLine": 2333,
+        "containers": [
+          "viewCaja"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-016",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": "#customerNameInput",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "select",
+        "id": "activitySelect",
+        "type": "",
+        "name": "",
+        "label": "Visita general DOMUS",
+        "sourceLine": 2338,
+        "containers": [
+          "viewCaja"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-017",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": "#activitySelect",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "btnOpenPaymentModal",
+        "type": "button",
+        "name": "",
+        "label": "💳 Cobrar y Enviar a Comanda",
+        "sourceLine": 2360,
+        "containers": [
+          "viewCaja"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-018",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": "#btnOpenPaymentModal",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "",
+        "type": "button",
+        "name": "",
+        "label": "Todas Activas",
+        "sourceLine": 2400,
+        "containers": [
+          "viewComandas",
+          "kdsTabs"
+        ],
+        "dataAttributes": {
+          "data-tab": "Todas"
+        },
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-019",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": null,
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "",
+        "type": "button",
+        "name": "",
+        "label": "Pendientes",
+        "sourceLine": 2401,
+        "containers": [
+          "viewComandas",
+          "kdsTabs"
+        ],
+        "dataAttributes": {
+          "data-tab": "Pendiente"
+        },
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-020",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": null,
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "",
+        "type": "button",
+        "name": "",
+        "label": "En preparación",
+        "sourceLine": 2402,
+        "containers": [
+          "viewComandas",
+          "kdsTabs"
+        ],
+        "dataAttributes": {
+          "data-tab": "En preparación"
+        },
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-021",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": null,
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "",
+        "type": "button",
+        "name": "",
+        "label": "Listas",
+        "sourceLine": 2403,
+        "containers": [
+          "viewComandas",
+          "kdsTabs"
+        ],
+        "dataAttributes": {
+          "data-tab": "Lista"
+        },
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-022",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": null,
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "",
+        "type": "button",
+        "name": "",
+        "label": "Historial Entregadas",
+        "sourceLine": 2404,
+        "containers": [
+          "viewComandas",
+          "kdsTabs"
+        ],
+        "dataAttributes": {
+          "data-tab": "Entregadas"
+        },
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-023",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": null,
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "",
+        "type": "button",
+        "name": "",
+        "label": "Resurtido",
+        "sourceLine": 2405,
+        "containers": [
+          "viewComandas",
+          "kdsTabs"
+        ],
+        "dataAttributes": {
+          "data-tab": "Resurtido"
+        },
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-024",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": null,
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "select",
+        "id": "kdsDestFilter",
+        "type": "",
+        "name": "",
+        "label": "Filtrar por estación Todas las estaciones Solo Barra Solo Cocina",
+        "sourceLine": 2409,
+        "containers": [
+          "viewComandas"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-025",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": "#kdsDestFilter",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "input",
+        "id": "kdsSearchInput",
+        "type": "text",
+        "name": "",
+        "label": "Buscar folio, cliente…",
+        "sourceLine": 2416,
+        "containers": [
+          "viewComandas"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-026",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": "#kdsSearchInput",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "select",
+        "id": "accessActivitySelect",
+        "type": "",
+        "name": "",
+        "label": "Selecciona el evento en curso Forza · sábado (2026-10-24) - Club nocturno Sensorama fetish y kinky (2026-10-25) - Fiesta temática Chilangoticas · Haunted (2026-10-23) - Fiesta Drag",
+        "sourceLine": 2435,
+        "containers": [
+          "viewAccesos"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-027",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": "#accessActivitySelect",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "btnOpenNewEventModal",
+        "type": "button",
+        "name": "",
+        "label": "Programar o configurar un evento con sus tarifas ➕ Nuevo Evento / Tarifas",
+        "sourceLine": 2443,
+        "containers": [
+          "viewAccesos"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-028",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": "#btnOpenNewEventModal",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "",
+        "type": "button",
+        "name": "",
+        "label": "🎟️ Taquilla DOMUS",
+        "sourceLine": 2498,
+        "containers": [
+          "viewAccesos",
+          "salesChannelContainer"
+        ],
+        "dataAttributes": {
+          "data-channel": "TAQUILLA_DOMUS"
+        },
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-029",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": null,
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "",
+        "type": "button",
+        "name": "",
+        "label": "🏷️ Preventa DOMUS",
+        "sourceLine": 2502,
+        "containers": [
+          "viewAccesos",
+          "salesChannelContainer"
+        ],
+        "dataAttributes": {
+          "data-channel": "PREVENTA_DOMUS"
+        },
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-030",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": null,
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "",
+        "type": "button",
+        "name": "",
+        "label": "🌐 Boletera Externa",
+        "sourceLine": 2506,
+        "containers": [
+          "viewAccesos",
+          "salesChannelContainer"
+        ],
+        "dataAttributes": {
+          "data-channel": "BOLETERA_EXTERNA"
+        },
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-031",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": null,
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "",
+        "type": "button",
+        "name": "",
+        "label": "📱 Transferencia Previa",
+        "sourceLine": 2510,
+        "containers": [
+          "viewAccesos",
+          "salesChannelContainer"
+        ],
+        "dataAttributes": {
+          "data-channel": "TRANSFERENCIA_DIRECTA"
+        },
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-032",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": null,
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "",
+        "type": "button",
+        "name": "",
+        "label": "📋 Lista / Invitados",
+        "sourceLine": 2514,
+        "containers": [
+          "viewAccesos",
+          "salesChannelContainer"
+        ],
+        "dataAttributes": {
+          "data-channel": "LISTA"
+        },
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-033",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": null,
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "",
+        "type": "button",
+        "name": "",
+        "label": "⭐ Cortesía ($0)",
+        "sourceLine": 2518,
+        "containers": [
+          "viewAccesos",
+          "salesChannelContainer"
+        ],
+        "dataAttributes": {
+          "data-channel": "CORTESIA"
+        },
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-034",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": null,
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "input",
+        "id": "accessCustomerName",
+        "type": "text",
+        "name": "",
+        "label": "Ej. Alex / Nombre del invitado",
+        "sourceLine": 2550,
+        "containers": [
+          "viewAccesos"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-035",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": "#accessCustomerName",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "input",
+        "id": "accessCustomerPhone",
+        "type": "tel",
+        "name": "",
+        "label": "10 dígitos (opcional)",
+        "sourceLine": 2556,
+        "containers": [
+          "viewAccesos"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-036",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": "#accessCustomerPhone",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "input",
+        "id": "accessCustomerEmail",
+        "type": "email",
+        "name": "",
+        "label": "correo@ejemplo.com (opcional)",
+        "sourceLine": 2560,
+        "containers": [
+          "viewAccesos"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-037",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": "#accessCustomerEmail",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "select",
+        "id": "accessTicketProvider",
+        "type": "",
+        "name": "",
+        "label": "Boletia Passline Eventbrite Ticketmaster Otra Boletera Aliada",
+        "sourceLine": 2570,
+        "containers": [
+          "viewAccesos",
+          "panelBoleteraDetail"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-038",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": "#accessTicketProvider",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "input",
+        "id": "accessExternalTicketId",
+        "type": "text",
+        "name": "",
+        "label": "Ej. BOL-99482 / QR (Opcional)",
+        "sourceLine": 2580,
+        "containers": [
+          "viewAccesos",
+          "panelBoleteraDetail"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-039",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": "#accessExternalTicketId",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "input",
+        "id": "accessTransferRef",
+        "type": "text",
+        "name": "",
+        "label": "Ej. BBVA-884920",
+        "sourceLine": 2591,
+        "containers": [
+          "viewAccesos",
+          "panelTransferDetail"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-040",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": "#accessTransferRef",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "select",
+        "id": "accessTransferStatus",
+        "type": "",
+        "name": "",
+        "label": "✓ Verificada en Banco (Boleto Válido) ⏳ Pendiente de Verificación ❌ Rechazada",
+        "sourceLine": 2595,
+        "containers": [
+          "viewAccesos",
+          "panelTransferDetail"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-041",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": "#accessTransferStatus",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "input",
+        "id": "accessCourtesyAuth",
+        "type": "text",
+        "name": "",
+        "label": "Ej. Steven / Kas / Dirección",
+        "sourceLine": 2609,
+        "containers": [
+          "viewAccesos",
+          "panelCourtesyDetail"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-042",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": "#accessCourtesyAuth",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "input",
+        "id": "accessCourtesyReason",
+        "type": "text",
+        "name": "",
+        "label": "Ej. Artista / Prensa / Aliado",
+        "sourceLine": 2613,
+        "containers": [
+          "viewAccesos",
+          "panelCourtesyDetail"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-043",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": "#accessCourtesyReason",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "input",
+        "id": "accessPresaleDomusFolio",
+        "type": "text",
+        "name": "",
+        "label": "Ej. PRE-2026-088",
+        "sourceLine": 2624,
+        "containers": [
+          "viewAccesos",
+          "panelPresaleDomusDetail"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-044",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": "#accessPresaleDomusFolio",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "",
+        "type": "button",
+        "name": "",
+        "label": "💵 Efectivo",
+        "sourceLine": 2634,
+        "containers": [
+          "viewAccesos",
+          "accessPaymentSection"
+        ],
+        "dataAttributes": {
+          "data-access-method": "Efectivo"
+        },
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-045",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": null,
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "",
+        "type": "button",
+        "name": "",
+        "label": "💳 Terminal 1",
+        "sourceLine": 2638,
+        "containers": [
+          "viewAccesos",
+          "accessPaymentSection"
+        ],
+        "dataAttributes": {
+          "data-access-method": "Terminal 1"
+        },
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-046",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": null,
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "",
+        "type": "button",
+        "name": "",
+        "label": "💳 Terminal 2",
+        "sourceLine": 2642,
+        "containers": [
+          "viewAccesos",
+          "accessPaymentSection"
+        ],
+        "dataAttributes": {
+          "data-access-method": "Terminal 2"
+        },
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-047",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": null,
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "",
+        "type": "button",
+        "name": "",
+        "label": "📱 Transferencia en Vivo",
+        "sourceLine": 2646,
+        "containers": [
+          "viewAccesos",
+          "accessPaymentSection"
+        ],
+        "dataAttributes": {
+          "data-access-method": "Transferencia"
+        },
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-048",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": null,
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "input",
+        "id": "accessCashReceived",
+        "type": "number",
+        "name": "",
+        "label": "0.00",
+        "sourceLine": 2658,
+        "containers": [
+          "viewAccesos",
+          "accessCashSection"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-049",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": "#accessCashReceived",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "",
+        "type": "button",
+        "name": "",
+        "label": "0",
+        "sourceLine": 2672,
+        "containers": [
+          "viewAccesos",
+          "wardrobeSelectorGroup"
+        ],
+        "dataAttributes": {
+          "data-qty": "0"
+        },
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-050",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": null,
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "",
+        "type": "button",
+        "name": "",
+        "label": "1",
+        "sourceLine": 2673,
+        "containers": [
+          "viewAccesos",
+          "wardrobeSelectorGroup"
+        ],
+        "dataAttributes": {
+          "data-qty": "1"
+        },
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-051",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": null,
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "",
+        "type": "button",
+        "name": "",
+        "label": "2",
+        "sourceLine": 2674,
+        "containers": [
+          "viewAccesos",
+          "wardrobeSelectorGroup"
+        ],
+        "dataAttributes": {
+          "data-qty": "2"
+        },
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-052",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": null,
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "",
+        "type": "button",
+        "name": "",
+        "label": "3",
+        "sourceLine": 2675,
+        "containers": [
+          "viewAccesos",
+          "wardrobeSelectorGroup"
+        ],
+        "dataAttributes": {
+          "data-qty": "3"
+        },
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-053",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": null,
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "",
+        "type": "button",
+        "name": "",
+        "label": "4+",
+        "sourceLine": 2676,
+        "containers": [
+          "viewAccesos",
+          "wardrobeSelectorGroup"
+        ],
+        "dataAttributes": {
+          "data-qty": "4"
+        },
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-054",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": null,
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "input",
+        "id": "accessWardrobeNotes",
+        "type": "text",
+        "name": "",
+        "label": "Ej. Chamarra de cuero negra, mochila",
+        "sourceLine": 2682,
+        "containers": [
+          "viewAccesos",
+          "wardrobeNotesWrapper"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-055",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": "#accessWardrobeNotes",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "btnConfirmAccess",
+        "type": "button",
+        "name": "",
+        "label": "✓ Confirmar Acceso y Emitir Tickets",
+        "sourceLine": 2705,
+        "containers": [
+          "viewAccesos"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-056",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": "#btnConfirmAccess",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "tabBtnAccessLog",
+        "type": "button",
+        "name": "",
+        "label": "📋 Ingresos Hoy",
+        "sourceLine": 2714,
+        "containers": [
+          "viewAccesos"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-057",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": "#tabBtnAccessLog",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "tabBtnWardrobe",
+        "type": "button",
+        "name": "",
+        "label": "🧥 Guardarropa Activo 0",
+        "sourceLine": 2718,
+        "containers": [
+          "viewAccesos"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-058",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": "#tabBtnWardrobe",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "tabBtnEvents",
+        "type": "button",
+        "name": "",
+        "label": "📅 Eventos & Tarifas",
+        "sourceLine": 2723,
+        "containers": [
+          "viewAccesos"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-059",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": "#tabBtnEvents",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "input",
+        "id": "accessLogSearchInput",
+        "type": "text",
+        "name": "",
+        "label": "Buscar por asistente, teléfono, folio o tipo…",
+        "sourceLine": 2734,
+        "containers": [
+          "viewAccesos",
+          "panelAccessLog"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-060",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": "#accessLogSearchInput",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "input",
+        "id": "wardrobeSearchInput",
+        "type": "text",
+        "name": "",
+        "label": "Buscar por ticket GUA, nombre de cliente o prenda…",
+        "sourceLine": 2762,
+        "containers": [
+          "viewAccesos",
+          "panelWardrobe"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-061",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": "#wardrobeSearchInput",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "btnOpenNewEventModal2",
+        "type": "button",
+        "name": "",
+        "label": "➕ Nuevo Evento",
+        "sourceLine": 2791,
+        "containers": [
+          "viewAccesos",
+          "panelEvents"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-062",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": "#btnOpenNewEventModal2",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "btnClosePayModal",
+        "type": "button",
+        "name": "",
+        "label": "Cerrar ×",
+        "sourceLine": 2830,
+        "containers": [
+          "paymentModal"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-063",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": "#btnClosePayModal",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "",
+        "type": "button",
+        "name": "",
+        "label": "💵 Efectivo",
+        "sourceLine": 2847,
+        "containers": [
+          "paymentModal"
+        ],
+        "dataAttributes": {
+          "data-method": "Efectivo"
+        },
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-064",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": null,
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "",
+        "type": "button",
+        "name": "",
+        "label": "💳 Terminal 1",
+        "sourceLine": 2850,
+        "containers": [
+          "paymentModal"
+        ],
+        "dataAttributes": {
+          "data-method": "Terminal 1"
+        },
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-065",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": null,
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "",
+        "type": "button",
+        "name": "",
+        "label": "💳 Terminal 2",
+        "sourceLine": 2853,
+        "containers": [
+          "paymentModal"
+        ],
+        "dataAttributes": {
+          "data-method": "Terminal 2"
+        },
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-066",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": null,
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "",
+        "type": "button",
+        "name": "",
+        "label": "📱 Transferencia",
+        "sourceLine": 2856,
+        "containers": [
+          "paymentModal"
+        ],
+        "dataAttributes": {
+          "data-method": "Transferencia"
+        },
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-067",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": null,
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "input",
+        "id": "cashReceivedInput",
+        "type": "number",
+        "name": "",
+        "label": "0.00",
+        "sourceLine": 2866,
+        "containers": [
+          "paymentModal",
+          "cashCalculatorSection"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-068",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": "#cashReceivedInput",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "input",
+        "id": "cashDueInput",
+        "type": "hidden",
+        "name": "",
+        "label": "",
+        "sourceLine": 2867,
+        "containers": [
+          "paymentModal",
+          "cashCalculatorSection"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-069",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": "#cashDueInput",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "",
+        "type": "button",
+        "name": "",
+        "label": "Exacto",
+        "sourceLine": 2871,
+        "containers": [
+          "paymentModal",
+          "cashCalculatorSection"
+        ],
+        "dataAttributes": {
+          "data-val": "exact"
+        },
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-070",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": null,
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "",
+        "type": "button",
+        "name": "",
+        "label": "$50",
+        "sourceLine": 2872,
+        "containers": [
+          "paymentModal",
+          "cashCalculatorSection"
+        ],
+        "dataAttributes": {
+          "data-val": "50"
+        },
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-071",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": null,
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "",
+        "type": "button",
+        "name": "",
+        "label": "$100",
+        "sourceLine": 2873,
+        "containers": [
+          "paymentModal",
+          "cashCalculatorSection"
+        ],
+        "dataAttributes": {
+          "data-val": "100"
+        },
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-072",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": null,
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "",
+        "type": "button",
+        "name": "",
+        "label": "$200",
+        "sourceLine": 2874,
+        "containers": [
+          "paymentModal",
+          "cashCalculatorSection"
+        ],
+        "dataAttributes": {
+          "data-val": "200"
+        },
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-073",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": null,
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "",
+        "type": "button",
+        "name": "",
+        "label": "$500",
+        "sourceLine": 2875,
+        "containers": [
+          "paymentModal",
+          "cashCalculatorSection"
+        ],
+        "dataAttributes": {
+          "data-val": "500"
+        },
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-074",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": null,
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "input",
+        "id": "cashTipInput",
+        "type": "number",
+        "name": "",
+        "label": "0.00",
+        "sourceLine": 2881,
+        "containers": [
+          "paymentModal",
+          "cashCalculatorSection"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-075",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": "#cashTipInput",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "select",
+        "id": "creditAuthorizationSelect",
+        "type": "",
+        "name": "",
+        "label": "Selecciona una autorización explícita Amigo Creador de proyecto",
+        "sourceLine": 2893,
+        "containers": [
+          "paymentModal"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-076",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": "#creditAuthorizationSelect",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "btnCancelPayment",
+        "type": "button",
+        "name": "",
+        "label": "Cancelar",
+        "sourceLine": 2905,
+        "containers": [
+          "paymentModal"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-077",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": "#btnCancelPayment",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "btnSendPendingPayment",
+        "type": "button",
+        "name": "",
+        "label": "Enviar (Pagar después)",
+        "sourceLine": 2908,
+        "containers": [
+          "paymentModal"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-078",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": "#btnSendPendingPayment",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "btnConfirmChargeAndSend",
+        "type": "button",
+        "name": "",
+        "label": "✓ Confirmar Cobro y Enviar",
+        "sourceLine": 2911,
+        "containers": [
+          "paymentModal"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-079",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": "#btnConfirmChargeAndSend",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "btnCloseReceipt",
+        "type": "button",
+        "name": "",
+        "label": "Cerrar ×",
+        "sourceLine": 2925,
+        "containers": [
+          "receiptModal"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-080",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": "#btnCloseReceipt",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "btnPrintReceipt",
+        "type": "button",
+        "name": "",
+        "label": "🖨️ Imprimir Ticket",
+        "sourceLine": 2956,
+        "containers": [
+          "receiptModal"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-081",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": "#btnPrintReceipt",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "btnAcceptReceipt",
+        "type": "button",
+        "name": "",
+        "label": "Aceptar",
+        "sourceLine": 2959,
+        "containers": [
+          "receiptModal"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-082",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": "#btnAcceptReceipt",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "btnCloseConfig",
+        "type": "button",
+        "name": "",
+        "label": "Cerrar ×",
+        "sourceLine": 2973,
+        "containers": [
+          "configModal"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-083",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": "#btnCloseConfig",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "input",
+        "id": "gasApiUrlInput",
+        "type": "url",
+        "name": "",
+        "label": "https://script.google.com/a/macros/domusccc.net/s/.../exec",
+        "sourceLine": 2983,
+        "containers": [
+          "configModal"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-084",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": "#gasApiUrlInput",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "btnSyncOfficialCarta",
+        "type": "button",
+        "name": "",
+        "label": "🔄 Sincronizar CATALOGO e INVENTARIO en Google Sheets",
+        "sourceLine": 3006,
+        "containers": [
+          "configModal"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-085",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": "#btnSyncOfficialCarta",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "input",
+        "id": "newCajaPasswordInput",
+        "type": "password",
+        "name": "",
+        "label": "Ej. 2026 o clave segura",
+        "sourceLine": 3023,
+        "containers": [
+          "configModal"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-086",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": "#newCajaPasswordInput",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "input",
+        "id": "printBridgeTokenInput",
+        "type": "password",
+        "name": "",
+        "label": "domus_prn_...",
+        "sourceLine": 3037,
+        "containers": [
+          "configModal"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-087",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": "#printBridgeTokenInput",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "btnCheckPrinterStatus",
+        "type": "button",
+        "name": "",
+        "label": "🔍 Probar Conexión",
+        "sourceLine": 3043,
+        "containers": [
+          "configModal"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-088",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": "#btnCheckPrinterStatus",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "btnTestPrinter",
+        "type": "button",
+        "name": "",
+        "label": "🖨️ Imprimir Ticket de Prueba",
+        "sourceLine": 3046,
+        "containers": [
+          "configModal"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-089",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": "#btnTestPrinter",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "btnCancelConfig",
+        "type": "button",
+        "name": "",
+        "label": "Cancelar",
+        "sourceLine": 3055,
+        "containers": [
+          "configModal"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-090",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": "#btnCancelConfig",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "btnSaveConfig",
+        "type": "button",
+        "name": "",
+        "label": "Guardar Configuración",
+        "sourceLine": 3058,
+        "containers": [
+          "configModal"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-091",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": "#btnSaveConfig",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "input",
+        "id": "cajaPinInput",
+        "type": "password",
+        "name": "",
+        "label": "••••",
+        "sourceLine": 3083,
+        "containers": [
+          "cajaLockModal"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-092",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": "#cajaPinInput",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "",
+        "type": "button",
+        "name": "",
+        "label": "1",
+        "sourceLine": 3091,
+        "containers": [
+          "cajaLockModal",
+          "pinKeypad"
+        ],
+        "dataAttributes": {
+          "data-key": "1"
+        },
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-093",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": null,
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "",
+        "type": "button",
+        "name": "",
+        "label": "2",
+        "sourceLine": 3092,
+        "containers": [
+          "cajaLockModal",
+          "pinKeypad"
+        ],
+        "dataAttributes": {
+          "data-key": "2"
+        },
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-094",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": null,
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "",
+        "type": "button",
+        "name": "",
+        "label": "3",
+        "sourceLine": 3093,
+        "containers": [
+          "cajaLockModal",
+          "pinKeypad"
+        ],
+        "dataAttributes": {
+          "data-key": "3"
+        },
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-095",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": null,
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "",
+        "type": "button",
+        "name": "",
+        "label": "4",
+        "sourceLine": 3094,
+        "containers": [
+          "cajaLockModal",
+          "pinKeypad"
+        ],
+        "dataAttributes": {
+          "data-key": "4"
+        },
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-096",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": null,
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "",
+        "type": "button",
+        "name": "",
+        "label": "5",
+        "sourceLine": 3095,
+        "containers": [
+          "cajaLockModal",
+          "pinKeypad"
+        ],
+        "dataAttributes": {
+          "data-key": "5"
+        },
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-097",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": null,
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "",
+        "type": "button",
+        "name": "",
+        "label": "6",
+        "sourceLine": 3096,
+        "containers": [
+          "cajaLockModal",
+          "pinKeypad"
+        ],
+        "dataAttributes": {
+          "data-key": "6"
+        },
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-098",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": null,
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "",
+        "type": "button",
+        "name": "",
+        "label": "7",
+        "sourceLine": 3097,
+        "containers": [
+          "cajaLockModal",
+          "pinKeypad"
+        ],
+        "dataAttributes": {
+          "data-key": "7"
+        },
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-099",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": null,
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "",
+        "type": "button",
+        "name": "",
+        "label": "8",
+        "sourceLine": 3098,
+        "containers": [
+          "cajaLockModal",
+          "pinKeypad"
+        ],
+        "dataAttributes": {
+          "data-key": "8"
+        },
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-100",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": null,
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "",
+        "type": "button",
+        "name": "",
+        "label": "9",
+        "sourceLine": 3099,
+        "containers": [
+          "cajaLockModal",
+          "pinKeypad"
+        ],
+        "dataAttributes": {
+          "data-key": "9"
+        },
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-101",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": null,
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "btnPinClear",
+        "type": "button",
+        "name": "",
+        "label": "C",
+        "sourceLine": 3100,
+        "containers": [
+          "cajaLockModal",
+          "pinKeypad"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-102",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": "#btnPinClear",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "",
+        "type": "button",
+        "name": "",
+        "label": "0",
+        "sourceLine": 3101,
+        "containers": [
+          "cajaLockModal",
+          "pinKeypad"
+        ],
+        "dataAttributes": {
+          "data-key": "0"
+        },
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-103",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": null,
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "btnPinBackspace",
+        "type": "button",
+        "name": "",
+        "label": "⌫",
+        "sourceLine": 3102,
+        "containers": [
+          "cajaLockModal",
+          "pinKeypad"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-104",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": "#btnPinBackspace",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "input",
+        "id": "rememberCajaDeviceCheckbox",
+        "type": "checkbox",
+        "name": "",
+        "label": "",
+        "sourceLine": 3107,
+        "containers": [
+          "cajaLockModal"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-105",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": "#rememberCajaDeviceCheckbox",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "btnCancelCajaUnlock",
+        "type": "button",
+        "name": "",
+        "label": "Volver a Comandas",
+        "sourceLine": 3116,
+        "containers": [
+          "cajaLockModal"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-106",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": "#btnCancelCajaUnlock",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "btnSubmitCajaPin",
+        "type": "button",
+        "name": "",
+        "label": "✓ Desbloquear",
+        "sourceLine": 3119,
+        "containers": [
+          "cajaLockModal"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-107",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": "#btnSubmitCajaPin",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "btnCloseNewProductModal",
+        "type": "button",
+        "name": "",
+        "label": "Cerrar ×",
+        "sourceLine": 3130,
+        "containers": [
+          "cajaLockModal",
+          "newProductModal"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-108",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": "#btnCloseNewProductModal",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "input",
+        "id": "newProdName",
+        "type": "text",
+        "name": "",
+        "label": "Ej. Mezcalina de Jamaica · 500 ml",
+        "sourceLine": 3141,
+        "containers": [
+          "cajaLockModal",
+          "newProductModal"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-109",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": "#newProdName",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "select",
+        "id": "newProdCategory",
+        "type": "",
+        "name": "",
+        "label": "🌿 Menú Cannábico Cafetería Bebidas Cervezas Cheladas Coctelería Canna Treats Cocina Sushi Shots + Otra Categoría…",
+        "sourceLine": 3147,
+        "containers": [
+          "cajaLockModal",
+          "newProductModal"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-110",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": "#newProdCategory",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "select",
+        "id": "newProdDestination",
+        "type": "",
+        "name": "",
+        "label": "Barra Cocina",
+        "sourceLine": 3164,
+        "containers": [
+          "cajaLockModal",
+          "newProductModal"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-111",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": "#newProdDestination",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "input",
+        "id": "newProdCustomCategory",
+        "type": "text",
+        "name": "",
+        "label": "Escribe el nombre de la nueva categoría…",
+        "sourceLine": 3173,
+        "containers": [
+          "cajaLockModal",
+          "newProductModal",
+          "customCatWrapper"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-112",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": "#newProdCustomCategory",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "input",
+        "id": "newProdPriceSolar",
+        "type": "number",
+        "name": "",
+        "label": "0.00",
+        "sourceLine": 3179,
+        "containers": [
+          "cajaLockModal",
+          "newProductModal"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-113",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": "#newProdPriceSolar",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "input",
+        "id": "newProdPriceLunar",
+        "type": "number",
+        "name": "",
+        "label": "0.00",
+        "sourceLine": 3184,
+        "containers": [
+          "cajaLockModal",
+          "newProductModal"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-114",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": "#newProdPriceLunar",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "input",
+        "id": "newProdProvider",
+        "type": "text",
+        "name": "",
+        "label": "DOMUS",
+        "sourceLine": 3191,
+        "containers": [
+          "cajaLockModal",
+          "newProductModal"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-115",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": "#newProdProvider",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "input",
+        "id": "newProdSku",
+        "type": "text",
+        "name": "",
+        "label": "Auto-generado si está vacío",
+        "sourceLine": 3196,
+        "containers": [
+          "cajaLockModal",
+          "newProductModal"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-116",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": "#newProdSku",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "input",
+        "id": "newProdStock",
+        "type": "number",
+        "name": "",
+        "label": "",
+        "sourceLine": 3202,
+        "containers": [
+          "cajaLockModal",
+          "newProductModal"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-117",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": "#newProdStock",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "btnCancelNewProduct",
+        "type": "button",
+        "name": "",
+        "label": "Cancelar",
+        "sourceLine": 3207,
+        "containers": [
+          "cajaLockModal",
+          "newProductModal"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-118",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": "#btnCancelNewProduct",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "btnSaveNewProduct",
+        "type": "button",
+        "name": "",
+        "label": "✓ Guardar y Dar de Alta",
+        "sourceLine": 3210,
+        "containers": [
+          "cajaLockModal",
+          "newProductModal"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-119",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": "#btnSaveNewProduct",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "btnCloseAccessReceipt",
+        "type": "button",
+        "name": "",
+        "label": "Cerrar ×",
+        "sourceLine": 3225,
+        "containers": [
+          "cajaLockModal",
+          "accessReceiptModal"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-120",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": "#btnCloseAccessReceipt",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "btnDismissAccessReceipt",
+        "type": "button",
+        "name": "",
+        "label": "Cerrar",
+        "sourceLine": 3273,
+        "containers": [
+          "cajaLockModal",
+          "accessReceiptModal"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-121",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": "#btnDismissAccessReceipt",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "btnPrintAccessReceipt",
+        "type": "button",
+        "name": "",
+        "label": "🖨️ Imprimir Ticket",
+        "sourceLine": 3276,
+        "containers": [
+          "cajaLockModal",
+          "accessReceiptModal"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-122",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": "#btnPrintAccessReceipt",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "btnCloseNewEventModal",
+        "type": "button",
+        "name": "",
+        "label": "Cerrar ×",
+        "sourceLine": 3290,
+        "containers": [
+          "cajaLockModal",
+          "newEventModal"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-123",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": "#btnCloseNewEventModal",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "input",
+        "id": "eventFormName",
+        "type": "text",
+        "name": "",
+        "label": "Ej. Sensorama fetish y kinky",
+        "sourceLine": 3301,
+        "containers": [
+          "cajaLockModal",
+          "newEventModal"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-124",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": "#eventFormName",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "input",
+        "id": "eventFormDate",
+        "type": "date",
+        "name": "",
+        "label": "",
+        "sourceLine": 3307,
+        "containers": [
+          "cajaLockModal",
+          "newEventModal"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-125",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": "#eventFormDate",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "select",
+        "id": "eventFormType",
+        "type": "",
+        "name": "",
+        "label": "Fiesta temática Club nocturno Social / Gaming Comunidad / Privado Taller / Performance Operación diaria",
+        "sourceLine": 3311,
+        "containers": [
+          "cajaLockModal",
+          "newEventModal"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-126",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": "#eventFormType",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "input",
+        "id": "eventFormOrganizer",
+        "type": "text",
+        "name": "",
+        "label": "DOMUS",
+        "sourceLine": 3325,
+        "containers": [
+          "cajaLockModal",
+          "newEventModal"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-127",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": "#eventFormOrganizer",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "input",
+        "id": "eventFormCapacity",
+        "type": "number",
+        "name": "",
+        "label": "",
+        "sourceLine": 3329,
+        "containers": [
+          "cajaLockModal",
+          "newEventModal"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-128",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": "#eventFormCapacity",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "input",
+        "id": "eventFormPriceGeneral",
+        "type": "number",
+        "name": "",
+        "label": "100.00",
+        "sourceLine": 3341,
+        "containers": [
+          "cajaLockModal",
+          "newEventModal"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-129",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": "#eventFormPriceGeneral",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "input",
+        "id": "eventFormPricePareja",
+        "type": "number",
+        "name": "",
+        "label": "180.00",
+        "sourceLine": 3345,
+        "containers": [
+          "cajaLockModal",
+          "newEventModal"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-130",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": "#eventFormPricePareja",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "input",
+        "id": "eventFormPriceTrio",
+        "type": "number",
+        "name": "",
+        "label": "250.00",
+        "sourceLine": 3351,
+        "containers": [
+          "cajaLockModal",
+          "newEventModal"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-131",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": "#eventFormPriceTrio",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "input",
+        "id": "eventFormPriceWardrobe",
+        "type": "number",
+        "name": "",
+        "label": "",
+        "sourceLine": 3355,
+        "containers": [
+          "cajaLockModal",
+          "newEventModal"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-132",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": "#eventFormPriceWardrobe",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "input",
+        "id": "eventFormNotes",
+        "type": "text",
+        "name": "",
+        "label": "Detalles de admisión, dress code o requerimientos",
+        "sourceLine": 3362,
+        "containers": [
+          "cajaLockModal",
+          "newEventModal"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-133",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": "#eventFormNotes",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "btnCancelNewEvent",
+        "type": "button",
+        "name": "",
+        "label": "Cancelar",
+        "sourceLine": 3368,
+        "containers": [
+          "cajaLockModal",
+          "newEventModal"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-134",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": "#btnCancelNewEvent",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "btnSaveNewEvent",
+        "type": "button",
+        "name": "",
+        "label": "✓ Guardar en ACTIVIDADES",
+        "sourceLine": 3371,
+        "containers": [
+          "cajaLockModal",
+          "newEventModal"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-135",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": "#btnSaveNewEvent",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "btnCloseEditAccessModal",
+        "type": "button",
+        "name": "",
+        "label": "Cerrar ×",
+        "sourceLine": 3385,
+        "containers": [
+          "cajaLockModal",
+          "editAccessModal"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-136",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": "#btnCloseEditAccessModal",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "input",
+        "id": "editAccessId",
+        "type": "hidden",
+        "name": "",
+        "label": "",
+        "sourceLine": 3389,
+        "containers": [
+          "cajaLockModal",
+          "editAccessModal"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-137",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": "#editAccessId",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "input",
+        "id": "editAccessCustomer",
+        "type": "text",
+        "name": "",
+        "label": "Ej. Alex / Nombre del invitado",
+        "sourceLine": 3404,
+        "containers": [
+          "cajaLockModal",
+          "editAccessModal"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-138",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": "#editAccessCustomer",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "input",
+        "id": "editAccessPhone",
+        "type": "tel",
+        "name": "",
+        "label": "10 dígitos (opcional)",
+        "sourceLine": 3410,
+        "containers": [
+          "cajaLockModal",
+          "editAccessModal"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-139",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": "#editAccessPhone",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "select",
+        "id": "editAccessPersons",
+        "type": "",
+        "name": "",
+        "label": "1 Asistente (General) 2 Asistentes (Pareja) 3 Asistentes (Trío)",
+        "sourceLine": 3414,
+        "containers": [
+          "cajaLockModal",
+          "editAccessModal"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-140",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": "#editAccessPersons",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "select",
+        "id": "editAccessChannel",
+        "type": "",
+        "name": "",
+        "label": "🌐 Boletera Externa (Genera $150 para DOMUS · $0 en Puerta) 📋 Lista / Invitados (Genera $150 para DOMUS · $0 en Puerta) ⭐ Cortesía ($0 para DOMUS · Exenta de cuota) 🎟️ Taquilla Dire",
+        "sourceLine": 3424,
+        "containers": [
+          "cajaLockModal",
+          "editAccessModal"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-141",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": "#editAccessChannel",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "input",
+        "id": "editAccessCourtesyAuth",
+        "type": "text",
+        "name": "",
+        "label": "Ej. Steven / Dirección / Staff",
+        "sourceLine": 3441,
+        "containers": [
+          "cajaLockModal",
+          "editAccessModal",
+          "editAccessCourtesySection"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-142",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": "#editAccessCourtesyAuth",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "input",
+        "id": "editAccessCourtesyReason",
+        "type": "text",
+        "name": "",
+        "label": "Ej. Invitado especial, staff del evento",
+        "sourceLine": 3445,
+        "containers": [
+          "cajaLockModal",
+          "editAccessModal",
+          "editAccessCourtesySection"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-143",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": "#editAccessCourtesyReason",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "btnDeleteAccessFromModal",
+        "type": "button",
+        "name": "",
+        "label": "🗑️ Eliminar Registro",
+        "sourceLine": 3455,
+        "containers": [
+          "cajaLockModal",
+          "editAccessModal"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-144",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": "#btnDeleteAccessFromModal",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "btnCancelEditAccess",
+        "type": "button",
+        "name": "",
+        "label": "Cancelar",
+        "sourceLine": 3459,
+        "containers": [
+          "cajaLockModal",
+          "editAccessModal"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-145",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": "#btnCancelEditAccess",
+        "locatorNeedsRuntimeReview": true
+      },
+      {
+        "tag": "button",
+        "id": "btnSaveEditAccess",
+        "type": "button",
+        "name": "",
+        "label": "✓ Guardar Cambios",
+        "sourceLine": 3462,
+        "containers": [
+          "cajaLockModal",
+          "editAccessModal"
+        ],
+        "dataAttributes": {},
+        "status": "NOT_TESTED",
+        "scope": "STATIC_SOURCE_DECLARATION",
+        "runtimeEvidence": null,
+        "inventoryId": "NATIVE-146",
+        "source": "google-apps-script/Index.html",
+        "locatorCandidate": "#btnSaveEditAccess",
+        "locatorNeedsRuntimeReview": true
+      }
+    ]
+  },
+  "dynamicFamilies": [
+    {
+      "handler": "claimOrder",
+      "source": "js/app.js",
+      "sourceLine": 3791,
+      "status": "NOT_TESTED",
+      "scope": "DYNAMIC_INLINE_HANDLER_FAMILY",
+      "runtimeEvidence": null
+    },
+    {
+      "handler": "deleteAccessRecord",
+      "source": "js/app.js",
+      "sourceLine": 4817,
+      "status": "NOT_TESTED",
+      "scope": "DYNAMIC_INLINE_HANDLER_FAMILY",
+      "runtimeEvidence": null
+    },
+    {
+      "handler": "deliverOrder",
+      "source": "js/app.js",
+      "sourceLine": 3820,
+      "status": "NOT_TESTED",
+      "scope": "DYNAMIC_INLINE_HANDLER_FAMILY",
+      "runtimeEvidence": null
+    },
+    {
+      "handler": "editAccessRecord",
+      "source": "js/app.js",
+      "sourceLine": 4814,
+      "status": "NOT_TESTED",
+      "scope": "DYNAMIC_INLINE_HANDLER_FAMILY",
+      "runtimeEvidence": null
+    },
+    {
+      "handler": "markOrderReady",
+      "source": "js/app.js",
+      "sourceLine": 3814,
+      "status": "NOT_TESTED",
+      "scope": "DYNAMIC_INLINE_HANDLER_FAMILY",
+      "runtimeEvidence": null
+    },
+    {
+      "handler": "reportIncident",
+      "source": "js/app.js",
+      "sourceLine": 3826,
+      "status": "NOT_TESTED",
+      "scope": "DYNAMIC_INLINE_HANDLER_FAMILY",
+      "runtimeEvidence": null
+    },
+    {
+      "handler": "reprintAccessTicket",
+      "source": "js/app.js",
+      "sourceLine": 4820,
+      "status": "NOT_TESTED",
+      "scope": "DYNAMIC_INLINE_HANDLER_FAMILY",
+      "runtimeEvidence": null
+    },
+    {
+      "handler": "resolveRestock",
+      "source": "js/app.js",
+      "sourceLine": 3870,
+      "status": "NOT_TESTED",
+      "scope": "DYNAMIC_INLINE_HANDLER_FAMILY",
+      "runtimeEvidence": null
+    },
+    {
+      "handler": "returnWardrobe",
+      "source": "js/app.js",
+      "sourceLine": 4895,
+      "status": "NOT_TESTED",
+      "scope": "DYNAMIC_INLINE_HANDLER_FAMILY",
+      "runtimeEvidence": null
+    },
+    {
+      "handler": "setActiveEvent",
+      "source": "js/app.js",
+      "sourceLine": 4930,
+      "status": "NOT_TESTED",
+      "scope": "DYNAMIC_INLINE_HANDLER_FAMILY",
+      "runtimeEvidence": null
+    },
+    {
+      "handler": "submitRestockRequest",
+      "source": "js/app.js",
+      "sourceLine": 3852,
+      "status": "NOT_TESTED",
+      "scope": "DYNAMIC_INLINE_HANDLER_FAMILY",
+      "runtimeEvidence": null
+    },
+    {
+      "handler": "updateQty",
+      "source": "js/app.js",
+      "sourceLine": 3468,
+      "status": "NOT_TESTED",
+      "scope": "DYNAMIC_INLINE_HANDLER_FAMILY",
+      "runtimeEvidence": null
+    }
+  ],
+  "limits": [
+    "No rendered visibility, clickability or role access checked.",
+    "Delegated listeners, programmatic handlers and external administration views need runtime inventory.",
+    "No PASS is assigned from source presence.",
+    "No input values or credentials captured."
+  ]
+}
