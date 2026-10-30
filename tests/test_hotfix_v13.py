@@ -11,6 +11,7 @@ import os
 import re
 import sys
 import json
+import subprocess
 
 JS_PATH = os.path.abspath('js/app.js')
 INDEX_PATH = os.path.abspath('index.html')
@@ -148,9 +149,9 @@ def run_suite():
     # Test 12: producto no autorizado / orden vacía no es enviada
     # --------------------------------------------------------------------------
     print("\n[Test 12] Guardia contra órdenes vacías en confirmPaymentAndDispatch y enqueueOutbox...")
-    assert "if (!STATE.cart || !STATE.cart.length)" in js_content, "Falta guardia de carrito vacío en confirmPaymentAndDispatch"
-    assert "if (action === 'cajaSimpleRegistrar' && (!args || !args[0] || !args[0].items || !args[0].items.length))" in js_content, "Falta guardia en enqueueOutbox"
-    print("✅ TEST 12 PASS: Órdenes sin productos son bloqueadas y no se encolan ni envían.")
+    # Empty items are valid ONLY for settling an existing account; execute source instead of matching old syntax.
+    subprocess.run(['node', 'tests/client_recovery_regressions.js'], check=True, capture_output=True, text=True)
+    print("✅ TEST 12 PASS: Nueva venta vacía bloqueada; liquidación de cuenta existente preservada.")
     passed += 1
 
     # --------------------------------------------------------------------------

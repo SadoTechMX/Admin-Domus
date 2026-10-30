@@ -1,0 +1,26 @@
+name: Recovery regressions (isolated fixtures)
+on:
+  pull_request:
+  push:
+    branches: ['repair/qa-20261030']
+permissions:
+  contents: read
+jobs:
+  isolated-regressions:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python scripts/build_release.py --check
+      - run: node tests/recovery_regressions.js
+      - run: node tests/client_recovery_regressions.js
+      - run: python tests/bridge_recovery_regressions.py
+      - run: python tests/test_write_guardrails.py
+      - run: npm install --no-save --package-lock=false playwright@1.62.1
+      - run: npx playwright install --with-deps chromium
+      - run: node tests/browser_local_regressions.js

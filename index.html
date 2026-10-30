@@ -843,7 +843,7 @@
           <h4 style="font-size: 0.95rem; margin-bottom: 8px; color: var(--gold-400);">📊 Base de Datos: Catálogo e
             Inventario</h4>
           <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 8px;">
-            Sincronizar los 120 productos y recetas de la Carta Oficial Definitiva directamente a CATALOGO e INVENTARIO
+            Actualizar precios desde la carta oficial; conservar inventario y acuerdos de la Carta Oficial Definitiva directamente a CATALOGO e INVENTARIO
             del libro maestro de DOMUS.
           </p>
           <button type="button" class="btn-secondary-action" id="btnSyncOfficialCarta"
@@ -877,7 +877,7 @@
           </p>
           <div class="input-group">
             <label for="printBridgeTokenInput">Token Secreto de Print Bridge:</label>
-            <input type="text" id="printBridgeTokenInput" placeholder="domus_prn_..." />
+            <input type="password" id="printBridgeTokenInput" placeholder="domus_prn_..." />
             <small style="color: var(--text-muted); display: block; margin-top: 4px;">
               Configurado en <code>~/.domus/print_bridge_token.txt</code>
             </small>
@@ -948,7 +948,7 @@
         <!-- Casilla para Recordar Acceso en esta Máquina -->
         <label class="checkbox-remember-device" style="margin-top: 6px;">
           <input type="checkbox" id="rememberCajaDeviceCheckbox" checked />
-          <span>Autorizar este equipo permanentemente (Máquina de Caja)</span>
+          <span>Mantener acceso visual en esta sesión</span>
         </label>
         <small style="color: var(--text-muted); display: block; font-size: 0.76rem; margin-top: 2px;">
           En las pantallas de Barra/Comanda, desmarca esta casilla para que nadie pueda acceder a ventas o cobros.
@@ -1312,14 +1312,14 @@
 
         <!-- Build Version Footer -->
         <footer class="app-version-footer" style="text-align: center; font-size: 0.72rem; color: var(--text-muted, #71717a); padding: 8px 16px; border-top: 1px solid rgba(255,255,255,0.05); user-select: none;">
-          <span id="domusBuildLabel">DOMUS OS · UI 20261029-06 · PRODUCTION</span>
+          <span id="domusBuildLabel">DOMUS OS · UI 20261030-repair-01 · PRODUCTION</span>
         </footer>
 
         <!-- Toast Container -->
         <div class="toast-container" id="toastContainer" aria-live="polite"></div>
 
         <!-- Script -->
-        <script src="js/app.js?v=20261029-06"></script>
+        <script src="js/app.js?v=20261030-repair-01"></script>
 </body>
 
 </html>

@@ -13,7 +13,9 @@
 
   // Determinar entorno de ejecución (Issue #1: Bloqueo estricto del endpoint productivo)
   const _urlParams = new URLSearchParams(window.location.search);
-  const _isStagingExplicit = _urlParams.get('env') === 'staging';
+  const nativeBoot=window.DOMUS_NATIVE_BOOT || {};
+  if(nativeBoot.view)_urlParams.set('vista',nativeBoot.view);
+  const _isStagingExplicit = nativeBoot.environment==='STAGING' || _urlParams.get('env') === 'staging';
   const _isLocalDev = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') && !_urlParams.has('env');
   const isStagingEnv = _isStagingExplicit || (_isLocalDev && _urlParams.get('env') !== 'production');
 
@@ -30,8 +32,9 @@
 
   // Metadatos canónicos del build de frontend
   window.DOMUS_BUILD = {
-    commit: 'e93a52d',
-    ui: '20261029-06',
+    baseCommit: 'ebf5697a4f5cd5cae281e51ecd1c0857c7e4c30b',
+    buildId: 'repair-qa-20261030',
+    ui: '20261030-repair-01',
     environment: isProductionLocked ? 'PRODUCTION' : 'STAGING'
   };
 
@@ -84,8 +87,8 @@
     openingFloat: 600,
     openingFloatProvider: 'Steven',
     openingFloatConcept: 'Fondo inicial / fondo de cambio',
-    deletedAccessIds: new Set(JSON.parse(localStorage.getItem('domus_deleted_access_ids') || '[]')),
-    editedAccessMap: JSON.parse(localStorage.getItem('domus_edited_access_map') || '{}'),
+    deletedAccessIds: new Set(),
+    editedAccessMap: {},
     
     // Conexión
     isNativeGas: !!(window.google && google.script && google.script.run),
@@ -2159,11 +2162,6 @@ const DEFAULT_CATALOG = [
   }
 
   // --- SEGURIDAD Y CONTROL DE ACCESO A CAJA ---
-  const DEFAULT_CAJA_PIN = '2026';
-
-  function getCajaPin() {
-    return localStorage.getItem('domus_caja_pin') || DEFAULT_CAJA_PIN;
-  }
 
   function isCajaAuthorized() {
     return localStorage.getItem('domus_caja_authorized') === 'true' ||
@@ -2184,28 +2182,15 @@ const DEFAULT_CATALOG = [
     if (modal) modal.classList.remove('open');
   }
 
-  function unlockCajaWithPin() {
-    const entered = $('cajaPinInput').value.trim();
-    const correctPin = getCajaPin();
-
-    if (entered === correctPin) {
-      const remember = $('rememberCajaDeviceCheckbox').checked;
-      if (remember) {
-        localStorage.setItem('domus_caja_authorized', 'true');
-        toast('Equipo autorizado como Máquina de Caja.', 'ok');
-      } else {
-        sessionStorage.setItem('domus_caja_session', 'true');
-        toast('Caja desbloqueada para esta sesión.', 'ok');
-      }
-      closeCajaLockModal();
-      setMode('caja');
-      playChime('success');
-    } else {
-      $('cajaPinError').textContent = 'Contraseña o PIN incorrecto. Reintenta.';
-      $('cajaPinInput').value = '';
-      $('cajaPinInput').focus();
-      playChime('alert');
-    }
+  async function unlockCajaWithPin() {
+    const input=$('cajaPinInput');const secret=input.value;input.value='';
+    try {
+      const res=await transport_({action:'authCrearSesion',args:['CAJA',STATE.operator || 'Caja',getDeviceId(),secret],role:'CAJA',deviceId:getDeviceId()});
+      if(!res.ok || !res.data || !res.data.token)throw new Error('Credencial no válida en el servidor.');
+      setSessionToken(res.data.token,'CAJA');
+      sessionStorage.setItem('domus_caja_session','true');
+      closeCajaLockModal();setMode('caja');syncBackendData();
+    }catch(err){$('cajaPinError').textContent=err.message;}
   }
 
   function lockCajaOnDevice() {
@@ -2226,7 +2211,7 @@ const DEFAULT_CATALOG = [
       } catch (e) {}
     }
     const params = new URLSearchParams(window.location.search);
-    let vista = params.get('vista') || '';
+    let vista = nativeBoot.view || params.get('vista') || '';
     if (vista.includes(']')) vista = vista.split(']')[0];
     if (vista.includes('%5D')) vista = vista.split('%5D')[0];
     if (vista.includes('(')) vista = vista.split('(')[0];
@@ -2318,12 +2303,8 @@ const DEFAULT_CATALOG = [
   }
 
   function getSessionToken(targetRole) {
-    const role = targetRole || getStationRole();
-    return sessionStorage.getItem('domus_session_token_' + role) ||
-           sessionStorage.getItem('domus_session_token') ||
-           localStorage.getItem('domus_session_token_' + role) ||
-           (localStorage.getItem('domus_session_role') === role ? localStorage.getItem('domus_session_token') : '') ||
-           '';
+    const role=targetRole || getStationRole();
+    return sessionStorage.getItem('domus_session_token_'+role) || '';
   }
 
   function setSessionToken(token, role) {
@@ -2340,108 +2321,69 @@ const DEFAULT_CATALOG = [
 
   function getStationRole() {
     if (STATE.mode === 'caja') return 'CAJA';
-    if (STATE.mode === 'comandas') return 'BARRA';
+    if (STATE.mode === 'comandas') return STATE.kdsFilterDest === 'Cocina' ? 'COCINA' : 'BARRA';
     if (STATE.mode === 'accesos') return 'ACCESOS';
     return 'CAJA';
   }
 
-  let isEnsuringSession = false;
-  const pendingSessionCallbacks = [];
-
-  function ensureSessionToken(onDone, targetRole) {
-    const currentRole = targetRole || getStationRole();
-    const currentToken = getSessionToken(currentRole);
-    const savedRole = localStorage.getItem('domus_session_role_' + currentRole) || localStorage.getItem('domus_session_role');
-
-    if (currentToken && (!savedRole || savedRole === currentRole)) {
-      if (onDone) onDone();
-      return;
-    }
-
-    if (onDone) pendingSessionCallbacks.push(onDone);
-    if (isEnsuringSession) return;
-    isEnsuringSession = true;
-
-    const role = currentRole;
-    const devId = getDeviceId();
-
-    // En entorno nativo Apps Script, obtener token vía dispatchNativeAction
-    if (STATE.isNativeGas && window.google && google.script && google.script.run) {
-      google.script.run
-        .withSuccessHandler(res => {
-          isEnsuringSession = false;
-          const data = (res && res.data) ? res.data : res;
-          if (data && data.token) {
-            setSessionToken(data.token, role);
-            console.log('[DOMUS AUTO-AUTH] Sesión nativa creada exitosamente:', role, data.token);
-            const cbs = [...pendingSessionCallbacks];
-            pendingSessionCallbacks.length = 0;
-            cbs.forEach(cb => cb());
-          } else {
-            console.warn('[DOMUS AUTO-AUTH] El backend nativo no devolvió un token de sesión válido:', res);
-            pendingSessionCallbacks.length = 0;
-            updateSyncPill('error');
-            toast('No fue posible autenticar esta estación con el servidor nativo.', 'error');
-          }
-        })
-        .withFailureHandler(err => {
-          isEnsuringSession = false;
-          console.warn('[DOMUS AUTO-AUTH] Error al crear sesión nativa:', err);
-          pendingSessionCallbacks.length = 0;
-          updateSyncPill('error');
-          toast('No fue posible autenticar esta estación nativa.', 'error');
-        }).dispatchNativeAction({
-          action: 'authCrearSesion',
-          args: [role, 'Operador ' + role, devId],
-          role: role,
-          deviceId: devId
-        });
-      return;
-    }
-
-    const endpoint = `${STATE.apiUrl}?action=authCrearSesion`;
-
-    fetch(endpoint, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify({
-        action: 'authCrearSesion',
-        args: [role, 'Operador ' + role, devId],
-        role: role,
-        deviceId: devId
-      })
-    })
-    .then(r => r.json())
-    .then(res => {
-      isEnsuringSession = false;
-      if (res && res.data && res.data.token) {
-        setSessionToken(res.data.token, role);
-        console.log('[DOMUS AUTO-AUTH] Sesión creada exitosamente:', role, res.data.token);
-        const cbs = [...pendingSessionCallbacks];
-        pendingSessionCallbacks.length = 0;
-        cbs.forEach(cb => cb());
-      } else {
-        console.warn('[DOMUS AUTO-AUTH] El backend no devolvió un token de sesión válido:', res);
-        pendingSessionCallbacks.length = 0;
-        updateSyncPill('error');
-        toast('No fue posible autenticar esta estación con el servidor. Verifica la conexión.', 'error');
+  const sessionRequests = new Map();
+  ['cambiarFase','solicitarResurtido','editarAcceso','anularAcceso'].forEach(a=>MUTATION_ACTIONS.add(a));
+  async function transport_(payload) {
+    if(MUTATION_ACTIONS.has(payload.action)) {
+      const health=await transport_({action:'health',args:[],role:payload.role,deviceId:payload.deviceId});
+      const d=health && health.data || {};
+      const expected=STATE.isProductionLocked
+        ? ['PRODUCTION','1KQz8oJ4VaWFsqS2-sg25HMCm60SdSoQpIDlCDSV5J1U','1DiwPa1cVe33xCYkIiYoHhP015RsEOjHXBFe2iU2RVCc']
+        : ['STAGING','114VSwo3bXyn_audh1LHr4qqjW5aSDSTP_bR_-Iz5dkg','1NDpuyx6EfCHcoKW9CZ6pwR0oe2JS0aKpTTMa7RdqmlE'];
+      if(!health.ok || JSON.stringify([d.environment,d.mainSheetId,d.opsSheetId])!==JSON.stringify(expected)) {
+        const err=new Error('ENVIRONMENT_MISMATCH: no se envió la operación; entorno/libros no coinciden.');err.status=400;throw err;
       }
-    })
-    .catch(err => {
-      isEnsuringSession = false;
-      console.warn('[DOMUS AUTO-AUTH] Error al crear sesión automática:', err);
-      pendingSessionCallbacks.length = 0;
-      updateSyncPill('error');
-      toast('No fue posible autenticar esta estación. La operación no fue enviada.', 'error');
+    }
+    if (STATE.isNativeGas && window.google && google.script && google.script.run) {
+      return new Promise((resolve, reject) => google.script.run.withSuccessHandler(resolve).withFailureHandler(reject).dispatchNativeAction(payload));
+    }
+    const response = await fetch(STATE.apiUrl, {method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body:JSON.stringify(payload)});
+    return response.json();
+  }
+
+  function requestStationSecret_(role) {
+    return new Promise((resolve, reject) => {
+      const overlay = document.createElement('div'); overlay.className = 'modal-overlay open';
+      const form = document.createElement('form'); form.className = 'modal-card'; form.style.padding = '24px';
+      const label = document.createElement('label'); label.textContent = 'Credencial de estación ' + role + ' (validada por el servidor)';
+      const input = document.createElement('input'); input.type = 'password'; input.autocomplete = 'current-password'; input.required = true;
+      const ok = document.createElement('button'); ok.type = 'submit'; ok.textContent = 'Autenticar';
+      const cancel = document.createElement('button'); cancel.type = 'button'; cancel.textContent = 'Cancelar';
+      label.appendChild(input); form.append(label,ok,cancel); overlay.appendChild(form); document.body.appendChild(overlay);
+      form.onsubmit = e => {e.preventDefault(); const secret=input.value; input.value=''; overlay.remove(); resolve(secret);};
+      cancel.onclick = () => {input.value=''; overlay.remove(); reject(new Error('Autenticación cancelada.'));}; input.focus();
+    });
+  }
+
+  function ensureSessionToken(onDone, targetRole, onFail) {
+    const role = targetRole || getStationRole();
+    if (getSessionToken(role)) { if (onDone) onDone(); return Promise.resolve(); }
+    if (!sessionRequests.has(role)) {
+      const login = async credential => transport_({action:'authCrearSesion',args:[role, STATE.operator || 'Operador '+role, getDeviceId(), credential],role,deviceId:getDeviceId()});
+      sessionRequests.set(role,(async () => {
+        let r = await login('');
+        if (!r.ok) r = await login(await requestStationSecret_(role));
+        if (!r.ok || !r.data || !r.data.token) throw new Error('Acceso denegado: credencial de estación no válida.');
+        setSessionToken(r.data.token, role);
+      })().finally(() => sessionRequests.delete(role)));
+    }
+    return sessionRequests.get(role).then(() => {if(onDone)onDone();}, err => {
+      updateSyncPill('error'); if(onFail)onFail(err); else toast(err.message,'error'); throw err;
     });
   }
 
   function getOutbox() {
     try {
       const raw = localStorage.getItem('domus_outbox');
-      return Array.isArray(JSON.parse(raw)) ? JSON.parse(raw) : [];
+      const queue = Array.isArray(JSON.parse(raw)) ? JSON.parse(raw) : [];
+      return queue.map(q => {if (q.status === 'SENDING' && (!q.lastAttempt || Date.now()-Date.parse(q.lastAttempt)>90000)) q.status='RETRY'; return q;});
     } catch (e) {
-      return [];
+      throw new Error('Outbox no legible: conserva los datos y solicita recuperación antes de operar.');
     }
   }
 
@@ -2469,7 +2411,7 @@ const DEFAULT_CATALOG = [
     try {
       localStorage.setItem('domus_outbox', JSON.stringify(queue));
     } catch (e) {
-      console.warn('Error al guardar outbox en localStorage:', e);
+      throw new Error('No se pudo conservar la intención en este equipo. No se envió el cobro.');
     }
     updateOutboxUI();
     notifyOutboxTabs();
@@ -2482,7 +2424,7 @@ const DEFAULT_CATALOG = [
       explicitRequestId = null;
     }
     // Protección estricta (Issue #1): nunca encolar una orden de caja sin productos
-    if (action === 'cajaSimpleRegistrar' && (!args || !args[0] || !args[0].items || !args[0].items.length)) {
+    if (action === 'cajaSimpleRegistrar' && (!args || !args[0] || ((!args[0].items || !args[0].items.length) && !(args[0].ticket && args[0].paid)))) {
       console.warn('[OUTBOX] Rechazado intento de encolar orden de caja vacía sin productos.');
       return null;
     }
@@ -2517,6 +2459,11 @@ const DEFAULT_CATALOG = [
       lastError: null
     };
 
+    const existing = queue.find(q => q.requestId === reqId);
+    if (existing) {
+      if (existing.action !== action || JSON.stringify(existing.args) !== JSON.stringify(args)) throw new Error('IDEMPOTENCY_KEY_REUSED');
+      return existing;
+    }
     queue.push(item);
     saveOutbox(queue);
     return item;
@@ -2683,7 +2630,7 @@ const DEFAULT_CATALOG = [
         const item = pendingItems[0];
 
         // Issue #1: Validación de orden vacía en cola sin mutar ni purgar silentemente
-        if (item.action === 'cajaSimpleRegistrar' && (!item.args || !item.args[0] || !item.args[0].items || !item.args[0].items.length)) {
+        if (item.action === 'cajaSimpleRegistrar' && (!item.args || !item.args[0] || ((!item.args[0].items || !item.args[0].items.length) && !(item.args[0].ticket && item.args[0].paid)))) {
           console.warn('[OUTBOX] Operación vacía detectada. Marcando en REQUIRES_REVIEW:', item.requestId);
           item.status = 'REQUIRES_REVIEW';
           item.lastError = 'Operación de caja sin productos en el pedido.';
@@ -2702,7 +2649,7 @@ const DEFAULT_CATALOG = [
         let sToken = getSessionToken(itemRole);
         if (!sToken) {
           try {
-            await new Promise(resolve => ensureSessionToken(resolve, itemRole));
+            await ensureSessionToken(null, itemRole);
             sToken = getSessionToken(itemRole);
           } catch (e) {}
         }
@@ -2720,19 +2667,13 @@ const DEFAULT_CATALOG = [
         };
 
         try {
-          const res = await fetch(endpoint, {
-            method: 'POST',
-            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-            body: JSON.stringify(payload)
-          });
-
-          const json = await res.json();
+          const json = await transport_(payload);
           if (json && json.ok) {
             item.status = 'CONFIRMED';
             item.serverReceipt = json.data;
             const updatedQueue = getOutbox().filter(q => q.requestId !== item.requestId);
             saveOutbox(updatedQueue);
-            toast(`Operación sincronizada exitosamente con Google Sheets.`, 'ok');
+            toast(`Operación sincronizada. Recupera el comprobante con su ID original.`, 'ok');
             playChime('success');
             updateSyncPill('ok');
             updateOutboxUI();
@@ -2836,180 +2777,43 @@ const DEFAULT_CATALOG = [
 
   // --- COMUNICACIÓN CON BACKEND (IDEMPOTENTE & CON OUTBOX) ---
   function callBackend(fnName, args, onSuccess, onError) {
-    STATE.isSyncing = true;
-    updateSyncPill();
-
     const isMutation = MUTATION_ACTIONS.has(fnName);
-    const existingReq = (args && args[0] && (args[0].requestId || args[0].id))
-      || (args && args[1] && (args[1].requestId || args[1].id))
-      || null;
-    const reqId = existingReq || ('REQ-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7).toUpperCase());
-
-    if (args && args[0] && typeof args[0] === 'object') {
-      if (!args[0].id) args[0].id = reqId;
-      args[0].requestId = reqId;
-    } else if (args && args[1] && typeof args[1] === 'object') {
-      if (!args[1].id) args[1].id = reqId;
-      args[1].requestId = reqId;
-    }
-
-    // 1. Modo nativo dentro de Google Apps Script Web App (Transaccional unificado vía dispatchNativeAction)
-    if (STATE.isNativeGas && window.google && google.script && google.script.run) {
-      const stationRole = getStationRole();
-      const requiresSession = isMutation || ['cajaSimpleDatos', 'comandasSimpleDatos', 'accesoSimpleDatos'].includes(fnName);
-      if (requiresSession && !getSessionToken(stationRole)) {
-        ensureSessionToken(() => {
-          callBackend(fnName, args, onSuccess, onError);
-        }, stationRole);
-        return;
+    const body = args && args.find(a => a && typeof a === 'object');
+    const reqId = body && (body.requestId || body.id) || ('REQ-'+crypto.randomUUID());
+    if (body && isMutation) {body.requestId=reqId; if(!body.id)body.id=reqId;}
+    let item;
+    try {
+      if(isMutation) {
+        item=enqueueOutbox(fnName,args,reqId,'MUTATION');
+        if(!item)throw new Error('Operación inválida.');
+        item.role=['cambiarFase','anularAcceso','sincronizarCartaConCatalogoDOMUS','registrarNuevoProducto','registrarNuevoEvento'].includes(fnName)?'GERENCIA':getStationRole();
+        item.status='SENDING'; item.lastAttempt=new Date().toISOString();
+        saveOutbox(getOutbox().map(q=>q.requestId===reqId?item:q));
       }
-
-      const nativePayload = {
-        action: fnName,
-        args: args,
-        requestId: reqId,
-        deviceId: getDeviceId(),
-        operator: STATE.operator || 'Operador',
-        role: stationRole,
-        sessionToken: getSessionToken(stationRole)
-      };
-
-      google.script.run
-        .withSuccessHandler(res => {
-          STATE.isSyncing = false;
-          STATE.lastSyncTimestamp = Date.now();
-          if (res && res.ok === false) {
-            const err = new Error(res.error || 'Error nativo en servidor');
-            err.code = res.code;
-            err.status = res.status;
-            updateSyncPill('error');
-            if (onError) onError(err);
-            return;
-          }
-          updateSyncPill('ok');
-          const data = (res && res.data !== undefined) ? res.data : res;
-          if (!isMutation) cacheQuerySnapshot(fnName, data);
-          if (onSuccess) onSuccess(data);
-          if (isMutation) processOutbox();
-        })
-        .withFailureHandler(err => {
-          STATE.isSyncing = false;
-          STATE.lastSyncTimestamp = Date.now();
-          updateSyncPill('error');
-          if (onError) onError(err);
-        }).dispatchNativeAction(nativePayload);
-      return;
-    }
-
-    // 2. Modo Externo (GitHub Pages / Fetch API con Outbox)
-    // A) Consultas de sólo lectura: GET directo ultra-rápido, sin bloqueo de token ni errores de redirección POST de Google Apps Script
-    if (!isMutation) {
-      const getUrl = `${STATE.apiUrl}?action=${encodeURIComponent(fnName)}&token=${encodeURIComponent(getSessionToken())}&role=${encodeURIComponent(getStationRole())}&_=${Date.now()}`;
-      fetch(getUrl, {
-        method: 'GET',
-        cache: 'no-cache'
-      })
-      .then(res => res.json())
-      .then(json => {
-        STATE.isSyncing = false;
-        STATE.lastSyncTimestamp = Date.now();
-        if (!json.ok && json.error) throw new Error(json.error);
-
-        updateSyncPill('ok');
-        const data = json.data !== undefined ? json.data : json;
-        cacheQuerySnapshot(fnName, data);
-        if (onSuccess) onSuccess(data);
-      })
-      .catch(err => {
-        console.warn(`Consulta GET '${fnName}' falló:`, err);
-        STATE.isSyncing = false;
-        STATE.lastSyncTimestamp = Date.now();
-        const cached = getCachedQuerySnapshot(fnName);
-        if (cached && onSuccess) {
-          updateSyncPill('ok');
-          onSuccess(cached);
-        } else {
-          updateSyncPill('error');
-          if (onError) onError(err);
-        }
-      });
-      return;
-    }
-
-    // B) Mutaciones transaccionales (POST con token, idempotencia y encolado en Outbox)
-    const stationRole = getStationRole();
-    if (!getSessionToken(stationRole)) {
-      ensureSessionToken(() => {
-        callBackend(fnName, args, onSuccess, onError);
-      }, stationRole);
-      return;
-    }
-
-    const endpoint = `${STATE.apiUrl}?action=${encodeURIComponent(fnName)}`;
-    const payload = {
-      action: fnName,
-      args: args,
-      requestId: reqId,
-      deviceId: getDeviceId(),
-      operator: STATE.operator || 'Operador',
-      role: stationRole,
-      sessionToken: getSessionToken(stationRole)
+    } catch(err) {if(onError)onError(err);return;}
+    STATE.isSyncing=true; updateSyncPill();
+    const role=['cambiarFase','anularAcceso','sincronizarCartaConCatalogoDOMUS','registrarNuevoProducto','registrarNuevoEvento'].includes(fnName)?'GERENCIA':getStationRole();
+    const run=async()=>{
+      await ensureSessionToken(null,role);
+      const json=await transport_({action:fnName,args,requestId:reqId,deviceId:getDeviceId(),operator:STATE.operator,role,sessionToken:getSessionToken(role)});
+      if(!json || !json.ok) {
+        const err=new Error(json && json.error || 'Error en servidor'); err.code=json && json.code; err.status=json && json.status; throw err;
+      }
+      const data=json.data!==undefined?json.data:json;
+      if(isMutation)saveOutbox(getOutbox().filter(q=>q.requestId!==reqId));
+      else cacheQuerySnapshot(fnName,data);
+      STATE.isSyncing=false; STATE.lastSyncTimestamp=Date.now();updateSyncPill('ok');
+      // UI/printing errors after backend confirmation MUST NOT requeue a successful charge.
+      try {if(onSuccess)onSuccess(data);} catch(err){console.error('Operación confirmada; error de presentación. Recupera el recibo original.',err);}
     };
-
-    fetch(endpoint, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify(payload)
-    })
-    .then(res => res.json())
-    .then(json => {
-      STATE.isSyncing = false;
-      STATE.lastSyncTimestamp = Date.now();
-      if (!json.ok) {
-        const backendError = new Error((json && (json.error || json.message)) || 'Error en servidor');
-        backendError.code = json && json.code;
-        backendError.status = json && json.status;
-        throw backendError;
+    run().catch(err=>{
+      STATE.isSyncing=false;updateSyncPill('error');
+      if(isMutation && item){
+        item.status=classifyMutationFailure(err);item.lastError=err.message;
+        saveOutbox(getOutbox().map(q=>q.requestId===reqId?item:q));
+        if(item.status==='RETRY' && onSuccess) {onSuccess({localOutbox:true,requestId:reqId,status:'RETRY',paid:false,message:'Intención guardada; cobro sin confirmar.'});return;}
       }
-
-      updateSyncPill('ok');
-      const data = json.data !== undefined ? json.data : json;
-      if (onSuccess) onSuccess(data);
-      processOutbox();
-    })
-    .catch(err => {
-      STATE.isSyncing = false;
-      STATE.lastSyncTimestamp = Date.now();
-      updateSyncPill('error');
-
-      // Encolar de forma segura en Outbox usando el reqId generado originalmente (Issue #1 & UI 20261029-05)
-      const item = enqueueOutbox(fnName, args, reqId, 'MUTATION');
-      if (item) {
-        const classification = classifyMutationFailure(err);
-        item.lastError = err.message || String(err);
-        item.status = classification;
-        saveOutbox(getOutbox().map(q => q.requestId === item.requestId ? item : q));
-
-        if (classification === 'REQUIRES_REVIEW') {
-          toast(`🛑 Operación en revisión manual. No se registró como venta: ${item.lastError}`, 'warn');
-          if (onError) onError(err);
-          return;
-        }
-
-        toast(`⚠️ Sin conexión con Google Sheets. Operación guardada en Outbox local (${reqId}).`, 'warn');
-        if (onSuccess) {
-          onSuccess({
-            ok: true,
-            localOutbox: true,
-            status: 'RETRY',
-            requestId: reqId,
-            rowId: reqId,
-            id: reqId,
-            ticket: reqId,
-            message: `Guardado en Outbox local (${reqId}). Se sincronizará automáticamente al volver la señal.`
-          });
-        }
-      }
+      if (onError) onError(err); else toast(err.message,'error');
     });
   }
 
@@ -3038,10 +2842,9 @@ const DEFAULT_CATALOG = [
 
   // --- DOMUS LOCAL PRINT BRIDGE (127.0.0.1:17321) ---
   const PRINT_BRIDGE_URL = 'http://127.0.0.1:17321';
-  const DEFAULT_PRINT_TOKEN = 'domus_prn_aa90ed078afb26e877fcab7a2a98dd0c';
 
   function getPrintToken() {
-    return (localStorage.getItem('domus_print_token') || DEFAULT_PRINT_TOKEN).trim();
+    return (localStorage.getItem('domus_print_token') || '').trim();
   }
 
   function setPrintToken(token) {
@@ -3097,6 +2900,14 @@ const DEFAULT_CATALOG = [
     });
   }
 
+  function openCashDrawer_(receipt) {
+    if(!receipt || receipt.paid!==true || receipt.method!=='Efectivo' || !receipt.receipt)return;
+    fetch(PRINT_BRIDGE_URL+'/drawer/open',{method:'POST',headers:{'Content-Type':'application/json','X-Domus-Print-Token':getPrintToken()},
+      body:JSON.stringify({requestId:'DRAWER-'+receipt.receipt,reason:'CASH_PAYMENT',receipt:receipt.receipt,method:'Efectivo',paid:true,operator:receipt.operator,reprint:false})})
+      .then(r=>r.json()).then(r=>{if(!r.ok)toast('Cobro confirmado; cajón pendiente.','warn');})
+      .catch(()=>toast('Cobro confirmado; cajón sin conexión.','warn'));
+  }
+
   function printReceiptDirect(receiptData, isReprint = false) {
     if (!receiptData) {
       toast('No hay datos de comprobante para imprimir.', 'warn');
@@ -3104,7 +2915,7 @@ const DEFAULT_CATALOG = [
     }
 
     const folio = receiptData.receipt || receiptData.ticket || `REC-${Date.now()}`;
-    const printId = `PRINT-${folio}`;
+    const printId = isReprint ? 'COPY-'+folio+'-'+crypto.randomUUID() : `PRINT-${folio}`;
 
     const payload = {
       printId: printId,
@@ -3123,6 +2934,9 @@ const DEFAULT_CATALOG = [
       received: receiptData.received !== undefined ? receiptData.received : null,
       tip: receiptData.tip || 0,
       change: receiptData.change !== undefined ? receiptData.change : null,
+      paid: receiptData.paid === true,
+      verified: receiptData.verified === true,
+      paymentStatus: receiptData.paymentStatus || '',
       reprint: Boolean(isReprint)
     };
 
@@ -3143,7 +2957,7 @@ const DEFAULT_CATALOG = [
         if (res.body.alreadyPrinted) {
           toast('✓ Comprobante previamente impreso (usa Reimprimir si requieres otra copia)', 'info');
         } else {
-          toast(isReprint ? '✓ Reimpresión de ticket enviada' : '✓ Ticket impreso', 'ok');
+          toast(isReprint ? 'Copia encolada.' : 'Ticket encolado; verificar salida física.', 'ok');
         }
         return res.body;
       } else {
@@ -3201,12 +3015,8 @@ const DEFAULT_CATALOG = [
       if (Array.isArray(savedEvents) && savedEvents.length) {
         STATE.eventsList = [...savedEvents, ...STATE.eventsList];
       }
-      const savedAccess = JSON.parse(localStorage.getItem('domus_custom_access') || '[]');
-      if (Array.isArray(savedAccess) && savedAccess.length) {
-        STATE.recentAccessList = [...savedAccess, ...STATE.recentAccessList]
-          .filter(r => r && r.id && !STATE.deletedAccessIds.has(r.id))
-          .map(r => (STATE.editedAccessMap[r.id] ? { ...r, ...STATE.editedAccessMap[r.id] } : r));
-      }
+      // Server records are authoritative. Legacy local-only entries remain in storage for reconciliation.
+
     } catch (e) {}
 
     renderStaffDropdown();
@@ -3346,12 +3156,7 @@ const DEFAULT_CATALOG = [
               }
               return r;
             });
-          const backendIds = new Set(backendRecords.map(r => r.id || r.rowId));
-          // Preservar los registros registrados localmente en esta puerta que aún no figuren en la respuesta de red
-          const localOnly = (STATE.recentAccessList || [])
-            .filter(r => r && r.id && !backendIds.has(r.id) && !STATE.deletedAccessIds.has(r.id) && isRealAccessRecord(r))
-            .map(r => (STATE.editedAccessMap[r.id] ? { ...r, ...STATE.editedAccessMap[r.id] } : r));
-          STATE.recentAccessList = [...localOnly, ...backendRecords];
+          STATE.recentAccessList=backendRecords;
           try {
             localStorage.setItem('domus_custom_access', JSON.stringify(STATE.recentAccessList.slice(0, 50)));
           } catch (e) {}
@@ -3627,7 +3432,8 @@ const DEFAULT_CATALOG = [
       `;
       if (totalEl) totalEl.textContent = '$0.00';
       if (countEl) countEl.textContent = '0 unidades';
-      if (btnPay) btnPay.disabled = true;
+      if (btnPay) btnPay.disabled = !STATE.selectedAccountTicket;
+      if (totalEl && STATE.selectedAccountTicket) totalEl.textContent = money(calculateCartTotal());
       return;
     }
 
@@ -3703,7 +3509,8 @@ const DEFAULT_CATALOG = [
   }
 
   function calculateCartTotal() {
-    return STATE.cart.reduce((sum, item) => sum + (item.courtesy ? 0 : item.price * item.qty), 0);
+    const acc = STATE.openAccounts.find(a => a.ticket === STATE.selectedAccountTicket);
+    return (Number(acc && acc.due) || 0) + STATE.cart.reduce((sum,item)=>sum+(item.courtesy?0:item.price*item.qty),0);
   }
 
   function updateChangeDisplay() {
@@ -3731,8 +3538,11 @@ const DEFAULT_CATALOG = [
     }
   }
 
+  let paymentInFlight = false;
   function confirmPaymentAndDispatch(isPaid) {
-    if (!STATE.cart || !STATE.cart.length) {
+    if(paymentInFlight)return;
+    const saved = JSON.parse(localStorage.getItem('domus_pending_sale') || 'null');
+    if (!saved && (!STATE.cart || !STATE.cart.length) && !(STATE.selectedAccountTicket && isPaid)) {
       toast('El pedido está vacío. Haz clic en los productos para agregarlos al carrito antes de cobrar o enviar.', 'warn');
       return;
     }
@@ -3742,7 +3552,7 @@ const DEFAULT_CATALOG = [
     const tip = parseFloat($('cashTipInput').value) || 0;
 
     let explicitCredit = '';
-    if (!isPaid) {
+    if (!saved && !isPaid) {
       const creditSelect = $('creditAuthorizationSelect');
       explicitCredit = creditSelect ? String(creditSelect.value || '') : '';
       if (!['Amigo', 'Creador de proyecto'].includes(explicitCredit)) {
@@ -3755,14 +3565,14 @@ const DEFAULT_CATALOG = [
       STATE.accountType = '';
     }
 
-    if (isPaid && activePaymentMethod === 'Efectivo' && received + 0.001 < total + tip) {
+    if (!saved && isPaid && activePaymentMethod === 'Efectivo' && received + 0.001 < total + tip) {
       toast('El efectivo recibido es insuficiente para cubrir la cuenta.', 'error');
       $('cashReceivedInput').focus();
       return;
     }
 
-    const payload = {
-      id: `POS-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    const payload = saved || {
+      id: 'POS-'+crypto.randomUUID(),
       phase: STATE.phase,
       customer: customer,
       ticket: STATE.selectedAccountTicket || '',
@@ -3775,6 +3585,8 @@ const DEFAULT_CATALOG = [
       credit: isPaid ? '' : explicitCredit,
       items: STATE.cart.map(i => ({
         name: i.name,
+        sku: i.sku || '',
+        notes: i.notes || '',
         price: i.price,
         qty: i.qty,
         courtesy: !!i.courtesy,
@@ -3782,10 +3594,20 @@ const DEFAULT_CATALOG = [
       }))
     };
 
+    paymentInFlight = true;
+    if($('btnConfirmChargeAndSend'))$('btnConfirmChargeAndSend').disabled=true;
+    if($('btnSendPendingPayment'))$('btnSendPendingPayment').disabled=true;
+    try {localStorage.setItem('domus_pending_sale', JSON.stringify(payload));}
+    catch(err){paymentInFlight=false;toast('No se pudo conservar la intención. No se envió.','error');return;}
     closePaymentModal();
     toast('Registrando operación en DOMUS…', 'ok');
 
     callBackend('cajaSimpleRegistrar', [payload], res => {
+      paymentInFlight=false;
+      if($('btnConfirmChargeAndSend'))$('btnConfirmChargeAndSend').disabled=false;
+      if($('btnSendPendingPayment'))$('btnSendPendingPayment').disabled=false;
+      if(res.localOutbox){toast('Cobro SIN CONFIRMAR. Conservado con el mismo ID para recuperación.','warn');return;}
+      localStorage.removeItem('domus_pending_sale');
       playChime('success');
       toast(res.message || 'Pedido guardado y enviado.', 'ok');
       const operatorName = (STATE.staffList && STATE.staffList.find(s => s.id === STATE.operator))?.name || STATE.operator || 'Caja DOMUS';
@@ -3795,19 +3617,24 @@ const DEFAULT_CATALOG = [
         customer: customer,
         date: new Date().toLocaleString('es-MX'),
         operator: operatorName,
-        items: [...STATE.cart],
-        total: total,
-        paid: isPaid,
-        method: activePaymentMethod,
-        received: received,
-        tip: tip,
-        change: Math.max(0, received - total - tip)
+        items: res.items && res.items.length ? res.items : [{name:'Saldo de cuenta',qty:1,price:res.total}],
+        total: res.total,
+        paid: res.paid === true,
+        verified: res.verified === true,
+        paymentStatus: res.paymentStatus,
+        method: res.method || payload.method,
+        received: res.received,
+        tip: res.tip,
+        change: res.change
       };
       STATE.lastReceiptData = receiptData;
       showReceiptModal(receiptData);
 
       // Auto-imprimir ticket con DOMUS Print Bridge si es cobro confirmado
-      if (isPaid) {
+      if (res.paid === true && res.receipt && res.method === 'Efectivo') {
+        openCashDrawer_(receiptData);
+      }
+      if (res.receipt) {
         printReceiptDirect(receiptData, false).catch(e => {
           console.warn('[DOMUS PRINT] Fallo al imprimir comprobante automático:', e);
         });
@@ -3821,6 +3648,9 @@ const DEFAULT_CATALOG = [
       if ($('creditAuthorizationSelect')) $('creditAuthorizationSelect').value = '';
       syncBackendData();
     }, err => {
+      paymentInFlight=false;
+      if($('btnConfirmChargeAndSend'))$('btnConfirmChargeAndSend').disabled=false;
+      if($('btnSendPendingPayment'))$('btnSendPendingPayment').disabled=false;
       toast(`Error al registrar: ${err.message || String(err)}`, 'error');
     });
   }
@@ -3839,7 +3669,7 @@ const DEFAULT_CATALOG = [
     const itemsContainer = $('receiptItemsList');
     itemsContainer.innerHTML = data.items.map(i => `
       <div class="receipt-line">
-        <span>${i.qty}x ${i.name}</span>
+        <span>${i.qty}x ${escapeHtml(i.name)}</span>
         <span>${money(i.price * i.qty)}</span>
       </div>
     `).join('');
@@ -3854,7 +3684,9 @@ const DEFAULT_CATALOG = [
         ${data.tip > 0 ? `<div class="receipt-line"><span>Propina:</span><span>${money(data.tip)}</span></div>` : ''}
         <div class="receipt-line"><span>Cambio:</span><span>${money(data.change)}</span></div>
       `;
-    } else if (data.paid) {
+    } else if (data.method === 'Transferencia' && data.verified !== true) {
+      paymentInfo.textContent = 'PAGO POR TRANSFERENCIA PENDIENTE DE VERIFICACIÓN';
+    } else if (data.paid && data.receipt) {
       paymentInfo.innerHTML = `
         <div class="receipt-line"><span>Método:</span><span>${data.method}</span></div>
         <div class="receipt-line"><span>Estado:</span><span>COBRADO Y VERIFICADO</span></div>
@@ -4148,14 +3980,10 @@ const DEFAULT_CATALOG = [
       return;
     }
 
-    STATE.restockRequests.unshift({
-      id: `RES-${Date.now().toString(36).toUpperCase()}`,
-      product: prod,
-      type: type,
-      created: Date.now()
-    });
-    toast('Solicitud agregada al tablero.', 'ok');
-    renderComandasBoard();
+    callBackend('solicitarResurtido',[{product:prod,type:type}],res=>{
+      if(res.localOutbox){toast('Resurtido pendiente de confirmar.','warn');return;}
+      toast('Solicitud guardada en servidor.','ok');syncBackendData();
+    },err=>toast(err.message,'error'));
   }
 
   function resolveRestock(id) {
@@ -4191,9 +4019,8 @@ const DEFAULT_CATALOG = [
         }
         return true;
       }
-      STATE.operator = defaultOp;
-      sessionStorage.setItem('domus_operator', STATE.operator);
-      return true;
+      toast('Selecciona al operador antes de continuar.','warn');
+      return false;
     }
     return true;
   }
@@ -4224,8 +4051,7 @@ const DEFAULT_CATALOG = [
     }
     const newPin = $('newCajaPasswordInput') ? $('newCajaPasswordInput').value.trim() : '';
     if (newPin) {
-      localStorage.setItem('domus_caja_pin', newPin);
-      toast('Nueva contraseña de Caja establecida.', 'ok');
+      toast('Las credenciales se gestionan en el servidor; no se cambió la contraseña desde este equipo.','warn');
       $('newCajaPasswordInput').value = '';
     }
     const printToken = $('printBridgeTokenInput') ? $('printBridgeTokenInput').value.trim() : '';
@@ -4310,7 +4136,7 @@ const DEFAULT_CATALOG = [
     const destination = ($('newProdDestination') && $('newProdDestination').value) || 'Barra';
     const provider = ($('newProdProvider') && $('newProdProvider').value.trim()) || 'DOMUS';
     const sku = ($('newProdSku') && $('newProdSku').value.trim()) || `PRD-${Date.now().toString(36).toUpperCase()}`;
-    const stock = ($('newProdStock') && parseInt($('newProdStock').value, 10)) || 50;
+    const stock = $('newProdStock') ? Number($('newProdStock').value) : 0;
 
     const newProduct = {
       name: name,
@@ -4324,32 +4150,10 @@ const DEFAULT_CATALOG = [
       stock: stock
     };
 
-    // Agregar al catálogo en memoria
-    if (!Array.isArray(STATE.products)) STATE.products = [];
-    STATE.products.unshift(newProduct);
-
-    // Guardar en almacenamiento local del navegador
-    try {
-      const custom = JSON.parse(localStorage.getItem('domus_custom_products') || '[]');
-      custom.unshift(newProduct);
-      localStorage.setItem('domus_custom_products', JSON.stringify(custom));
-    } catch (e) {}
-
-    // Enviar al backend de Google Apps Script para actualizar CATALOGO e INVENTARIO
     callBackend('registrarNuevoProducto', [newProduct], res => {
-      toast(res.message || `Producto "${name}" guardado en Google Sheets.`, 'ok');
-    }, err => {
-      console.warn('Registro local activo. Enlace de Google notificó:', err);
-    });
-
-    closeNewProductModal();
-    playChime('success');
-    toast(`Producto "${name}" registrado con éxito en ${category}.`, 'ok');
-
-    // Cambiar a la categoría del producto nuevo para verlo inmediatamente
-    STATE.catalogCategory = category;
-    renderCategoryChips();
-    renderCatalog();
+      if(res.localOutbox){toast('Alta pendiente; el producto aún no está disponible.','warn');return;}
+      closeNewProductModal();toast(res.message || 'Producto guardado.','ok');syncBackendData();
+    },err=>toast('No se confirmó el alta: '+err.message,'error'));
   }
 
 
@@ -4788,12 +4592,11 @@ const DEFAULT_CATALOG = [
       }
     };
 
-    // Auto-desbloqueo de seguridad a los 1.5s
-    setTimeout(unlockBtn, 1500);
+    // Keep submission locked until the dispatcher settles; no timed re-enable during a slow write.
 
     // Generar folio atómico previo para fallbacks
     const randNum = Math.floor(1000 + Math.random() * 9000);
-    const rowId = `A-${randNum}`;
+    const rowId = 'ACCESS-'+crypto.randomUUID();
 
     const channel = STATE.accessSalesChannel || 'BOLETERA_EXTERNA';
     const phone = ($('accessCustomerPhone') ? $('accessCustomerPhone').value : '').trim();
@@ -4877,38 +4680,16 @@ const DEFAULT_CATALOG = [
       wardrobeReturned: false
     };
 
-    // Prepend to local state
-    STATE.recentAccessList.unshift(newRecord);
-
-    try {
-      localStorage.setItem('domus_custom_access', JSON.stringify(STATE.recentAccessList.slice(0, 50)));
-    } catch (e) {}
-
-    // Backend call con Idempotencia
     callBackend('accesoSimpleRegistrar', [newRecord], res => {
       unlockBtn();
-      if (res && res.rowId) {
-        const oldId = newRecord.id;
-        newRecord.id = res.rowId;
-        newRecord.rowId = res.rowId;
-        if (res.ticketGuardarropa) newRecord.ticketGuardarropa = res.ticketGuardarropa;
-        const foundIdx = (STATE.recentAccessList || []).findIndex(r => r.id === oldId);
-        if (foundIdx !== -1) {
-          STATE.recentAccessList[foundIdx] = newRecord;
-        }
-        try {
-          localStorage.setItem('domus_custom_access', JSON.stringify(STATE.recentAccessList.slice(0, 50)));
-        } catch (e) {}
-      }
-      toast(`Acceso registrado exitosamente: Folio ${newRecord.id}`, 'ok');
-      playChime('success');
+      if(res.localOutbox){toast('Acceso SIN CONFIRMAR. Recupera la intención original de Outbox.','warn');return;}
+      if(!res.rowId){toast('Respuesta sin folio de acceso. No registrar otra intención.','error');return;}
+      const confirmed={...newRecord,...res,id:res.rowId,paid:res.doorCollected};
+      STATE.recentAccessList.unshift(confirmed);
+      openAccessReceiptModal(confirmed);
+      toast(res.message || 'Acceso confirmado por servidor.','ok');
       syncBackendData();
-    }, err => {
-      unlockBtn();
-      console.warn('Registro local de acceso (modo offline o sincronización diferida):', err);
-      toast(`Acceso registrado localmente: Folio ${newRecord.id}`, 'ok');
-      playChime('success');
-    });
+    }, err => {unlockBtn();toast('Acceso sin confirmar: '+err.message,'error');});
 
     // Reset Form
     if ($('accessCustomerName')) $('accessCustomerName').value = '';
@@ -4927,7 +4708,7 @@ const DEFAULT_CATALOG = [
     renderAccesosView();
 
     // Modal de comprobante / ticket
-    openAccessReceiptModal(newRecord);
+    // Receipt opens only in the server-confirmed callback.
   }
 
   // --- TABS DE OPERACIONES (Ingresos Hoy, Guardarropa Activo, Eventos & Tarifas) ---
@@ -4977,7 +4758,7 @@ const DEFAULT_CATALOG = [
           <td colspan="8" style="text-align: center; color: var(--text-muted); padding: 36px 16px;">
             <div style="font-size: 2.2rem; margin-bottom: 8px;">🎟️</div>
             <strong style="color: var(--text-primary); font-size: 1rem;">No hay ingresos registrados todavía para ${escapeHtml(activeAct || 'este evento')}</strong>
-            <p style="font-size: 0.82rem; margin-top: 6px; color: var(--text-secondary);">El aforo actual es 0. Registra o valida el primer boleto usando el formulario de la izquierda.</p>
+            <p style="font-size: 0.82rem; margin-top: 6px; color: var(--text-secondary);">Los ingresos acumulados de esta vista son 0. Registra o valida el primer boleto usando el formulario de la izquierda.</p>
           </td>
         </tr>
       `;
@@ -5146,45 +4927,17 @@ const DEFAULT_CATALOG = [
   }
 
   function changeActiveEvent(eventName) {
-    STATE.activeActivity = eventName;
-    localStorage.setItem('domus_active_event', eventName);
-    toast(`Evento activo de turno: ${eventName}`, 'ok');
-
-    const ev = getActiveEvent();
-    if (ev && ev.salesChannel) {
-      STATE.accessSalesChannel = ev.salesChannel;
-    } else if (eventName.includes('Forza')) {
-      STATE.accessSalesChannel = 'BOLETERA_EXTERNA';
-    }
-
-    callBackend('accesoCambiarActividad', [{ activity: eventName }], res => {
-      // Backend updated
-    }, err => console.warn('Cambio de evento local:', err));
-
-    renderAccesosView();
+    callBackend('accesoCambiarActividad',[{activity:eventName}],res=>{
+      if(res.localOutbox){toast('Cambio de evento sin confirmar.','warn');return;}
+      STATE.activeActivity=res.activeActivity;syncBackendData();
+    },err=>toast(err.message,'error'));
   }
 
   function returnWardrobeItems(ticketGua) {
-    const rec = (STATE.recentAccessList || []).find(r => r.ticketGuardarropa === ticketGua);
-    if (!rec) {
-      toast('Ticket de guardarropa no encontrado.', 'error');
-      return;
-    }
-
-    rec.devuelto = true;
-    try {
-      localStorage.setItem('domus_custom_access', JSON.stringify(STATE.recentAccessList.slice(0, 50)));
-    } catch (e) {}
-
-    toast(`Prendas devueltas para ticket: ${ticketGua}`, 'ok');
-    playChime('success');
-
-    callBackend('guardarropaDevolver', [ticketGua], res => {
-      // Backend updated
-    }, err => console.warn('Devolución guardarropa local:', err));
-
-    updateAccesosKpis();
-    renderAccessTab();
+    callBackend('guardarropaDevolver',[{ticket:ticketGua}],res=>{
+      if(res.localOutbox){toast('Devolución de prendas sin confirmar.','warn');return;}
+      toast(res.message || 'Prendas devueltas.','ok');syncBackendData();
+    },err=>toast(err.message,'error'));
   }
 
   // --- MODAL: COMPROBANTE DE ACCESO Y GUARDARROPA ---
@@ -5443,12 +5196,12 @@ const DEFAULT_CATALOG = [
 
     // Phase Switcher (Solar / Lunar)
     bindEvent('btnPhaseToggle', 'click', () => {
-      STATE.phase = STATE.phase === 'Solar' ? 'Lunar' : 'Solar';
-      const badge = $('currentPhaseBadge');
-      if (badge) badge.textContent = `Fase ${STATE.phase}`;
-      toast(`Carta cambiada a Fase ${STATE.phase}`, 'ok');
-      renderCatalog();
-      renderCart();
+      if(STATE.cart.length){toast('Termina el pedido actual antes de cambiar la fase.','warn');return;}
+      const next=STATE.phase==='Solar'?'Lunar':'Solar';
+      callBackend('cambiarFase',[{phase:next,expectedPhase:STATE.phase}],res=>{
+        if(res.localOutbox){toast('Cambio de fase sin confirmar.','warn');return;}
+        toast('Fase guardada en servidor.','ok');syncBackendData();
+      },err=>toast(err.message,'error'));
     });
 
     // Botón Reintentar Outbox
@@ -5473,8 +5226,7 @@ const DEFAULT_CATALOG = [
 
     bindEvent('btnOutboxClear', 'click', () => {
       const queue = getOutbox();
-      const reviewItems = queue.filter(q => q.status === 'REQUIRES_REVIEW');
-      saveOutbox(reviewItems);
+      if(queue.length){toast('No se descartan intenciones financieras. Resuelve cada requestId con el servidor.','warn');return;}
       updateOutboxUI();
       updateSyncPill('ok');
       toast('Operaciones pendientes descartadas. Los registros en revisión manual se conservan.', 'ok');
@@ -5881,57 +5633,19 @@ const DEFAULT_CATALOG = [
     }
     const commercialTotal = faceValue + (rec.wardrobeCost || rec.wardrobeAmount || 0);
 
-    // Actualizar campos del registro
-    rec.customer = newName;
-    rec.phone = phone;
-    rec.salesChannel = channel;
-    rec.entryType = (channel === 'CORTESIA' ? 'Cortesía' : (persons === 2 ? 'Pareja' : (persons === 3 ? 'Trío' : 'General')));
-    rec.ticketTypeId = rec.entryType;
-    rec.persons = persons;
-    rec.packages = persons;
-    rec.courtesyAuth = (channel === 'CORTESIA' ? courtesyAuth : '');
-    rec.faceValue = faceValue;
-    rec.commercialTotal = commercialTotal;
-    rec.totalCommercial = commercialTotal;
-    rec.entryCost = (channel === 'TAQUILLA_DOMUS' && !isForza ? faceValue : 0);
-    rec.doorCollected = (channel === 'TAQUILLA_DOMUS' && !isForza ? faceValue : 0);
-    rec.paid = rec.doorCollected;
-
-    // Persistir override en cache local
-    STATE.editedAccessMap[id] = { ...rec };
-    try {
-      localStorage.setItem('domus_edited_access_map', JSON.stringify(STATE.editedAccessMap));
-      localStorage.setItem('domus_custom_access', JSON.stringify(STATE.recentAccessList.slice(0, 50)));
-    } catch (e) {}
-
-    closeEditAccessModal();
-    updateAccesosKpis();
-    updateAccesosBadge();
-    renderAccessLogTable();
-    toast(`✓ Registro ${id} actualizado correctamente.`, 'ok');
+    callBackend('editarAcceso',[{accessId:id,customer:newName,phone:phone,persons:persons,salesChannel:channel}],res=>{
+      if(res.localOutbox){toast('Edición sin confirmar.','warn');return;}
+      closeEditAccessModal();toast('Cambio guardado en servidor.','ok');syncBackendData();
+    },err=>toast(err.message,'error'));
   }
 
   function deleteAccessRecord(id) {
-    const rec = (STATE.recentAccessList || []).find(r => r.id === id);
-    const name = rec ? rec.customer : id;
-    if (!confirm(`¿Eliminar definitivamente el registro ${id} (${name})?\n\nEsta acción lo descontará del aforo y de la liquidación de accesos.`)) {
-      return;
-    }
-
-    STATE.deletedAccessIds.add(id);
-    try {
-      localStorage.setItem('domus_deleted_access_ids', JSON.stringify(Array.from(STATE.deletedAccessIds)));
-    } catch (e) {}
-
-    STATE.recentAccessList = (STATE.recentAccessList || []).filter(r => r.id !== id);
-    try {
-      localStorage.setItem('domus_custom_access', JSON.stringify(STATE.recentAccessList.slice(0, 50)));
-    } catch (e) {}
-
-    updateAccesosKpis();
-    updateAccesosBadge();
-    renderAccessLogTable();
-    toast(`🗑️ Registro ${id} (${name}) eliminado y descontado del aforo.`, 'ok');
+    const reason=prompt('Motivo de anulación (se conserva el historial; no devuelve dinero):');
+    if(!reason)return;
+    callBackend('anularAcceso',[{accessId:id,reason:reason}],res=>{
+      if(res.localOutbox){toast('Anulación sin confirmar.','warn');return;}
+      toast(res.message,'ok');syncBackendData();
+    },err=>toast(err.message,'error'));
   }
 
   // --- INICIALIZAR APP ---
