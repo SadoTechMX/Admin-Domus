@@ -194,7 +194,7 @@ function cajaSimpleRegistrarCore_(p) {
     const inputs = {1:'U-'+row,2:ticket,3:now,4:activity,5:customer,6:u.group,7:u.name,8:1,
       9:u.courtesy?'Cortesía':'Normal',10:u.basePrice,11:u.price !== u.basePrice ? u.price : '',16:'Enviar',17:u.notes,
       18:u.share,19:u.beneficiary,21:u.inventory,25:u.destination,
-      46:u.eventExtra || 0,47:u.eventExtra ? u.extraBeneficiary : ''};
+      48:u.eventExtra || 0,49:u.eventExtra ? u.extraBeneficiary : ''};
     if (u.courtesy) inputs[31] = who;
     Object.keys(inputs).forEach(c => writes.push(cellWrite_(sCaja,row,Number(c),inputs[c])));
     writes.push(...cashFormulaWrites_(sCaja,row));
