@@ -913,14 +913,19 @@
                 ⚡ Probar Canal 1 (Pin 5)
               </button>
             </div>
-            <div style="display: flex; gap: 8px; margin-top: 8px; align-items: center;">
-              <select id="drawerChannelSelect" style="flex: 1; padding: 6px 10px; font-size: 0.82rem; background: var(--bg-surface); border: 1px solid var(--border-subtle); color: var(--text-primary); border-radius: var(--radius-md);">
-                <option value="0">Canal Activo: Canal 0 (Pin 2 estándar)</option>
-                <option value="1">Canal Activo: Canal 1 (Pin 5 alternativo)</option>
-              </select>
-              <button type="button" class="btn-secondary-action" id="btnConfirmDrawerChannel" style="flex: 1; border-color: var(--emerald-500); color: var(--emerald-400);">
-                ✓ Confirmar Apertura Física
-              </button>
+            <!-- Interacción explícita de confirmación física requerida -->
+            <div id="drawerVerificationBox" class="hidden" style="margin-top: 10px; padding: 10px; background: rgba(255,255,255,0.03); border: 1px solid var(--border-subtle); border-radius: var(--radius-md);">
+              <p style="font-size: 0.85rem; font-weight: 600; margin-bottom: 8px;" id="drawerVerificationQuestion">
+                ⚡ Pulso enviado. ¿El cajón se abrió físicamente?
+              </p>
+              <div style="display: flex; gap: 8px;">
+                <button type="button" class="btn-secondary-action" id="btnDrawerOpenedYes" style="flex: 1; border-color: var(--emerald-500); color: var(--emerald-400); font-weight: 700;">
+                  ✓ SÍ, SE ABRIÓ
+                </button>
+                <button type="button" class="btn-secondary-action" id="btnDrawerOpenedNo" style="flex: 1; border-color: var(--rose-500); color: var(--rose-400);">
+                  ✗ NO
+                </button>
+              </div>
             </div>
             <div id="drawerStatusMsg" style="font-size: 0.8rem; margin-top: 6px; color: var(--text-muted);"></div>
           </div>

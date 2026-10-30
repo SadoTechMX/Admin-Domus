@@ -3925,10 +3925,11 @@ const DEFAULT_CATALOG = [
         });
       }
 
-      // P0-8: Apertura automática del cajón ÚNICAMENTE para cobros en EFECTIVO confirmados por backend
+      // P0-8 / Corrección: Apertura automática del cajón ÚNICAMENTE para cobros en EFECTIVO confirmados por backend
+      // Y ÚNICAMENTE SI drawer_configured === true (confirmado físicamente por un operador humano)
       // NO abrir en Terminal 1, Terminal 2, Transferencia, Cortesía, Crédito o reimpresión
       // La falla del cajón no altera ni repite el cobro
-      if (isCash && res.receipt) {
+      if (isCash && res.receipt && STATE.drawerConfigured === true) {
         requestDrawerOpen({
           requestId: `DRAWER-${res.receipt}`,
           reason: 'CASH_PAYMENT',
@@ -3937,6 +3938,8 @@ const DEFAULT_CATALOG = [
         }).catch(e => {
           console.warn('[DOMUS DRAWER] Fallo en apertura automática de cajón:', e);
         });
+      } else if (isCash && res.receipt && !STATE.drawerConfigured) {
+        console.info('[DOMUS DRAWER] Auto-apertura omitida: cajón pendiente de verificación física (drawer_configured: false).');
       }
 
       // Limpiar pedido actual
@@ -4333,13 +4336,11 @@ const DEFAULT_CATALOG = [
         ? '✓ Conexión establecida con DOMUS Print Bridge (127.0.0.1:17321).'
         : 'Estado: Desconectado o pendiente de verificación.';
     }
-    if ($('drawerChannelSelect') && STATE.drawerConfigured) {
-      $('drawerChannelSelect').value = String(STATE.drawerChannel || 0);
-    }
+    if ($('drawerVerificationBox')) $('drawerVerificationBox').classList.add('hidden');
     if ($('drawerStatusMsg')) {
       $('drawerStatusMsg').textContent = STATE.drawerConfigured
-        ? `✓ Cajón configurado en Canal ${STATE.drawerChannel} (m=${STATE.drawerChannel})`
-        : 'Estado: Cajón no confirmado físicamente.';
+        ? `✓ Cajón verificado físicamente en Canal ${STATE.drawerChannel} (m=${STATE.drawerChannel})`
+        : 'Estado: Cajón no confirmado físicamente (requiere prueba y confirmación de operador).';
       $('drawerStatusMsg').style.color = STATE.drawerConfigured ? 'var(--emerald-500)' : 'var(--text-muted)';
     }
     $('configModal').classList.add('open');
@@ -4374,17 +4375,25 @@ const DEFAULT_CATALOG = [
     checkPrinterStatus();
   }
 
+  let activeTestedChannel = 0;
+
   function testDrawerChannel(channel) {
     const token = getPrintToken();
     if (!token) {
       toast('⚠️ Configura el token local de Print Bridge primero.', 'warn');
       return;
     }
+    activeTestedChannel = channel;
     const msg = $('drawerStatusMsg');
+    const verifyBox = $('drawerVerificationBox');
+    const question = $('drawerVerificationQuestion');
+
+    if (verifyBox) verifyBox.classList.add('hidden');
     if (msg) {
       msg.textContent = `Enviando pulso de prueba al Canal ${channel} (m=${channel})...`;
       msg.style.color = 'var(--amber-400)';
     }
+
     fetch(`${PRINT_BRIDGE_URL}/drawer/test`, {
       method: 'POST',
       headers: {
@@ -4396,10 +4405,16 @@ const DEFAULT_CATALOG = [
     .then(r => r.json().then(b => ({ ok: r.ok, body: b })))
     .then(res => {
       if (res.ok && res.body.ok) {
-        toast(`✓ Pulso enviado al Canal ${channel}. ¿Abrió el cajón?`, 'ok');
+        toast(`✓ Pulso enviado al Canal ${channel}. Verifica si abrió.`, 'ok');
+        if (question) {
+          question.textContent = `⚡ Pulso enviado al Canal ${channel} (Pin ${channel === 0 ? '2' : '5'}, m=${channel}). ¿El cajón se abrió físicamente?`;
+        }
+        if (verifyBox) {
+          verifyBox.classList.remove('hidden');
+        }
         if (msg) {
-          msg.textContent = `✓ Pulso emitido al Canal ${channel}. Si abrió físicamente, selecciona Canal ${channel} y haz clic en "Guardar Canal Verificado".`;
-          msg.style.color = 'var(--text-main)';
+          msg.textContent = `Pulso emitido a CUPS. Esperando confirmación física del operador.`;
+          msg.style.color = 'var(--text-muted)';
         }
       } else {
         const err = (res.body && res.body.error) || 'Fallo al emitir pulso';
@@ -4419,34 +4434,67 @@ const DEFAULT_CATALOG = [
     });
   }
 
-  function confirmDrawerChannel(channel) {
+  function handleDrawerVerification(didOpen) {
     const token = getPrintToken();
     if (!token) {
-      toast('⚠️ Configura el token local de Print Bridge primero.', 'warn');
+      toast('⚠️ Token de Print Bridge no configurado.', 'warn');
       return;
     }
+    const verifyBox = $('drawerVerificationBox');
+    if (verifyBox) verifyBox.classList.add('hidden');
+    const msg = $('drawerStatusMsg');
+
+    if (!didOpen) {
+      fetch(`${PRINT_BRIDGE_URL}/drawer/confirm`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Domus-Print-Token': token
+        },
+        body: JSON.stringify({ channel: activeTestedChannel, confirmed: false })
+      })
+      .then(r => r.json().then(b => ({ ok: r.ok, body: b })))
+      .then(() => {
+        STATE.drawerConfigured = false;
+        toast(`Canal ${activeTestedChannel} no abrió físicamente. Puedes probar el otro canal.`, 'warn');
+        if (msg) {
+          msg.textContent = `⚠️ Canal ${activeTestedChannel} no abrió. Revisa llave/cable o prueba el otro canal.`;
+          msg.style.color = 'var(--amber-400)';
+        }
+      })
+      .catch(() => {});
+      return;
+    }
+
+    const op = STATE.operator || '';
+    const staffObj = STATE.staffList && STATE.staffList.find(s => s.id === op);
+    const opName = staffObj ? staffObj.name : (op || 'Operador DOMUS');
+
     fetch(`${PRINT_BRIDGE_URL}/drawer/confirm`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'X-Domus-Print-Token': token
       },
-      body: JSON.stringify({ channel: channel, confirmed: true })
+      body: JSON.stringify({
+        channel: activeTestedChannel,
+        confirmed: true,
+        operator: opName,
+        operator_timestamp: new Date().toISOString()
+      })
     })
     .then(r => r.json().then(b => ({ ok: r.ok, body: b })))
     .then(res => {
-      if (res.ok && res.body.ok) {
+      if (res.ok && res.body.ok && res.body.drawerConfigured) {
         STATE.drawerConfigured = true;
-        STATE.drawerChannel = channel;
-        toast(`✓ Canal ${channel} guardado como verificado`, 'ok');
-        const msg = $('drawerStatusMsg');
+        STATE.drawerChannel = activeTestedChannel;
+        toast(`✓ Cajón certificado físicamente en Canal ${activeTestedChannel}`, 'ok');
         if (msg) {
-          msg.textContent = `✓ Configuración guardada: Canal ${channel} verificado físicamente.`;
+          msg.textContent = `✓ Canal ${activeTestedChannel} verificado físicamente por ${opName}.`;
           msg.style.color = 'var(--emerald-500)';
         }
       } else {
-        const err = (res.body && res.body.error) || 'Error al guardar canal';
-        toast(`⚠️ Error: ${err}`, 'error');
+        toast('⚠️ Error al registrar confirmación', 'error');
       }
     })
     .catch(e => {
@@ -5990,14 +6038,11 @@ const DEFAULT_CATALOG = [
     // P0-9: Apertura manual de cajón
     bindEvent('btnManualOpenDrawer', 'click', handleManualDrawerOpen);
 
-    // P0-7: Pruebas de canales de cajón y guardado de canal verificado
+    // P0-7: Pruebas de canales de cajón y confirmación física interactiva
     bindEvent('btnTestDrawer0', 'click', () => testDrawerChannel(0));
     bindEvent('btnTestDrawer1', 'click', () => testDrawerChannel(1));
-    bindEvent('btnConfirmDrawerChannel', 'click', () => {
-      const select = $('drawerChannelSelect');
-      const ch = select ? parseInt(select.value, 10) : 0;
-      confirmDrawerChannel(isNaN(ch) ? 0 : ch);
-    });
+    bindEvent('btnDrawerOpenedYes', 'click', () => handleDrawerVerification(true));
+    bindEvent('btnDrawerOpenedNo', 'click', () => handleDrawerVerification(false));
 
     // Modals: Edit Access Record
     bindEvent('btnCloseEditAccessModal', 'click', closeEditAccessModal);

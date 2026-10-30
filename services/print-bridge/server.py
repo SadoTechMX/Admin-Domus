@@ -658,6 +658,14 @@ class DomusPrintHandler(http.server.BaseHTTPRequestHandler):
                 return
 
             cfg = load_config()
+            if reason == 'CASH_PAYMENT' and not cfg.get('drawer_configured', False):
+                self.send_json(HTTPStatus.CONFLICT, {
+                    "ok": False,
+                    "drawerConfigured": False,
+                    "error": "El cajón no ha sido verificado físicamente (drawer_configured: false). Auto-apertura en venta omitida."
+                })
+                return
+
             ch = int(cfg.get('drawer_channel', 0))
             pulse = DRAWER_PULSE_CH1 if ch == 1 else DRAWER_PULSE_CH0
 
@@ -766,18 +774,32 @@ class DomusPrintHandler(http.server.BaseHTTPRequestHandler):
 
             data = self.read_json_body() or {}
             ch = int(data.get('channel', 0))
-            confirmed = bool(data.get('confirmed', True))
+            confirmed = bool(data.get('confirmed', False))
 
             cfg = load_config()
             cfg['drawer_channel'] = ch
-            cfg['drawer_configured'] = confirmed
+            if confirmed:
+                cfg['drawer_configured'] = True
+                cfg['physical_confirmed_at'] = data.get('operator_timestamp') or time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
+                cfg['physical_confirmed_by'] = data.get('operator') or 'Operador DOMUS'
+            else:
+                cfg['drawer_configured'] = False
+                cfg['physical_confirmed_at'] = None
+                cfg['physical_confirmed_by'] = None
+
             save_config(cfg)
 
             self.send_json(HTTPStatus.OK, {
                 "ok": True,
-                "drawerConfigured": confirmed,
+                "drawerConfigured": cfg['drawer_configured'],
                 "drawerChannel": ch,
-                "message": f"Configuración de cajón guardada (canal {ch}, verificado: {confirmed})."
+                "physicalConfirmedAt": cfg.get('physical_confirmed_at'),
+                "physicalConfirmedBy": cfg.get('physical_confirmed_by'),
+                "message": (
+                    f"Cajón confirmado físicamente en canal {ch} por {cfg['physical_confirmed_by']}."
+                    if cfg['drawer_configured']
+                    else f"Canal {ch} NO confirmado físicamente (drawer_configured: false)."
+                )
             })
             return
 

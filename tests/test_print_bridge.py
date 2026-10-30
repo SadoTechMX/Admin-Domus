@@ -227,11 +227,43 @@ def run_tests():
     assert b"*** PAGO POR TRANSFERENCIA PENDIENTE DE VERIFICACI" in transfer_ticket_bytes
     print("✅ TEST 11 PASS: Transferencia no abre cajón y ticket incluye leyenda de verificación.")
 
-    # --- [Test 12] Regla: Efectivo confirmado sí llama drawer ---
-    print("\n[Test 12] Regla de negocio: Efectivo confirmado sí dispara cajón...")
-    assert should_open_drawer('Efectivo', True), "Efectivo confirmado debe abrir cajón"
-    assert not should_open_drawer('Efectivo', False), "Efectivo sin confirmar no debe abrir cajón"
-    print("✅ TEST 12 PASS: Efectivo confirmado es el único método autorizado para auto-apertura.")
+    # --- [Test 12] Regla: Efectivo confirmado exige cajón verificado físicamente ---
+    print("\n[Test 12] Regla de negocio: Auto-apertura exige Efectivo confirmado Y drawer_configured=True...")
+    def should_open_drawer(method, is_paid, drawer_configured=False):
+        return bool(is_paid and str(method).strip().lower() == 'efectivo' and drawer_configured)
+
+    assert not should_open_drawer('Efectivo', True, drawer_configured=False), "Efectivo sin verificación física NO debe auto-abrir"
+    assert should_open_drawer('Efectivo', True, drawer_configured=True), "Efectivo confirmado con drawer verificado sí debe auto-abrir"
+    assert not should_open_drawer('Efectivo', False, drawer_configured=True), "Efectivo sin confirmar no debe abrir cajón"
+
+    # Verificar a nivel HTTP que /drawer/confirm exige confirmed=True y rechaza auto-apertura si False
+    st, hd, b_conf_def = http_request('/drawer/confirm', method='POST', data={"channel": 0}, headers={'X-Domus-Print-Token': new_token})
+    assert b_conf_def.get('drawerConfigured') is False, "Default de confirmed debe ser estrictamente False"
+
+    st_open, hd_open, b_open_fail = http_request('/drawer/open', method='POST', data={
+        "requestId": f"DRAWER-UNCONF-{int(time.time()*1000)}",
+        "reason": "CASH_PAYMENT",
+        "receipt": "REC-TEST-UNCONF"
+    }, headers={'X-Domus-Print-Token': new_token})
+    assert st_open == 409, f"Status esperado 409 para auto-apertura sin verificar, recibido {st_open}"
+    assert b_open_fail.get('drawerConfigured') is False
+
+    # Probar que confirmed=True sí actualiza metadata
+    st_c, hd_c, b_conf_ok = http_request('/drawer/confirm', method='POST', data={
+        "channel": 0,
+        "confirmed": True,
+        "operator": "Operador Test",
+        "operator_timestamp": "2026-10-30T00:00:00Z"
+    }, headers={'X-Domus-Print-Token': new_token})
+    assert b_conf_ok.get('drawerConfigured') is True
+    assert b_conf_ok.get('physicalConfirmedBy') == "Operador Test"
+
+    # Restablecer estado local a drawer_configured = False (PULSE_SENT_PHYSICAL_NOT_CONFIRMED)
+    http_request('/drawer/confirm', method='POST', data={"channel": 0, "confirmed": False}, headers={'X-Domus-Print-Token': new_token})
+    cfg_reset = server.load_config()
+    assert cfg_reset.get('drawer_configured') is False, "El estado final debe permanecer drawer_configured = False"
+
+    print("✅ TEST 12 PASS: Auto-apertura en efectivo exige estrictamente drawer_configured=true.")
 
     # --- [Test 13] Resiliencia: Fallo de impresora no modifica cobro ---
     print("\n[Test 13] Resiliencia: Fallo de impresora no revierte cobro...")
