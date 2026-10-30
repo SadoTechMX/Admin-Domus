@@ -90,7 +90,12 @@
     "CAMBIO A ENTREGAR",
     "SALDO DE LA CUENTA",
     "REVISIÓN DEL COBRO",
-    "Referencia de cobro · SISTEMA"
+    "Referencia de cobro · SISTEMA",
+    "shiftId",
+    "businessDate",
+    "Extra evento autorizado",
+    "Beneficiario extra",
+    "Extra evento cobrado"
   ],
   "COMANDAS": [
     "Folio línea",
