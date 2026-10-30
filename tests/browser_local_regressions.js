@@ -5,8 +5,8 @@ const {chromium}=require('playwright'),http=require('http'),fs=require('fs'),pat
 const root=path.resolve(__dirname,'..');
 const server=http.createServer((req,res)=>{
  const p=path.resolve(root,'.'+new URL(req.url,'http://localhost').pathname);
- if(!p.startsWith(root+path.sep)){res.writeHead(403);res.end();return;}
- const file=p===root+path.sep?path.join(root,'index.html'):p;
+ if(p!==root && !p.startsWith(root+path.sep)){res.writeHead(403);res.end();return;}
+ const file=p===root?path.join(root,'index.html'):p;
  try{res.setHeader('Content-Type',file.endsWith('.js')?'text/javascript':file.endsWith('.css')?'text/css':file.endsWith('.png')?'image/png':'text/html');res.end(fs.readFileSync(file));}
  catch{res.writeHead(404);res.end();}
 });
@@ -37,7 +37,8 @@ async function main(){
    return route.fulfill({json:{ok:true,data}});
   });
   await page.goto('http://127.0.0.1:'+port+'/?env=staging&vista=caja');
-  await page.waitForFunction(()=>document.body.textContent.includes('QA drink'));
+  try {await page.waitForFunction(()=>document.body.textContent.includes('QA drink'));}
+  catch(err){console.error('Browser boot diagnostic',{errors,calls,body:(await page.locator('body').innerText()).slice(0,3000)});throw err;}
   assert.deepEqual(errors,[]);passed++;console.log('PASS browser boot + catalog',viewport.width);
   await page.locator('#catalogSearchInput').fill('QA drink');
   const card=page.locator('.product-card').first();await card.click();
