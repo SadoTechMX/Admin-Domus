@@ -3972,59 +3972,77 @@ const DEFAULT_CATALOG = [
 
   // --- ALTA / REGISTRO DE NUEVOS PRODUCTOS (ADMIN CAJA) ---
   function openNewProductModal() {
-    $('newProdName').value = '';
-    $('newProdPriceSolar').value = '';
-    $('newProdPriceLunar').value = '';
-    $('newProdSku').value = '';
-    $('newProdCustomCategory').value = '';
-    $('customCatWrapper').classList.add('hidden');
-    $('newProdStock').value = '50';
+    const nameEl = $('newProdName');
+    if (nameEl) nameEl.value = '';
+    if ($('newProdPriceSolar')) $('newProdPriceSolar').value = '';
+    if ($('newProdPriceLunar')) $('newProdPriceLunar').value = '';
+    if ($('newProdSku')) $('newProdSku').value = '';
+    if ($('newProdCustomCategory')) $('newProdCustomCategory').value = '';
+    if ($('customCatWrapper')) $('customCatWrapper').classList.add('hidden');
+    if ($('newProdStock')) $('newProdStock').value = '50';
 
-    // Poblar categorías existentes
+    // Poblar categorías existentes de forma tolerante y segura
     const select = $('newProdCategory');
-    const existingGroups = [...new Set(STATE.products.map(p => p.group))];
-    select.innerHTML = existingGroups.map(g => `<option value="${g}">${g}</option>`).join('') +
-      '<option value="__NEW__">+ Otra Categoría…</option>';
+    if (select) {
+      const defaultCats = ['Menú Cannábico', 'Bebidas', 'Cervezas', 'Cheladas', 'Coctelería', 'Comida público', 'Sushi', 'Cocina', 'Cafetería', 'Shots'];
+      const prodCats = Array.isArray(STATE.products) 
+        ? STATE.products.map(p => p && p.group).filter(Boolean) 
+        : [];
+      const allGroups = [...new Set([...defaultCats, ...prodCats])];
+      select.innerHTML = allGroups.map(g => `<option value="${g}">${g}</option>`).join('') +
+        '<option value="__NEW__">+ Otra Categoría…</option>';
+    }
 
-    $('newProductModal').classList.add('open');
-    setTimeout(() => $('newProdName').focus(), 150);
+    const modal = $('newProductModal');
+    if (modal) {
+      modal.classList.add('open');
+    }
+    setTimeout(() => {
+      if (nameEl) nameEl.focus();
+    }, 150);
   }
 
   function closeNewProductModal() {
-    $('newProductModal').classList.remove('open');
+    const modal = $('newProductModal');
+    if (modal) modal.classList.remove('open');
   }
 
   function saveNewProduct() {
-    const name = $('newProdName').value.trim();
+    const nameEl = $('newProdName');
+    const name = nameEl ? nameEl.value.trim() : '';
     if (!name) {
       toast('Escribe el nombre del producto.', 'warn');
-      $('newProdName').focus();
+      if (nameEl) nameEl.focus();
       return;
     }
 
-    let category = $('newProdCategory').value;
+    const catEl = $('newProdCategory');
+    let category = catEl ? catEl.value : 'General';
     if (category === '__NEW__') {
-      category = $('newProdCustomCategory').value.trim();
+      const customCatEl = $('newProdCustomCategory');
+      category = customCatEl ? customCatEl.value.trim() : '';
       if (!category) {
         toast('Escribe el nombre de la nueva categoría.', 'warn');
-        $('newProdCustomCategory').focus();
+        if (customCatEl) customCatEl.focus();
         return;
       }
     }
 
-    const priceSolar = parseFloat($('newProdPriceSolar').value);
-    const priceLunar = parseFloat($('newProdPriceLunar').value);
+    const priceSolarEl = $('newProdPriceSolar');
+    const priceLunarEl = $('newProdPriceLunar');
+    const priceSolar = priceSolarEl ? parseFloat(priceSolarEl.value) : 0;
+    const priceLunar = priceLunarEl ? parseFloat(priceLunarEl.value) : priceSolar;
 
     if (isNaN(priceSolar) || priceSolar < 0) {
       toast('Introduce un precio válido para Fase Solar.', 'warn');
-      $('newProdPriceSolar').focus();
+      if (priceSolarEl) priceSolarEl.focus();
       return;
     }
 
-    const destination = $('newProdDestination').value;
-    const provider = $('newProdProvider').value.trim() || 'DOMUS';
-    const sku = $('newProdSku').value.trim() || `PRD-${Date.now().toString(36).toUpperCase()}`;
-    const stock = parseInt($('newProdStock').value, 10) || 50;
+    const destination = ($('newProdDestination') && $('newProdDestination').value) || 'Barra';
+    const provider = ($('newProdProvider') && $('newProdProvider').value.trim()) || 'DOMUS';
+    const sku = ($('newProdSku') && $('newProdSku').value.trim()) || `PRD-${Date.now().toString(36).toUpperCase()}`;
+    const stock = ($('newProdStock') && parseInt($('newProdStock').value, 10)) || 50;
 
     const newProduct = {
       name: name,
@@ -4039,6 +4057,7 @@ const DEFAULT_CATALOG = [
     };
 
     // Agregar al catálogo en memoria
+    if (!Array.isArray(STATE.products)) STATE.products = [];
     STATE.products.unshift(newProduct);
 
     // Guardar en almacenamiento local del navegador
@@ -5584,7 +5603,10 @@ const DEFAULT_CATALOG = [
     setWardrobeQty: setWardrobeQty,
     setPaymentMethod: setAccessPaymentMethod,
     editAccessRecord: openEditAccessModal,
-    deleteAccessRecord: deleteAccessRecord
+    deleteAccessRecord: deleteAccessRecord,
+    openNewProductModal: openNewProductModal,
+    closeNewProductModal: closeNewProductModal,
+    saveNewProduct: saveNewProduct
   };
 
 })();

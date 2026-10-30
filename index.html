@@ -127,6 +127,7 @@
             <input type="text" id="catalogSearchInput" placeholder="Buscar producto, menú cannábico, alitas, hamburguesa, cerveza…" />
           </div>
           <button type="button" class="btn-add-product-toolbar" id="btnOpenNewProductModal"
+            onclick="window.__domusApp.openNewProductModal()"
             title="Registrar un nuevo producto en el catálogo e inventario">
             <span>➕</span>
             <span>Alta de Producto</span>
@@ -941,6 +942,7 @@
             <div class="modal-header">
               <h3 id="newProductTitle">➕ Alta de Nuevo Producto</h3>
               <button type="button" class="modal-close-btn" id="btnCloseNewProductModal"
+                onclick="window.__domusApp.closeNewProductModal()"
                 aria-label="Cerrar">&times;</button>
             </div>
 
@@ -1017,10 +1019,10 @@
             </div>
 
             <div class="modal-footer">
-              <button type="button" class="btn-secondary" id="btnCancelNewProduct">
+              <button type="button" class="btn-secondary" id="btnCancelNewProduct" onclick="window.__domusApp.closeNewProductModal()">
                 Cancelar
               </button>
-              <button type="button" class="btn-primary-action" id="btnSaveNewProduct" style="width: auto;">
+              <button type="button" class="btn-primary-action" id="btnSaveNewProduct" onclick="window.__domusApp.saveNewProduct()" style="width: auto;">
                 ✓ Guardar y Dar de Alta
               </button>
             </div>
@@ -1284,7 +1286,7 @@
         <div class="toast-container" id="toastContainer" aria-live="polite"></div>
 
         <!-- Script -->
-        <script src="js/app.js?v=20261029-02"></script>
+        <script src="js/app.js?v=20261029-03"></script>
 </body>
 
 </html>
