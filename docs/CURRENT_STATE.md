@@ -8,10 +8,10 @@
 * **Baseline Backend Vigente:** Apps Script **Versión 16** (`PROD_VERIFIED`, Contenedor `DOMUS - Caja y barra` `1A45kAhlpaHC_9Rq5kT0rvkNjA_bCBhVRIIxpC20YUypWBAY9yH0PXjdj`)
 * **Versión Rollback Garantizada:** Apps Script **Versión 15** / **Versión 22** anterior
 * **Baseline Frontend Vigente (GitHub Pages + Apps Script Native UI):** Interfaz nativa HTML desplegada en Apps Script (`?vista=caja`) y GitHub Pages sincronizado
-* **Rama `main` (Producción):** Alineada y actualizada al commit `acb47f6`
+* **Rama `main` (Producción):** Baseline de código auditado: `acb47f6`. Commit actual del repositorio: consultar `git rev-parse HEAD`.
 * **Estado de Working Tree:** `clean`
 * **Entorno de PRODUCCIÓN Oficial:**
-  - Versión Activa en Producción: **Versión 16** (29 oct 2026, Baseline Vigente Certificado)
+  - Versión Activa en Producción: **Versión 16** (29 oct 2026, Baseline Vigente Certificado en Contenedor `DOMUS - Caja y barra`)
   - Deployment Web App Oficial: `https://script.google.com/macros/s/AKfycbzy7wZZ55zPnzZ6h9iRKXNAvitP5EZMCPyjsxPtLIpdtuv4_3Zt9SYqQS65I1WRGJGL/exec`
   - Libros Oficiales:
     - Main: `1KQz8oJ4VaWFsqS2-sg25HMCm60SdSoQpIDlCDSV5J1U` (*DOMUS · SISTEMA OPERATIVO*)
@@ -20,7 +20,7 @@
   - **Caja (POS):** Operativa en Fase Solar (`CAJA 2!F2: Solar`), 152 productos vendibles cargados, interfaz nativa en Apps Script.
   - **Accesos (`ACCESOS GO`):** `activeActivity = Operación diaria`, 4 canales comerciales (Taquilla, Boletera, Transferencias, Cortesías).
   - **KDS (Cocina / Barra):** Operativo y conectado a libros oficiales.
-  - **Inventario:** Circuito reactivo por fórmulas intacto (ADR-004: stock decrementa al entregar comanda física).
+  - **Inventario:** Actualización directa de salidas en entrega (ADR-004; ver nota de arquitectura P0).
 * **Entorno de STAGING Oficial:**
   - Proyecto Apps Script: `DOMUS - Caja simple` (`1VFG72NoaQlca_czsgSgQmbnAIGOqyaAzqMlXVTdtsU-YZy6Xt35pHYPh`)
   - Web App Deployment: `https://script.google.com/macros/s/AKfycbysBaRA2_oZIOqU10G4E_MHiC8FUR3dCnqj2DlLG91iNJXP3GkZZ7BK0Na1FAJ1thZk/exec` (Versión 20)
@@ -35,7 +35,7 @@
 | Componente | Archivo(s) | Estado Actual | Evidencia / Próximo Paso |
 | :--- | :--- | :---: | :--- |
 | **Release v1.1.0 en Producción** | `main` / `v1.1.0` | `PROD_VERIFIED` | Smoke test de solo lectura aprobado (EXIT 0). Cero escrituras o ventas sintéticas en Producción. |
-| **Backend de Producción (`DOMUS_PRODUCTION_BUNDLE.gs`)** | `google-apps-script/DOMUS_PRODUCTION_BUNDLE.gs` | `PROD_VERIFIED` | Desplegado en Versión 18 de Apps Script; PING reporta `HEALTHY` y `environment: PRODUCTION`. |
+| **Backend de Producción (`DOMUS_PRODUCTION_BUNDLE.gs`)** | `google-apps-script/DOMUS_PRODUCTION_BUNDLE.gs` | `PROD_VERIFIED` | Desplegado en Versión 16 activa de Apps Script (Contenedor `DOMUS - Caja y barra`); PING reporta `HEALTHY` y `environment: PRODUCTION`. (Versión 18 es histórica/Staging). |
 | **Aislamiento de Libros Oficiales** | `Config.gs` | `PROD_VERIFIED` | Confirmado en vivo: Main `1KQz8oJ4...` y Ops `1DiwPa1c...` vinculados estrictamente. |
 | **Fase 0: Transaccional Core** | Backend Modular (11 archivos) | `PROD_VERIFIED` | Merge a `main` completado y certificado. |
 | **Fase 0.5: Ticketing & Access Commerce** | `Access.gs`, `Events.gs`, `index.html` | `PROD_VERIFIED` | Modelo de 4 canales comerciales (Taquilla, Boletera, Transferencias, Cortesías) integrado en `main`. |
@@ -181,8 +181,8 @@
 * **Auditor Externo:** ChatGPT / Ariadna
 * **Veredicto Técnico:** 🟢 **GO CONTROLADO · DOMUS SOLAR EN VIVO**
 * **Línea Base Canónica:**
-  - Deployment Apps Script: `AKfycbzy7wZZ55zPnzZ6h9iRKXNAvitP5EZMCPyjsxPtLIpdtuv4_3Zt9SYqQS65I1WRGJGL` (Versión 16)
-  - HEAD Git: `acb47f6`
+  - Deployment Apps Script: `AKfycbzy7wZZ55zPnzZ6h9iRKXNAvitP5EZMCPyjsxPtLIpdtuv4_3Zt9SYqQS65I1WRGJGL` (Versión 16 Activa)
+  - Baseline de código auditado: `acb47f6` (Commit actual del repositorio: consultar `git rev-parse HEAD`)
   - Libros: Main `1KQz8oJ4...`, Ops `1DiwPa1c...`
 
 ### 📊 Semáforo de Áreas Operativas
@@ -191,7 +191,7 @@
 | :--- | :---: | :--- |
 | **Backend Producción** | 🟢 | Status `HEALTHY`, environment `PRODUCTION`. |
 | **Caja Solar** | 🟢 | `CAJA 2!F2: Solar`, 152 items cargados. |
-| **COBROS** | 🟢 | Transaccional e inmutable. |
+| **COBROS** | 🟢 | Registro idempotente desde la API y append-only por política operativa; susceptible de edición manual por usuarios autorizados en Google Sheets. |
 | **KDS** | 🟢 | Conectado, 0 comandas activas al sondeo. |
 | **Accesos** | 🟢 | Actividad `Operación diaria`, 4 canales. |
 | **Interfaz Nativa** | 🟢 | `?vista=caja` sirve HTML completo con `google.script.run`. |
@@ -221,10 +221,21 @@
   2. Idempotencia en KDS (`KDS.gs`, `DOMUS_PRODUCTION_BUNDLE.gs`, `DOMUS_STAGING_BUNDLE.gs`): `TOMAR` sobre una orden ya en preparación, `LISTA` sobre una ya lista, y `ENTREGAR` sobre una ya entregada retornan `{ ok: true }` y sincronizan el estado sin lanzar excepciones.
   3. Recuperación en Frontend (`Index.html`, `js/app.js`): Los manejadores de error/alerta invocan automáticamente `syncBackendData()` para mantener la pantalla sincronizada con la hoja de cálculo.
 
+### ⚠️ Deuda Técnica Canónica P0: Modelo de Inventario
+* **Contradicción Documental vs Código:**
+  - **Modelo A (ADR-004 y snapshot documental previo):** Modelo ledger donde el inventario es un circuito reactivo por fórmulas contables a partir de movimientos.
+  - **Modelo B (Implementación activa en `KDS.gs` / bundles en `ENTREGAR`):** Actualización directa donde KDS calcula `newOut` y `newDisp` y escribe directamente en las columnas 7 (`Salidas`) y 8 (`Disponible`) de la hoja `INVENTARIO`.
+* **Directiva Operativa:** Se mantiene el **Modelo B** activo durante el servicio Solar para garantizar estabilidad y no alterar el flujo transaccional en caliente. Se agenda conciliación y formalización arquitectónica en la ventana de mantenimiento post-servicio.
 
-### 🚨 Directivas Inmediatas de Seguridad y Operación
-1. **Acceso a Caja Maestra:** Usar preferentemente la versión nativa de Google Workspace (`direccion@domusccc.net` / `sadotechfet@gmail.com`).
-2. **Terminales de Piso (GitHub Pages):** Operar únicamente en dispositivos físicos del club bajo red interna controlada; no difundir URLs.
-3. **Rotación de PIN:** El PIN de pantalla mencionado en chat debe ser rotado en la primera ventana de mantenimiento; no se considera secreto backend.
-4. **Protección de Rama `main`:** Configurar Branch Protection Rules en GitHub (Require PR, 1 approval, status checks, block force pushes).
+### 🚨 Directivas Inmediatas de Seguridad y Congelación Operativa
+1. **Congelación Operativa en Caliente:** No desplegar cambios de backend en Producción durante el servicio activo de Fase Solar.
+2. **Acceso a Caja Maestra:** Usar preferentemente la versión nativa de Google Workspace (`direccion@domusccc.net` / `sadotechfet@gmail.com`).
+3. **Terminales de Piso (GitHub Pages):** Operar únicamente en dispositivos físicos del club bajo red interna controlada; no difundir URLs.
+4. **Tareas Críticas Post-Servicio:**
+   - Proteger la rama `main` en GitHub (Require PR, 1 approval, status checks, block force pushes).
+   - Añadir status checks obligatorios de CI.
+   - Endurecer `authCrearSesion` con validación fuerte de contraseñas/PINs en el servidor.
+   - Rotar el PIN de pantalla expuesto en chat.
+   - Desarrollar módulo formal de Apertura / Turnos / Cortes X y Z en la rama de aislamiento `feature/phase-1-shifts-cuts`.
+
 
