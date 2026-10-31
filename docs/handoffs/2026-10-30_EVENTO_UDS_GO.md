@@ -329,3 +329,109 @@ El nuevo inventario debe soportar simultáneamente:
 10. cierre físico y diferencias.
 
 No convertir porcentajes visuales de botella en enteros de stock ni asumir equivalencia de marca/presentación.
+
+
+## ACUERDO PAO · PROVEEDORA + PARTICIPACIÓN DE BARRA
+
+### Estructura económica aprobada
+Pao mantiene cuatro conceptos separados y auditables:
+1. **Cuenta por pagar de inventario:** todo inventario entregado entra a DOMUS y genera CXP por costo final confirmado.
+2. **Sueldo operativo:** Pao recibe $350 cuando trabaja como parte del staff.
+3. **Gasolina:** $200 sólo cuando corresponde a surtido semanal o servicio especial; no es gasto diario automático.
+4. **Participación:** Pao recibe 10% del resultado distribuible de barra elegible.
+
+Nunca mezclar estos cuatro conceptos.
+
+### Inventario inicial Pao
+Valor total confirmado: **$11,003.18 MXN**.
+
+El inventario queda físicamente en DOMUS y la deuda permanece abierta hasta que exista pago real. Los cortes diarios:
+- identifican consumo;
+- calculan costo consumido;
+- registran resurtidos;
+- recomiendan pago;
+- reducen CXP únicamente contra pago real.
+
+Los resurtidos futuros agregan nueva CXP. Si cambia el costo unitario, crear lote nuevo; no sobrescribir costo histórico.
+
+### Base del 10%
+Sólo aplica a ventas/operación de barra relacionadas con inventario Pao.
+No incluir:
+- Onírica;
+- Felssloschen;
+- Canna Treats;
+- Jujutsu-shi;
+- otros proveedores;
+- propinas;
+- extra Universidad del Swinger.
+
+Antes del 10% descontar:
+- costo real del inventario Pao consumido;
+- demás insumos usados en esas ventas;
+- sueldos operativos definidos para la jornada;
+- gasolina Pao cuando aplique;
+- comisiones reales de terminal/Mercado Pago;
+- otros gastos necesarios para operar.
+
+Fórmula:
+`resultado_distribuible = ventas_elegibles_netas - costos_y_gastos_aplicables`
+`pao_10 = MAX(0, resultado_distribuible * 0.10)`
+
+Si el resultado es cero o negativo, participación Pao = $0 para ese corte.
+
+### Nómina base 30/10
+8 personas × $350 = **$2,800**:
+- Ángel
+- Pao
+- Ibrah
+- Wall E
+- Miguel
+- Zoe
+- Steven
+- Iván
+
+### Gasolina
+$200 sólo en surtido semanal o servicio especial.
+Para el corte inicial del 30/10 se dejó parametrizada en $200 por el surtido inicial reportado. Debe poder ponerse en $0 si Dirección determina que ese surtido no genera gasolina.
+
+### Jornada
+El sistema debe soportar cortes separados:
+- 30/10/2026 → cierre
+- 31/10/2026 → cierre
+- 01/11/2026 → cierre
+
+### Control productivo creado
+Hoja: `PROVEEDOR_PAO`
+
+Contiene:
+- inventario inicial por lote;
+- cantidad;
+- costo unitario final;
+- valor inicial;
+- resurtidos diarios;
+- cierres diarios;
+- consumo;
+- costo consumido;
+- CXP pendiente;
+- pago sugerido;
+- pago real;
+- nómina;
+- gasolina;
+- comisión terminal;
+- otros gastos;
+- resultado distribuible;
+- 10% Pao;
+- saldo de participación.
+
+### Requisito Antigravity
+El módulo futuro debe modelar explícitamente:
+- SupplierInventoryLot
+- AccountsPayable
+- SupplierReplenishment
+- DailyInventoryCut
+- OperatingPayroll
+- ConditionalTransportExpense
+- EligibleRevenuePool
+- SupplierProfitShare
+
+La reducción de inventario no reduce CXP por sí misma; sólo un pago confirmado reduce la deuda.
