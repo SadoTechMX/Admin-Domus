@@ -175,3 +175,16 @@
      - `Sushi Jujutsu-shi` (9 items)
      - `🌿 Menú Cannábico` (18 items infusionados)
   5. **Precios Solar vs Lunar:** 73 productos con tarifas dinámicas alternables al toque del botón de Fase. Cero divergencias de precio (100% verificado contra la Carta Oficial).
+
+---
+
+## 💵 Fondo Inicial de Operación en Efectivo · Evento 30/10 (2026-10-31 01:00 UTC-6)
+* **Estado:** `OPERATING_CONFIRMED`
+* **Aportante:** **Ibrah**
+* **Monto:** **$3,000.00 MXN en efectivo** para arranque de caja y cambio.
+* **Tratamiento Contable Oficial:**
+  1. **Pasivo / Devolución de Fondo (CXP Ibrah):** NO constituye venta, NO es ingreso de barra ni taquilla, NO es utilidad.
+  2. **Separación de Arqueo:** Al corte de caja de las 06:00 hrs:
+     $$\text{Efectivo Neto de Ventas} = \text{Efectivo Físico en Cajón} - \$3,000.00 \text{ (Devolución íntegra a Ibrah)}$$
+  3. **Blindaje de Acuerdos:** Totalmente excluido de la base de cálculo de utilidad distribuible del 10% de Pao y de la cascada de Universidad del Swinger.
+
