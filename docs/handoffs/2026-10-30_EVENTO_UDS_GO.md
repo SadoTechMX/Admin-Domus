@@ -13,7 +13,7 @@ Este documento sincroniza a Antigravity con la operación real de hoy. No sustit
 - Aforo: **250**
 - Sin reingreso
 - Guardarropa: **$50**, 100% DOMUS
-- Fondo inicial real en efectivo: **$3,000.00 MXN**, aportado físicamente por **Ibrah** para arranque operativo y fondo de cambio. Tratamiento contable estricto: **Pasivo / Devolución de fondo (CXP Ibrah)**, NO es ingreso, NO es venta, se reintegra al 100% a Ibrah en el arqueo final antes de calcular utilidad o repartos.
+- Fondo inicial real en efectivo: **$4,000.00 MXN**, compuesto por **$1,000.00** de préstamo temporal de Universidad del Swinger + **$3,000.00** aportados por **Ibrah** para arranque operativo. Tratamiento contable estricto: **Pasivo / Devolución de fondo separada (CXP UDS $1,000 / CXP Ibrah $3,000)**, gobernado en `30OCT_UDS_GO` (no en `MOVIMIENTOS`). NO es ingreso, NO es venta, se reintegra al 100% en el arqueo final antes de calcular utilidad o repartos.
 - Responsables Caja: Steven / Ibrah
 - Conteo inventario: Steven; valida Pao
 
@@ -119,7 +119,7 @@ No declarar GO total sin PASS en:
 - preventas F1/F2
 - cortesía
 - guardarropa
-- fondo inicial $3,000 (Ibrah)
+- fondo inicial $4,000 ($1,000 UDS + $3,000 Ibrah)
 - cierre económico $13k DOMUS + $4k performances + excedente
 - impresora/cajón físico cuando aplique
 
@@ -210,7 +210,7 @@ Contiene:
 - anticipo $6,000;
 - saldo DOMUS $7,000;
 - performances $4,000;
-- fondo temporal $3,000 (Ibrah) como pasivo/préstamo operativo, no venta;
+- fondo temporal $4,000 ($1,000 UDS + $3,000 Ibrah) como pasivo/préstamo operativo, no venta;
 - taquilla real del evento;
 - guardarropa 100% DOMUS;
 - ventas de productos del evento;

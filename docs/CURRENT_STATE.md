@@ -178,13 +178,15 @@
 
 ---
 
-## 💵 Fondo Inicial de Operación en Efectivo · Evento 30/10 (2026-10-31 01:00 UTC-6)
+## 💵 Fondo Inicial de Operación en Efectivo · Evento 30/10 (2026-10-31 01:05 UTC-6)
 * **Estado:** `OPERATING_CONFIRMED`
-* **Aportante:** **Ibrah**
-* **Monto:** **$3,000.00 MXN en efectivo** para arranque de caja y cambio.
+* **Fondo Inicial Total en Cajón:** **$4,000.00 MXN en efectivo**, desglosado estrictamente por aportante:
+  1. **$1,000.00 MXN:** Préstamo temporal de **Universidad del Swinger (UDS)**.
+  2. **$3,000.00 MXN:** Aportación operativa de **Ibrah** para arranque y cambio.
 * **Tratamiento Contable Oficial:**
-  1. **Pasivo / Devolución de Fondo (CXP Ibrah):** NO constituye venta, NO es ingreso de barra ni taquilla, NO es utilidad.
-  2. **Separación de Arqueo:** Al corte de caja de las 06:00 hrs:
-     $$\text{Efectivo Neto de Ventas} = \text{Efectivo Físico en Cajón} - \$3,000.00 \text{ (Devolución íntegra a Ibrah)}$$
-  3. **Blindaje de Acuerdos:** Totalmente excluido de la base de cálculo de utilidad distribuible del 10% de Pao y de la cascada de Universidad del Swinger.
+  1. **Pasivo / Devolución de Fondo (CXP Separada):** Ambos son fondos temporales y NO constituyen venta, ingreso de barra, taquilla ni utilidad.
+  2. **Reconciliación Separada al Cierre (06:00 hrs):**
+     $$\text{Efectivo Neto de Ventas} = \text{Total Físico en Cajón} - \$4,000.00 \text{ (}\$1,000 \text{ UDS} + \$3,000 \text{ Ibrah)}$$
+  3. **Hoja Autoritativa:** Se gobierna en `30OCT_UDS_GO` (no en `MOVIMIENTOS`, para no colisionar con el periodo histórico del 19–25 oct).
+  4. **Blindaje Total:** Ambos fondos quedan 100% excluidos del cálculo del 10% de utilidad de Pao y de la cascada económica del organizador.
 
