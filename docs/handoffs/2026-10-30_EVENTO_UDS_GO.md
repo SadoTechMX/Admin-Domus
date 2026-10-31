@@ -245,3 +245,87 @@ Contiene:
 8. Corregir navegación nativa Apps Script hacia Accesos; GitHub Pages sí fue verificado.
 9. Mantener idempotencia: una intención = un requestId = un cobro = un recibo.
 10. No declarar PROD_VERIFIED para estas correcciones hasta pruebas reales de STAGING.
+
+
+## INVENTARIO FÍSICO INICIAL RECIBIDO · 30 OCT 2026 · 21:33
+
+Fuente: conteo físico entregado por Dirección para apertura del evento.  
+Validación final: **Pao pendiente**.  
+Control productivo: `30OCT_UDS_INV`.
+
+### Vendibles mapeados directamente
+- Caguama Victoria 1.2 L: 3
+- Volt Yellow: 3
+- Agua Great Value 500 ml: 18 -> controlada como Agua natural 500 ml, marca física GV
+- Carta Blanca 473 ml: 1
+- Black Beer alemana 500 ml: 7
+- Onírica Lager 355 ml: 13
+- Onírica Viena 355 ml: 11
+- Onírica IPA 355 ml: 3
+
+### Mapeo pendiente
+- Cervezas alemanas URBLOCK 500 ml: 16
+- Candidato de catálogo: `Alemana Bock · FINAL-22OCT-BAR-001-BOCK`
+- NO asumir equivalencia hasta validación física/proveedor.
+
+### Botellas abiertas / bases líquidas
+Registrar por contenido aproximado disponible, no como botella completa:
+- Red Label 700 ml llena = 700 ml
+- José Cuervo Especial Blanco 990 ml llena = 990 ml
+- José Cuervo Tradicional 990 ml a 1/4 = 247.5 ml
+- José Cuervo Especial Blanco 990 ml a 3/4 = 742.5 ml
+- Oso Negro 1 L a 3/4 = 750 ml
+- Bacardi 1.75 L a 3/4 = 1312.5 ml
+- Bacardi 980 ml a 1/2 = 490 ml
+- Smirnoff Tamarindo 1 L llena = 1000 ml
+- Smirnoff Tamarindo 750 ml llena = 750 ml
+- Jägermeister 750 ml a 3/4 = 562.5 ml
+- Smirnoff Vodka tradicional 750 ml a 3/4 = 562.5 ml
+- Gibson London Dry 700 ml llena = 700 ml
+- Bombay Sapphire 700 ml a 3/4 = 525 ml
+- 2 CALAHUAS de 1 L = 2000 ml; descripción literal, mapeo pendiente
+- 2 jugos piña Jumex 960 ml = 1920 ml
+- 1 jugo naranja Jumex 970 ml = 970 ml
+- 1 jugo naranja 1.89 L = 1890 ml
+
+### Tienda DOMUS
+Costos/precios no deben inventarse durante apertura.
+Conteo:
+- Velas 21
+- Condones Alfa 12
+- Látigos 12
+- Cubrebocas 11
+- Lube Tube 4
+- Abanico 1
+- ORGIE She Spot rojo 2
+- ORGIE Sexy Vibe azul 2
+- ORGIE Orgasm Drops Intense 2
+- SIYI 2
+- ORGIE Sexy Vibe negro 1
+- Arneses 6
+- Plug 1
+- Lentes 1
+- Oreja de burro 2
+- Posters 12
+- Tablas 2
+- Collar 1
+- Conjunto peludo 1
+
+### Desechables
+- Vasos 1 L: 100
+- Vasos 500 ml: 100
+
+### Requisito arquitectónico Antigravity
+El nuevo inventario debe soportar simultáneamente:
+1. piezas cerradas;
+2. volumen líquido en ml;
+3. fracciones/porcentajes de botella;
+4. insumos no vendibles;
+5. productos de Tienda sin precio aún;
+6. mapeo físico -> SKU canónica;
+7. estado `MAPEO PENDIENTE` sin forzar equivalencias;
+8. conteo inicial + validación por segundo responsable;
+9. consumo por receta;
+10. cierre físico y diferencias.
+
+No convertir porcentajes visuales de botella en enteros de stock ni asumir equivalencia de marca/presentación.
