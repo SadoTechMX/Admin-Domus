@@ -135,3 +135,113 @@ Después del evento:
 - conciliar proveedor/DOMUS/Universidad del Swinger
 - integrar la solución canónica de perfiles de evento en arquitectura v15
 - actualizar `CURRENT_STATE.md` y ADR correspondiente
+
+
+## ACTUALIZACIÓN AUDITORÍA FINAL · P0 Y CONTROLES COMPENSATORIOS
+
+### P0-ACCOUNTS · lectura truncada de 500 filas
+**Hallazgo productivo confirmado:**
+- `POS.gs::cajaSimpleDatos()` lee `CAJA 2!A7:P506` y `COBROS!A7:N506`.
+- `Accounts.gs::posBalanceFast_()` usa el mismo límite de 500 filas.
+- Producción ya tiene `COBROS` hasta al menos fila 4566.
+- Riesgo: una cuenta abierta puede calcular saldo usando consumo/pagos incompletos; una cuenta ya pagada puede reaparecer o liquidarse con saldo incorrecto.
+- Impacta especialmente las cuentas autorizadas de Oscar, Arely, Gibran y Paulina.
+
+**Solución canónica ya existente en la línea de reparación:**
+- `repair/qa-20261030` sustituye lecturas fijas por `dataRows_` full-history y journal transaccional.
+- Antigravity debe integrar esta corrección como requisito arquitectónico, no volver a introducir límites de 500 filas.
+
+**Control compensatorio para el evento de hoy:**
+- Hoja productiva `30OCT_UDS_GO`.
+- Ledger full-history por ticket para Oscar, Arely, Gibran y Paulina.
+- Fórmulas leen `CAJA 2` y `COBROS` hasta fila 5007.
+- Al liquidar una cuenta, el operador debe cotejar este ledger; no confiar exclusivamente en el saldo mostrado por UI productiva.
+
+### P0-INVENTORY · KDS vs esquema vigente de INVENTARIO
+**Hallazgo productivo confirmado:**
+- `KDS.gs` activo intenta interpretar `INVENTARIO` como:
+  - columna A = SKU
+  - columna B = nombre
+  - F/G/H = inicial/salidas/disponible
+- La hoja productiva vigente realmente usa:
+  - A = Producto / variante
+  - B = Familia
+  - D = INICIAL REAL
+  - G = Entregado por comandas
+  - H = Existencia esperada
+- Además, el `comandaItem` generado por el POS productivo no conserva `sku`.
+- Evidencia histórica en `REQUESTS`: entregas con `INVENTORY_ITEM_NOT_FOUND` para productos reales.
+- Resultado: KDS puede entregar correctamente una comanda sin descontar inventario.
+
+**Solución canónica ya existente en la línea de reparación:**
+- `repair/qa-20261030`:
+  - conserva `sku` dentro de la comanda;
+  - usa `deliveryInventoryWrites_`;
+  - valida el esquema actual mediante nombres de columnas;
+  - usa recetas/INSUMOS cuando existen;
+  - exige conteo y fórmulas correctas;
+  - no realiza decrementos silenciosos contra una columna errónea.
+- Antigravity debe adoptar este modelo y eliminar definitivamente el modelo legacy.
+
+**Control compensatorio para hoy:**
+- Hoja productiva `30OCT_UDS_INV`.
+- 128 productos del evento con:
+  - precio base DOMUS;
+  - precio evento;
+  - extra por unidad;
+  - % DOMUS temporal;
+  - monto proveedor protegido;
+  - unidades normales registradas;
+  - extra facturado;
+  - inventario inicial físico;
+  - inventario esperado;
+  - inventario final físico;
+  - diferencia.
+- Steven captura conteo inicial.
+- Pao valida.
+- Al cierre se captura conteo físico final y se reconcilia contra las unidades vendidas.
+- Hasta desplegar la reparación, el inventario automático productivo NO se considera autoridad única.
+
+### Control GO productivo creado
+Hoja: `30OCT_UDS_GO`
+
+Contiene:
+- contrato DOMUS $13,000;
+- anticipo $6,000;
+- saldo DOMUS $7,000;
+- performances $4,000;
+- fondo temporal $1,000 como pasivo/préstamo, no venta;
+- taquilla real del evento;
+- guardarropa 100% DOMUS;
+- ventas de productos del evento;
+- extra Universidad del Swinger;
+- cascada automática DOMUS -> performances -> excedente organizador;
+- cuentas abiertas autorizadas con ledger full-history;
+- checklist físico de apertura;
+- veredicto automático sólo después de completar 9 pruebas físicas.
+
+### Estado de apertura al crear los controles
+- Backend productivo: HEALTHY.
+- Fase: Lunar.
+- Evento activo: Del Crepúsculo al Amanecer.
+- Tarifas correctas.
+- 128/128 precios de evento: PASS.
+- 128/128 montos proveedor protegidos: PASS.
+- Backup rollback: PASS.
+- Cola KDS previa reciente: sin comandas En preparación / Lista / Pendiente.
+- COBROS del evento al momento del corte: $0.
+- Guardarropa del evento: $0.
+- Ventas de productos del evento: $0.
+- No se generaron ventas sintéticas.
+
+### Requisitos post-evento para Antigravity
+1. Integrar full-history de cuentas y pagos.
+2. Integrar esquema canónico de inventario/recetas.
+3. Integrar perfiles temporales de evento sin sobrescribir Precio Lunar base.
+4. Persistir `basePriceDomus`, `eventPrice`, `eventExtra`, `eventExtraBeneficiary`.
+5. Automatizar apertura/cierre del perfil y rollback.
+6. Convertir `30OCT_UDS_GO` en módulo formal de evento/corte.
+7. Convertir `30OCT_UDS_INV` en reconciliación automática de inventario por evento.
+8. Corregir navegación nativa Apps Script hacia Accesos; GitHub Pages sí fue verificado.
+9. Mantener idempotencia: una intención = un requestId = un cobro = un recibo.
+10. No declarar PROD_VERIFIED para estas correcciones hasta pruebas reales de STAGING.
