@@ -190,3 +190,17 @@
   3. **Hoja Autoritativa:** Se gobierna en `30OCT_UDS_GO` (no en `MOVIMIENTOS`, para no colisionar con el periodo histórico del 19–25 oct).
   4. **Blindaje Total:** Ambos fondos quedan 100% excluidos del cálculo del 10% de utilidad de Pao y de la cascada económica del organizador.
 
+---
+
+## 🔍 Conciliación Canónica Multi-IA Producción · Evento 30/10 (2026-10-31 03:15 UTC-6)
+* **Estado:** `PROD_VERIFIED_CHATGPT_ALIGNED`
+* **Backend Canónico Activo (GitHub Pages `origin/main`):** `https://script.google.com/macros/s/AKfycbzy7wZZ55zPnzZ6h9iRKXNAvitP5EZMCPyjsxPtLIpdtuv4_3Zt9SYqQS65I1WRGJGL/exec`
+* **Casos Críticos Conciliados:**
+  1. **Oscar López (Gin Tonic):** Comanda `C2-202` tomada por Miguel, marcada como Lista y **ENTREGADA** físicamente. Crédito abierto legal por **$200.00** en `CTA-20261031-3f7olp`.
+  2. **Gaby Morita (🚨 P0 Financiero en Verificación Física):** Existen dos recibos confirmados en efectivo en `COBROS`: `REC-MVVZ9PX5` ($200) y `REC-MVVZA0DO` ($200), totalizando **$400.00**. Pendiente de confirmación física de caja: si sólo entregó $200 en efectivo, se procederá a la rectificación/anulación de uno de los folios en el arqueo final.
+  3. **Julian (Taquilla):** Folio de producción confirmado es **`A-5067`** por **$700.00 en Terminal 1** (Pareja $600 + Guardarropa $100 con talón `GUA-A-5067`).
+  4. **Fernando Ontiveros:** Recibo `REC-MVVZQHFL` ($200 efectivo) corresponde a **1 Paloma · Vaso 1 L con hielo por $200.00** (no a Victorias). Se añade cobro posterior confirmado por **$200.00 en Terminal 1** bajo folio `REC-MVW3RPWQ`.
+  5. **Alex Zamora:** Cuenta de hoy por **$300.00** localizada en `CTA-20261031-er8r90`, en estado **Pendiente de Cobro** (no liquidada aún en `COBROS`). Cuenta histórica previa del 23 de octubre por $200 (`CTA-20261023-POS-...`) permanece separada.
+  6. **Métrica KDS:** 179 comandas en estado `Entregada` en el rango global, que incluye historial operativo previo; las entregas de esta noche se auditan estrictamente por timestamp de jornada.
+
+
