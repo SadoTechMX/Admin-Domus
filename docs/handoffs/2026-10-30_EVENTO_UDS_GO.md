@@ -437,6 +437,13 @@ El módulo futuro debe modelar explícitamente:
 La reducción de inventario no reduce CXP por sí misma; sólo un pago confirmado reduce la deuda.
 
 
+### Conciliaciones Operativas Especiales (Jornada 30/10 - 31/10)
+- **Gaby Morita:** Cobro duplicado accidental resuelto (Opción A). Físicamente sólo pagó **$200 en efectivo**. `REC-MVVZ9PX5` queda activo ($200); `REC-MVVZA0DO` queda formalmente anulado. Se contabilizan $200 en efectivo para el arqueo final.
+- **Alex Zamora:** Deuda de hoy de **$300** en `CTA-20261031-er8r90` pendiente de cobro en `COBROS`.
+- **Oscar López:** Comanda `C2-202` entregada físicamente por Miguel; crédito $200 abierto en `CTA-20261031-3f7olp`.
+- **Julian:** Folio oficial `A-5067` por $700 Terminal 1 (Pareja $600 + Guardarropa $100).
+- **Fondo Inicial Efectivo:** $4,000 ($1,000 UDS + $3,000 Ibrah) en `30OCT_UDS_GO`.
+
 ## PRIORIDAD MAÑANA · OFFLINE-FIRST / PWA PARA ACCESOS
 
 Para la operación del 30/10 se mantiene el sistema actual con control compensatorio. No cambiar arquitectura durante el evento.

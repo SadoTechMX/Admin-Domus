@@ -197,7 +197,10 @@
 * **Backend Canónico Activo (GitHub Pages `origin/main`):** `https://script.google.com/macros/s/AKfycbzy7wZZ55zPnzZ6h9iRKXNAvitP5EZMCPyjsxPtLIpdtuv4_3Zt9SYqQS65I1WRGJGL/exec`
 * **Casos Críticos Conciliados:**
   1. **Oscar López (Gin Tonic):** Comanda `C2-202` tomada por Miguel, marcada como Lista y **ENTREGADA** físicamente. Crédito abierto legal por **$200.00** en `CTA-20261031-3f7olp`.
-  2. **Gaby Morita (🚨 P0 Financiero en Verificación Física):** Existen dos recibos confirmados en efectivo en `COBROS`: `REC-MVVZ9PX5` ($200) y `REC-MVVZA0DO` ($200), totalizando **$400.00**. Pendiente de confirmación física de caja: si sólo entregó $200 en efectivo, se procederá a la rectificación/anulación de uno de los folios en el arqueo final.
+  2. **Gaby Morita (RESOLUCIÓN DEFINITIVA · OPCIÓN A):** Confirmado por operador en vivo que Gaby sólo pagó **$200.00 físicos una sola vez**. 
+     - `REC-MVVZ9PX5`: **VÁLIDO Y ACTIVO** ($200.00 en efectivo).
+     - `REC-MVVZA0DO`: **ANULADO / DUPLICADO POR ERROR DE COBRO** ($0.00 en arqueo).
+     - **Efecto Contable en Arqueo:** En el cajón físico de efectivo se contabilizan únicamente **$200.00**, eliminando el descuadre de $200 en billetes para el corte de las 06:00 hrs.
   3. **Julian (Taquilla):** Folio de producción confirmado es **`A-5067`** por **$700.00 en Terminal 1** (Pareja $600 + Guardarropa $100 con talón `GUA-A-5067`).
   4. **Fernando Ontiveros:** Recibo `REC-MVVZQHFL` ($200 efectivo) corresponde a **1 Paloma · Vaso 1 L con hielo por $200.00** (no a Victorias). Se añade cobro posterior confirmado por **$200.00 en Terminal 1** bajo folio `REC-MVW3RPWQ`.
   5. **Alex Zamora:** Cuenta de hoy por **$300.00** localizada en `CTA-20261031-er8r90`, en estado **Pendiente de Cobro** (no liquidada aún en `COBROS`). Cuenta histórica previa del 23 de octubre por $200 (`CTA-20261023-POS-...`) permanece separada.
