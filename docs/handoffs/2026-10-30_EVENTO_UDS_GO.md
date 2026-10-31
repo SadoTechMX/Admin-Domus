@@ -435,3 +435,41 @@ El módulo futuro debe modelar explícitamente:
 - SupplierProfitShare
 
 La reducción de inventario no reduce CXP por sí misma; sólo un pago confirmado reduce la deuda.
+
+
+## PRIORIDAD MAÑANA · OFFLINE-FIRST / PWA PARA ACCESOS
+
+Para la operación del 30/10 se mantiene el sistema actual con control compensatorio. No cambiar arquitectura durante el evento.
+
+### Contingencia operativa actual
+La interfaz GitHub Pages de Accesos sí dispone de:
+- Outbox local en `localStorage`;
+- requestId idempotente por mutación;
+- reintento automático al evento `online`;
+- cache local de eventos/accesos recientes;
+- conservación local de accesos pendientes.
+
+Regla operativa:
+- la estación debe abrirse y autenticarse con internet;
+- si cae la red, seguir usando la misma estación;
+- no refrescar ni cerrar;
+- no usar dos estaciones offline simultáneas;
+- aforo operativo = aforo confirmado previo + accesos locales pendientes;
+- al recuperar conexión, esperar Outbox=0 y conciliar REQUESTS -> ACCESO -> COBROS;
+- REQUIRES_REVIEW nunca se recaptura automáticamente.
+
+### Deuda técnica a resolver mañana
+Implementar un modo offline-first real:
+1. PWA / Service Worker;
+2. arranque offline;
+3. cache canónica del evento activo y tarifas;
+4. sesión offline controlada;
+5. Outbox persistente e inspeccionable;
+6. contador de aforo local;
+7. deduplicación entre estaciones;
+8. reconciliación idempotente al reconectar;
+9. UI explícita de OFFLINE / PENDIENTES / REQUIRES_REVIEW;
+10. procedimiento de recuperación tras cierre/reinicio del navegador;
+11. pruebas de pérdida de red, reconexión, refresh y doble dispositivo.
+
+No desplegar esta arquitectura durante el evento activo del 30/10.
