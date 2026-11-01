@@ -4444,8 +4444,10 @@ const DEFAULT_CATALOG = [
     if (!container) return;
 
     const ev = getActiveEvent();
-    if (!STATE.accessSalesChannel) {
-      STATE.accessSalesChannel = (ev && ev.salesChannel) ? ev.salesChannel : (ev && ev.name.includes('Forza') ? 'BOLETERA_EXTERNA' : 'TAQUILLA_DOMUS');
+    if (!STATE.accessSalesChannel || STATE.accessChannelEvent !== ev.name) {
+      STATE.accessSalesChannel = ev.salesChannel || (ev.name.includes('Forza') ? 'BOLETERA_EXTERNA' : 'TAQUILLA_DOMUS');
+      STATE.accessChannelEvent = ev.name;
+      STATE.accessSelectedType = 'General';
     }
 
     container.querySelectorAll('.channel-btn').forEach(btn => {
