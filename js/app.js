@@ -2319,24 +2319,79 @@ const DEFAULT_CATALOG = [
     return devId;
   }
 
+  function isSessionExpiredError(error) {
+    if (!error) return false;
+    const msg = (typeof error === 'string' ? error : (error.message || error.error || '')).toLowerCase();
+    return (
+      msg.includes('sesión de la estación ha caducado') ||
+      msg.includes('sesion de la estacion ha caducado') ||
+      msg.includes('token de sesión inválido') ||
+      msg.includes('token de sesion invalido') ||
+      msg.includes('token no válido') ||
+      msg.includes('token no valido') ||
+      msg.includes('sesión caducada') ||
+      msg.includes('sesion caducada') ||
+      msg.includes('session expired') ||
+      msg.includes('vuelve a iniciar sesión') ||
+      msg.includes('vuelve a iniciar sesion')
+    );
+  }
+
   function getSessionToken(targetRole) {
-    const role = targetRole || getStationRole();
-    return sessionStorage.getItem('domus_session_token_' + role) ||
-           sessionStorage.getItem('domus_session_token') ||
-           localStorage.getItem('domus_session_token_' + role) ||
-           (localStorage.getItem('domus_session_role') === role ? localStorage.getItem('domus_session_token') : '') ||
-           '';
+    const role = (targetRole || getStationRole()).toUpperCase();
+    // 1. Claves con prefijo de rol explícito
+    const roleScopedSession = sessionStorage.getItem('domus_session_token_' + role);
+    if (roleScopedSession) return roleScopedSession;
+
+    const roleScopedLocal = localStorage.getItem('domus_session_token_' + role);
+    if (roleScopedLocal) return roleScopedLocal;
+
+    // 2. Clave heredada genérica SOLO si coincide estrictamente con el rol solicitado
+    const legacySessionRole = (sessionStorage.getItem('domus_session_role') || '').toUpperCase();
+    const legacySessionToken = sessionStorage.getItem('domus_session_token');
+    if (legacySessionToken && legacySessionRole === role) {
+      return legacySessionToken;
+    }
+
+    const legacyLocalRole = (localStorage.getItem('domus_session_role') || '').toUpperCase();
+    const legacyLocalToken = localStorage.getItem('domus_session_token');
+    if (legacyLocalToken && legacyLocalRole === role) {
+      return legacyLocalToken;
+    }
+
+    return '';
   }
 
   function setSessionToken(token, role) {
     if (token) {
-      const cleanRole = role || getStationRole();
+      const cleanRole = (role || getStationRole()).toUpperCase();
       sessionStorage.setItem('domus_session_token_' + cleanRole, token);
-      sessionStorage.setItem('domus_session_token', token);
+      sessionStorage.setItem('domus_session_role_' + cleanRole, cleanRole);
       localStorage.setItem('domus_session_token_' + cleanRole, token);
       localStorage.setItem('domus_session_role_' + cleanRole, cleanRole);
-      localStorage.setItem('domus_session_token', token);
-      localStorage.setItem('domus_session_role', cleanRole);
+
+      // Solo actualiza las claves genéricas si corresponde a la estación activa
+      if (cleanRole === getStationRole().toUpperCase()) {
+        sessionStorage.setItem('domus_session_token', token);
+        sessionStorage.setItem('domus_session_role', cleanRole);
+        localStorage.setItem('domus_session_token', token);
+        localStorage.setItem('domus_session_role', cleanRole);
+      }
+    }
+  }
+
+  function clearSessionToken(targetRole) {
+    const cleanRole = (targetRole || getStationRole()).toUpperCase();
+    sessionStorage.removeItem('domus_session_token_' + cleanRole);
+    sessionStorage.removeItem('domus_session_role_' + cleanRole);
+    localStorage.removeItem('domus_session_token_' + cleanRole);
+    localStorage.removeItem('domus_session_role_' + cleanRole);
+
+    if (cleanRole === getStationRole().toUpperCase()) {
+      sessionStorage.removeItem('domus_session_token');
+      sessionStorage.removeItem('domus_session_role');
+      localStorage.removeItem('domus_session_token');
+      localStorage.removeItem('domus_session_role');
     }
   }
 
@@ -2347,51 +2402,69 @@ const DEFAULT_CATALOG = [
     return 'CAJA';
   }
 
-  let isEnsuringSession = false;
-  const pendingSessionCallbacks = [];
+  const pendingSessionByRole = new Map();
+  const isEnsuringSessionByRole = new Map();
 
-  function ensureSessionToken(onDone, targetRole) {
-    const currentRole = targetRole || getStationRole();
+  function ensureSessionToken(onDone, targetRole, forceRefresh = false) {
+    const currentRole = (targetRole || getStationRole()).toUpperCase();
     const currentToken = getSessionToken(currentRole);
-    const savedRole = localStorage.getItem('domus_session_role_' + currentRole) || localStorage.getItem('domus_session_role');
 
-    if (currentToken && (!savedRole || savedRole === currentRole)) {
-      if (onDone) onDone();
+    if (currentToken && !forceRefresh) {
+      if (onDone) onDone(null, currentToken);
       return;
     }
 
-    if (onDone) pendingSessionCallbacks.push(onDone);
-    if (isEnsuringSession) return;
-    isEnsuringSession = true;
+    if (!pendingSessionByRole.has(currentRole)) {
+      pendingSessionByRole.set(currentRole, []);
+    }
+    if (onDone) {
+      pendingSessionByRole.get(currentRole).push(onDone);
+    }
+
+    if (isEnsuringSessionByRole.get(currentRole)) {
+      return;
+    }
+    isEnsuringSessionByRole.set(currentRole, true);
 
     const role = currentRole;
     const devId = getDeviceId();
+
+    function notifyPendingCallbacks(err, token) {
+      isEnsuringSessionByRole.set(role, false);
+      const cbs = pendingSessionByRole.get(role) || [];
+      pendingSessionByRole.set(role, []);
+      cbs.forEach(cb => {
+        try {
+          if (typeof cb === 'function') {
+            cb(err, token);
+          }
+        } catch (e) {
+          console.error('[DOMUS AUTO-AUTH] Error en callback de sesión para', role, e);
+        }
+      });
+    }
 
     // En entorno nativo Apps Script, obtener token vía dispatchNativeAction
     if (STATE.isNativeGas && window.google && google.script && google.script.run) {
       google.script.run
         .withSuccessHandler(res => {
-          isEnsuringSession = false;
           const data = (res && res.data) ? res.data : res;
           if (data && data.token) {
             setSessionToken(data.token, role);
-            console.log('[DOMUS AUTO-AUTH] Sesión nativa creada exitosamente:', role, data.token);
-            const cbs = [...pendingSessionCallbacks];
-            pendingSessionCallbacks.length = 0;
-            cbs.forEach(cb => cb());
+            console.log('[DOMUS AUTO-AUTH] Sesión nativa creada exitosamente para rol:', role);
+            notifyPendingCallbacks(null, data.token);
           } else {
-            console.warn('[DOMUS AUTO-AUTH] El backend nativo no devolvió un token de sesión válido:', res);
-            pendingSessionCallbacks.length = 0;
+            console.warn('[DOMUS AUTO-AUTH] El backend nativo no devolvió un token de sesión válido para rol:', role);
             updateSyncPill('error');
             toast('No fue posible autenticar esta estación con el servidor nativo.', 'error');
+            notifyPendingCallbacks(new Error('Token inválido devuelto por backend nativo'));
           }
         })
         .withFailureHandler(err => {
-          isEnsuringSession = false;
-          console.warn('[DOMUS AUTO-AUTH] Error al crear sesión nativa:', err);
-          pendingSessionCallbacks.length = 0;
+          console.warn('[DOMUS AUTO-AUTH] Error al crear sesión nativa para rol:', role, err);
           updateSyncPill('error');
           toast('No fue posible autenticar esta estación nativa.', 'error');
+          notifyPendingCallbacks(err || new Error('Fallo al crear sesión nativa'));
         }).dispatchNativeAction({
           action: 'authCrearSesion',
           args: [role, 'Operador ' + role, devId],
@@ -2415,26 +2488,23 @@ const DEFAULT_CATALOG = [
     })
     .then(r => r.json())
     .then(res => {
-      isEnsuringSession = false;
       if (res && res.data && res.data.token) {
         setSessionToken(res.data.token, role);
-        console.log('[DOMUS AUTO-AUTH] Sesión creada exitosamente:', role, res.data.token);
-        const cbs = [...pendingSessionCallbacks];
-        pendingSessionCallbacks.length = 0;
-        cbs.forEach(cb => cb());
+        console.log('[DOMUS AUTO-AUTH] Sesión creada exitosamente para rol:', role);
+        notifyPendingCallbacks(null, res.data.token);
       } else {
-        console.warn('[DOMUS AUTO-AUTH] El backend no devolvió un token de sesión válido:', res);
-        pendingSessionCallbacks.length = 0;
+        const errMsg = (res && (res.error || res.message)) || 'El backend no devolvió un token de sesión válido';
+        console.warn('[DOMUS AUTO-AUTH] Error para rol:', role, errMsg);
         updateSyncPill('error');
         toast('No fue posible autenticar esta estación con el servidor. Verifica la conexión.', 'error');
+        notifyPendingCallbacks(new Error(errMsg));
       }
     })
     .catch(err => {
-      isEnsuringSession = false;
-      console.warn('[DOMUS AUTO-AUTH] Error al crear sesión automática:', err);
-      pendingSessionCallbacks.length = 0;
+      console.warn('[DOMUS AUTO-AUTH] Error al crear sesión automática para rol:', role, err);
       updateSyncPill('error');
       toast('No fue posible autenticar esta estación. La operación no fue enviada.', 'error');
+      notifyPendingCallbacks(err || new Error('Error de red al crear sesión'));
     });
   }
 
@@ -2539,6 +2609,7 @@ const DEFAULT_CATALOG = [
     if (
       code === 409 ||
       code === 'IDEMPOTENCY_KEY_REUSED' ||
+      isSessionExpiredError(msg) ||
       msg.includes('idempotency_key_reused') ||
       msg.includes('infringen las reglas de validación') ||
       msg.includes('validación de datos') ||
@@ -2699,12 +2770,17 @@ const DEFAULT_CATALOG = [
         saveOutbox(queue);
 
         const endpoint = `${STATE.apiUrl}?action=${encodeURIComponent(item.action)}`;
-        const itemRole = item.role || getStationRole();
+        const itemRole = (item.role || getStationRole()).toUpperCase();
         
         let sToken = getSessionToken(itemRole);
         if (!sToken) {
           try {
-            await new Promise(resolve => ensureSessionToken(resolve, itemRole));
+            await new Promise((resolve, reject) => {
+              ensureSessionToken((err, tok) => {
+                if (err) reject(err);
+                else resolve(tok);
+              }, itemRole);
+            });
             sToken = getSessionToken(itemRole);
           } catch (e) {}
         }
@@ -2732,6 +2808,7 @@ const DEFAULT_CATALOG = [
           if (json && json.ok) {
             item.status = 'CONFIRMED';
             item.serverReceipt = json.data;
+            delete item._sessionRefreshed;
             const updatedQueue = getOutbox().filter(q => q.requestId !== item.requestId);
             saveOutbox(updatedQueue);
             toast(`Operación sincronizada exitosamente con Google Sheets.`, 'ok');
@@ -2741,6 +2818,73 @@ const DEFAULT_CATALOG = [
             syncBackendData();
           } else {
             const errorMsg = (json && (json.error || json.message)) || 'Error en servidor';
+
+            // Reintento acotado de sesión caducada en Outbox (máximo 1 reintento por item en cola)
+            if (!item._sessionRefreshed && isSessionExpiredError(errorMsg)) {
+              console.warn(`[OUTBOX] Sesión caducada para rol ${itemRole} en item ${item.requestId}. Renovando y reintentando 1 vez de forma acotada...`);
+              item._sessionRefreshed = true;
+              clearSessionToken(itemRole);
+              let renewedToken = null;
+              try {
+                renewedToken = await new Promise((resolve, reject) => {
+                  ensureSessionToken((err, tok) => {
+                    if (err) reject(err);
+                    else resolve(tok || getSessionToken(itemRole));
+                  }, itemRole, true);
+                });
+              } catch (rErr) {
+                console.warn('[OUTBOX] Falló renovación de sesión:', rErr);
+              }
+
+              if (renewedToken) {
+                const retryPayload = {
+                  action: item.action,
+                  args: item.args,
+                  requestId: item.requestId,
+                  deviceId: item.deviceId,
+                  operator: item.operatorId,
+                  role: itemRole,
+                  sessionToken: renewedToken
+                };
+
+                try {
+                  const retryRes = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                    body: JSON.stringify(retryPayload)
+                  });
+                  const retryJson = await retryRes.json();
+                  if (retryJson && retryJson.ok) {
+                    item.status = 'CONFIRMED';
+                    item.serverReceipt = retryJson.data;
+                    delete item._sessionRefreshed;
+                    const updatedQueue = getOutbox().filter(q => q.requestId !== item.requestId);
+                    saveOutbox(updatedQueue);
+                    toast(`Operación sincronizada exitosamente con Google Sheets tras renovar sesión.`, 'ok');
+                    playChime('success');
+                    updateSyncPill('ok');
+                    updateOutboxUI();
+                    syncBackendData();
+                    continue;
+                  } else {
+                    const retryErrorMsg = (retryJson && (retryJson.error || retryJson.message)) || errorMsg;
+                    const classification = classifyMutationFailure({ message: retryErrorMsg, code: retryJson && (retryJson.code || retryJson.status) });
+                    item.lastError = retryErrorMsg;
+                    item.status = classification;
+                    saveOutbox(getOutbox().map(q => q.requestId === item.requestId ? item : q));
+                    break;
+                  }
+                } catch (retryFetchErr) {
+                  const classification = classifyMutationFailure(retryFetchErr);
+                  item.status = classification;
+                  item.lastError = retryFetchErr.message || String(retryFetchErr);
+                  saveOutbox(getOutbox().map(q => q.requestId === item.requestId ? item : q));
+                  updateSyncPill('error');
+                  break;
+                }
+              }
+            }
+
             const classification = classifyMutationFailure({ message: errorMsg, code: json && (json.code || json.status) });
 
             item.lastError = errorMsg;
@@ -2837,10 +2981,12 @@ const DEFAULT_CATALOG = [
   }
 
   // --- COMUNICACIÓN CON BACKEND (IDEMPOTENTE & CON OUTBOX) ---
-  function callBackend(fnName, args, onSuccess, onError) {
+  function callBackend(fnName, args, onSuccess, onError, isSessionRetry = false, targetRoleOverride = null) {
     STATE.isSyncing = true;
     updateSyncPill();
 
+    // Captura inmutable del rol objetivo para evitar colisiones si el usuario cambia de vista en la UI
+    const stationRole = (targetRoleOverride || getStationRole()).toUpperCase();
     const isMutation = MUTATION_ACTIONS.has(fnName);
     const existingReq = (args && args[0] && (args[0].requestId || args[0].id))
       || (args && args[1] && (args[1].requestId || args[1].id))
@@ -2857,11 +3003,17 @@ const DEFAULT_CATALOG = [
 
     // 1. Modo nativo dentro de Google Apps Script Web App (Transaccional unificado vía dispatchNativeAction)
     if (STATE.isNativeGas && window.google && google.script && google.script.run) {
-      const stationRole = getStationRole();
       const requiresSession = isMutation || ['cajaSimpleDatos', 'comandasSimpleDatos', 'accesoSimpleDatos'].includes(fnName);
       if (requiresSession && !getSessionToken(stationRole)) {
-        ensureSessionToken(() => {
-          callBackend(fnName, args, onSuccess, onError);
+        ensureSessionToken((err) => {
+          if (err) {
+            STATE.isSyncing = false;
+            STATE.lastSyncTimestamp = Date.now();
+            updateSyncPill('error');
+            if (onError) onError(err);
+            return;
+          }
+          callBackend(fnName, args, onSuccess, onError, isSessionRetry, stationRole);
         }, stationRole);
         return;
       }
@@ -2881,7 +3033,27 @@ const DEFAULT_CATALOG = [
           STATE.isSyncing = false;
           STATE.lastSyncTimestamp = Date.now();
           if (res && res.ok === false) {
-            const err = new Error(res.error || 'Error nativo en servidor');
+            const errorMsg = res.error || 'Error nativo en servidor';
+
+            // Reintento acotado de sesión caducada en modo nativo (máx 1 reintento)
+            if (!isSessionRetry && isSessionExpiredError(errorMsg)) {
+              console.warn(`[CALL_BACKEND NATIVE] Sesión caducada para ${stationRole} en ${reqId}. Renovando token y reintentando 1 vez...`);
+              clearSessionToken(stationRole);
+              ensureSessionToken((refreshErr) => {
+                if (refreshErr) {
+                  const err = new Error(errorMsg);
+                  err.code = res.code;
+                  err.status = res.status;
+                  updateSyncPill('error');
+                  if (onError) onError(err);
+                  return;
+                }
+                callBackend(fnName, args, onSuccess, onError, true, stationRole);
+              }, stationRole, true);
+              return;
+            }
+
+            const err = new Error(errorMsg);
             err.code = res.code;
             err.status = res.status;
             updateSyncPill('error');
@@ -2906,7 +3078,7 @@ const DEFAULT_CATALOG = [
     // 2. Modo Externo (GitHub Pages / Fetch API con Outbox)
     // A) Consultas de sólo lectura: GET directo ultra-rápido, sin bloqueo de token ni errores de redirección POST de Google Apps Script
     if (!isMutation) {
-      const getUrl = `${STATE.apiUrl}?action=${encodeURIComponent(fnName)}&token=${encodeURIComponent(getSessionToken())}&role=${encodeURIComponent(getStationRole())}&_=${Date.now()}`;
+      const getUrl = `${STATE.apiUrl}?action=${encodeURIComponent(fnName)}&token=${encodeURIComponent(getSessionToken(stationRole))}&role=${encodeURIComponent(stationRole)}&_=${Date.now()}`;
       fetch(getUrl, {
         method: 'GET',
         cache: 'no-cache'
@@ -2939,10 +3111,16 @@ const DEFAULT_CATALOG = [
     }
 
     // B) Mutaciones transaccionales (POST con token, idempotencia y encolado en Outbox)
-    const stationRole = getStationRole();
     if (!getSessionToken(stationRole)) {
-      ensureSessionToken(() => {
-        callBackend(fnName, args, onSuccess, onError);
+      ensureSessionToken((err) => {
+        if (err) {
+          STATE.isSyncing = false;
+          STATE.lastSyncTimestamp = Date.now();
+          updateSyncPill('error');
+          if (onError) onError(err);
+          return;
+        }
+        callBackend(fnName, args, onSuccess, onError, isSessionRetry, stationRole);
       }, stationRole);
       return;
     }
@@ -2968,7 +3146,27 @@ const DEFAULT_CATALOG = [
       STATE.isSyncing = false;
       STATE.lastSyncTimestamp = Date.now();
       if (!json.ok) {
-        const backendError = new Error((json && (json.error || json.message)) || 'Error en servidor');
+        const errorMsg = (json && (json.error || json.message)) || 'Error en servidor';
+
+        // Reintento acotado de sesión caducada en mutación directa (máx 1 reintento con rol capturado)
+        if (!isSessionRetry && isSessionExpiredError(errorMsg)) {
+          console.warn(`[CALL_BACKEND] Sesión caducada para ${stationRole} en petición directa (${reqId}). Renovando token y reintentando 1 vez de forma acotada...`);
+          clearSessionToken(stationRole);
+          ensureSessionToken((refreshErr) => {
+            if (refreshErr) {
+              console.error('[CALL_BACKEND] Falló renovación de sesión:', refreshErr);
+              const backendError = new Error(errorMsg);
+              backendError.code = json && json.code;
+              backendError.status = json && json.status;
+              handleBackendFailure(backendError);
+              return;
+            }
+            callBackend(fnName, args, onSuccess, onError, true, stationRole);
+          }, stationRole, true);
+          return;
+        }
+
+        const backendError = new Error(errorMsg);
         backendError.code = json && json.code;
         backendError.status = json && json.status;
         throw backendError;
@@ -2980,6 +3178,10 @@ const DEFAULT_CATALOG = [
       processOutbox();
     })
     .catch(err => {
+      handleBackendFailure(err);
+    });
+
+    function handleBackendFailure(err) {
       STATE.isSyncing = false;
       STATE.lastSyncTimestamp = Date.now();
       updateSyncPill('error');
@@ -3016,8 +3218,10 @@ const DEFAULT_CATALOG = [
             message: `Guardado en Outbox local (${reqId}). Se sincronizará automáticamente al volver la señal.`
           });
         }
+      } else {
+        if (onError) onError(err);
       }
-    });
+    }
   }
 
   function updateSyncPill(state = 'ok') {
