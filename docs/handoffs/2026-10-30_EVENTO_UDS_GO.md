@@ -845,3 +845,22 @@ DOMUS absorbe costos y captura 100% de los ingresos de los tres bloques.
 - CxP inventario Pao restante: $9,352.70.
 
 Fuente viva: MASTER Google Sheet, tab 31OCT_GO.
+
+
+## 31 OCT - ACTIVIDADES cargadas y bug de esquema detectado
+MASTER ACTIVIDADES:
+- fila 17: Cierre Galeria · ARMII + DOMUS
+- fila 18: DARMIINIGHT Costume Party
+- fila 19: Horror After Rave
+
+Tarifas:
+- DARMIINIGHT General $100, guardarropa $50.
+- Horror After: General $100; custom ticket AFTER_DISFRAZ $50 y AFTER_SIN_DISFRAZ $100; guardarropa $50.
+- Galeria integrada: sin acceso adicional, guardarropa $50.
+- DOMUS captura 100% de los ingresos de estos bloques.
+
+IMPORTANTE: existe una colision de esquema.
+- ACTIVIDADES!I esta rotulada "% DOMUS entradas" y formulas financieras historicas la usan como porcentaje.
+- Access.gs / Events.gs la usan como capacity/aforo (r[8]).
+- Para apertura 31 OCT se uso I=150 como capacidad y se corrigieron P:Q en filas 17:19 para asignar 100% de boletera/entradas a DOMUS sin multiplicar por I.
+- Corregir arquitectura despues de operacion: separar capacity de revenueShareDomus en columnas distintas y migrar lectores/escritores/formulas.
