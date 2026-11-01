@@ -2331,6 +2331,10 @@ const DEFAULT_CATALOG = [
       msg.includes('token no valido') ||
       msg.includes('sesión caducada') ||
       msg.includes('sesion caducada') ||
+      msg.includes('sesión inválida') ||
+      msg.includes('sesion invalida') ||
+      msg.includes('expirada') ||
+      msg.includes('autentica nuevamente') ||
       msg.includes('session expired') ||
       msg.includes('vuelve a iniciar sesión') ||
       msg.includes('vuelve a iniciar sesion')
