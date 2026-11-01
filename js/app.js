@@ -4192,13 +4192,19 @@ const DEFAULT_CATALOG = [
 
                 ${STATE.kdsFilterState !== 'Entregadas' ? `
                   <div class="order-item-actions">
-                    ${hasResponsible && item.state === 'En preparación' && !item.incident ? `
+                    ${!hasResponsible && item.state === 'Pendiente' ? `
+                      <button type="button" class="btn-action-small btn-ready" onclick="window.__domusApp.claimOrder('${item.key}')">
+                        ✋ Tomar comanda
+                      </button>
+                    ` : ''}
+
+                    ${hasResponsible && item.state === 'En preparación' ? `
                       <button type="button" class="btn-action-small btn-ready" onclick="window.__domusApp.markOrderReady('${item.key}')">
                         ✓ Marcar Lista
                       </button>
                     ` : ''}
                     
-                    ${hasResponsible && item.state === 'Lista' && !item.incident ? `
+                    ${hasResponsible && item.state === 'Lista' ? `
                       <button type="button" class="btn-action-small btn-deliver" onclick="window.__domusApp.deliverOrder('${item.key}')">
                         📦 Entregar
                       </button>
