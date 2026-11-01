@@ -786,3 +786,62 @@ Antigravity debe modelar, como mínimo:
 
 ## Restricción
 Esta actualización es de **arquitectura/operación/finanzas**. No autoriza despliegues en Producción, cambios destructivos ni publicación de nuevas versiones durante la operación sin el workflow branch → diff → pruebas → rollback → autorización.
+
+
+---
+
+# 31 OCT 2026 - ARRANQUE OPERATIVO (VIGENTE)
+
+Esta seccion reemplaza para la operacion del 31 OCT cualquier dato anterior que contradiga lo siguiente.
+
+## Apertura
+- Estado: GO.
+- Fondo fisico inicial: $5,970.00, arrastre exacto del cierre 30->31.
+- Responsable de caja/supervision: Steven.
+- Terminal 1: Mercado Pago de Pao, confirmado.
+- Inventario inicial: inventario fisico final del cierre 30->31.
+- Pendientes P0: ninguno.
+- Pendiente P1: conteo rapido de SKUs de barra libre y registro de cualquier resurtido nuevo.
+
+## Bloques del dia
+1. Cierre de galeria dentro del evento magno ARMII + DOMUS.
+2. DARMIINIGHT Costume Party, 21:00-03:00.
+3. Horror After Rave, 03:00-10:00.
+
+DOMUS absorbe costos y captura 100% de los ingresos de los tres bloques.
+
+## Precios / ingresos
+- DARMIINIGHT: acceso $100.
+- After: $50 con disfraz / $100 sin disfraz.
+- Guardarropa: $50, 100% DOMUS.
+- Playroom/calabozo: +$100, 100% DOMUS.
+- Quien pago DARMIINIGHT permanece gratis al After; no hay segundo cobro de acceso.
+- Barra libre DARMIINIGHT: $500, control por pulsera/folio.
+- Barra libre After: $500, pulsera/folio distinto; no se reinicia automaticamente la barra libre anterior.
+
+## Staff
+- Caja: Steven + Pao.
+- Acceso y guardarropa: Zoe.
+- Barra: Miguel + Mike.
+- Produccion general: Wall E + Angel + Ibrah.
+- Seguridad: Dylan.
+- Supervisor: Steven.
+- Drix: apoyo general / organizacion, pago fijo $350.
+- Ivan: apoyo general / organizacion, pago fijo $350.
+- Drix e Ivan no tienen pago adicional ni participacion por este evento.
+- DJs/performances: $300 c/u solo si DOMUS cubre primero todos sus gastos y el flujo lo permite.
+
+## Regla financiera
+- Costo operativo consolidado: $8,130 por jornada.
+- Meta Acceso/Renta: $4,065.
+- Meta Barra/Cocina/Tienda: $4,065.
+- Excedente: deuda -> reserva -> utilidad.
+- Cada venta debe guardar bloque/actividad y unidad para P&L separado.
+
+## Correccion de cierre 30->31 para no arrastrar datos obsoletos
+- Comision/costo Mercado Pago aplicado: $424.15.
+- Participacion final Pao 10%: $473.28.
+- Abono inventario Pao: $1,650.48.
+- CxP inventario Pao restante: $9,352.70.
+
+Fuente viva: MASTER Google Sheet, tab 31OCT_GO.
