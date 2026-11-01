@@ -50,7 +50,7 @@
     cart: [], // [{ name, group, price, qty, courtesy, destination }]
     selectedAccountTicket: '',
     customerName: '',
-    activity: 'Visita general DOMUS',
+    activity: localStorage.getItem('domus_pos_activity') || 'Visita general DOMUS',
     accountType: '', // '' | 'Amigo' | 'Creador de proyecto'
     
     // DOMUS Print Bridge
@@ -74,6 +74,8 @@
 
     // Accesos, Eventos y Guardarropa
     activeActivity: 'Forza · sábado',
+    eventChangePending: false,
+    eventChangeRevision: 0,
     eventsList: [],
     recentAccessList: [],
     accessSelectedType: 'General',
@@ -2925,7 +2927,7 @@ const DEFAULT_CATALOG = [
         STATE.isSyncing = false;
         STATE.lastSyncTimestamp = Date.now();
         const cached = getCachedQuerySnapshot(fnName);
-        if (cached && onSuccess) {
+        if (cached && onSuccess && fnName !== 'accesoSimpleDatos') {
           updateSyncPill('ok');
           onSuccess(cached);
         } else {
@@ -2982,6 +2984,11 @@ const DEFAULT_CATALOG = [
       STATE.lastSyncTimestamp = Date.now();
       updateSyncPill('error');
 
+      if (fnName === 'accesoCambiarActividad') {
+        if (onError) onError(err);
+        return;
+      }
+
       // Encolar de forma segura en Outbox usando el reqId generado originalmente (Issue #1 & UI 20261029-05)
       const item = enqueueOutbox(fnName, args, reqId, 'MUTATION');
       if (item) {
@@ -3014,6 +3021,8 @@ const DEFAULT_CATALOG = [
   }
 
   function updateSyncPill(state = 'ok') {
+    const pill = $('connectionPill');
+    if (pill) pill.title = `Backend: ${STATE.backendEnvironment} (${STATE.apiUrl})`;
     const dot = $('statusDot');
     const label = $('syncLabel');
     if (!dot || !label) return;
@@ -3192,9 +3201,7 @@ const DEFAULT_CATALOG = [
     STATE.eventsList = [...DEFAULT_EVENTS];
     STATE.recentAccessList = [];
     const savedActiveAct = localStorage.getItem('domus_active_event');
-    STATE.activeActivity = (savedActiveAct && savedActiveAct !== 'Operación diaria')
-      ? savedActiveAct 
-      : 'Forza · sábado';
+    STATE.activeActivity = savedActiveAct || 'Forza · sábado';
 
     try {
       const savedEvents = JSON.parse(localStorage.getItem('domus_custom_events') || '[]');
@@ -3321,7 +3328,9 @@ const DEFAULT_CATALOG = [
 
     // 3. Accesos exclusivamente en Modo Accesos
     if (STATE.mode === 'accesos') {
+      const eventReadRevision = STATE.eventChangeRevision;
       callBackend('accesoSimpleDatos', [], data => {
+        if (STATE.eventChangePending || eventReadRevision !== STATE.eventChangeRevision) return;
         if (data.activities && data.activities.length) {
           STATE.eventsList = data.activities;
         }
@@ -3569,9 +3578,14 @@ const DEFAULT_CATALOG = [
   function renderActivityDropdown() {
     const select = $('activitySelect');
     if (!select) return;
-    select.innerHTML = STATE.activities.map(act => `
-      <option value="${act}" ${STATE.activity === act ? 'selected' : ''}>${act}</option>
-    `).join('');
+    const account = (STATE.openAccounts || []).find(a => a.ticket === STATE.selectedAccountTicket);
+    const chosen = (account && account.activity) || STATE.activity || localStorage.getItem('domus_pos_activity');
+    const options = [...STATE.activities];
+    if (account && account.activity && !options.includes(account.activity)) options.push(account.activity);
+    select.innerHTML = options.map(act => `<option value="${escapeHtml(act)}">${escapeHtml(act)}</option>`).join('');
+    select.value = options.includes(chosen) ? chosen : '';
+    select.disabled = !!account;
+    STATE.activity = select.value;
   }
 
   // --- CARRITO / PEDIDO EN CAJA ---
@@ -3732,6 +3746,10 @@ const DEFAULT_CATALOG = [
   }
 
   function confirmPaymentAndDispatch(isPaid) {
+    if (!$('activitySelect') || !$('activitySelect').value) {
+      toast('Selecciona el proyecto antes de registrar el pedido.', 'warn');
+      return;
+    }
     if (!STATE.cart || !STATE.cart.length) {
       toast('El pedido está vacío. Haz clic en los productos para agregarlos al carrito antes de cobrar o enviar.', 'warn');
       return;
@@ -3817,6 +3835,8 @@ const DEFAULT_CATALOG = [
       clearCart();
       $('customerNameInput').value = '';
       STATE.selectedAccountTicket = '';
+      STATE.activity = localStorage.getItem('domus_pos_activity') || 'Visita general DOMUS';
+      renderActivityDropdown();
       STATE.accountType = '';
       if ($('creditAuthorizationSelect')) $('creditAuthorizationSelect').value = '';
       syncBackendData();
@@ -4759,6 +4779,10 @@ const DEFAULT_CATALOG = [
   let isRegisteringAccess = false;
 
   function confirmAccessAndRegister() {
+    if (STATE.eventChangePending) {
+      toast('Espera la confirmación del evento antes de registrar accesos.', 'warn');
+      return;
+    }
     if (isRegisteringAccess) {
       console.warn('Registro de acceso bloqueado: debounce activo.');
       return;
@@ -5146,22 +5170,36 @@ const DEFAULT_CATALOG = [
   }
 
   function changeActiveEvent(eventName) {
-    STATE.activeActivity = eventName;
-    localStorage.setItem('domus_active_event', eventName);
-    toast(`Evento activo de turno: ${eventName}`, 'ok');
-
-    const ev = getActiveEvent();
-    if (ev && ev.salesChannel) {
-      STATE.accessSalesChannel = ev.salesChannel;
-    } else if (eventName.includes('Forza')) {
-      STATE.accessSalesChannel = 'BOLETERA_EXTERNA';
+    if (STATE.eventChangePending) {
+      toast('Cambio de evento pendiente de confirmación del servidor.', 'warn');
+      return;
     }
-
+    if (!(STATE.eventsList || []).some(ev => ev.name === eventName)) {
+      toast('El evento no está en el catálogo confirmado.', 'error');
+      return;
+    }
+    STATE.eventChangePending = true;
+    STATE.eventChangeRevision += 1;
+    const fail = err => {
+      STATE.eventChangePending = false;
+      STATE.eventChangeRevision += 1;
+      toast('Evento NO confirmado. Verifica conexión y servidor antes de cobrar.', 'error');
+      console.warn('Cambio de evento no confirmado:', err);
+    };
     callBackend('accesoCambiarActividad', [{ activity: eventName }], res => {
-      // Backend updated
-    }, err => console.warn('Cambio de evento local:', err));
-
-    renderAccesosView();
+      if (!res || res.localOutbox || res.ok === false || res.activeActivity !== eventName) {
+        fail(new Error('Falta confirmación del evento en servidor'));
+        return;
+      }
+      STATE.activeActivity = res.activeActivity;
+      localStorage.setItem('domus_active_event', res.activeActivity);
+      STATE.eventChangePending = false;
+      STATE.eventChangeRevision += 1;
+      const ev = getActiveEvent();
+      STATE.accessSalesChannel = (ev && ev.salesChannel) || 'TAQUILLA_DOMUS';
+      toast(`Evento confirmado por servidor: ${res.activeActivity}`, 'ok');
+      renderAccesosView();
+    }, fail);
   }
 
   function returnWardrobeItems(ticketGua) {
@@ -5494,15 +5532,25 @@ const DEFAULT_CATALOG = [
     // Account Selector
     bindEvent('openAccountsSelect', 'change', e => {
       STATE.selectedAccountTicket = e.target.value;
+      if (!STATE.selectedAccountTicket) {
+        STATE.activity = localStorage.getItem('domus_pos_activity') || 'Visita general DOMUS';
+        renderActivityDropdown();
+      }
       if (STATE.selectedAccountTicket) {
         const acc = STATE.openAccounts.find(a => a.ticket === STATE.selectedAccountTicket);
         if (acc) {
           const cust = $('customerNameInput');
           if (cust) cust.value = acc.customer || '';
           const act = $('activitySelect');
-          if (act) act.value = acc.activity || 'Visita general DOMUS';
+          STATE.activity = acc.activity || 'Visita general DOMUS';
+          renderActivityDropdown();
         }
       }
+    });
+
+    bindEvent('activitySelect', 'change', e => {
+      STATE.activity = e.target.value;
+      localStorage.setItem('domus_pos_activity', e.target.value);
     });
 
     // Clear Cart
