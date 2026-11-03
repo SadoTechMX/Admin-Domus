@@ -1,0 +1,21 @@
+name: DOMUS - contexto y preparación cloud
+on:
+  push:
+    branches: [coord/domus-ecosistema-20261103]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: domus-context-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  coordination:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7, verified upstream
+        with:
+          persist-credentials: false
+      - name: Verificar contexto, pruebas sintéticas y sintaxis
+        run: python3 tools/cloud/verify.py
