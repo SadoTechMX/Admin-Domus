@@ -1,0 +1,40 @@
+DOMUS — CONTEXTO COMÚN DEL ECOSISTEMA — v2.0.0 — 2026-11-03
+
+MANDATO
+DOMUS será una plataforma de operación permanente para todo su ecosistema. El trimestre es un escenario inicial de aceptación, no una fecha de caducidad ni un límite para borrar historia. Mantener los IDs U00–U10 y sus evidencias; ampliar su alcance sin declarar terminados los pendientes.
+
+DOMINIOS QUE DEBEN CONECTARSE
+1. Eventos, jornadas, accesos, boletera, cortesías, guardarropa y permanencia entre eventos.
+2. POS/caja, cuentas abiertas, pagos por distintos medios y terminales, barra, cocina y comandas.
+3. Catálogo, precios y recetas versionados, inventario, compras, merma, devoluciones y proveedores.
+4. Administración, finanzas y contabilidad: apertura, arqueos, cierres, conciliación, obligaciones, gastos, acuerdos vigentes y reportes.
+5. Identidad, permisos, dispositivos, auditoría, respaldos, restauración y crecimiento del histórico.
+Otras unidades o funciones se incorporan al mapa tras inventariarlas; este paquete no afirma que ya estén implementadas.
+
+CONTRATOS TRANSVERSALES
+Evento/jornada, puesto, operador, venta, pago, comanda, movimiento de inventario y solicitud requieren identificadores estables y relaciones explícitas. Cambiar de evento o reiniciar no reclasifica ni borra registros previos. Toda corrección conserva trazabilidad y autorización. Un reintento idéntico conserva su ID; un resultado incierto requiere cotejo antes de nuevos efectos. Una venta puede tener varios pagos; medio y terminal son atributos distintos. Las partes suman el total a centavos y el cambio corresponde sólo al efectivo. Acuerdos y precios tienen vigencia; no convertir reglas particulares de un evento en reglas universales.
+
+CAPACIDAD Y CONTINUIDAD
+Escenario inicial: 1,500 operaciones lógicas diarias, 4 puestos simultáneos, 92 días: 138,000 operaciones, más sus filas derivadas. Conservación y consultas deben continuar más allá de ese escenario con política de partición/archivo/restauración y capacidad medible. No certificar rendimiento remoto con mocks locales ni con una prueba de un mismo ID.
+
+ESTADO TÉCNICO CONOCIDO
+F03: ensayos privados sintéticos secuenciales y cuatro ejecuciones superpuestas sobre el mismo ID pasaron; se corrigió el orden de lecturas del ENSAYO para leer después de adquirir el lock. No equivale a certificar interfaz, cola real, cuatro ventas distintas, capacidad integral ni producción. El informe fue revisado por Gemini; Gemini no ejecutó esas pruebas.
+Pendientes principales: integración cliente POS2/cola, historial/paginación, aislamiento completo, autenticación pública, pagos divididos, contratos entre dominios, recuperación y carga/restauración.
+Código de referencia para coordinación: arch/domus-erp-v15-antigravity, SHA 6bd23049df4b2f22de2d7c76d22f53b061d9f46f. Es una referencia de trabajo, no un despliegue certificado. El prototipo F03 partió de f4259c704e995d242993ccdb6dc622382162e838 y requiere revisar la diferencia antes de integrar.
+
+REPARTO DE TRABAJO
+Codex: integración y tablero; U00/U01/U03/U05/U07/U10.
+Fork Codex: E00-ARQ, revisión de arquitectura en sólo lectura; informar al coordinador mediante su entrega.
+Gemini: U06, revisión independiente. UNA tarea o archivo por envío. Puede recibir una copia del contexto y devolver un acuse textual si no tiene acceso directo; declarar esa limitación.
+Antigravity: propuesto U02/U04/U08, aceptar antes de editar. Antigravity IDE es la superficie de edición, no contar el mismo agente dos veces.
+Dot: coordinación y seguimiento cuando su conexión esté verificada; no atribuirle acceso por compartir cuenta.
+GitHub: versiones y revisiones técnicas. Drive: réplica informativa y entregas con el mismo hash. Apps Script: ejecutor/backend; el código guardado y el despliegue se verifican por separado.
+
+PROTOCOLO OBLIGATORIO
+Antes de trabajar y después de cada entrega: leer la versión vigente y el estado de tareas; confirmar hash de contexto, SHA y huella del código, tarea, archivos propios y acceso real. Una sola persona/agente modifica cada archivo a la vez. No resetear ni sobrescribir cambios ajenos. Si cambian contexto o código, renovar el acuse y revisar diferencias. Cada entrega identifica fuente, cambios, pruebas ejecutadas, evidencia, límites y siguiente responsable. El integrador consolida; los demás entregan parche/PR o texto si no pueden escribir. Asignación propuesta no significa aceptación. Recepción de texto no significa lectura de GitHub. Un fork no recibe avances automáticamente.
+
+CONTROL
+Producción y registros históricos se conservan; cualquier despliegue o ajuste económico requiere su autorización específica y evidencia previa. No enviar al repositorio público credenciales, tokens, bases de clientes, cierres, nómina, contratos, importes reales ni IDs privados de infraestructura. Este paquete contiene sólo coordinación técnica.
+
+ACUSE MÍNIMO
+Herramienta/superficie; versión; SHA-256 de contexto; SHA de código realmente leído o NO_VERIFICADO; tarea; archivos previstos; capacidades comprobadas; bloqueos; estado (CONTEXTO_RECIBIDO / LISTO_REVISION / BLOQUEADO). No declarar todo conectado hasta disponer de evidencia de cada conexión. Antes de cada nueva tarea, consultar de nuevo la fuente común.

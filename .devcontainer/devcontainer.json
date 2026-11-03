@@ -1,0 +1,6 @@
+{
+  "name": "DOMUS - desarrollo aislado",
+  "build": { "dockerfile": "Dockerfile" },
+  "postCreateCommand": "python3 tools/cloud/verify.py",
+  "remoteUser": "vscode"
+}

@@ -1,0 +1,33 @@
+{
+  "version": "2.0.0",
+  "scope": "DOMUS_ECOSYSTEM_PERMANENT",
+  "context_sha256": "608a603b5bcde9291916de3a0b021271c76151d1030ae6221824e1b0ca1707e7",
+  "reference_code_sha": "6bd23049df4b2f22de2d7c76d22f53b061d9f46f",
+  "prototype_f03_base": "f4259c704e995d242993ccdb6dc622382162e838",
+  "files": {
+    "CONTEXTO_COMUN_DOMUS_v2.txt": "608a603b5bcde9291916de3a0b021271c76151d1030ae6221824e1b0ca1707e7",
+    "INICIO_IA.md": "d1491102d614d7a6df10b92ac7cde4ee95cb282237f733e9e09e8eeede97d6b8",
+    "TABLERO.json": "d21820795a91c0ca8409cd4e6bf0bd02c1499108ac1014f08cbef7eee7015293",
+    "herramientas/coord.py": "fff95fb29074b197dbb94b09aa1ad42354b609cfaa3fab8ed88d737458bc3d28"
+  },
+  "source_files": {
+    "css/app.css": "ba858075372247629c34e4703aaac7f759e2bba97eaa5e25d2ee3f908860653d",
+    "google-apps-script/Access.gs": "2d36f68af932889d13e0e082c36487751e05bc742f61c946e3dff520e26a7dab",
+    "google-apps-script/Accounts.gs": "982bc95f0df972772c1b6fa310f21d83b28d1e5ff4167763f9c19ed0e0c46d5f",
+    "google-apps-script/Api.gs": "53b8d0a8e55ec0f7e610a880173ee15058c394c06f0c6619f34ce8a267f47123",
+    "google-apps-script/Auth.gs": "4b41fddb4edd52b06b9316d588591c55f6df5da6a39df8f40cbbbb73b5f911a6",
+    "google-apps-script/Config.gs": "abb89208055be5fc62fb6381834104f4d84177533b0d9ca026f16b40b1d8a183",
+    "google-apps-script/DOMUS_PRODUCTION_BUNDLE.gs": "0940cf651dbe4ac14e3c967b1063603ca76f4e10edfd89f9d99310981b32fcb2",
+    "google-apps-script/DOMUS_STAGING_BUNDLE.gs": "4286c18cf3fd3be87598010e5a3d9a8116b851ab7b7e44ec891b44b961868c2d",
+    "google-apps-script/Events.gs": "6c962c032d265186fc24be2ad413c0a7fde5c638ae26e928241b78c1bd0784a2",
+    "google-apps-script/Idempotency.gs": "2ed6f04ff345ad88dc07aa1088868c20d3d10d8a9f93c71677444cabf2b1d2f0",
+    "google-apps-script/Index.html": "10a65bbf521c557f648ce41656a6ecb9362635d89e1b92f6451967d135fb0daa",
+    "google-apps-script/Inventory.gs": "71cb4cd0f82e7007b73a57ed5f4608be5b9bb403480e996bf1add90b161cc89d",
+    "google-apps-script/KDS.gs": "a7aabfeb2d9b66bd156c58b5bb832bf8bd3ec7d75454b48a8ede881c87acb89d",
+    "google-apps-script/POS.gs": "2ef5827331776e5fd63abd919ebd98698747b670e97e22410ea604ce22f961d1",
+    "google-apps-script/Payments.gs": "0b4711619a5fc7f92156a08fb87fdef059c00a0bfdf4499f4d5c2263efd6a464",
+    "index.html": "3ba261b2a19d86b18ab252f0108775ded99d961dff2d6f2b6bbcd99f52dd1ebc",
+    "js/app.js": "3666929ac94a32b825079edde6b8d5f542c53e50009cda03ca7b0bec55a0ca6d"
+  },
+  "reference_is_production_certification": false
+}

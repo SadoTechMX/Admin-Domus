@@ -1,0 +1,79 @@
+{
+  "version": "2.0.0",
+  "scope": "DOMUS_ECOSYSTEM_PERMANENT",
+  "tasks": [
+    {
+      "id": "U00",
+      "owner_proposed": "Codex",
+      "scope": "Coordinación, referencias y acuses",
+      "state": "EN_CURSO"
+    },
+    {
+      "id": "U01",
+      "owner_proposed": "Codex",
+      "scope": "Aislamiento y permisos",
+      "state": "PARCIAL_VERIFICADO"
+    },
+    {
+      "id": "U02",
+      "owner_proposed": "Antigravity",
+      "scope": "Historial, paginación y conservación permanente",
+      "state": "POR_ACEPTAR"
+    },
+    {
+      "id": "U03",
+      "owner_proposed": "Codex",
+      "scope": "Recuperación durable de operaciones",
+      "state": "STAGING_ACOTADO_VERIFICADO"
+    },
+    {
+      "id": "U04",
+      "owner_proposed": "Antigravity",
+      "scope": "Cliente, cola durable y cambio seguro de evento",
+      "state": "POR_ACEPTAR"
+    },
+    {
+      "id": "U05",
+      "owner_proposed": "Codex",
+      "scope": "Pagos divididos de punta a punta",
+      "state": "PENDIENTE_INTEGRACION"
+    },
+    {
+      "id": "U06",
+      "owner_proposed": "Gemini",
+      "scope": "Auditoría y matriz de pruebas, un archivo por entrega",
+      "state": "EN_CURSO"
+    },
+    {
+      "id": "U07",
+      "owner_proposed": "Codex",
+      "scope": "Reglas versionadas y contratos económicos",
+      "state": "PENDIENTE"
+    },
+    {
+      "id": "U08",
+      "owner_proposed": "Antigravity",
+      "scope": "Respaldo, conservación y restauración",
+      "state": "POR_ACEPTAR"
+    },
+    {
+      "id": "U09",
+      "owner_proposed": "Ejecutor por confirmar",
+      "scope": "Carga representativa y cuatro ventas distintas",
+      "state": "PENDIENTE"
+    },
+    {
+      "id": "U10",
+      "owner_proposed": "Codex",
+      "scope": "Integración, reversión y propuesta de release",
+      "state": "PENDIENTE"
+    },
+    {
+      "id": "E00-ARQ",
+      "owner_proposed": "Fork Codex",
+      "scope": "Mapa permanente y brechas",
+      "state": "REVISION_RECIBIDA"
+    }
+  ],
+  "note": "Acuses vivos y pruebas de acceso se registran por separado; no inferir conexión de este tablero."
+}
