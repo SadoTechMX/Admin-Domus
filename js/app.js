@@ -8,7 +8,7 @@
 (function () {
   // --- CONFIGURACIÓN & ESTADO INICIAL ---
   const OFFICIAL_PRODUCTION_ENDPOINT = 'https://script.google.com/macros/s/AKfycbysBaRA2_oZIOqU10G4E_MHiC8FUR3dCnqj2DlLG91iNJXP3GkZZ7BK0Na1FAJ1thZk/exec';
-  const STAGING_ENDPOINT = 'https://script.google.com/macros/s/AKfycbzLkId5CWpQp3kBuY6UM5r6zhmyVyxmP1R80SfQidL83qXi_tUueRGd4P20Nc0tRYNH/exec';
+  const STAGING_ENDPOINT = 'https://script.google.com/macros/s/AKfycbzy7wZZ55zPnzZ6h9iRKXNAvitP5EZMCPyjsxPtLIpdtuv4_3Zt9SYqQS65I1WRGJGL/exec';
   const STAFF_MEMBERS = ['René', 'Miguel', 'Mike', 'Taichi Mike', 'Meaw', 'Wall E', 'Iván', 'Kas', 'Steven', 'Angel'];
 
   // Determinar entorno de ejecución (Issue #1: Bloqueo estricto del endpoint productivo)
