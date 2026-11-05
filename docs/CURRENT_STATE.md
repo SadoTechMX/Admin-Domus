@@ -1,3 +1,29 @@
+# Estado de reconciliación aislada — 5 noviembre 2026
+
+**IMPLEMENTED / LOCAL_TESTED · NO-GO para producción.** Rama `repair/reconcile-pr18-main-20261105`, basada en `main` `2b7ba1f4030b1013555b93cb96cfcb594141fdcb`, reconcilia PR #18 `f0c24ea032d72eb2847d62455d866bbf4c3b52a0`. El estado del 30/oct y los despliegues descritos debajo son históricos, no verificados en esta sesión.
+
+Se conservan selección de evento/proyecto, canal de taquilla y progresión de comandas con incidencias. Renovación acotada y coalescida por rol funciona en el transporte autenticado REST/nativo y en Outbox. Las confirmaciones se guardan antes de retirar la intención y pueden abrirse con **Recuperar comprobante**. Cambios de evento inciertos se conservan en revisión, evitando aplicarlos automáticamente después de una selección posterior.
+
+Pruebas locales: backend simulado 27; cliente 12; integración de funciones reales 17; Chromium interceptado 18; bridge/CUPS simulado 11; guardrails 4; seguridad del harness 3; suites de evento/canal; controles estructurales v13 12 y KDS 11; generación y sintaxis verificadas. Hay solapamiento entre suites. No se ejecutó descubrimiento global de tests ni se contactaron Apps Script, Sheets o hardware. Estas pruebas no certifican operación.
+
+Ver [RECONCILIATION_20261105.md](RECONCILIATION_20261105.md) para diferencias, coordinación, comandos, fallos corregidos y siguientes gates. Sin fusión, despliegue ni ventas reales. No se tocaron las ramas originales. La identidad del proyecto privado y el permiso Google pendiente de comprobación desde la iMac no se resolvieron aquí.
+
+---
+
+## Historial de reparación conservado
+
+# Estado vigente de la rama de reparación — 30 octubre 2026
+
+**Cotejo GitHub/Antigravity y entorno publicado:** ver [ANTIGRAVITY_CROSSCHECK_20261030.md](ANTIGRAVITY_CROSSCHECK_20261030.md). `main` sigue en `ebf5697`; PR #18 continúa draft. El endpoint aislado `AKfycbwg...` pasó comprobación GET con ambos libros exactos. Sus rutas Caja/Comandas/Accesos devuelven JSON, sin UI nativa ni hash de build. Esto verifica identidad, no las funciones ni la instalación del candidato. Se corrigió recuperación local de Outbox `SYNCING` interrumpido y conservación de colas con formato inválido. Commit `d60b10e` pasó CI `41118210859`: backend 26, cliente 12, bridge simulado 11, guardrails 4 y Chromium con respuestas interceptadas 15. No son pruebas contra Apps Script real ni hardware físico. La inspección posterior reportó sólo Código.gs y ningún Index.html en el proyecto STAGING; todavía no se efectuó respaldo ni instalación.
+
+**NO-GO · IMPLEMENTED / LOCAL_TESTED.** Esta rama contiene un candidato de reparación, no un despliegue. No se alteraron Producción ni registros históricos. El GO CONTROLADO del historial inferior no certifica este candidato ni revoca el NO-GO de la auditoría del 30/oct.
+
+Ver [REPAIR_STATUS_20261030.md](REPAIR_STATUS_20261030.md) para pruebas, configuración de STAGING y bloqueos. STAGING_VERIFIED, APPROVED_FOR_MERGE, PROD_DEPLOYED y PROD_VERIFIED siguen pendientes. El endpoint antiguo etiquetado STAGING en el historial respondió PRODUCTION; nunca usarlo para fixtures sin comprobación actual de entorno y de ambos libros.
+
+---
+
+## Historial anterior conservado
+
 # ⏱️ DOMUS OS · CURRENT STATE SNAPSHOT
 
 > [!NOTE]

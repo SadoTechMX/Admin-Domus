@@ -16,7 +16,8 @@ import urllib.error
 import urllib.parse
 
 # Identificadores Oficiales de Producción (ESTRICTAMENTE PROTEGIDOS)
-PRODUCTION_DEPLOYMENT_ID = "AKfycbysBaRA2_oZIOqU10G4E_MHiC8FUR3dCnqj2DlLG91iNJXP3GkZZ7BK0Na1FAJ1thZk"
+PRODUCTION_DEPLOYMENT_ID = "AKfycbzy7wZZ55zPnzZ6h9iRKXNAvitP5EZMCPyjsxPtLIpdtuv4_3Zt9SYqQS65I1WRGJGL"
+UNSAFE_LEGACY_DEPLOYMENT = "AKfycbysBaRA2_oZIOqU10G4E_MHiC8FUR3dCnqj2DlLG91iNJXP3GkZZ7BK0Na1FAJ1thZk"
 PRODUCTION_MAIN_SHEET_ID = "1KQz8oJ4VaWFsqS2-sg25HMCm60SdSoQpIDlCDSV5J1U"
 PRODUCTION_OPS_SHEET_ID  = "1DiwPa1cVe33xCYkIiYoHhP015RsEOjHXBFe2iU2RVCc"
 
@@ -40,8 +41,11 @@ def verify_write_target(url: str) -> dict:
     """
     clean_url = str(url).strip()
 
+    parsed = urllib.parse.urlsplit(clean_url)
+    if parsed.scheme != 'https' or parsed.hostname != 'script.google.com' or not parsed.path.startswith('/macros/s/') or not parsed.path.endswith('/exec') or parsed.query or parsed.fragment:
+        raise RuntimeError('WRITE TEST BLOCKED: URL /exec HTTPS sin parámetros requerida.')
     # 1. Verificación de URL estática
-    if PRODUCTION_DEPLOYMENT_ID in clean_url:
+    if any(deployment in clean_url for deployment in [PRODUCTION_DEPLOYMENT_ID, UNSAFE_LEGACY_DEPLOYMENT]):
         raise RuntimeError(
             f"WRITE TEST BLOCKED IN PRODUCTION: La URL objetivo contiene el Deployment ID "
             f"oficial de producción ({PRODUCTION_DEPLOYMENT_ID}). Los tests de mutación están estrictamente prohibidos."
@@ -90,4 +94,6 @@ def verify_write_target(url: str) -> dict:
             f"WRITE TEST BLOCKED: Hoja principal '{main_sheet_id}' no coincide con la esperada para STAGING ({EXPECTED_STAGING_MAIN})."
         )
 
+    if env_data.get('opsSheetId') != EXPECTED_STAGING_OPS:
+        raise RuntimeError('WRITE TEST BLOCKED: Libro Ops fuera del aislamiento STAGING.')
     return env_data

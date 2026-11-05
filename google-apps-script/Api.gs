@@ -38,6 +38,8 @@ function doGet(e) {
       })).setMimeType(ContentService.MimeType.JSON);
     }
 
+    const boot={view:e && e.parameter && e.parameter.vista || 'caja',environment:CONFIG.environment};
+    output.setContent(output.getContent().replace('</head>','<script>window.DOMUS_NATIVE_BOOT='+JSON.stringify(boot).replace(/</g,'\\u003c')+';</script></head>'));
     return output
       .setTitle('DOMUS · Administración, Caja, Comandas & Accesos')
       .addMetaTag('viewport', 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no');
@@ -61,13 +63,20 @@ function domusCajaDoGetOriginal_(e) {
  * Ejecutor centralizado de acciones DOMUS con validación RBAC e Idempotencia
  * Compartido por doPost (HTTP REST / GitHub Pages) y dispatchNativeAction (google.script.run / Apps Script UI)
  */
-function executeDomusAction_(action, payload, params) {
+function executeDomusActionCore_(action, payload, params) {
   const p = payload || {};
   const args = p.args || [];
   const sessionToken = p.sessionToken || (params && params.token) || '';
   const role = p.role || (params && params.role) || '';
   const deviceId = p.deviceId || (params && params.deviceId) || '';
   const requestId = p.requestId || (args && args[0] && (args[0].id || args[0].requestId)) || (args && args[1] && (args[1].id || args[1].requestId)) || '';
+  // Normalize transport envelopes before hashing. Never replace business ids (e.g. restock id).
+  args.forEach(body => {
+    if(body && typeof body === 'object' && !Array.isArray(body)) {
+      body.requestId=requestId;
+      if(['cajaSimpleRegistrar','accesoSimpleRegistrar'].includes(action) && !body.id) body.id=requestId;
+    }
+  });
 
   if (!action) {
     throw new Error('Parámetro "action" no especificado en la solicitud.');
@@ -80,9 +89,23 @@ function executeDomusAction_(action, payload, params) {
   let result;
 
   switch (action) {
+    case 'health':
+    case 'ping':
+      result = {status:'HEALTHY',environment:CONFIG.environment,mainSheetId:CONFIG.mainSheetId,opsSheetId:CONFIG.opsSheetId,
+        build:typeof BACKEND_BUILD !== 'undefined'?BACKEND_BUILD:null};
+      break;
+    case 'cambiarFase':
+    case 'solicitarResurtido':
+    case 'editarAcceso':
+    case 'anularAcceso': {
+      const actions={cambiarFase:cambiarFase,solicitarResurtido:solicitarResurtido,editarAcceso:editarAcceso,anularAcceso:anularAcceso};
+      const body=Object.assign({},args[0],{requestId:requestId});
+      result=idempotentExecute_(requestId,action,body,deviceId,()=>actions[action](body));
+      break;
+    }
     // --- AUTENTICACIÓN ---
     case 'authCrearSesion':
-      result = authCreateSession(args[0] || role, deviceId, args[1] || 'Operador');
+      result = authCreateSession(args[0] || role, deviceId, args[1] || '', args[3]);
       break;
 
     // --- CAJA / POS ---
@@ -224,20 +247,15 @@ function dispatchNativeAction(payload) {
 function handleApiGetRequest_(action, params) {
   try {
     let data;
-    if (action === 'cajaSimpleDatos') {
-      data = cajaSimpleDatos();
-    } else if (action === 'comandasSimpleDatos') {
-      data = comandasSimpleDatos(params.token || '');
-    } else if (action === 'accesoSimpleDatos') {
-      data = accesoSimpleDatos();
-    } else if (action === 'cajaSimpleEstado') {
-      data = cajaSimpleEstado(params.id || '');
+    if (['cajaSimpleDatos','comandasSimpleDatos','accesoSimpleDatos','cajaSimpleEstado'].includes(action)) {
+      throw new Error('Acceso denegado: consulta privada requiere dispatcher autenticado POST.');
     } else if (action === 'ping' || action === 'health') {
       data = {
         status: 'HEALTHY',
         environment: CONFIG.environment,
         mainSheetId: CONFIG.mainSheetId,
         opsSheetId: CONFIG.opsSheetId,
+        build: typeof BACKEND_BUILD !== 'undefined' ? BACKEND_BUILD : null,
         timestamp: new Date().toISOString()
       };
     } else {
@@ -250,4 +268,13 @@ function handleApiGetRequest_(action, params) {
     return ContentService.createTextOutput(JSON.stringify({ ok: false, error: err.message || String(err) }))
       .setMimeType(ContentService.MimeType.JSON);
   }
+}
+
+function executeDomusAction_(action, payload, params) {
+  const p = payload || {};
+  const previous = _authContext;
+  _authContext = authValidateAction(action, p.sessionToken || '', p.role || '', p.deviceId || '');
+  _authContext.requestId=p.requestId || (p.args && p.args[0] && (p.args[0].requestId || p.args[0].id)) || '';
+  try { return executeDomusActionCore_(action, p, params); }
+  finally { _authContext = previous; }
 }

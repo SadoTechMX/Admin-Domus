@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
 DOMUS OS · Staging Integration Test Suite
-Valida las 14 pruebas de integración en el entorno real de DOMUS-STAGING.
+Harness legacy parcial: ejecuta los escenarios 1, 2, 3, 7 y 11.
+No certifica los 14 casos ni el contrato del candidato de reparación actual.
 
 Uso:
     python3 tests/test_staging_suite.py --url "https://script.google.com/macros/s/.../exec"
@@ -30,6 +31,7 @@ EXPECTED_STAGING_OPS = "1NDpuyx6EfCHcoKW9CZ6pwR0oe2JS0aKpTTMa7RdqmlE"
 class DomusStagingClient:
     def __init__(self, base_url):
         self.base_url = base_url.strip()
+        self._write_target_verified = False
 
     def get(self, action, params=None):
         query = f"?action={action}"
@@ -53,6 +55,10 @@ class DomusStagingClient:
                 return {"ok": False, "status": e.code, "error": body}, elapsed
 
     def post(self, action, payload=None, request_id=None, role="CAJA", device_id="TEST-DEVICE-01", session_token="", custom_args=None):
+        # Also protect callers using this client directly, including session creation.
+        if not self._write_target_verified:
+            verify_write_target(self.base_url)
+            self._write_target_verified = True
         args = custom_args if custom_args is not None else ([payload] if payload is not None else [])
         req_body = {
             "action": action,
@@ -86,6 +92,9 @@ class DomusStagingClient:
                 return {"ok": False, "status": e.code, "error": body}, elapsed
 
 def run_tests(url):
+    # Reject production/legacy URLs and require BOTH exact staging book IDs
+    # before any harness request. Do not rely on the legacy Main-only check below.
+    verify_write_target(url)
     print("=" * 80)
     print("🧪 DOMUS OS · STAGING REAL INTEGRATION TEST HARNESS")
     print(f"Target URL: {url}")
@@ -130,7 +139,7 @@ def run_tests(url):
     auth_res, auth_lat = client.post("authCrearSesion", custom_args=["CAJA", "René"], role="CAJA", device_id="TERMINAL-STAGING-01")
     assert auth_res.get("ok") is True, f"Fallo al autenticar sesión: {auth_res}"
     session_token = auth_res.get("data", {}).get("token")
-    print(f"✅ Sesión establecida ({auth_lat:.2f}s): Token={session_token}")
+    print(f"✅ Sesión establecida ({auth_lat:.2f}s). Token omitido del registro.")
 
     # 3. Consultar datos de catálogo y fase activa
     print("\n--- SINCRONIZACIÓN DE CATÁLOGO & FASE ACTIVA ---")
@@ -274,9 +283,11 @@ def run_tests(url):
     else:
         print(f"⚠️ SLA P95 ({p95:.2f}s): Google Sheets API latency en Staging.")
 
-    print("\n🎉 VALIDACIÓN DE STAGING FINALIZADA CON ÉXITO 🎉")
+    print("\nVALIDACIÓN PARCIAL LEGACY: escenarios 1, 2, 3, 7 y 11 ejecutados.")
+    print("NO-GO: faltan 9 casos, lectura de filas/fórmulas y adaptación al contrato vigente.")
+    print("Este harness parcial no certifica los 14 casos ni autoriza promoción.")
     print("=" * 80)
-    return True
+    return False
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="DOMUS OS Staging Test Suite")

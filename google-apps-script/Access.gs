@@ -34,13 +34,14 @@ const ACCESS_PAYMENT_STATUS = Object.freeze({
  * Consulta de eventos activos y registros de acceso en vivo
  */
 function accesoSimpleDatos() {
+  authRequireContext_('accesoSimpleDatos');
   const m = SpreadsheetApp.openById(CONFIG.mainSheetId);
   const sAct = m.getSheetByName('ACTIVIDADES');
   const sAcc = m.getSheetByName('ACCESO');
   const props = PropertiesService.getScriptProperties();
 
   // 1. Obtener actividades / eventos y sus tipos de boletos
-  const rawActs = sAct ? sAct.getRange('A7:M106').getValues() : [];
+  const rawActs = sAct ? dataRows_(sAct, 7, 13) : [];
   const activities = [];
   rawActs.forEach(r => {
     if (r[0]) {
@@ -87,13 +88,14 @@ function accesoSimpleDatos() {
   });
 
   // Actividad activa configurada
-  let activeActivity = props.getProperty('actividadAcceso') || '';
+  const settings=m.getSheetByName('DOMUS_SETTINGS');
+  let activeActivity = (settings && settings.getRange(1,2).getValue()) || props.getProperty('actividadAcceso') || '';
   if (!activeActivity && activities.length > 0) {
     activeActivity = activities[0].name;
   }
 
   // 2. Obtener accesos registrados con modelo comercial integral (22 campos)
-  const rawAcc = sAcc ? sAcc.getRange('A7:AF506').getValues() : [];
+  const rawAcc = sAcc ? dataRows_(sAcc, 7, 32) : [];
   const recentAccess = [];
   let totalAttendance = 0;
   let activeWardrobe = 0;
@@ -103,7 +105,7 @@ function accesoSimpleDatos() {
   let courtesiesCount = 0;
 
   rawAcc.forEach((r, idx) => {
-    if (r[0] || r[3]) {
+    if (r[0] && r[3] && r[1] && r[28] !== false) {
       const rowId = String(r[0] || ('A-' + String(idx + 7).padStart(4, '0')));
       const dateStr = r[1] instanceof Date ? Utilities.formatDate(r[1], 'America/Mexico_City', 'yyyy-MM-dd HH:mm') : String(r[1] || '');
       const activity = String(r[2] || activeActivity);
@@ -121,7 +123,8 @@ function accesoSimpleDatos() {
       const paymentStatus = String(r[16] || 'CONFIRMADA');
       const externalTicketId = String(r[17] || '');
       const courtesyAuth = String(r[18] || '');
-      const salesChannel = String(r[19] || (externalTicketId ? 'BOLETERA_EXTERNA' : 'TAQUILLA_DOMUS'));
+      let metadata={}; try { metadata=JSON.parse(r[29]); } catch(e) {}
+      const salesChannel = metadata.salesChannel || (typeof r[19]==='string' && ACCESS_SALES_CHANNELS[r[19]] ? r[19] : (externalTicketId?'BOLETERA_EXTERNA':'TAQUILLA_DOMUS'));
       const ticketProvider = String(r[20] || 'DOMUS');
       const method = String(r[26] || 'Efectivo');
       const ticketGuardarropa = String(r[30] || (wardrobeQty > 0 ? ('GUA-' + rowId) : ''));
@@ -169,6 +172,7 @@ function accesoSimpleDatos() {
     recentAccess: recentAccess,
     metrics: {
       totalAttendance: totalAttendance,
+      attendanceKind: 'CUMULATIVE_ADMISSIONS_NOT_OCCUPANCY',
       activeWardrobe: activeWardrobe,
       totalDoorRevenue: totalDoorRevenue,
       totalCommercialGross: totalCommercialGross,
@@ -183,235 +187,63 @@ function accesoSimpleDatos() {
  * Fase 0.5: Atribución correcta de ingresos (Boleteras vs Taquilla vs Guardarropa)
  */
 function accesoSimpleRegistrar(payload) {
-  if (!payload) throw new Error('Datos de acceso no proporcionados.');
-
+  authRequireContext_('accesoSimpleRegistrar');
+  if (!payload) throw new Error('Datos de acceso requeridos.');
   return withLock_(CONFIG.lockTimeoutMs, () => {
-    const m = SpreadsheetApp.openById(CONFIG.mainSheetId);
-    const sAcc = m.getSheetByName('ACCESO');
-    const sCob = m.getSheetByName('COBROS');
-
-    const customer = String(payload.customer || 'Asistente').trim();
-    const phone = String(payload.phone || '').trim();
-    const email = String(payload.email || '').trim();
-    const activity = String(payload.activity || 'Operación diaria').trim();
-    const salesChannel = String(payload.salesChannel || ACCESS_SALES_CHANNELS.TAQUILLA_DOMUS).trim();
-    const ticketTypeId = String(payload.ticketTypeId || payload.entryType || 'General').trim();
-    const persons = Number(payload.persons) || (ticketTypeId === 'Pareja' ? 2 : (ticketTypeId === 'Trío' ? 3 : 1));
-    const faceValue = parseFloat(payload.faceValue || payload.entryPrice) || 0;
-    
-    const wardrobeQty = Math.max(0, parseInt(payload.wardrobeQty, 10) || 0);
-    const wardrobeNotes = String(payload.wardrobeNotes || '').trim();
-    const wardrobeUnitPrice = (payload.wardrobeUnitPrice !== undefined && payload.wardrobeUnitPrice !== null && payload.wardrobeUnitPrice !== '') ? Number(payload.wardrobeUnitPrice) : 50;
-    const wardrobeAmount = wardrobeQty * wardrobeUnitPrice;
-
-    const ticketProvider = String(payload.ticketProvider || (salesChannel === ACCESS_SALES_CHANNELS.BOLETERA_EXTERNA ? 'Boletera' : 'DOMUS')).trim();
-    const externalTicketId = String(payload.externalTicketId || payload.presaleFolio || payload.folio || '').trim();
-    const courtesyAuth = String(payload.courtesyAuth || '').trim();
-    const paymentMethod = String(payload.paymentMethod || payload.method || 'Efectivo').trim();
-    const paymentReference = String(payload.paymentReference || '').trim();
-
-    // Verificación Anti pass-back: si se proporciona un folio/código QR, validar que no haya ingresado previamente
-    if (externalTicketId && sAcc) {
-      const lastRow = sAcc.getLastRow();
-      if (lastRow >= 7) {
-        const existingExternalTickets = sAcc.getRange(7, 18, lastRow - 6, 1).getValues();
-        const alreadyUsed = existingExternalTickets.some(r => String(r[0]).trim() === externalTicketId);
-        if (alreadyUsed) {
-          throw new Error('Boleto ya utilizado previamente. Folio: ' + externalTicketId);
-        }
-      }
+    const m=SpreadsheetApp.openById(CONFIG.mainSheetId), s=m.getSheetByName('ACCESO'), cob=m.getSheetByName('COBROS');
+    const req=String(payload.requestId || payload.id || '');
+    const replay=journalResume_(req,'accesoSimpleRegistrar',m); if(replay)return replay;
+    schemaColumns_(s,['Folio acceso','2 · NOMBRE','ORDEN PREVENTA','DESGLOSE / ESTADO','TICKET / PRENDA']);
+    const customer=String(payload.customer || '').trim(), activity=String(payload.activity || '').trim();
+    if(!customer || !activity)throw new Error('Nombre y actividad obligatorios.');
+    const event=dataRows_(m.getSheetByName('ACTIVIDADES'),7,13).find(r=>String(r[0])===activity);
+    if(!event || String(event[11]).toLowerCase()!=='confirmado')throw new Error('EVENT_PRICING_NOT_CONFIRMED');
+    const channel=String(payload.salesChannel || 'TAQUILLA_DOMUS');
+    if(!Object.values(ACCESS_SALES_CHANNELS).includes(channel))throw new Error('Canal inválido.');
+    const type=String(payload.ticketTypeId || payload.entryType || 'General');
+    let kinds=[{id:'General',price:event[4],persons:1},{id:'Pareja',price:event[5],persons:2},{id:'Trío',price:event[6],persons:3}];
+    if(event[12] && String(event[12]).trim()[0]==='[') kinds=kinds.concat(JSON.parse(event[12]));
+    const kind=kinds.find(k=>k.id===type || k.name===type);
+    const onlyWardrobe=['SOLO_GUARDARROPA','GUARDARROPA'].includes(type);
+    if(!kind && !onlyWardrobe)throw new Error('Tipo de entrada inválido.');
+    const persons=onlyWardrobe?0:Number(kind.persons);
+    if(!Number.isInteger(persons) || persons<0 || persons>100)throw new Error('Personas inválidas.');
+    const qty=payload.wardrobeQty==null?0:Number(payload.wardrobeQty);
+    if(!Number.isInteger(qty)||qty<0||qty>100)throw new Error('Prendas inválidas.');
+    const unitPrice=Number(event[7]);
+    if(!Number.isFinite(unitPrice)||unitPrice<0)throw new Error('Tarifa de guardarropa no confirmada.');
+    let face=onlyWardrobe?0:Number(kind.price);
+    if(!Number.isFinite(face)||face<0)throw new Error('Tarifa inválida.');
+    if(channel==='CORTESIA') {
+      if(!['ADMIN','GERENCIA'].includes(_authContext.role))throw new Error('Acceso denegado: cortesía requiere Gerencia.');
+      face=0;
     }
-
-    // Guardrail pre-evento: Validación de tarifa y acuerdo comercial autorizado (ADR-005)
-    const requiresDoorAdmissionCharge = (salesChannel === ACCESS_SALES_CHANNELS.TAQUILLA_DOMUS || salesChannel === ACCESS_SALES_CHANNELS.TRANSFERENCIA_DIRECTA) && ticketTypeId !== 'SOLO_GUARDARROPA' && ticketTypeId !== 'GUARDARROPA';
-
-    if (requiresDoorAdmissionCharge) {
-      const sAct = m.getSheetByName('ACTIVIDADES');
-      let matchedAct = null;
-      if (sAct && sAct.getLastRow() >= 7) {
-        const rawActs = sAct.getRange('A7:M' + sAct.getLastRow()).getValues();
-        matchedAct = rawActs.find(r => String(r[0] || '').trim().toLowerCase() === activity.toLowerCase());
-      }
-
-      if (!matchedAct) {
-        const err = new Error(`EVENT_PRICING_NOT_CONFIRMED: El evento "${activity}" no existe en ACTIVIDADES o no cuenta con programación oficial.`);
-        err.status = 400;
-        err.code = 'EVENT_PRICING_NOT_CONFIRMED';
-        throw err;
-      }
-
-      const actStatus = String(matchedAct[11] || '').trim().toLowerCase();
-      if (actStatus === 'por validar' || actStatus === 'pendiente' || actStatus === 'no confirmado') {
-        const err = new Error(`EVENT_PRICING_NOT_CONFIRMED: El acuerdo comercial del evento "${activity}" está "${matchedAct[11]}". No se pueden cobrar entradas en taquilla hasta que Dirección apruebe las tarifas oficiales.`);
-        err.status = 400;
-        err.code = 'EVENT_PRICING_NOT_CONFIRMED';
-        throw err;
-      }
-
-      // Validar precio oficial del tipo de boleto
-      let officialPrice = 0;
-      if (ticketTypeId === 'General') officialPrice = parseFloat(matchedAct[4]) || 0;
-      else if (ticketTypeId === 'Pareja') officialPrice = parseFloat(matchedAct[5]) || 0;
-      else if (ticketTypeId === 'Trío') officialPrice = parseFloat(matchedAct[6]) || 0;
-      else {
-        try {
-          if (matchedAct[12] && String(matchedAct[12]).trim().startsWith('[')) {
-            const customs = JSON.parse(matchedAct[12]);
-            const foundCustom = customs.find(c => c.id === ticketTypeId || c.name === ticketTypeId);
-            if (foundCustom) officialPrice = parseFloat(foundCustom.price) || 0;
-          }
-        } catch (e) {}
-      }
-
-      if (officialPrice <= 0 && faceValue <= 0) {
-        const err = new Error(`EVENT_PRICING_NOT_CONFIRMED: El tipo de boleto "${ticketTypeId}" para el evento "${activity}" no tiene una tarifa válida autorizada.`);
-        err.status = 400;
-        err.code = 'EVENT_PRICING_NOT_CONFIRMED';
-        throw err;
-      }
-    }
-
-    // 1. Cálculo financiero estricto de puerta:
-    let ticketDoorCharge = 0;
-    let paymentStatus = ACCESS_PAYMENT_STATUS.CONFIRMADA;
-
-    if (salesChannel === ACCESS_SALES_CHANNELS.BOLETERA_EXTERNA) {
-      ticketDoorCharge = 0;
-      paymentStatus = ACCESS_PAYMENT_STATUS.PAGADO_EXTERNAMENTE;
-    } else if (salesChannel === ACCESS_SALES_CHANNELS.PREVENTA_DOMUS) {
-      ticketDoorCharge = 0; // Ya cobrada con anterioridad en DOMUS
-      paymentStatus = ACCESS_PAYMENT_STATUS.CONFIRMADA;
-    } else if (salesChannel === ACCESS_SALES_CHANNELS.CORTESIA || salesChannel === ACCESS_SALES_CHANNELS.LISTA) {
-      ticketDoorCharge = 0;
-      paymentStatus = ACCESS_PAYMENT_STATUS.CONFIRMADA;
-    } else if (salesChannel === ACCESS_SALES_CHANNELS.TRANSFERENCIA_DIRECTA) {
-      const isVerified = payload.isTransferVerified === true || payload.paymentStatus === ACCESS_PAYMENT_STATUS.CONFIRMADA;
-      paymentStatus = isVerified ? ACCESS_PAYMENT_STATUS.CONFIRMADA : ACCESS_PAYMENT_STATUS.PENDIENTE_VERIFICACION;
-      ticketDoorCharge = isVerified ? faceValue : 0;
-    } else {
-      // TAQUILLA_DOMUS
-      ticketDoorCharge = faceValue;
-      paymentStatus = ACCESS_PAYMENT_STATUS.CONFIRMADA;
-    }
-
-    // El cobro en puerta es la suma del boleto de taquilla + guardarropa
-    const doorCollectedTotal = ticketDoorCharge + wardrobeAmount;
-    const commercialTotal = faceValue + wardrobeAmount;
-    const dueAtDoor = (salesChannel === ACCESS_SALES_CHANNELS.TAQUILLA_DOMUS ? faceValue : 0) + wardrobeAmount - doorCollectedTotal;
-
-    const reqKey = String(payload.id || payload.requestId || '').trim();
-
-    // 2. Doble verificación a nivel base de datos en COBROS (Idempotencia Fuerte):
-    if (reqKey && sCob) {
-      const existingPayments = sCob.getRange(7, 1, 500, 14).getValues();
-      const existingPay = existingPayments.find(r => r[8] === 'ACCESO-WEB:' + reqKey);
-      if (existingPay && existingPay[0]) {
-        console.log(`[IDEMPOTENCY EN SHEETS] Acceso previo localizado en COBROS: Folio ${existingPay[0]} para ${reqKey}`);
-        return {
-          ok: true,
-          ticket: String(existingPay[3] || reqKey),
-          rowId: String(existingPay[3] || reqKey),
-          customer: String(existingPay[7] || customer),
-          total: Number(existingPay[5]) || doorCollectedTotal,
-          doorCollected: Number(existingPay[5]) || doorCollectedTotal,
-          paid: true,
-          date: Utilities.formatDate(new Date(), 'America/Mexico_City', 'yyyy-MM-dd HH:mm'),
-          message: `Acceso previamente confirmado (recuperado de COBROS): Folio ${existingPay[3] || existingPay[0]}`
-        };
-      }
-    }
-
-    // Generar Folio Atómico Inmutable de Acceso
-    const rowIdx = Math.max(sAcc.getLastRow() + 1, 7);
-    const rowId = 'A-' + String(rowIdx).padStart(4, '0');
-    const guaTicket = wardrobeQty > 0 ? ('GUA-' + rowId) : '';
-
-    // Escribir en ACCESO (22 campos según ADR-005)
-    const rowData = [
-      rowId,                          // Col 1: accessId
-      new Date(),                     // Col 2: checkedInAt
-      activity,                       // Col 3: eventId / activity
-      customer,                       // Col 4: customer
-      email,                          // Col 5: email
-      phone,                          // Col 6: phone
-      ticketTypeId,                   // Col 7: ticketTypeId
-      persons,                        // Col 8: persons (aforo)
-      wardrobeQty,                    // Col 9: wardrobeQty
-      faceValue,                      // Col 10: faceValue
-      faceValue,                      // Col 11: precio base
-      faceValue,                      // Col 12: precio catálogo
-      wardrobeAmount,                 // Col 13: wardrobeAmount
-      commercialTotal,                // Col 14: valor comercial total
-      doorCollectedTotal,             // Col 15: cobrado en puerta DOMUS
-      dueAtDoor,                      // Col 16: saldo por cobrar
-      paymentStatus,                  // Col 17: paymentStatus
-      externalTicketId,               // Col 18: externalTicketId / QR
-      courtesyAuth,                   // Col 19: courtesyAuth
-      salesChannel,                   // Col 20: salesChannel
-      ticketProvider,                 // Col 21: ticketProvider
-      paymentReference,               // Col 22: paymentReference
-      'Registrado',                   // Col 23: estado checkin
-      '', '', persons,                // Col 24-26
-      paymentMethod,                  // Col 27: paymentMethod
-      doorCollectedTotal,             // Col 28: cobrado
-      true,                           // Col 29: activo
-      guaTicket ? ('TICKETS FÍSICOS · ' + guaTicket + (wardrobeNotes ? ' · ' + wardrobeNotes : '')) : 'CONFIRMADO',
-      guaTicket,                      // Col 31: ticketGuardarropa
-      false                           // Col 32: devuelto
-    ];
-
-    sAcc.getRange(rowIdx, 1, 1, rowData.length).setValues([rowData]);
-
-    // 3. Asentar en COBROS ÚNICAMENTE lo que DOMUS cobra en puerta:
-    // A. Cobro de Entrada de Taquilla
-    if (ticketDoorCharge > 0 && sCob) {
-      const cobIdx = Math.max(sCob.getLastRow() + 1, 7);
-      const cobFolio = 'REC-TAQ-' + Date.now().toString(36).toUpperCase();
-      const cobRow = [
-        cobFolio, new Date(), 'Acceso', rowId, paymentMethod, ticketDoorCharge,
-        paymentMethod === 'Efectivo' ? 0 : '', customer, 'ACCESO-WEB:' + rowId,
-        '', 'Confirmado', 'Taquilla', ticketDoorCharge, ticketDoorCharge, '',
-        activity, 0, 0, 0, 'SISTEMA-WEB'
-      ];
-      sCob.getRange(cobIdx, 1, 1, cobRow.length).setValues([cobRow]);
-    }
-
-    // B. Cobro de Guardarropa independiente
-    if (wardrobeAmount > 0 && sCob) {
-      const cobIdxGua = Math.max(sCob.getLastRow() + 1, 7);
-      const cobFolioGua = 'REC-GUA-' + Date.now().toString(36).toUpperCase();
-      const cobRowGua = [
-        cobFolioGua, new Date(), 'Acceso', guaTicket, paymentMethod, wardrobeAmount,
-        paymentMethod === 'Efectivo' ? 0 : '', customer, 'ACCESO-GUA:' + guaTicket,
-        '', 'Confirmado', 'Guardarropa', wardrobeAmount, wardrobeAmount, '',
-        activity, 0, 0, 0, 'SISTEMA-WEB'
-      ];
-      sCob.getRange(cobIdxGua, 1, 1, cobRowGua.length).setValues([cobRowGua]);
-    }
-
-    SpreadsheetApp.flush();
-
-    return {
-      ok: true,
-      ticket: rowId,
-      rowId: rowId,
-      ticketGuardarropa: guaTicket,
-      customer: customer,
-      activity: activity,
-      ticketTypeId: ticketTypeId,
-      salesChannel: salesChannel,
-      ticketProvider: ticketProvider,
-      persons: persons,
-      faceValue: faceValue,
-      wardrobeQty: wardrobeQty,
-      wardrobeAmount: wardrobeAmount,
-      totalCommercial: commercialTotal,
-      doorCollected: doorCollectedTotal,
-      paymentStatus: paymentStatus,
-      paymentMethod: paymentMethod,
-      date: Utilities.formatDate(new Date(), 'America/Mexico_City', 'yyyy-MM-dd HH:mm'),
-      message: `Acceso registrado con éxito. Folio: ${rowId}${guaTicket ? ' · ' + guaTicket : ''}`
-    };
+    const qr=String(payload.externalTicketId || payload.presaleFolio || '').trim();
+    if(['PREVENTA_DOMUS','BOLETERA_EXTERNA'].includes(channel) && !qr)throw new Error('Folio de boleto obligatorio.');
+    const existing=dataRows_(s,7,32);
+    if(qr && existing.some(r=>r[2]===activity && String(r[17]).trim()===qr && r[3]))throw new Error('Boleto ya utilizado.');
+    const method=String(payload.paymentMethod || payload.method || 'Efectivo');
+    if(!['Efectivo','Terminal 1','Terminal 2','Transferencia'].includes(method))throw new Error('Medio inválido.');
+    // Do not accept isTransferVerified/paymentStatus from the browser as bank verification.
+    const pending=method==='Transferencia' || channel==='TRANSFERENCIA_DIRECTA';
+    const doorEntry=['TAQUILLA_DOMUS','TRANSFERENCIA_DIRECTA'].includes(channel)?face:0;
+    const wardrobe=qty*unitPrice, charged=doorEntry+wardrobe;
+    const row=Math.max(7,s.getLastRow()+1), id='A-'+Utilities.getUuid(), gua=qty?'GUA-'+id:'';
+    const status=pending?'PENDIENTE_VERIFICACION':(channel==='BOLETERA_EXTERNA'?'PAGADO_EXTERNAMENTE':'CONFIRMADA');
+    const result={ok:true,id:id,rowId:id,ticket:id,customer:customer,activity:activity,ticketTypeId:type,
+      persons:persons,salesChannel:channel,externalTicketId:qr,faceValue:face,wardrobeQty:qty,
+      wardrobeAmount:wardrobe,ticketGuardarropa:gua,paymentStatus:status,paymentMethod:method,
+      doorCollected:pending?0:charged,amountPaidAtDoor:pending?0:charged,amountDueAtDoor:pending?charged:0,
+      totalCommercial:face+wardrobe,date:new Date().toISOString(),message:pending?'Transferencia pendiente de verificación.':'Acceso registrado.'};
+    const fields={1:id,2:new Date(),3:activity,4:customer,5:String(payload.email||''),6:String(payload.phone||''),
+      7:type,8:persons,9:qty,10:face,11:'',12:face,13:wardrobe,14:face+wardrobe,15:pending?0:charged,
+      16:pending?charged:0,17:status,18:qr,19:channel==='CORTESIA'?_authContext.operator:'',
+      23:'Registrado',26:persons,27:method,28:pending?0:charged,29:true,30:JSON.stringify(result),31:gua,32:false};
+    const writes=Object.keys(fields).map(c=>cellWrite_(s,row,Number(c),fields[c]));
+    let next=Math.max(cob.getLastRow()+1,7);
+    if(doorEntry>0)writes.push(...paymentWrites_(cob,{row:next++,folio:'REC-TAQ-'+Utilities.getUuid(),origin:'Acceso',ticket:id,method:pending?'Transferencia':method,amount:doorEntry,tag:'ACCESO-WEB:'+req,operator:_authContext.operator,activity:activity}));
+    if(wardrobe>0)writes.push(...paymentWrites_(cob,{row:next++,folio:'REC-GUA-'+Utilities.getUuid(),origin:'Acceso',ticket:id,method:pending?'Transferencia':method,amount:wardrobe,tag:'ACCESO-GUA:'+req,operator:_authContext.operator,activity:activity}));
+    return journalCommit_(req,'accesoSimpleRegistrar',m,writes,result);
   });
 }
 
@@ -419,6 +251,7 @@ function accesoSimpleRegistrar(payload) {
  * Devuelve una prenda de guardarropa
  */
 function guardarropaDevolver(payload) {
+  authRequireContext_('guardarropaDevolver');
   if (!payload || !payload.ticket) throw new Error('Ticket de guardarropa requerido.');
   const ticket = String(payload.ticket).trim();
 
@@ -453,15 +286,7 @@ function guardarropaDevolver(payload) {
       throw new Error(`Prenda del ticket "${ticket}" ya fue devuelta previamente.`);
     }
 
-    sAcc.getRange(foundRow, 32).setValue(true);
-    sAcc.getRange(foundRow, 29).setValue('DEVUELTO');
-    SpreadsheetApp.flush();
-
-    return {
-      ok: true,
-      ticket: ticket,
-      message: `Prenda del ticket "${ticket}" devuelta exitosamente.`
-    };
+    return journalCommit_(payload.requestId,'guardarropaDevolver',m,[cellWrite_(sAcc,foundRow,32,true)],{ok:true,ticket:ticket,message:'Prendas devueltas.'});
   });
 }
 
@@ -469,8 +294,9 @@ function guardarropaDevolver(payload) {
  * Cambia la actividad / evento activo en el sistema
  */
 function accesoCambiarActividad(payload) {
-  if (!payload || !payload.activity) throw new Error('Actividad no especificada.');
-  const act = String(payload.activity).trim();
-  PropertiesService.getScriptProperties().setProperty('actividadAcceso', act);
-  return { ok: true, activeActivity: act };
+  authRequireContext_('accesoCambiarActividad');
+  const m=SpreadsheetApp.openById(CONFIG.mainSheetId),act=String(payload && payload.activity || '');
+  if(!dataRows_(m.getSheetByName('ACTIVIDADES'),7,13).some(r=>String(r[0])===act && String(r[11]).toLowerCase()==='confirmado'))throw new Error('Actividad no confirmada.');
+  let settings=m.getSheetByName('DOMUS_SETTINGS');if(!settings)settings=m.insertSheet('DOMUS_SETTINGS');
+  return journalCommit_(payload.requestId,'accesoCambiarActividad',m,[cellWrite_(settings,1,1,'ACTIVE_ACTIVITY'),cellWrite_(settings,1,2,act)],{ok:true,activeActivity:act});
 }

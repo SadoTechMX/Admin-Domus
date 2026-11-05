@@ -11,6 +11,7 @@
  * Registra una nueva actividad o evento con su estructura tarifaria autorizada
  */
 function registrarNuevoEvento(evento) {
+  authRequireContext_('registrarNuevoEvento');
   if (!evento || !evento.name) throw new Error('El nombre del evento es requerido.');
 
   return withLock_(CONFIG.lockTimeoutMs, () => {
@@ -18,6 +19,10 @@ function registrarNuevoEvento(evento) {
     const sAct = m.getSheetByName('ACTIVIDADES');
     if (!sAct) throw new Error('Hoja ACTIVIDADES no encontrada.');
 
+    if(dataRows_(sAct,7,13).some(r=>String(r[0])===String(evento.name)))throw new Error('Actividad ya existente.');
+    const amounts=[evento.priceGeneral,evento.pricePareja,evento.priceTrio,evento.priceGuardarropa].map(Number);
+    if(amounts.some(n=>!Number.isFinite(n)||n<0))throw new Error('Tarifas inválidas.');
+    if(!Number.isInteger(Number(evento.capacity))||Number(evento.capacity)<=0)throw new Error('Capacidad inválida.');
     const rowIdx = Math.max(sAct.getLastRow() + 1, 7);
     
     // Serializar tipos de boletos personalizados si se proporcionan
@@ -34,7 +39,7 @@ function registrarNuevoEvento(evento) {
       parseFloat(evento.priceGeneral) || 0,
       parseFloat(evento.pricePareja) || 0,
       parseFloat(evento.priceTrio) || 0,
-      parseFloat(evento.priceGuardarropa) || 50,
+      Number(evento.priceGuardarropa),
       parseInt(evento.capacity, 10) || 150,
       'DOMUS',
       'Bruto',
@@ -42,12 +47,6 @@ function registrarNuevoEvento(evento) {
       notesVal
     ];
 
-    sAct.getRange(rowIdx, 1, 1, rowData.length).setValues([rowData]);
-    SpreadsheetApp.flush();
-
-    return {
-      ok: true,
-      message: `Evento "${evento.name}" programado con éxito en ACTIVIDADES.`
-    };
+    return journalCommit_(evento.requestId,'registrarNuevoEvento',m,rowData.map((v,i)=>cellWrite_(sAct,rowIdx,i+1,v)),{ok:true,message:'Evento registrado.'});
   });
 }

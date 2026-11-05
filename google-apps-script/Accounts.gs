@@ -24,14 +24,14 @@ function posBalanceFast_(x, ticket) {
   const sCaja = x.c || x.m.getSheetByName('CAJA 2');
   const sCobros = x.m.getSheetByName('COBROS');
 
-  const rows = sCaja.getRange(7, 1, 500, 32).getValues()
+  const rows = dataRows_(sCaja, 7, 32)
     .filter(r => String(r[1]) === String(ticket) && r[6] && r[15] !== 'Cancelado');
 
   const total = rows.reduce((n, r) => n + (Number(r[11]) || 0), 0);
 
-  const paid = sCobros.getRange(7, 1, 500, 14).getValues()
+  const paid = dataRows_(sCobros, 7, 14)
     .filter(r => r[2] === 'Caja' && String(r[3]) === String(ticket))
-    .reduce((n, r) => n + (Number(r[13]) || 0), 0);
+    .reduce((n, r) => n + paymentApplied_(r), 0);
 
   return {
     rows: rows,

@@ -11,6 +11,7 @@
  * Consulta de datos para la vista de Caja: productos activos, fase y cuentas abiertas
  */
 function cajaSimpleDatos() {
+  authRequireContext_('cajaSimpleDatos');
   const m = SpreadsheetApp.openById(CONFIG.mainSheetId);
   const s = m.getSheetByName('CAJA 2');
   const phase = String(s.getRange('F2').getValue()) || 'Solar';
@@ -30,13 +31,13 @@ function cajaSimpleDatos() {
         const isCanna = sku.toUpperCase().indexOf('CT') === 0 || provider.toLowerCase().indexOf('canna') !== -1;
         products.push({
           name: String(r[0]),
-          group: isCanna ? 'Menú Cannábico' : String(r[1] || 'General'),
+          group: String(r[1] || 'General'),
           price: price,
           priceSolar: r[15] ? Number(r[16]) : Number(r[2]),
           priceLunar: r[15] ? Number(r[17]) : Number(r[2]),
           destination: String(r[7] || (isCanna ? 'Cocina' : (r[1] === 'Alimentos' ? 'Cocina' : 'Barra'))),
           sku: sku,
-          provider: isCanna ? 'Canna Treats' : provider
+          provider: provider
         });
       }
     }
@@ -44,7 +45,7 @@ function cajaSimpleDatos() {
 
   // Cuentas abiertas y saldos
   const map = new Map();
-  const cashRows = s.getRange(7, 1, 500, 16).getValues();
+  const cashRows = dataRows_(s, 7, 16);
   cashRows.forEach(r => {
     if (r[1] && r[6] && r[15] !== 'Cancelado') {
       const key = String(r[1]);
@@ -57,10 +58,10 @@ function cajaSimpleDatos() {
     }
   });
 
-  const payments = m.getSheetByName('COBROS').getRange(7, 1, 500, 14).getValues();
+  const payments = dataRows_(m.getSheetByName('COBROS'), 7, 14);
   payments.forEach(r => {
     if (r[2] === 'Caja' && map.has(String(r[3]))) {
-      map.get(String(r[3])).due -= Number(r[13]) || 0;
+      map.get(String(r[3])).due -= paymentApplied_(r);
     }
   });
 
@@ -73,7 +74,7 @@ function cajaSimpleDatos() {
 
   const activities = Array.from(new Set([
     'Visita general DOMUS',
-    ...m.getSheetByName('ACTIVIDADES').getRange('A7:B106').getValues().filter(r => r[0]).map(r => String(r[0]))
+    ...dataRows_(m.getSheetByName('ACTIVIDADES'), 7, 2).filter(r => r[0]).map(r => String(r[0]))
   ]));
 
   const lastPay = payments.filter(r => r[2] === 'Caja' && Number(r[13]) > 0).slice(-1)[0];
@@ -88,7 +89,7 @@ function cajaSimpleDatos() {
     activities: activities,
     lastReceipt: lastReceipt,
     staff: CONFIG.staff,
-    canCourtesy: true
+    canCourtesy: typeof _authContext !== 'undefined' && !!_authContext && ['ADMIN', 'GERENCIA'].includes(_authContext.role)
   };
 }
 
@@ -96,8 +97,10 @@ function cajaSimpleDatos() {
  * Registra una venta en Caja (inmediata o a cuenta abierta) con control atómico de concurrencia
  */
 function cajaSimpleRegistrar(p) {
+  authRequireContext_('cajaSimpleRegistrar');
   if (!p) throw new Error('Cuerpo de venta vacío.');
-  const id = String(p.id || p.requestId || ('POS-' + Date.now())).trim();
+  const id = String(p.requestId || p.id || '').trim();
+  if (!id) throw new Error('REQUEST_ID_REQUIRED');
   p.id = id;
 
   return withLock_(CONFIG.lockTimeoutMs, () => {
@@ -106,170 +109,83 @@ function cajaSimpleRegistrar(p) {
 }
 
 function cajaSimpleRegistrarCore_(p) {
-  const who = String(Session.getActiveUser().getEmail() || 'Caja');
-  const props = PropertiesService.getScriptProperties();
-  const key = 'cajaSimple:' + p.id;
-  
-  let job = JSON.parse(props.getProperty(key) || 'null');
-  const signature = posSignature_(p);
-
-  if (job && posSignature_(JSON.parse(job.signature)) !== signature) {
-    throw new Error('Esta referencia ya contiene otro pedido con distinta firma. Inicia una nueva venta.');
-  }
-  if (job && job.done) {
-    return job.result;
-  }
-
+  authRequireContext_('cajaSimpleRegistrar');
   const m = SpreadsheetApp.openById(CONFIG.mainSheetId);
+  const replay = journalResume_(p.id, 'cajaSimpleRegistrar', m);
+  if (replay) return replay;
   const sCaja = m.getSheetByName('CAJA 2');
-  const phase = String(sCaja.getRange('F2').getValue()) || 'Solar';
-  if (p.phase && p.phase !== phase) {
-    throw new Error('Cambió la carta a Fase ' + phase + '. Por favor actualiza antes de cobrar.');
-  }
-
-  const sheetCat = m.getSheetByName('CATALOGO');
-  const lastRowCat = sheetCat ? sheetCat.getLastRow() : 6;
-  const numRowsCat = Math.max(1, lastRowCat - 6);
-  const cat = sheetCat ? sheetCat.getRange(7, 1, numRowsCat, 20).getValues() : [];
-  const canCourtesy = CONFIG.managers.includes(who.toLowerCase()) || p.courtesyAuthorized;
-  const units = posExpandCart_(p.items || [], cat, phase, canCourtesy);
-
-  const customer = String(p.customer || 'Público General').trim();
-  let ticket = String(p.ticket || '');
-  let activity = String(p.activity || 'Visita general DOMUS');
-
-  // Si no hay ticket, generar un folio único para la cuenta
-  if (!ticket) {
-    ticket = 'CTA-' + Utilities.formatDate(new Date(), 'America/Mexico_City', 'yyyyMMdd') + '-' + p.id.slice(-6);
-  }
-
-  // Calcular totales
-  const expectedTotal = posRound_(units.reduce((n, u) => n + (u.courtesy ? 0 : u.price), 0));
-  const isPaid = !!p.paid;
-  const method = String(p.method || 'Efectivo');
-
-  let math = { sale: expectedTotal, received: null, tip: 0, change: null };
-  if (isPaid && expectedTotal > 0) {
-    math = posPaymentMath_(expectedTotal, method, p.received, p.tip);
-  }
-
-  // 1. Doble verificación a nivel base de datos en COBROS (Idempotencia Fuerte en Sheets):
-  // Si la respuesta HTTP se cortó por timeout pero la transacción ya se asentó en COBROS,
-  // recuperamos el registro original directamente de las celdas sin crear nada nuevo.
   const sCobros = m.getSheetByName('COBROS');
-  if (sCobros) {
-    const existingPayments = sCobros.getRange(7, 1, 500, 14).getValues();
-    const existingPay = existingPayments.find(r => r[8] === 'CAJA-RAPIDA:' + p.id);
-    if (existingPay && existingPay[0]) {
-      console.log(`[IDEMPOTENCY EN SHEETS] Transacción previa localizada en COBROS: Folio ${existingPay[0]} para ${p.id}`);
-      return {
-        ok: true,
-        ticket: String(existingPay[3] || ticket),
-        receipt: String(existingPay[0]),
-        paid: true,
-        total: Number(existingPay[5]) || expectedTotal,
-        customer: String(existingPay[7] || customer),
-        message: `Cobro previamente confirmado (recuperado de COBROS): Folio ${existingPay[0]}`
-      };
-    }
-  }
-
-  // Buscar filas libres en CAJA 2
-  const allRows = sCaja.getRange(7, 1, 500, 32).getValues();
-  const freeIndices = [];
-  for (let i = 0; i < allRows.length; i++) {
-    if (!allRows[i][1] && !allRows[i][6]) {
-      freeIndices.push(i + 7);
-      if (freeIndices.length === units.length) break;
-    }
-  }
-
-  if (freeIndices.length < units.length) {
-    throw new Error('No hay filas libres en la matriz de Caja 2. Se requiere mantenimiento.');
-  }
-
-  // Escribir unidades en CAJA 2
+  const sComandas = m.getSheetByName('COMANDAS');
+  schemaColumns_(sCaja, ['CUENTA AUTOMÁTICA','Producto','TOTAL','PAGADO','SALDO','Preparación / entrega']);
+  schemaColumns_(sComandas, ['Registro de sincronización','PREPARACIÓN / ENTREGA']);
+  const phase = String(sCaja.getRange('F2').getValue());
+  if (!['Solar','Lunar'].includes(phase) || p.phase !== phase) throw new Error('Cambió la carta. Actualiza antes de cobrar.');
+  const who = _authContext.operator;
+  const canCourtesy = ['ADMIN','GERENCIA'].includes(_authContext.role);
+  const ticket = String(p.ticket || ('CTA-' + Utilities.getUuid())).trim();
+  const oldBalance = p.ticket ? posBalanceFast_({m:m,c:sCaja}, ticket) : {total:0,paid:0,due:0,rows:[]};
+  if (p.ticket && !oldBalance.rows.length) throw new Error('Cuenta no encontrada.');
+  const cat = dataRows_(m.getSheetByName('CATALOGO'), 7, 20);
+  const units = p.items && p.items.length ? posExpandCart_(p.items, cat, phase, canCourtesy) : [];
+  if (!units.length && (!p.ticket || !p.paid)) throw new Error('Pedido vacío.');
+  const added = posRound_(units.reduce((n,u) => n + (u.courtesy ? 0 : u.price),0));
+  const due = posRound_(Math.max(0, oldBalance.due) + added);
+  if (p.paid && due <= 0.01) throw new Error('Cuenta sin saldo pendiente. No repetir cobro.');
+  if (!p.paid && !['Amigo','Creador de proyecto'].includes(p.credit)) throw new Error('Autorización de crédito requerida.');
+  const method = String(p.method || '');
+  const math = p.paid ? posPaymentMath_(due, method, p.received, p.tip) : {sale:0,tip:0,received:null,change:null};
+  if (p.paid && p.expectedTotal != null && Math.abs(Number(p.expectedTotal)-due)>0.01) throw new Error('Saldo cambió. Actualiza la cuenta antes de confirmar.');
+  const pending = !!p.paid && method === 'Transferencia';
+  const confirmed = !!p.paid && !pending;
+  const customer = String(p.ticket ? oldBalance.rows[0][4] : p.customer || 'Público General').trim();
+  const activity = String(p.ticket ? oldBalance.rows[0][3] : p.activity || 'Visita general DOMUS');
+  const rows = dataRows_(sCaja,7,32);
+  const free = [];
+  rows.forEach((r,i) => { if (!r[1] && !r[6] && free.length < units.length) free.push(i+7); });
+  let nextRow=Math.max(sCaja.getLastRow()+1,7);
+  while (free.length < units.length) free.push(nextRow++);
+  const writes = [];
   const now = new Date();
-  units.forEach((u, idx) => {
-    const rowNum = freeIndices[idx];
-    const rowData = [
-      'U-' + rowNum, ticket, now, activity, customer, u.group, u.name, 1,
-      u.courtesy ? 'Cortesía' : 'Normal', u.price, u.courtesy ? 0 : u.price, u.courtesy ? 0 : u.price,
-      '', '', '', isPaid ? 'Enviar' : 'Borrador', '', u.share || '', u.beneficiary || '',
-      '', u.inventory || '', '', 'LISTO', '', u.destination || 'Barra'
-    ];
-    sCaja.getRange(rowNum, 1, 1, rowData.length).setValues([rowData]);
+  units.forEach((u,i) => {
+    const row = free[i];
+    const inputs = {1:'U-'+row,2:ticket,3:now,4:activity,5:customer,6:u.group,7:u.name,8:1,
+      9:u.courtesy?'Cortesía':'Normal',10:u.price,11:'',16:'Enviar',17:u.notes,
+      18:u.share,19:u.beneficiary,21:u.inventory,25:u.destination};
+    if (u.courtesy) inputs[31] = who;
+    Object.keys(inputs).forEach(c => writes.push(cellWrite_(sCaja,row,Number(c),inputs[c])));
+    writes.push(...cashFormulaWrites_(sCaja,row));
+    const item = {id:'U-'+row,row:row,ticket:ticket,batch:p.id,alias:customer,product:u.name,
+      sku:u.sku,qty:1,notes:u.notes,destination:u.destination,sent:now.toISOString(),
+      state:'Pendiente',credit:!confirmed,incident:'',responsible:''};
+    const com = {1:'U-'+row,2:ticket,3:now,4:u.destination,5:u.name,6:1,7:u.notes,8:'Recibida',13:JSON.stringify(item)};
+    Object.keys(com).forEach(c => writes.push(cellWrite_(sComandas,row,Number(c),com[c])));
   });
-
-  // Si fue pagado, asentar en COBROS
-  let receiptFolio = '';
-  if (isPaid && expectedTotal > 0) {
-    const sCobros = m.getSheetByName('COBROS');
-    if (sCobros) {
-      const cobRowIdx = Math.max(sCobros.getLastRow() + 1, 7);
-      receiptFolio = 'REC-' + Date.now().toString(36).toUpperCase();
-      const cobRow = [
-        receiptFolio, now, 'Caja', ticket, method, math.sale, method === 'Efectivo' ? 0 : '',
-        customer, 'CAJA-RAPIDA:' + p.id, '', method === 'Transferencia' ? 'Borrador' : 'Confirmado',
-        who, math.sale, math.sale, '', activity, 0, 0, 0, 'SISTEMA-WEB',
-        '', '', '', '', '', '', '',
-        JSON.stringify(units.map(u => ({ name: u.name, price: u.price }))),
-        math.tip, math.received || '', math.change || ''
-      ];
-      sCobros.getRange(cobRowIdx, 1, 1, cobRow.length).setValues([cobRow]);
-    }
+  let receipt = '';
+  if (p.paid) {
+    receipt = 'REC-'+Utilities.getUuid();
+    writes.push(...paymentWrites_(sCobros, {
+      folio:receipt, origin:'Caja',ticket:ticket, method:method,amount:due,tag:'CAJA-RAPIDA:'+p.id,
+      operator:who,activity:activity,tip:math.tip,received:math.received,change:math.change
+    }));
   }
-
-  // Enviar a COMANDAS si está pagado o autorizado a crédito
-  if (isPaid || ['Amigo', 'Creador de proyecto'].includes(p.credit)) {
-    const sComandas = m.getSheetByName('COMANDAS');
-    if (sComandas) {
-      units.forEach((u, idx) => {
-        const rowNum = freeIndices[idx];
-        const comandaItem = {
-          id: 'C2-' + rowNum,
-          row: rowNum,
-          ticket: ticket,
-          batch: p.id,
-          alias: customer,
-          product: u.name,
-          notes: '',
-          destination: u.destination || 'Barra',
-          sent: now.toISOString(),
-          state: 'Pendiente',
-          credit: !isPaid,
-          incident: '',
-          responsible: ''
-        };
-        sComandas.getRange(rowNum, 13).setValue(JSON.stringify(comandaItem));
-        sComandas.getRange(rowNum, 8).setValue('Recibida');
-      });
-    }
-  }
-
-  SpreadsheetApp.flush();
-
-  const result = {
-    ok: true,
-    ticket: ticket,
-    receipt: receiptFolio,
-    paid: isPaid,
-    total: expectedTotal,
-    customer: customer,
-    message: isPaid 
-      ? `Cobro registrado exitosamente: Folio ${receiptFolio || ticket}` 
-      : `Pedido guardado en cuenta abierta: ${ticket}`
-  };
-
-  props.setProperty(key, JSON.stringify({ done: true, signature, result, at: Date.now() }));
-  return result;
+  const result = {ok:true,ticket:ticket,receipt:receipt,paid:confirmed,verified:confirmed,
+    paymentStatus:pending?'PENDIENTE_VERIFICACION':(confirmed?'CONFIRMADA':'CUENTA_ABIERTA'),
+    method:method,total:due,customer:customer,received:math.received,tip:math.tip,change:math.change,
+    items: units.map(u=>({name:u.name,qty:1,price:u.courtesy?0:u.price})),
+    message:pending?'PAGO POR TRANSFERENCIA PENDIENTE DE VERIFICACIÓN':(confirmed?'Cobro confirmado.':'Pedido enviado a cuenta abierta.')};
+  return journalCommit_(p.id,'cajaSimpleRegistrar',m,writes,result);
 }
 
 /**
  * Consulta de confirmación rápida (solo lectura) para reconectar operaciones interrumpidas
  */
 function cajaSimpleEstado(id) {
+  authRequireContext_('cajaSimpleEstado');
   if (!id) throw new Error('Referencia de operación requerida.');
+  const prior = findRequestRecord_(String(id));
+  if (prior && prior.status === REQUEST_STATUS.COMPLETED) return {done:true,result:prior.response};
+  const journal = journalFind_(String(id),SpreadsheetApp.openById(CONFIG.mainSheetId));
+  if (journal && journal.data[2] === 'COMPLETED') return {done:true,result:JSON.parse(journal.data[4])};
   const props = PropertiesService.getScriptProperties();
   const raw = props.getProperty('cajaSimple:' + id) || props.getProperty('idemp:' + id);
   if (raw) {
@@ -330,18 +246,21 @@ function posPaymentMath_(due, method, received, tip) {
 }
 
 function posExpandCart_(items, cat, phase, canCourtesy) {
-  if (!Array.isArray(items)) throw new Error('Pedido inválido.');
+  if (!Array.isArray(items) || !items.length) throw new Error('Pedido vacío o inválido.');
   const units = [];
   const catalogRows = posCatalogRows_(cat);
 
   for (const item of items) {
-    let c = catalogRows.find(r => r[0] === item.name);
-    if (!c) {
-      c = [item.name, item.group || 'General', item.price, 0, item.provider || 'DOMUS', '', item.sku || '', item.destination || 'Barra', 'Sí'];
-    }
-    const price = c[15] ? (phase === 'Solar' ? Number(c[16]) : Number(c[17])) : Number(c[2] || item.price);
-    const qty = parseInt(item.qty, 10) || 1;
-    if (qty < 1 || qty > 20) throw new Error('Cantidad debe estar entre 1 y 20 por producto.');
+    if (!item || typeof item !== 'object') throw new Error('Producto inválido.');
+    const matches = catalogRows.filter(r => item.sku ? String(r[6]) === String(item.sku) : r[0] === item.name);
+    if (matches.length !== 1) throw new Error('PRODUCT_NOT_FOUND: referencia inexistente, inactiva o ambigua.');
+    const c = matches[0];
+    const rawPrice = c[15] ? c[phase === 'Solar' ? 16 : 17] : c[2];
+    const price = Number(rawPrice);
+    const qty = Number(item.qty);
+    if (rawPrice === '' || rawPrice == null || !Number.isFinite(price) || price < 0) throw new Error('Precio de catálogo inválido.');
+    if (!Number.isInteger(qty) || qty < 1 || qty > 20) throw new Error('Cantidad debe ser entera entre 1 y 20.');
+    if (item.courtesy && !canCourtesy) throw new Error('Acceso denegado: cortesía requiere Gerencia.');
 
     for (let j = 0; j < qty; j++) {
       units.push({
@@ -352,6 +271,8 @@ function posExpandCart_(items, cat, phase, canCourtesy) {
         share: c[3] || 0,
         beneficiary: c[4] || 'DOMUS',
         inventory: c[6] || '',
+        sku: c[6] || '',
+        notes: String(item.notes || '').slice(0, 500),
         destination: c[7] || (c[1] === 'Alimentos' ? 'Cocina' : 'Barra')
       });
     }

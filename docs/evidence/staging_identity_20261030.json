@@ -1,0 +1,21 @@
+{
+  "endpoint": "https://script.google.com/macros/s/AKfycbwgLRDIvZ3rdl-dl3g_YtwexjYE7TBdGkxTfVdzBABb-58nKt-G7179bL163V5nTut2/exec",
+  "method": "GET health; case-sensitive comparison by tests/guardrails.py",
+  "result": "IDENTITY_ONLY_PASS",
+  "health": {
+    "status": "HEALTHY",
+    "environment": "STAGING",
+    "mainSheetId": "114VSwo3bXyn_audh1LHr4qqjW5aSDSTP_bR_-Iz5dkg",
+    "opsSheetId": "1NDpuyx6EfCHcoKW9CZ6pwR0oe2JS0aKpTTMa7RdqmlE",
+    "timestamp": "2026-10-30T19:45:32.753Z"
+  },
+  "buildPresent": false,
+  "businessWrites": 0,
+  "nativeViews": {
+    "caja": "JSON_NOT_UI",
+    "comandas": "JSON_NOT_UI",
+    "accesos": "JSON_NOT_UI"
+  },
+  "viewEvidence": "https://agent.tinyfish.ai/runs/d9ed4a6a-1303-4f1e-9faf-b4c415048972",
+  "repairCandidateDeployed": false
+}

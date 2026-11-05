@@ -12,6 +12,10 @@
  * Matriz de Permisos por Acción y Roles Autorizados
  */
 const ACTION_PERMISSIONS = Object.freeze({
+  cambiarFase: ['GERENCIA','ADMIN'],
+  solicitarResurtido: ['BARRA','COCINA','GERENCIA','ADMIN'],
+  editarAcceso: ['ACCESOS','GERENCIA','ADMIN'],
+  anularAcceso: ['GERENCIA','ADMIN'],
   // Caja y POS
   cajaSimpleDatos: ['CAJA', 'GERENCIA', 'ADMIN'],
   cajaSimpleRegistrar: ['CAJA', 'GERENCIA', 'ADMIN'],
@@ -40,10 +44,20 @@ const ACTION_PERMISSIONS = Object.freeze({
 /**
  * Crea una sesión autenticada en el servidor vinculada a un rol y dispositivo
  */
-function authCreateSession(requestedRole, deviceId, operator) {
+function authCreateSession(requestedRole, deviceId, operator, credential) {
   const cleanRole = (requestedRole && CONFIG.roles[requestedRole.toUpperCase()]) ? requestedRole.toUpperCase() : 'CAJA';
   const cleanDevice = String(deviceId || 'DEV-ANON').trim();
   const cleanOperator = String(operator || 'Operador').trim();
+  const email = String(Session.getActiveUser().getEmail() || '').toLowerCase();
+  const manager = CONFIG.managers.includes(email);
+  if (!CONFIG.roles[cleanRole] || !deviceId || !operator) throw new Error('AUTH_INPUT_REQUIRED');
+  const secret = PropertiesService.getScriptProperties().getProperty('DOMUS_STATION_SECRET_' + cleanRole);
+  if (!manager) {
+    // A role claim is never an authentication credential. Managers use verified Workspace identity.
+    if (['ADMIN','GERENCIA'].includes(cleanRole) || !secret || String(credential || '') !== secret) {
+      throw new Error('Acceso denegado: autentica la estación con su credencial de servidor.');
+    }
+  }
   const token = 'DOMUS-SES-' + Utilities.getUuid();
   
   const session = {
@@ -72,9 +86,11 @@ function authValidateAction(action, sessionToken, clientClaimedRole, clientDevic
   const allowedRoles = ACTION_PERMISSIONS[action];
   
   // Acciones de consulta abiertas (ping, estado básico)
-  if (!allowedRoles || allowedRoles.length === 0) {
+  if (['health','ping','authCrearSesion'].includes(action)) {
     return { ok: true, role: 'PUBLIC', operator: 'Público', deviceId: clientDeviceId };
   }
+
+  if (!allowedRoles) throw new Error('Acceso denegado: acción no autorizada.');
 
   // 1. Verificar existencia de token de sesión
   if (!sessionToken || typeof sessionToken !== 'string') {
@@ -102,6 +118,7 @@ function authValidateAction(action, sessionToken, clientClaimedRole, clientDevic
     throw new Error('La sesión de la estación ha caducado. Vuelve a iniciar sesión.');
   }
 
+  if (!session.expires || !clientDeviceId || session.deviceId !== clientDeviceId) throw new Error('Sesión inválida para este dispositivo.');
   const serverAssignedRole = session.role;
 
   // 4. Detección de Manipulación en Cliente (Anti-Tampering):
@@ -123,4 +140,12 @@ function authValidateAction(action, sessionToken, clientClaimedRole, clientDevic
     operator: session.operator || 'Operador',
     deviceId: session.deviceId || clientDeviceId || 'DEV-ESTACION'
   };
+}
+
+let _authContext = null;
+function authRequireContext_(action) {
+  if (!_authContext || !(ACTION_PERMISSIONS[action] || []).includes(_authContext.role)) {
+    throw new Error('Acceso denegado: usa el dispatcher autenticado.');
+  }
+  return _authContext;
 }
