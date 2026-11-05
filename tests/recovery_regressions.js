@@ -88,6 +88,8 @@ function setup(){
   return {ctx,main,ops,props,run,login,request,manager:()=>email='direccion@domusccc.net',locks:()=>({held,acquires,releases}),sale:(extra={})=>({id:crypto.randomUUID(),phase:'Solar',customer:'QA',activity:'QA event',paid:true,method:'Efectivo',received:100,expectedTotal:40,items:[{name:'QA drink',sku:'QA-01',qty:1}],...extra})};
 }
 
+module.exports={setup};
+if(require.main===module) {
 test('full financial history: payment at row 4565 clears old account',()=>{
   const t=setup(),c=t.main.getSheetByName('CAJA 2'),p=t.main.getSheetByName('COBROS');
   const cash=Array(32).fill('');Object.assign(cash,{1:'old',4:'QA',6:'QA drink',11:145});c.getRange(7,1,1,32).setValues([cash]);
@@ -235,3 +237,5 @@ test('50 units use chunked durable journal without cell-size overflow or lost re
   assert.equal(t.request('cajaSimpleRegistrar',[s],s.id).receipt,result.receipt);
 });
 console.log(JSON.stringify({suite:'local-real-modules-mocked-services',passed,network:false,production:false,hardware:false}));
+
+}

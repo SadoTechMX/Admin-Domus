@@ -1,3 +1,15 @@
+# Seguimiento de revisión independiente — 5 noviembre 2026
+
+**IMPLEMENTED / LOCAL_TESTED · NO-GO.** Sobre `694737117603d786c5db860f315c23aa51e048df`, se corrigieron los cinco hallazgos: rechazo de fase con evidencia de cero efectos comerciales, propiedad del borrador en ACK directo/en segundo plano, escrituras concurrentes de Outbox, cortesía total autorizada y recuperación de 5xx con código simbólico. UI `20261105-reconcile-02`.
+
+La suite nueva ejecuta 16 casos con funciones cliente/backend reales y servicios simulados. Pasó además una carrera con dos pestañas reales de Chromium, almacenamiento y Web Locks reales, transporte interceptado. Se conservaron las regresiones anteriores. Los tres fallos originales se reprodujeron ejecutando funciones del commit `6947371` antes de verificar la corrección.
+
+**Límites:** Web Locks obligatorio; cerrar pestañas anteriores antes de instalar. Una intención de caja sin resolver bloquea crear otra en el mismo almacenamiento compartido; se conserva el borrador nuevo. Los rechazos antiguos sin evidencia estructurada de cero efectos siguen en revisión. No existe certificación de Sheets/hardware ni despliegue. Detalles, hashes y comandos en [REVIEW_FIXES_20261105.md](REVIEW_FIXES_20261105.md).
+
+---
+
+## Entrega anterior conservada
+
 # Estado de reconciliación aislada — 5 noviembre 2026
 
 **IMPLEMENTED / LOCAL_TESTED · NO-GO para producción.** Rama `repair/reconcile-pr18-main-20261105`, basada en `main` `2b7ba1f4030b1013555b93cb96cfcb594141fdcb`, reconcilia PR #18 `f0c24ea032d72eb2847d62455d866bbf4c3b52a0`. El estado del 30/oct y los despliegues descritos debajo son históricos, no verificados en esta sesión.

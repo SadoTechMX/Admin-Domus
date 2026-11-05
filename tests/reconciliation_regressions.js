@@ -10,15 +10,19 @@ function storage() {
   const data = new Map();
   return {data, getItem:k=>data.get(k) ?? null, setItem:(k,v)=>data.set(k,String(v)), removeItem:k=>data.delete(k)};
 }
-function setup() {
-  const localStorage = storage(), sessionStorage = storage(), calls = [], notices = [];
+function setup(options={}) {
+  const localStorage = options.storage || storage(), sessionStorage = storage(), calls = [], notices = [], cells={};
+  const locks = options.locks || require('./mock_web_locks')();
   const ctx = vm.createContext({console, Date, JSON, Map, Set, Promise, Error, crypto,
-    localStorage, sessionStorage, sessionRequests:new Map(), isOutboxCoreRunning:false,
+    localStorage, sessionStorage, sessionRequests:new Map(), isOutboxCoreRunning:false, outboxStoreHeld_:false, paymentInFlight:false, activePaymentMethod:'Efectivo',
     STATE:{mode:'caja',operator:'Fixture',cart:[],isNativeGas:false,isProductionLocked:false,apiUrl:'https://fixture.invalid'},
     MUTATION_ACTIONS:new Set(['cajaSimpleRegistrar','comandasSimpleAccion','accesoCambiarActividad','cambiarFase']),
     updateSyncPill(){}, updateOutboxUI(){}, notifyOutboxTabs(){}, cacheQuerySnapshot(){},
     toast:(...args)=>notices.push(args), playChime(){}, syncBackendData(){},
-    clearCart(){ctx.STATE.cart=[];}, window:{}, getDeviceId:()=> 'fixture-device',
+    clearCart(){ctx.STATE.cart=[];}, renderActivityDropdown(){}, window:{navigator:{locks}}, getDeviceId:()=> 'fixture-device',
+    $:id=>cells[id]||(cells[id]={value:({customerNameInput:'Fixture',cashReceivedInput:'100',cashTipInput:'0',activitySelect:'QA event'})[id]||'',disabled:false,textContent:'',innerHTML:'',classList:{add(){},remove(){},toggle(){}},focus(){}}),
+    closePaymentModal(){}, showReceiptModal(){}, openCashDrawer_(){}, printReceiptDirect:()=>Promise.resolve(),
+    money:n=>'$'+n,escapeHtml:s=>String(s).replace(/</g,'&lt;'),
     transport_:async payload=>{calls.push(copy(payload));return {ok:true,data:{receipt:'fixture-receipt',paid:true}};}
   });
   function load(name) {
@@ -28,12 +32,13 @@ function setup() {
     vm.runInContext(source.slice(start,end),ctx);
   }
   for (const name of ['isSessionExpiredError','getStationRole','getSessionToken','setSessionToken','clearSessionToken',
-    'ensureSessionToken','authenticatedTransport_','getOutbox','saveOutbox','enqueueOutbox','classifyMutationFailure',
-    'retainConfirmation_','settleConfirmedBasket_','recoverReceipt_','migrateLegacyOutbox_','sincronizarOutboxCore_','callBackend']) load(name);
+    'ensureSessionToken','authenticatedTransport_','getOutbox','withOutboxStore_','saveOutbox','enqueueOutbox','classifyMutationFailure',
+    'retainConfirmation_','saleDraftSnapshot_','settleConfirmedBasket_','recoverReceipt_','migrateLegacyOutbox_','sincronizarOutboxCore_','callBackend','recordOutboxFailure_','calculateCartTotal','confirmPaymentAndDispatch']) load(name);
   ctx.setSessionToken('old-CAJA','CAJA');ctx.setSessionToken('old-BARRA','BARRA');
   const call = (action,args) => new Promise((resolve,reject)=>ctx.callBackend(action,args,resolve,reject));
   const item = (id='fixture-sale') => ({requestId:id,action:'cajaSimpleRegistrar',args:[{id,requestId:id,customer:'Fixture',items:[{sku:'QA',qty:1}],paid:true}],role:'CAJA',deviceId:'fixture-device',operatorId:'Fixture',status:'RETRY'});
-  return {ctx,localStorage,sessionStorage,calls,notices,load,call,item};
+  const seed = queue => ctx.withOutboxStore_(()=>ctx.saveOutbox(queue));
+  return {ctx,localStorage,sessionStorage,calls,notices,cells,load,call,item,seed,run:code=>vm.runInContext(code,ctx)};
 }
 async function main() {
 await test('concurrent login coalesces per role and never shares role tokens',async()=>{
@@ -100,7 +105,7 @@ await test('network uncertainty queues the original operation without an immedia
   assert.equal(t.ctx.getOutbox()[0].requestId,'fixture-sale');assert.equal(t.ctx.getOutbox()[0].status,'RETRY');
 });
 await test('background recovery renews the recorded role and persists receipt before removing intent',async()=>{
-  const t=setup(),item=t.item(),seen=[];t.ctx.STATE.mode='comandas';t.ctx.saveOutbox([item]);
+  const t=setup(),item=t.item(),seen=[];t.ctx.STATE.mode='comandas';await t.seed([item]);
   t.localStorage.setItem('domus_pending_sale',JSON.stringify(item.args[0]));
   t.ctx.transport_=async p=>{seen.push(copy(p));return p.action==='authCrearSesion'?{ok:true,data:{token:'new'}}:p.sessionToken==='old-CAJA'?{ok:false,error:'Sesión inválida o expirada'}:{ok:true,data:{receipt:'recovered',paid:true}};};
   await t.ctx.sincronizarOutboxCore_();assert.equal(t.ctx.getOutbox().length,0);assert.equal(t.localStorage.getItem('domus_pending_sale'),null);
@@ -109,18 +114,18 @@ await test('background recovery renews the recorded role and persists receipt be
   assert.equal(sends[1].requestId,item.requestId);assert.equal(sends[1].deviceId,item.deviceId);
 });
 await test('background success cannot remove a different pending sale or discard a newer basket',async()=>{
-  const t=setup(),item=t.item();t.ctx.saveOutbox([item]);t.localStorage.setItem('domus_pending_sale','{"id":"different"}');
-  t.ctx.STATE.pendingSaleId=item.requestId;t.ctx.STATE.pendingSaleCart='[]';t.ctx.STATE.cart=[{sku:'new'}];
+  const t=setup(),item=t.item();await t.seed([item]);t.localStorage.setItem('domus_pending_sale','{"id":"different"}');
+  t.ctx.STATE.pendingSaleId=item.requestId;t.ctx.STATE.pendingSaleDraft=t.ctx.saleDraftSnapshot_();t.ctx.STATE.cart=[{sku:'new'}];
   await t.ctx.sincronizarOutboxCore_();assert.equal(JSON.parse(t.localStorage.getItem('domus_pending_sale')).id,'different');
   assert.equal(t.ctx.STATE.cart[0].sku,'new');
 });
 await test('background confirmation clears only its unchanged submitted basket',async()=>{
-  const t=setup(),item=t.item();t.ctx.saveOutbox([item]);t.ctx.STATE.cart=item.args[0].items;
-  t.ctx.STATE.pendingSaleId=item.requestId;t.ctx.STATE.pendingSaleCart=JSON.stringify(t.ctx.STATE.cart);
+  const t=setup(),item=t.item();await t.seed([item]);t.ctx.STATE.cart=item.args[0].items;
+  t.ctx.STATE.pendingSaleId=item.requestId;t.ctx.STATE.pendingSaleDraft=t.ctx.saleDraftSnapshot_();
   await t.ctx.sincronizarOutboxCore_();assert.equal(t.ctx.STATE.cart.length,0);
 });
 await test('receipt persistence failure leaves the original intent and queue for review',async()=>{
-  const t=setup(),item=t.item();t.ctx.saveOutbox([item]);t.localStorage.setItem('domus_pending_sale',JSON.stringify(item.args[0]));
+  const t=setup(),item=t.item();await t.seed([item]);t.localStorage.setItem('domus_pending_sale',JSON.stringify(item.args[0]));
   const set=t.localStorage.setItem;t.localStorage.setItem=(key,v)=>{if(key.startsWith('domus_confirmation_'))throw Error('quota');set(key,v);};
   await t.ctx.sincronizarOutboxCore_();assert(t.localStorage.getItem('domus_pending_sale'));assert.equal(t.ctx.getOutbox()[0].status,'REQUIRES_REVIEW');
   assert.equal(t.ctx.getOutbox()[0].requestId,item.requestId);
@@ -132,8 +137,8 @@ await test('receipt can be retrieved from persistent storage without transport, 
   assert.equal(displayed.receipt,'saved');assert.equal(displayed.customer,'Fixture');assert.equal(displayed.items[0].price,40);
 });
 await test('empty-cart account settlement survives the legacy Outbox migration',async()=>{
-  const t=setup(),item=t.item();item.args[0]={id:item.requestId,ticket:'account',paid:true,items:[]};t.ctx.saveOutbox([item]);
-  t.ctx.migrateLegacyOutbox_();assert.equal(t.ctx.getOutbox()[0].status,'RETRY');await t.ctx.sincronizarOutboxCore_();assert.equal(t.ctx.getOutbox().length,0);
+  const t=setup(),item=t.item();item.args[0]={id:item.requestId,ticket:'account',paid:true,items:[]};await t.seed([item]);
+  await t.ctx.migrateLegacyOutbox_();assert.equal(t.ctx.getOutbox()[0].status,'RETRY');await t.ctx.sincronizarOutboxCore_();assert.equal(t.ctx.getOutbox().length,0);
 });
 await test('event change preserves server ACK checks and forbids a success notice for queued change',async()=>{
   const t=setup();t.ctx.STATE.eventsList=[{name:'Fixture event'}];t.ctx.STATE.activeActivity='Previous';
@@ -159,10 +164,11 @@ await test('queued KDS actions never announce confirmed preparation or delivery'
   }
 });
 await test('replaying an existing intention keeps its role and device despite the current view',async()=>{
-  const t=setup(),item=t.item();t.ctx.saveOutbox([item]);t.ctx.STATE.mode='comandas';
+  const t=setup(),item=t.item();await t.seed([item]);t.ctx.STATE.mode='comandas';
   await t.call('cajaSimpleRegistrar',copy(item.args));assert.equal(t.calls[0].role,'CAJA');
   assert.equal(t.calls[0].deviceId,item.deviceId);assert.equal(t.calls[0].requestId,item.requestId);
 });
 console.log(JSON.stringify({suite:'reconciled-client-functions',passed,network:false,liveBackend:false,hardware:false}));
 }
-main().catch(err=>{console.error(err);process.exitCode=1;});
+module.exports={setup,storage,tick,copy};
+if(require.main===module)main().catch(err=>{console.error(err);process.exitCode=1;});

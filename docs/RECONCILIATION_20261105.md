@@ -1,3 +1,5 @@
+> **Superseded for the current candidate by [REVIEW_FIXES_20261105.md](REVIEW_FIXES_20261105.md).** The byte-identity statement and remaining race limitation below describe commit `6947371`; the follow-up changes POS/Idempotency and serializes Outbox writers.
+
 # PR #18 reconciled with current main — 2026-11-05
 
 **IMPLEMENTED / LOCAL_TESTED. NO-GO for production.** No merge, deployment, Apps Script call, real sale, spreadsheet mutation or hardware action was performed. This is an isolated code candidate, not an operational certification.

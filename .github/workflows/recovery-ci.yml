@@ -20,6 +20,7 @@ jobs:
       - run: node tests/recovery_regressions.js
       - run: node tests/client_recovery_regressions.js
       - run: node tests/reconciliation_regressions.js
+      - run: node tests/review_regressions.js
       - run: node tests/test_event_selection.mjs
       - run: node tests/test_access_channel.mjs
       - run: python tests/test_hotfix_v13.py
@@ -30,3 +31,4 @@ jobs:
       - run: npm install --no-save --package-lock=false playwright@1.62.1
       - run: npx playwright install --with-deps chromium
       - run: node tests/browser_local_regressions.js
+      - run: node tests/browser_outbox_concurrency.js

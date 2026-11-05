@@ -5,38 +5,33 @@ function fn(name){const a=source.search(new RegExp('  (?:async )?function '+name
 let passed=0;
 async function test(n,f){await f();passed++;console.log('PASS',n);}
 function setup(){
- const cells={},storage=new Map();let prints=0;
- const ctx=vm.createContext({console,crypto,Date,Math,JSON,Number,String,Array,Set,Map,Error,Promise,
-  localStorage:{getItem:k=>storage.get(k)||null,setItem:(k,v)=>storage.set(k,v),removeItem:k=>storage.delete(k)},
-  STATE:{cart:[{name:'QA',price:40,qty:1,sku:'QA-01'}],openAccounts:[],selectedAccountTicket:'',phase:'Solar',operator:'QA'},
-  $:id=>cells[id]||(cells[id]={value:({customerNameInput:'QA',cashReceivedInput:'100',cashTipInput:'0',activitySelect:'QA event'})[id]||'',disabled:false,textContent:'',innerHTML:'',classList:{add(){},remove(){},toggle(){}},focus(){}}),
-  activePaymentMethod:'Efectivo',paymentInFlight:false,MUTATION_ACTIONS:new Set(['cajaSimpleRegistrar']),
-  calculateCartTotal:()=>40,toast(){},closePaymentModal(){},playChime(){},showReceiptModal(){},printReceiptDirect:()=>{prints++;return Promise.resolve({});},
-  clearCart(){},syncBackendData(){},getDeviceId:()=> 'device',getStationRole:()=> 'CAJA',getSessionToken:()=> 'session-placeholder',
-  ensureSessionToken:()=>Promise.resolve(),updateSyncPill(){},updateOutboxUI(){},notifyOutboxTabs(){},cacheQuerySnapshot(){},
-  callBackend(){},money:n=>'$'+n,escapeHtml:s=>String(s).replace(/</g,'&lt;')
- });
- return {ctx,cells,storage,prints:()=>prints,load:n=>vm.runInContext(fn(n),ctx),run:s=>vm.runInContext(s,ctx)};
+ const t=require('./reconciliation_regressions').setup();let prints=0;
+ t.ctx.STATE.cart=[{name:'QA',price:40,qty:1,sku:'QA-01'}];t.ctx.STATE.openAccounts=[];
+ t.ctx.STATE.selectedAccountTicket='';t.ctx.STATE.phase='Solar';t.ctx.STATE.operator='QA';
+ t.ctx.printReceiptDirect=()=>{prints++;return Promise.resolve({});};
+ t.ctx.ensureSessionToken=()=>Promise.resolve();t.ctx.getSessionToken=()=> 'session-placeholder';
+ return {...t,storage:t.localStorage.data,prints:()=>prints};
 }
 async function main(){
-await test('empty cart cannot create a new sale, but existing account settlement is allowed',()=>{
+await test('empty cart cannot create a new sale, but existing account settlement is allowed',async()=>{
  const t=setup();let calls=0;t.ctx.callBackend=()=>calls++;t.ctx.STATE.cart=[];t.load('confirmPaymentAndDispatch');
- t.run('confirmPaymentAndDispatch(true)');assert.equal(calls,0);
- t.ctx.STATE.selectedAccountTicket='old-account';t.run('confirmPaymentAndDispatch(true)');assert.equal(calls,1);
+ await t.run('confirmPaymentAndDispatch(true)');assert.equal(calls,0);
+ t.ctx.STATE.selectedAccountTicket='old-account';await t.run('confirmPaymentAndDispatch(true)');assert.equal(calls,1);
 });
-await test('double click before backend response produces exactly one request',()=>{
+await test('double click before backend response produces exactly one request',async()=>{
  const t=setup();let calls=0;t.ctx.callBackend=()=>calls++;t.load('confirmPaymentAndDispatch');
- t.run('confirmPaymentAndDispatch(true);confirmPaymentAndDispatch(true)');assert.equal(calls,1);
+ await Promise.all([t.run('confirmPaymentAndDispatch(true)'),t.run('confirmPaymentAndDispatch(true)')]);assert.equal(calls,1);
  assert(t.storage.get('domus_pending_sale'));
 });
-await test('queued operation is not a confirmed receipt or automatic print',()=>{
+await test('queued operation is not a confirmed receipt or automatic print',async()=>{
  const t=setup();let receipts=0;t.ctx.showReceiptModal=()=>receipts++;t.ctx.callBackend=(_,__,success)=>success({localOutbox:true,paid:false});
- t.load('confirmPaymentAndDispatch');t.run('confirmPaymentAndDispatch(true)');assert.equal(receipts,0);assert.equal(t.prints(),0);assert(t.storage.has('domus_pending_sale'));
+ t.load('confirmPaymentAndDispatch');await t.run('confirmPaymentAndDispatch(true)');assert.equal(receipts,0);assert.equal(t.prints(),0);assert(t.storage.has('domus_pending_sale'));
 });
-await test('retry after refresh retains original payload and request ID',()=>{
+await test('a second Cobrar never silently replays an unresolved original sale',async()=>{
  const t=setup();let payloads=[];t.ctx.callBackend=(_,args,ok)=>{payloads.push(JSON.parse(JSON.stringify(args[0])));ok({localOutbox:true});};
- t.load('confirmPaymentAndDispatch');t.run('confirmPaymentAndDispatch(true)');t.ctx.STATE.cart=[];t.cells.cashReceivedInput.value='999';t.run('confirmPaymentAndDispatch(true)');
- assert.equal(payloads.length,2);assert.deepEqual(payloads[0],payloads[1]);
+ await t.run('confirmPaymentAndDispatch(true)');const saved=t.storage.get('domus_pending_sale');
+ t.ctx.STATE.cart=[{sku:'NEW',price:50,qty:2}];t.cells.cashReceivedInput.value='999';await t.run('confirmPaymentAndDispatch(true)');
+ assert.equal(payloads.length,1);assert.equal(t.storage.get('domus_pending_sale'),saved);assert.equal(t.ctx.STATE.cart[0].sku,'NEW');
 });
 await test('confirmed transfer receipt is visibly pending, never verified from method alone',()=>{
  const t=setup();t.load('showReceiptModal');t.ctx.receipt={receipt:'r',ticket:'t',customer:'QA',items:[],total:40,paid:false,method:'Transferencia',verified:false};t.run('showReceiptModal(receipt)');

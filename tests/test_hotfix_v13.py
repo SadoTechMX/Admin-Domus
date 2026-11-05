@@ -71,8 +71,8 @@ def run_suite():
     retry_match = re.search(r"(?:bindEvent\('btnOutboxRetry',\s*'click'|btnRetryOutbox\.addEventListener\('click')[\s\S]*?\}\);", js_content)
     assert retry_match, "No se encontró el event listener de btnOutboxRetry"
     retry_block = retry_match.group(0)
-    assert "it.status === 'RETRY' || it.status === 'LOCAL_PENDING'" in retry_block, "El botón debe filtrar solo RETRY o LOCAL_PENDING"
-    assert "it.status = 'RETRY'" in retry_block, "Debe actualizar estado a RETRY para los seleccionados"
+    assert "processOutbox()" in retry_block, "El botón debe delegar al sincronizador con bloqueo"
+    assert "saveOutbox" not in retry_block, "El botón no debe reescribir snapshots de la cola"
     # Verificar que NO hay asignación incondicional a toda la cola
     assert "getOutbox().map(it => {\n          it.status = 'RETRY';" not in retry_block, "No debe resetear incondicionalmente toda la cola"
     print("✅ TEST 4 PASS: El botón de reintento jamás toca registros en REQUIRES_REVIEW o CONFIRMED.")
@@ -141,8 +141,8 @@ def run_suite():
     # Test 11: CONFIRMED no se vuelve a enviar
     # --------------------------------------------------------------------------
     print("\n[Test 11] Operaciones CONFIRMED son retiradas de la cola pendiente y no se reenvían...")
-    assert "queue.filter(it => it.status === 'LOCAL_PENDING' || it.status === 'RETRY')" in js_content, "pendingItems debe incluir solo LOCAL_PENDING o RETRY"
-    assert "saveOutbox(getOutbox().map(q => q.requestId === item.requestId ? item : q));" in js_content, "La clasificación del error directo debe persistirse en Outbox"
+    assert "queue.find(it => it.status === 'LOCAL_PENDING' || it.status === 'RETRY')" in js_content, "pendingItems debe incluir solo LOCAL_PENDING o RETRY"
+    subprocess.run(['node', 'tests/review_regressions.js'], check=True, capture_output=True, text=True)
     assert "if (onError) onError(err);" in js_content, "Un error determinista no debe ejecutar la ruta de éxito"
     print("✅ TEST 11 PASS: CONFIRMED no se reenvía y REQUIRES_REVIEW persiste sin falso éxito.")
     passed += 1

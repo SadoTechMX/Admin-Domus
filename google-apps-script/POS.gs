@@ -119,7 +119,11 @@ function cajaSimpleRegistrarCore_(p) {
   schemaColumns_(sCaja, ['CUENTA AUTOMÁTICA','Producto','TOTAL','PAGADO','SALDO','Preparación / entrega']);
   schemaColumns_(sComandas, ['Registro de sincronización','PREPARACIÓN / ENTREGA']);
   const phase = String(sCaja.getRange('F2').getValue());
-  if (!['Solar','Lunar'].includes(phase) || p.phase !== phase) throw new Error('Cambió la carta. Actualiza antes de cobrar.');
+  if (!['Solar','Lunar'].includes(phase) || p.phase !== phase) {
+    // This point is before journal preparation and all sale/payment/inventory effects.
+    const err = new Error('Cambió la carta. Actualiza antes de cobrar.');
+    err.code = 'SALE_PHASE_CHANGED_NO_EFFECTS'; err.status = 422; throw err;
+  }
   const who = _authContext.operator;
   const canCourtesy = ['ADMIN','GERENCIA'].includes(_authContext.role);
   const ticket = String(p.ticket || ('CTA-' + Utilities.getUuid())).trim();
@@ -130,13 +134,14 @@ function cajaSimpleRegistrarCore_(p) {
   if (!units.length && (!p.ticket || !p.paid)) throw new Error('Pedido vacío.');
   const added = posRound_(units.reduce((n,u) => n + (u.courtesy ? 0 : u.price),0));
   const due = posRound_(Math.max(0, oldBalance.due) + added);
-  if (p.paid && due <= 0.01) throw new Error('Cuenta sin saldo pendiente. No repetir cobro.');
+  const freeCourtesy = !p.ticket && units.length > 0 && units.every(u => u.courtesy) && canCourtesy && due === 0;
+  if (p.paid && due <= 0.01 && !freeCourtesy) throw new Error('Cuenta sin saldo pendiente. No repetir cobro.');
   if (!p.paid && !['Amigo','Creador de proyecto'].includes(p.credit)) throw new Error('Autorización de crédito requerida.');
-  const method = String(p.method || '');
-  const math = p.paid ? posPaymentMath_(due, method, p.received, p.tip) : {sale:0,tip:0,received:null,change:null};
+  const method = freeCourtesy ? 'Cortesía' : String(p.method || '');
+  const math = p.paid && !freeCourtesy ? posPaymentMath_(due, method, p.received, p.tip) : {sale:0,tip:0,received:null,change:null};
   if (p.paid && p.expectedTotal != null && Math.abs(Number(p.expectedTotal)-due)>0.01) throw new Error('Saldo cambió. Actualiza la cuenta antes de confirmar.');
-  const pending = !!p.paid && method === 'Transferencia';
-  const confirmed = !!p.paid && !pending;
+  const pending = !!p.paid && !freeCourtesy && method === 'Transferencia';
+  const confirmed = !!p.paid && !pending && !freeCourtesy;
   const customer = String(p.ticket ? oldBalance.rows[0][4] : p.customer || 'Público General').trim();
   const activity = String(p.ticket ? oldBalance.rows[0][3] : p.activity || 'Visita general DOMUS');
   const rows = dataRows_(sCaja,7,32);
@@ -156,12 +161,12 @@ function cajaSimpleRegistrarCore_(p) {
     writes.push(...cashFormulaWrites_(sCaja,row));
     const item = {id:'U-'+row,row:row,ticket:ticket,batch:p.id,alias:customer,product:u.name,
       sku:u.sku,qty:1,notes:u.notes,destination:u.destination,sent:now.toISOString(),
-      state:'Pendiente',credit:!confirmed,incident:'',responsible:''};
+      state:'Pendiente',credit:!(confirmed || freeCourtesy),incident:'',responsible:''};
     const com = {1:'U-'+row,2:ticket,3:now,4:u.destination,5:u.name,6:1,7:u.notes,8:'Recibida',13:JSON.stringify(item)};
     Object.keys(com).forEach(c => writes.push(cellWrite_(sComandas,row,Number(c),com[c])));
   });
   let receipt = '';
-  if (p.paid) {
+  if (p.paid && !freeCourtesy) {
     receipt = 'REC-'+Utilities.getUuid();
     writes.push(...paymentWrites_(sCobros, {
       folio:receipt, origin:'Caja',ticket:ticket, method:method,amount:due,tag:'CAJA-RAPIDA:'+p.id,
@@ -169,10 +174,10 @@ function cajaSimpleRegistrarCore_(p) {
     }));
   }
   const result = {ok:true,ticket:ticket,receipt:receipt,paid:confirmed,verified:confirmed,
-    paymentStatus:pending?'PENDIENTE_VERIFICACION':(confirmed?'CONFIRMADA':'CUENTA_ABIERTA'),
+    paymentStatus:freeCourtesy?'CORTESIA_AUTORIZADA':pending?'PENDIENTE_VERIFICACION':(confirmed?'CONFIRMADA':'CUENTA_ABIERTA'),
     method:method,total:due,customer:customer,received:math.received,tip:math.tip,change:math.change,
     items: units.map(u=>({name:u.name,qty:1,price:u.courtesy?0:u.price})),
-    message:pending?'PAGO POR TRANSFERENCIA PENDIENTE DE VERIFICACIÓN':(confirmed?'Cobro confirmado.':'Pedido enviado a cuenta abierta.')};
+    message:freeCourtesy?'Cortesía autorizada. Pedido enviado sin cobro.':pending?'PAGO POR TRANSFERENCIA PENDIENTE DE VERIFICACIÓN':(confirmed?'Cobro confirmado.':'Pedido enviado a cuenta abierta.')};
   return journalCommit_(p.id,'cajaSimpleRegistrar',m,writes,result);
 }
 

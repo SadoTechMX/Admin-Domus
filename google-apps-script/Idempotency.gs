@@ -186,6 +186,10 @@ function idempotentExecute_(requestId, action, payload, deviceId, fn) {
         prior.status = REQUEST_STATUS.COMPLETED; prior.response = resumed;
         prior.completedAt = new Date().toISOString(); saveRequestRecord_(prior, m); return resumed;
       }
+      if (prior.response && prior.response.code === 'SALE_PHASE_CHANGED_NO_EFFECTS') {
+        const err = new Error(prior.response.error);
+        err.code = prior.response.code; err.status = 422; throw err;
+      }
       // Old code may have written effects before FAILED. Never rerun it blindly.
       const err = new Error('IDEMPOTENCY_REQUIRES_REVIEW: intención previa sin plan recuperable.');
       err.status = 409; err.code = 'IDEMPOTENCY_REQUIRES_REVIEW'; throw err;
@@ -199,7 +203,7 @@ function idempotentExecute_(requestId, action, payload, deviceId, fn) {
       record.completedAt = new Date().toISOString(); saveRequestRecord_(record, m); return result;
     } catch (err) {
       record.status = REQUEST_STATUS.REQUIRES_REVIEW;
-      record.response = {error: String(err.message || err)};
+      record.response = {error: String(err.message || err), code: err.code || '', status: err.status || 500};
       record.completedAt = new Date().toISOString(); saveRequestRecord_(record, m); throw err;
     }
   });
