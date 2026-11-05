@@ -28,7 +28,7 @@ async function main(){
    else if(action==='health')data={environment:'STAGING',mainSheetId:'114VSwo3bXyn_audh1LHr4qqjW5aSDSTP_bR_-Iz5dkg',opsSheetId:'1NDpuyx6EfCHcoKW9CZ6pwR0oe2JS0aKpTTMa7RdqmlE'};
    else if(action==='cajaSimpleDatos')data={phase:'Solar',products:[],accounts:[],activities:['QA event'],staff:['QA']};
    else if(action==='cajaSimpleRegistrar'){
-    calls.push(body.requestId);await new Promise(resolve=>pending.set(body.requestId,async json=>{await route.fulfill({json});resolve();}));return;
+    calls.push(body);await new Promise(resolve=>pending.set(body.requestId,async json=>{pending.delete(body.requestId);await route.fulfill({json});resolve();}));return;
    }
    return route.fulfill({json:{ok:true,data}});
   });
@@ -47,17 +47,22 @@ async function main(){
   assert.deepEqual((await a.evaluate(()=>window.__review.getOutbox().map(q=>q.requestId))).sort(),['A','B']);
   await pending.get('A')({ok:true,data:{receipt:'ACK-A'}});await first;
   const third=a.evaluate(()=>window.__review.call('C'));await waitForRequest('C');
-  await pending.get('B')({ok:false,status:503,code:'SERVER_ERROR',error:'Unavailable'});assert((await second).localOutbox);
+  await pending.get('B')({ok:false,status:500,code:'SERVER_ERROR',error:'INJECTED_WRITE_FAILURE'});assert((await second).localOutbox);
   assert.deepEqual((await b.evaluate(()=>window.__review.getOutbox().map(q=>q.requestId))).sort(),['B','C']);
   await pending.get('C')({ok:true,data:{receipt:'ACK-C'}});await third;
   assert.deepEqual(await a.evaluate(()=>window.__review.getOutbox().map(q=>[q.requestId,q.status])),[['B','RETRY']]);
-  assert.deepEqual(calls.sort(),['A','B','C']);
+  assert.deepEqual(calls.map(p=>p.requestId).sort(),['A','B','C']);
   await b.reload();await b.waitForFunction(()=>window.__review);
   const recovered=await b.evaluate(()=>({a:JSON.parse(localStorage.getItem('domus_confirmation_A')).data.receipt,c:JSON.parse(localStorage.getItem('domus_confirmation_C')).data.receipt,ids:window.__review.getOutbox().map(q=>q.requestId)}));
   assert.equal(recovered.a,'ACK-A');assert.equal(recovered.c,'ACK-C');assert.deepEqual(recovered.ids,['B']);
-  // Reload may start a same-ID background recovery; resolve intercepted work before closing.
-  if(pending.has('B'))await pending.get('B')({ok:false,status:503,code:'SERVER_ERROR',error:'Unavailable'}).catch(()=>{});
-  console.log(JSON.stringify({suite:'real-chromium-two-tab-outbox',passed:1,assertions:'enqueue + ACK + failure + reload',liveBackend:false,hardware:false,productionWrites:0}));
+  // Require actual post-reload recovery, not merely visibility before migration finishes.
+  await waitForRequest('B');
+  const bRequests=calls.filter(p=>p.requestId==='B');assert.equal(bRequests.length,2);
+  assert.deepEqual(bRequests[0].args,bRequests[1].args);assert.equal(bRequests[0].deviceId,bRequests[1].deviceId);
+  await pending.get('B')({ok:true,data:{receipt:'ACK-B'}});
+  await b.waitForFunction(()=>window.__review.getOutbox().length===0);
+  assert.equal(await b.evaluate(()=>JSON.parse(localStorage.getItem('domus_confirmation_B')).data.receipt),'ACK-B');
+  console.log(JSON.stringify({suite:'real-chromium-two-tab-outbox',passed:1,assertions:'enqueue + ACK + failure + reload + same-ID recovery',liveBackend:false,hardware:false,productionWrites:0}));
   await context.close();
  }finally{await browser.close();await new Promise(r=>server.close(r));}
 }

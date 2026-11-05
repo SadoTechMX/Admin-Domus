@@ -128,18 +128,18 @@ function cajaSimpleRegistrarCore_(p) {
   const canCourtesy = ['ADMIN','GERENCIA'].includes(_authContext.role);
   const ticket = String(p.ticket || ('CTA-' + Utilities.getUuid())).trim();
   const oldBalance = p.ticket ? posBalanceFast_({m:m,c:sCaja}, ticket) : {total:0,paid:0,due:0,rows:[]};
-  if (p.ticket && !oldBalance.rows.length) throw new Error('Cuenta no encontrada.');
+  if (p.ticket && !oldBalance.rows.length) throw posValidationError_('Cuenta no encontrada.');
   const cat = dataRows_(m.getSheetByName('CATALOGO'), 7, 20);
   const units = p.items && p.items.length ? posExpandCart_(p.items, cat, phase, canCourtesy) : [];
-  if (!units.length && (!p.ticket || !p.paid)) throw new Error('Pedido vacío.');
+  if (!units.length && (!p.ticket || !p.paid)) throw posValidationError_('Pedido vacío.');
   const added = posRound_(units.reduce((n,u) => n + (u.courtesy ? 0 : u.price),0));
   const due = posRound_(Math.max(0, oldBalance.due) + added);
   const freeCourtesy = !p.ticket && units.length > 0 && units.every(u => u.courtesy) && canCourtesy && due === 0;
-  if (p.paid && due <= 0.01 && !freeCourtesy) throw new Error('Cuenta sin saldo pendiente. No repetir cobro.');
-  if (!p.paid && !['Amigo','Creador de proyecto'].includes(p.credit)) throw new Error('Autorización de crédito requerida.');
+  if (p.paid && due <= 0.01 && !freeCourtesy) throw posValidationError_('Cuenta sin saldo pendiente. No repetir cobro.');
+  if (!p.paid && !['Amigo','Creador de proyecto'].includes(p.credit)) throw posValidationError_('Autorización de crédito requerida.');
   const method = freeCourtesy ? 'Cortesía' : String(p.method || '');
   const math = p.paid && !freeCourtesy ? posPaymentMath_(due, method, p.received, p.tip) : {sale:0,tip:0,received:null,change:null};
-  if (p.paid && p.expectedTotal != null && Math.abs(Number(p.expectedTotal)-due)>0.01) throw new Error('Saldo cambió. Actualiza la cuenta antes de confirmar.');
+  if (p.paid && p.expectedTotal != null && Math.abs(Number(p.expectedTotal)-due)>0.01) throw posValidationError_('Saldo cambió. Actualiza la cuenta antes de confirmar.');
   const pending = !!p.paid && !freeCourtesy && method === 'Transferencia';
   const confirmed = !!p.paid && !pending && !freeCourtesy;
   const customer = String(p.ticket ? oldBalance.rows[0][4] : p.customer || 'Público General').trim();
@@ -227,45 +227,53 @@ function posCatalogRows_(cat) {
   return Array.from(rows.values());
 }
 
+// Use only at explicit validation checks before journal preparation/business writes.
+// Never wrap journalResume_, journalCommit_, Sheets failures or unknown exceptions.
+function posValidationError_(message) {
+  const err = new Error(message);
+  err.code = 'SALE_VALIDATION_REJECTED_NO_EFFECTS'; err.status = 422;
+  return err;
+}
+
 function posPaymentMath_(due, method, received, tip) {
   due = posRound_(due);
-  if (!Number.isFinite(due) || due < 0) throw new Error('Saldo inválido.');
+  if (!Number.isFinite(due) || due < 0) throw posValidationError_('Saldo inválido.');
   if (!['Efectivo', 'Terminal 1', 'Terminal 2', 'Transferencia'].includes(method)) {
-    throw new Error('Elige un medio de pago válido.');
+    throw posValidationError_('Elige un medio de pago válido.');
   }
   if (method !== 'Efectivo') {
     return { sale: due, received: null, tip: 0, change: null };
   }
   if (received === '' || received === null || received === undefined || !Number.isFinite(Number(received))) {
-    throw new Error('Escribe el efectivo recibido.');
+    throw posValidationError_('Escribe el efectivo recibido.');
   }
   received = posRound_(received);
   tip = posRound_(tip || 0);
   if (!Number.isFinite(tip) || tip < 0 || received < 0) {
-    throw new Error('Revisa el efectivo recibido y la propina.');
+    throw posValidationError_('Revisa el efectivo recibido y la propina.');
   }
   if (received + 0.001 < due + tip) {
-    throw new Error('Efectivo insuficiente: faltan $' + posRound_(due + tip - received).toFixed(2) + '.');
+    throw posValidationError_('Efectivo insuficiente: faltan $' + posRound_(due + tip - received).toFixed(2) + '.');
   }
   return { sale: due, received: received, tip: tip, change: posRound_(received - due - tip) };
 }
 
 function posExpandCart_(items, cat, phase, canCourtesy) {
-  if (!Array.isArray(items) || !items.length) throw new Error('Pedido vacío o inválido.');
+  if (!Array.isArray(items) || !items.length) throw posValidationError_('Pedido vacío o inválido.');
   const units = [];
   const catalogRows = posCatalogRows_(cat);
 
   for (const item of items) {
-    if (!item || typeof item !== 'object') throw new Error('Producto inválido.');
+    if (!item || typeof item !== 'object') throw posValidationError_('Producto inválido.');
     const matches = catalogRows.filter(r => item.sku ? String(r[6]) === String(item.sku) : r[0] === item.name);
-    if (matches.length !== 1) throw new Error('PRODUCT_NOT_FOUND: referencia inexistente, inactiva o ambigua.');
+    if (matches.length !== 1) throw posValidationError_('PRODUCT_NOT_FOUND: referencia inexistente, inactiva o ambigua.');
     const c = matches[0];
     const rawPrice = c[15] ? c[phase === 'Solar' ? 16 : 17] : c[2];
     const price = Number(rawPrice);
     const qty = Number(item.qty);
-    if (rawPrice === '' || rawPrice == null || !Number.isFinite(price) || price < 0) throw new Error('Precio de catálogo inválido.');
-    if (!Number.isInteger(qty) || qty < 1 || qty > 20) throw new Error('Cantidad debe ser entera entre 1 y 20.');
-    if (item.courtesy && !canCourtesy) throw new Error('Acceso denegado: cortesía requiere Gerencia.');
+    if (rawPrice === '' || rawPrice == null || !Number.isFinite(price) || price < 0) throw posValidationError_('Precio de catálogo inválido.');
+    if (!Number.isInteger(qty) || qty < 1 || qty > 20) throw posValidationError_('Cantidad debe ser entera entre 1 y 20.');
+    if (item.courtesy && !canCourtesy) throw posValidationError_('Acceso denegado: cortesía requiere Gerencia.');
 
     for (let j = 0; j < qty; j++) {
       units.push({
@@ -282,6 +290,6 @@ function posExpandCart_(items, cat, phase, canCourtesy) {
       });
     }
   }
-  if (units.length > 50) throw new Error('Máximo 50 unidades por operación.');
+  if (units.length > 50) throw posValidationError_('Máximo 50 unidades por operación.');
   return units;
 }

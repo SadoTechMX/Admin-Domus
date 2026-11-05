@@ -1,3 +1,13 @@
+# Recarga y rechazos sin efectos — 5 noviembre 2026
+
+**IMPLEMENTED / LOCAL_TESTED · NO-GO.** Sobre `53bfa61a63796edcae8d1dcee0263bd6186d3a0d`, la migración conserva código y estado HTTP del error: un journal parcial con SERVER_ERROR/500 mantiene RETRY al recargar y se recupera con el mismo ID/cuerpo. Los rechazos explícitos de validación de Caja previos al journal, incluidos precio/saldo cambiados, quedan documentados como REJECTED/422 y permiten un borrador corregido bajo un ID nuevo. Fallos inciertos y rechazos históricos sin evidencia siguen bloqueados. UI `20261105-reconcile-03`.
+
+Pasaron 8 nuevos casos con código real y servicios simulados, la carrera de dos pestañas Chromium reforzada con recuperación efectiva después de recarga y las regresiones anteriores. Evidencia, comandos, hash y límites en [RELOAD_REJECTION_FIXES_20261105.md](RELOAD_REJECTION_FIXES_20261105.md). Sin fusión, despliegue, datos reales ni certificación operativa; apertura de PR sigue bloqueada por la revisión automática anterior.
+
+---
+
+## Entrega anterior conservada
+
 # Seguimiento de revisión independiente — 5 noviembre 2026
 
 **IMPLEMENTED / LOCAL_TESTED · NO-GO.** Sobre `694737117603d786c5db860f315c23aa51e048df`, se corrigieron los cinco hallazgos: rechazo de fase con evidencia de cero efectos comerciales, propiedad del borrador en ACK directo/en segundo plano, escrituras concurrentes de Outbox, cortesía total autorizada y recuperación de 5xx con código simbólico. UI `20261105-reconcile-02`.

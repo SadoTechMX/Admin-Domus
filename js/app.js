@@ -34,7 +34,7 @@
   window.DOMUS_BUILD = {
     baseCommit: '2b7ba1f4030b1013555b93cb96cfcb594141fdcb',
     buildId: 'repair-reconcile-20261105',
-    ui: '20261105-reconcile-02',
+    ui: '20261105-reconcile-03',
     environment: isProductionLocked ? 'PRODUCTION' : 'STAGING'
   };
 
@@ -2604,11 +2604,18 @@ const DEFAULT_CATALOG = [
     });
   }
 
+  function isSaleRejectionWithoutEffects_(action, error) {
+    // Only explicit server validation outcomes authorize a replacement intention.
+    // Neither Spanish error text nor a generic 4xx/5xx proves absence of effects.
+    return action === 'cajaSimpleRegistrar' && Number(error.status) === 422 &&
+      ['SALE_PHASE_CHANGED_NO_EFFECTS', 'SALE_VALIDATION_REJECTED_NO_EFFECTS'].includes(error.code);
+  }
+
   /**
    * Clasificador centralizado de fallos de mutación (Issue #1):
    * - 'REQUIRES_REVIEW': Errores deterministas, validación, negocio, permisos, 409 idempotencia, datos incorrectos.
    *   JAMÁS deben reintentarse automáticamente ni por el botón de reintento.
-   * - 'RETRY': Errores estrictamente transitorios (red, timeout, 502/503/504).
+   * - 'RETRY': Errores estrictamente transitorios (red, timeout, 5xx).
    */
   function classifyMutationFailure(error) {
     if (!error) return 'RETRY';
@@ -2683,16 +2690,16 @@ const DEFAULT_CATALOG = [
         }
         const updatedQueue = queue.map(item => {
           if (item.status === 'LOCAL_PENDING' || item.status === 'RETRY') {
-            const err = item.lastError || '';
+            const err = {message:item.lastError || '', code:item.errorCode, status:item.errorStatus};
             const body = item.args && item.args[0];
             const hasEmptyItems = item.action === 'cajaSimpleRegistrar' && (!body || ((!body.items || !body.items.length) && !(body.ticket && body.paid)));
-            const hasRecordedError = String(err).trim().length > 0;
+            const hasRecordedError = String(err.message).trim().length > 0 || !!err.code || !!err.status;
             const isDeterministic = hasEmptyItems || (hasRecordedError && classifyMutationFailure(err) === 'REQUIRES_REVIEW');
 
             if (isDeterministic) {
-              console.warn(`[OUTBOX MIGRATION v13] Migrando item determinista a REQUIRES_REVIEW: ${item.requestId} (${err || 'Empty items'})`);
+              console.warn(`[OUTBOX MIGRATION v13] Migrando item determinista a REQUIRES_REVIEW: ${item.requestId} (${err.message || 'Empty items'})`);
               item.status = 'REQUIRES_REVIEW';
-              item.quarantineReason = err || 'v13: Operación previa vacía o con error determinista';
+              item.quarantineReason = err.message || 'v13: Operación previa vacía o con error determinista';
               item.quarantinedAt = new Date().toISOString();
               modified = true;
             }
@@ -2888,7 +2895,7 @@ const DEFAULT_CATALOG = [
 
   async function recordOutboxFailure_(item, err) {
     await withOutboxStore_(() => {
-      item.status = item.action === 'cajaSimpleRegistrar' && err.code === 'SALE_PHASE_CHANGED_NO_EFFECTS'
+      item.status = isSaleRejectionWithoutEffects_(item.action, err)
         ? 'REJECTED' : item.action === 'accesoCambiarActividad' ? 'REQUIRES_REVIEW' : classifyMutationFailure(err);
       item.lastError=err.message || String(err); item.errorCode=err.code || ''; item.errorStatus=err.status || 0;
       saveOutbox(getOutbox().map(q=>q.requestId===item.requestId?{...q,status:item.status,lastError:item.lastError,errorCode:item.errorCode,errorStatus:item.errorStatus}:q));
@@ -3694,7 +3701,8 @@ const DEFAULT_CATALOG = [
         if (saved) {
           const id = saved.requestId || saved.id;
           const prior = getOutbox().find(q => q.requestId === id);
-          const rejected = prior && prior.status === 'REJECTED' && prior.errorCode === 'SALE_PHASE_CHANGED_NO_EFFECTS';
+          const rejected = prior && prior.status === 'REJECTED' &&
+            isSaleRejectionWithoutEffects_(prior.action, {code:prior.errorCode, status:prior.errorStatus});
           if (!rejected && !localStorage.getItem('domus_confirmation_' + id)) {
             throw new Error('Hay una operación sin resolver. Usa Reintentar Outbox o revisa su ID antes de crear otra venta. El pedido actual se conserva.');
           }

@@ -186,7 +186,8 @@ function idempotentExecute_(requestId, action, payload, deviceId, fn) {
         prior.status = REQUEST_STATUS.COMPLETED; prior.response = resumed;
         prior.completedAt = new Date().toISOString(); saveRequestRecord_(prior, m); return resumed;
       }
-      if (prior.response && prior.response.code === 'SALE_PHASE_CHANGED_NO_EFFECTS') {
+      if (action === 'cajaSimpleRegistrar' && prior.response && Number(prior.response.status) === 422 &&
+          ['SALE_PHASE_CHANGED_NO_EFFECTS', 'SALE_VALIDATION_REJECTED_NO_EFFECTS'].includes(prior.response.code)) {
         const err = new Error(prior.response.error);
         err.code = prior.response.code; err.status = 422; throw err;
       }

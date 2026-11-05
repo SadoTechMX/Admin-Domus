@@ -1,5 +1,7 @@
 # 🤝 DOMUS OS · AI HANDOFF PROTOCOL (Punto Canónico de Entrada)
 
+> **Reload/rejection follow-up, 2026-11-05:** Read `docs/RELOAD_REJECTION_FIXES_20261105.md`. UI `20261105-reconcile-03` fixes 5xx recovery across reload and permits replacement only for explicit pre-effect POS validation outcomes. Eight new real-source/mock tests and strengthened real-browser reload coverage pass. Old unproven quarantines stay blocked. Still LOCAL_TESTED / NO-GO; no deployment or live data operations.
+
 > **Review follow-up, 2026-11-05:** See `docs/REVIEW_FIXES_20261105.md` and ADR-006 before using the earlier candidate. UI `20261105-reconcile-02` fixes rejected-intent handling, draft ownership, all Outbox writers, total courtesy and 5xx recovery. It requires Web Locks; old tabs must be closed before any later installation. Still LOCAL_TESTED / NO-GO.
 
 > **2026-11-05 isolated reconciliation:** Read `docs/RECONCILIATION_20261105.md` first. Candidate combines current main `2b7ba1f` with PR #18 `f0c24ea` in a separate branch. LOCAL_TESTED only; no merge, deployment, live Sheets or hardware checks. Earlier deployment observations below are historical.

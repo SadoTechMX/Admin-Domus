@@ -1,5 +1,7 @@
 # Independent review follow-up — 2026-11-05
 
+> Superseded in part by [RELOAD_REJECTION_FIXES_20261105.md](RELOAD_REJECTION_FIXES_20261105.md): this revision's 5xx proof omitted reload, which exposed a migration regression. The later revision adds recovery across reload and explicit no-effects rejection for additional POS validation guards. The content below records the earlier delivery.
+
 **IMPLEMENTED / LOCAL_TESTED. NO-GO for production.** Isolated branch `repair/reconcile-pr18-main-20261105`, follow-up to `694737117603d786c5db860f315c23aa51e048df`. No merge, deployment, live Apps Script/Sheets call, real sale or physical-device action.
 
 ## Findings, fixes and proof
