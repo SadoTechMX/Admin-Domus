@@ -1,5 +1,7 @@
 # Registro de boletaje externo y entrega de ticket — 5 noviembre 2026, Ciudad de México
 
+> Seguimiento: [cinco decisiones operativas con opciones y trabajo preparado](DECISIONES_OPERATIVAS_20261105.md). Data/Events quedan bajo edición de root según coordinación posterior; la reserva amplia indicada al final de esta entrega es histórica. IDE sí entregó después revisión estática acotada del recibo de 739; Gemini aún no aporta dictamen exacto válido. No confundir esas revisiones con validación en producción.
+
 **IMPLEMENTED / LOCAL_TESTED. No instalado ni certificado.** Continúa la misma rama `repair/reconcile-pr18-main-20261105`, sobre `c718ae10ff93f680aa8bc28445ed3e8159bf3821`. UI `20261106-registration-08`; hashes exactos de fuentes y artefactos en `release-manifest.json`. Ninguna consulta o escritura a Google, venta real, PR, merge o despliegue en este tramo.
 
 ## Alcance vigente
