@@ -1,5 +1,7 @@
 # 🤝 DOMUS OS · AI HANDOFF PROTOCOL (Punto Canónico de Entrada)
 
+> **Decisiones de apertura preparadas (5 noviembre, Ciudad de México):** [CAJA_DECISIONES_MINIMAS_20261105.md](CAJA_DECISIONES_MINIMAS_20261105.md) separa tres decisiones de alcance para Steven de los gates técnicos y del contrato de Accesos/Eventos. Es una propuesta, no aprobación ni configuración aplicada. Código operativo permanece en `69aeb07`; no hubo nuevas pruebas, consultas remotas ni despliegue.
+
 > **Canonical header evidence received, 2026-11-05 Mexico City:** Read `docs/ACTIVITY_CANONICAL35_20261105.md`. Exact 35 names and the existing IDE review are now available. Canonical reads use U for raw status and distinct Area/Project, never percentage as capacity. New event/admission/selection mutations and event-journal replay fail closed with ACTIVITY_POLICY_REQUIRED until the owner defines lifecycle/agreement/share/capacity policy. 20 schema cases pass locally. No new remote reads/audits, production changes or installation.
 
 > **Activity-schema follow-up, 2026-11-05 Mexico City:** Read `docs/ACTIVITY_SCHEMA_GUARDS_20261105.md`. One editor in the existing repair branch; Access/Events/Data and client guards are locally tested (12 new regressions). Unknown production 35-column schema stays BLOCKED until the complete existing header evidence and IDE review are received. Synthetic negative fixture is not production parity. No Google lookup/write, new engine, PR, merge or deployment. Do not infer capacity/status or replay unbound old event journals.

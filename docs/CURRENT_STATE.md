@@ -1,5 +1,7 @@
 # ACTIVIDADES canónica: encabezados recibidos — 5 noviembre 2026 (Ciudad de México)
 
+> **Decisiones de apertura preparadas (5 noviembre, Ciudad de México):** [CAJA_DECISIONES_MINIMAS_20261105.md](CAJA_DECISIONES_MINIMAS_20261105.md) separa tres decisiones de alcance para Steven de los gates técnicos y del contrato de Accesos/Eventos. Es una propuesta, no aprobación ni configuración aplicada. Código operativo permanece en `69aeb07`; no hubo nuevas pruebas, consultas remotas ni despliegue.
+
 **IMPLEMENTED / LOCAL_TESTED; reglas operativas pendientes.** Se recibió la lista completa A6:AI6 y la revisión de IDE ya realizada sobre 28b2. Se reconoce y lee el perfil de 35 columnas: estado en U, Área/Proyecto separados, aforo null. Nuevas altas/selección/admisión y replay de eventos permanecen bloqueados por `ACTIVITY_POLICY_REQUIRED` hasta definir estados, acuerdos, reparto y aforo. No se adoptaron ejemplos del revisor como reglas. 20 casos de esquema y regresiones relevantes pasan localmente; no hubo consultas remotas nuevas ni datos reales. [Mapa, pruebas y decisiones pendientes](ACTIVITY_CANONICAL35_20261105.md). Candidata no instalada.
 
 ---
