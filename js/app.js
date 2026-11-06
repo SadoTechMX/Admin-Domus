@@ -34,7 +34,7 @@
   window.DOMUS_BUILD = {
     baseCommit: '2b7ba1f4030b1013555b93cb96cfcb594141fdcb',
     buildId: 'repair-reconcile-20261105',
-    ui: '20261105-reconcile-03',
+    ui: '20261106-master-04',
     environment: isProductionLocked ? 'PRODUCTION' : 'STAGING'
   };
 
@@ -2357,6 +2357,17 @@ const DEFAULT_CATALOG = [
 
   const sessionRequests = new Map();
   ['cambiarFase','solicitarResurtido','editarAcceso','anularAcceso'].forEach(a=>MUTATION_ACTIONS.add(a));
+  function validateBackendResponse_(response) {
+    if (!response || typeof response !== 'object' || Array.isArray(response) || typeof response.ok !== 'boolean' ||
+        (response.ok && (response.data === undefined || response.data === null))) {
+      // Missing acknowledgement is uncertainty, including after a committed payment.
+      // Keep its original ID/body for recovery; never clear the draft or invent success.
+      const err = new Error('Respuesta incompleta del servidor. La operación sigue sin confirmar; recupera el mismo ID.');
+      err.code = 'TRANSPORT_INVALID_RESPONSE'; err.status = 502; throw err;
+    }
+    return response;
+  }
+
   async function transport_(payload) {
     if(MUTATION_ACTIONS.has(payload.action)) {
       const health=await transport_({action:'health',args:[],role:payload.role,deviceId:payload.deviceId});
@@ -2369,10 +2380,14 @@ const DEFAULT_CATALOG = [
       }
     }
     if (STATE.isNativeGas && window.google && google.script && google.script.run) {
-      return new Promise((resolve, reject) => google.script.run.withSuccessHandler(resolve).withFailureHandler(reject).dispatchNativeAction(payload));
+      const result = await new Promise((resolve, reject) => google.script.run.withSuccessHandler(resolve).withFailureHandler(reject).dispatchNativeAction(payload));
+      return validateBackendResponse_(result);
     }
     const response = await fetch(STATE.apiUrl, {method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body:JSON.stringify(payload)});
-    return response.json();
+    let result;
+    try { result = await response.json(); }
+    catch (_) { return validateBackendResponse_(null); }
+    return validateBackendResponse_(result);
   }
 
   function requestStationSecret_(role) {

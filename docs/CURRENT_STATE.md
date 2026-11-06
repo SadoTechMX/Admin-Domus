@@ -1,3 +1,13 @@
+# App maestra: comunicación e integración — 6 noviembre 2026
+
+**IMPLEMENTED / LOCAL_TESTED · backend instalado sin identificar.** Continúa la misma candidata POS legado, sin otro motor de ensayo. UI `20261106-master-04` conserva ID/cuerpo/carrito ante respuestas nulas, JSON inválido o confirmaciones sin datos, tanto nativas como REST; recupera el recibo original después de recargar. Pasaron 9 casos nuevos y las regresiones de cliente/navegador relevantes. Backend fuente sin cambios respecto a `0ea79ee`.
+
+La coincidencia comunicada del frontend publicado con main **no verifica el backend Apps Script desplegado**. El JS público muestra UI `20261029-06` y el endpoint oficial; su GET health actual declara PRODUCTION y los dos libros esperados, pero no expone build ni versión. ARIADNA coteja proyecto/versión por lectura. No hubo instalación en maestra, merge, deployment ni datos reales. La inspección privada mediante TinyFish fue denegada por revisión automática y no se reintentó; apertura de PR sigue detenida. Estado, pasos mínimos y evidencia en [MASTER_INTEGRATION_20261106.md](MASTER_INTEGRATION_20261106.md).
+
+---
+
+## Entrega anterior conservada
+
 # Recarga y rechazos sin efectos — 5 noviembre 2026
 
 **IMPLEMENTED / LOCAL_TESTED · NO-GO.** Sobre `53bfa61a63796edcae8d1dcee0263bd6186d3a0d`, la migración conserva código y estado HTTP del error: un journal parcial con SERVER_ERROR/500 mantiene RETRY al recargar y se recupera con el mismo ID/cuerpo. Los rechazos explícitos de validación de Caja previos al journal, incluidos precio/saldo cambiados, quedan documentados como REJECTED/422 y permiten un borrador corregido bajo un ID nuevo. Fallos inciertos y rechazos históricos sin evidencia siguen bloqueados. UI `20261105-reconcile-03`.

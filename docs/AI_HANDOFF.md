@@ -1,5 +1,7 @@
 # 🤝 DOMUS OS · AI HANDOFF PROTOCOL (Punto Canónico de Entrada)
 
+> **Master-app focus, 2026-11-06:** Read `docs/MASTER_INTEGRATION_20261106.md`. Continue the same legacy POS candidate; never copy the rehearsal's IntegratedStore into the master. Published frontend/main correspondence does not identify the deployed backend. ARIADNA owns that read-only identity check. UI `20261106-master-04` now preserves recovery on malformed/native/REST acknowledgements. No master installation, merge or deployment occurred.
+
 > **Reload/rejection follow-up, 2026-11-05:** Read `docs/RELOAD_REJECTION_FIXES_20261105.md`. UI `20261105-reconcile-03` fixes 5xx recovery across reload and permits replacement only for explicit pre-effect POS validation outcomes. Eight new real-source/mock tests and strengthened real-browser reload coverage pass. Old unproven quarantines stay blocked. Still LOCAL_TESTED / NO-GO; no deployment or live data operations.
 
 > **Review follow-up, 2026-11-05:** See `docs/REVIEW_FIXES_20261105.md` and ADR-006 before using the earlier candidate. UI `20261105-reconcile-02` fixes rejected-intent handling, draft ownership, all Outbox writers, total courtesy and 5xx recovery. It requires Web Locks; old tabs must be closed before any later installation. Still LOCAL_TESTED / NO-GO.
