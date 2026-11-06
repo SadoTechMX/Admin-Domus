@@ -1,0 +1,184 @@
+{
+  "candidateSha": "3f29bdc6b39e364c579c2eb6e2cfd925659537a8",
+  "workflow": "Recovery regressions (isolated fixtures)",
+  "run": {
+    "id": 42170253917,
+    "url": "https://github.com/SadoTechMX/Admin-Domus/actions/runs/42170253917",
+    "status": "completed",
+    "conclusion": "success",
+    "completedAt": "2026-11-06T05:55:24Z"
+  },
+  "jobs": [
+    {
+      "id": 127736148888,
+      "name": "isolated-regressions",
+      "status": "completed",
+      "conclusion": "success",
+      "completedAt": "2026-11-06T05:55:23Z",
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/checkout@v4",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/setup-node@v4",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/setup-python@v5",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run python scripts/build_release.py --check",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run node tests/recovery_regressions.js",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run node tests/client_recovery_regressions.js",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run node tests/reconciliation_regressions.js",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run node tests/review_regressions.js",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run node tests/reload_rejection_regressions.js",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run node tests/master_transport_regressions.js",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run node tests/legacy_cutover_regressions.js",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run node tests/activity_schema_regressions.js",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run node tests/external_registration_regressions.js",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run node tests/receipt_delivery_regressions.js",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run node tests/transfer_review_regressions.js",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run node tests/test_event_selection.mjs",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run node tests/test_access_channel.mjs",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run python tests/test_hotfix_v13.py",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run python tests/test_kds_v14.py",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run python tests/bridge_recovery_regressions.py",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run python tests/test_write_guardrails.py",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run python tests/test_staging_harness_safety.py",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run npm install --no-save --package-lock=false playwright@1.62.1",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run npx playwright install --with-deps chromium",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run node tests/browser_local_regressions.js",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run node tests/browser_outbox_concurrency.js",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run node tests/browser_transfer_review.js",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/setup-python@v5",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/setup-node@v4",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/checkout@v4",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success"
+        }
+      ]
+    }
+  ],
+  "scope": "Isolated fixtures and intercepted browser transport; no live bank, Google Sheets, hardware or production validation.",
+  "codeChangedInThisFollowup": false
+}
