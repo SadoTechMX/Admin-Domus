@@ -32,9 +32,9 @@ async function main(){
    else if(action==='accesoSimpleDatos')data={activeActivity:'QA event',activities:[{name:'QA event',date:'2026-10-30',status:'Confirmado',type:'Fiesta',priceGeneral:100,pricePareja:180,priceTrio:250,priceGuardarropa:20,ticketTypes:[{id:'General',name:'General',price:100,persons:1}]}],recentAccess:[],metrics:{totalAttendance:0}};
    else if(action==='cajaSimpleRegistrar'){
     chargeCalls++;chargeBodies.push(body);await new Promise(r=>setTimeout(r,100));const p=body.args[0];
-    data={ticket:'FIXTURE-ACCOUNT',receipt:'FIXTURE-RECEIPT',paid:p.method!=='Transferencia',verified:p.method!=='Transferencia',method:p.method,paymentStatus:p.method==='Transferencia'?'PENDIENTE_VERIFICACION':'CONFIRMADA',total:40,customer:'QA',items:[{name:'QA drink',price:40,qty:1}],received:100,tip:0,change:60};
+    data={ok:true,ticket:'FIXTURE-ACCOUNT',receipt:'FIXTURE-RECEIPT',paid:p.method!=='Transferencia',verified:p.method!=='Transferencia',method:p.method,paymentStatus:p.method==='Transferencia'?'PENDIENTE_VERIFICACION':'CONFIRMADA',total:40,customer:'QA',items:[{name:'QA drink',price:40,qty:1}],received:100,tip:0,change:60};
    }else data={ok:true,message:'Fixture response'};
-   return route.fulfill({json:{ok:true,data}});
+   return route.fulfill({json:{ok:true,data,requestId:body.requestId}});
   });
   await page.goto('http://127.0.0.1:'+port+'/?env=staging&vista=caja');
   try {await page.waitForFunction(()=>document.body.textContent.includes('QA drink'));}

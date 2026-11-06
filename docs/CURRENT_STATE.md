@@ -1,3 +1,13 @@
+# ACK de cobro y transición desde el legado — 6 noviembre 2026
+
+**IMPLEMENTED / LOCAL_TESTED · integración bloqueada.** Sobre `28b2de4`, UI `20261106-master-05` valida el resultado de cobro y su ID, no sólo el sobre. ACK vacío/incompleto o de otra intención conserva carrito/Outbox/ID y se recupera tras recarga; cuenta abierta, cortesía cero y transferencia mantienen sus contratos. 13 pruebas de transporte y 9 de transición histórica pasan. Se bloquean IDs con evidencia previa sin vínculo durable en REQUESTS, sin migrar ni inventar recibos. Backend fuente `19639ee1…89ee`.
+
+Coordinación confirmó deployment productivo V16 y que Código.gs actual del editor coincide con `acb47f6` (SHA-256 `0940cf65…2fcb2`); falta vincular exportación inmutable V16/HTML. **ACTIVIDADES 35 columnas es incompatible con lecturas/escrituras posicionales de Access/Events; integración sigue bloqueada.** Encabezados de inventario/recetas/insumos/resurtido sí coinciden, sin verificar stock/fórmulas. La candidata no está instalada. No hubo PR, merge, deployment ni datos reales. [Pruebas, delta mínimo y reversión](MASTER_INTEGRATION_20261106.md).
+
+---
+
+## Entrega anterior conservada
+
 # App maestra: comunicación e integración — 6 noviembre 2026
 
 **IMPLEMENTED / LOCAL_TESTED · backend instalado sin identificar.** Continúa la misma candidata POS legado, sin otro motor de ensayo. UI `20261106-master-04` conserva ID/cuerpo/carrito ante respuestas nulas, JSON inválido o confirmaciones sin datos, tanto nativas como REST; recupera el recibo original después de recargar. Pasaron 9 casos nuevos y las regresiones de cliente/navegador relevantes. Backend fuente sin cambios respecto a `0ea79ee`.

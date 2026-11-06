@@ -3470,7 +3470,7 @@ html, body {
 
         <!-- Build Version Footer -->
         <footer class="app-version-footer" style="text-align: center; font-size: 0.72rem; color: var(--text-muted, #71717a); padding: 8px 16px; border-top: 1px solid rgba(255,255,255,0.05); user-select: none;">
-          <span id="domusBuildLabel">DOMUS OS · UI 20261106-master-04 · PRODUCTION</span>
+          <span id="domusBuildLabel">DOMUS OS · UI 20261106-master-05 · PRODUCTION</span>
         </footer>
 
         <!-- Toast Container -->
@@ -3513,7 +3513,7 @@ html, body {
   window.DOMUS_BUILD = {
     baseCommit: '2b7ba1f4030b1013555b93cb96cfcb594141fdcb',
     buildId: 'repair-reconcile-20261105',
-    ui: '20261106-master-04',
+    ui: '20261106-master-05',
     environment: isProductionLocked ? 'PRODUCTION' : 'STAGING'
   };
 
@@ -5836,9 +5836,34 @@ const DEFAULT_CATALOG = [
 
   const sessionRequests = new Map();
   ['cambiarFase','solicitarResurtido','editarAcceso','anularAcceso'].forEach(a=>MUTATION_ACTIONS.add(a));
-  function validateBackendResponse_(response) {
+  function validSaleResult_(result, intention) {
+    if (!result || typeof result !== 'object' || Array.isArray(result) || result.ok !== true ||
+        typeof result.ticket !== 'string' || !result.ticket.trim() ||
+        (intention.ticket && result.ticket !== intention.ticket) ||
+        typeof result.total !== 'number' || !Number.isFinite(result.total) || result.total < 0 ||
+        (intention.paid === true && intention.expectedTotal != null &&
+          (!Number.isFinite(Number(intention.expectedTotal)) || Math.abs(result.total - Number(intention.expectedTotal)) > 0.01))) return false;
+    const receipt = typeof result.receipt === 'string' && result.receipt.trim().length > 0;
+    if (result.paymentStatus === 'CORTESIA_AUTORIZADA') {
+      return !intention.ticket && Array.isArray(intention.items) && intention.items.length > 0 && intention.items.every(i => i && i.courtesy === true) &&
+        result.total === 0 && result.paid === false && result.verified === false && result.receipt === '' && result.method === 'Cortesía';
+    }
+    if (intention.paid === false) {
+      return result.paymentStatus === 'CUENTA_ABIERTA' && result.paid === false && result.verified === false && result.receipt === '' && result.method === '';
+    }
+    if (intention.paid !== true || !receipt || result.total <= 0.01 || result.method !== intention.method) return false;
+    if (intention.method === 'Transferencia') {
+      return result.paymentStatus === 'PENDIENTE_VERIFICACION' && result.paid === false && result.verified === false;
+    }
+    return ['Efectivo','Terminal 1','Terminal 2'].includes(intention.method) &&
+      result.paymentStatus === 'CONFIRMADA' && result.paid === true && result.verified === true;
+  }
+
+  function validateBackendResponse_(response, payload) {
     if (!response || typeof response !== 'object' || Array.isArray(response) || typeof response.ok !== 'boolean' ||
-        (response.ok && (response.data === undefined || response.data === null))) {
+        (response.ok && (response.data === undefined || response.data === null)) ||
+        (response.ok && payload && payload.action === 'cajaSimpleRegistrar' &&
+          (!payload.requestId || response.requestId !== payload.requestId || !validSaleResult_(response.data, payload.args && payload.args[0] || {})))) {
       // Missing acknowledgement is uncertainty, including after a committed payment.
       // Keep its original ID/body for recovery; never clear the draft or invent success.
       const err = new Error('Respuesta incompleta del servidor. La operación sigue sin confirmar; recupera el mismo ID.');
@@ -5860,13 +5885,13 @@ const DEFAULT_CATALOG = [
     }
     if (STATE.isNativeGas && window.google && google.script && google.script.run) {
       const result = await new Promise((resolve, reject) => google.script.run.withSuccessHandler(resolve).withFailureHandler(reject).dispatchNativeAction(payload));
-      return validateBackendResponse_(result);
+      return validateBackendResponse_(result, payload);
     }
     const response = await fetch(STATE.apiUrl, {method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body:JSON.stringify(payload)});
     let result;
     try { result = await response.json(); }
-    catch (_) { return validateBackendResponse_(null); }
-    return validateBackendResponse_(result);
+    catch (_) { return validateBackendResponse_(null, payload); }
+    return validateBackendResponse_(result, payload);
   }
 
   function requestStationSecret_(role) {

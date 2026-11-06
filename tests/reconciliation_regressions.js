@@ -32,7 +32,7 @@ function setup(options={}) {
     vm.runInContext(source.slice(start,end),ctx);
   }
   for (const name of ['isSessionExpiredError','getStationRole','getSessionToken','setSessionToken','clearSessionToken',
-    'ensureSessionToken','authenticatedTransport_','validateBackendResponse_','getOutbox','withOutboxStore_','saveOutbox','enqueueOutbox','isSaleRejectionWithoutEffects_','classifyMutationFailure',
+    'ensureSessionToken','authenticatedTransport_','validSaleResult_','validateBackendResponse_','getOutbox','withOutboxStore_','saveOutbox','enqueueOutbox','isSaleRejectionWithoutEffects_','classifyMutationFailure',
     'retainConfirmation_','saleDraftSnapshot_','settleConfirmedBasket_','recoverReceipt_','migrateLegacyOutbox_','sincronizarOutboxCore_','callBackend','recordOutboxFailure_','calculateCartTotal','confirmPaymentAndDispatch']) load(name);
   ctx.setSessionToken('old-CAJA','CAJA');ctx.setSessionToken('old-BARRA','BARRA');
   const call = (action,args) => new Promise((resolve,reject)=>ctx.callBackend(action,args,resolve,reject));
@@ -67,12 +67,12 @@ for(const native of [false,true]) await test((native?'native':'REST')+' read and
       if(p.action==='health')return {ok:true,data:{environment:'STAGING',mainSheetId:'114VSwo3bXyn_audh1LHr4qqjW5aSDSTP_bR_-Iz5dkg',opsSheetId:'1NDpuyx6EfCHcoKW9CZ6pwR0oe2JS0aKpTTMa7RdqmlE'}};
       if(p.action==='authCrearSesion')return {ok:true,data:{token:'new-CAJA'}};
       t.ctx.STATE.mode='comandas';
-      return p.sessionToken==='old-CAJA'?{ok:false,status:401,error:'Sesión inválida o expirada'}:{ok:true,data:{receipt:'receipt'}};
+      return p.sessionToken==='old-CAJA'?{ok:false,status:401,error:'Sesión inválida o expirada'}:{ok:true,requestId:p.requestId,data:{ok:true,ticket:'CTA-fixture',receipt:'receipt',paid:true,verified:true,paymentStatus:'CONFIRMADA',method:'Efectivo',total:40}};
     };
     t.ctx.fetch=async(_,opts)=>({json:()=>response(JSON.parse(opts.body))});
     t.ctx.google={script:{run:{withSuccessHandler:success=>({withFailureHandler:failure=>({dispatchNativeAction:p=>response(p).then(success,failure)})})}}};
     t.ctx.window.google=t.ctx.google;
-    const body={id:'stable-id',items:[{sku:'QA',qty:1}]};const promise=t.call(action,[body]);body.items[0].qty=999;
+    const body={id:'stable-id',items:[{sku:'QA',qty:1}],paid:true,method:'Efectivo'};const promise=t.call(action,[body]);body.items[0].qty=999;
     assert.equal((await promise).receipt,'receipt');
     const sends=seen.filter(p=>p.action===action);assert.equal(sends.length,2);
     const {sessionToken:a,...first}=sends[0],{sessionToken:b,...second}=sends[1];

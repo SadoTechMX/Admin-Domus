@@ -4,7 +4,7 @@ const {chromium}=require('playwright'),http=require('http'),fs=require('fs'),pat
 const root=path.resolve(__dirname,'..');
 const source=fs.readFileSync(path.join(root,'js/app.js'),'utf8');
 const exposed=source.slice(0,source.lastIndexOf('})();'))+`
-window.__review={getOutbox,STATE,call:(id)=>new Promise((resolve,reject)=>callBackend('cajaSimpleRegistrar',[{id,items:[{sku:'QA',qty:1}]}],resolve,reject))};
+window.__review={getOutbox,STATE,call:(id)=>new Promise((resolve,reject)=>callBackend('cajaSimpleRegistrar',[{id,items:[{sku:'QA',qty:1}],paid:true,method:'Efectivo',expectedTotal:40,received:100}],resolve,reject))};
 })();`;
 const server=http.createServer((req,res)=>{
  const pathname=new URL(req.url,'http://localhost').pathname;
@@ -13,6 +13,7 @@ const server=http.createServer((req,res)=>{
  try {res.setHeader('Content-Type',file.endsWith('.js')?'text/javascript':file.endsWith('.css')?'text/css':'text/html');res.end(pathname==='/js/app.js'?exposed:fs.readFileSync(file));}catch{res.writeHead(404).end();}
 });
 async function main(){
+ const saleAck=id=>({ok:true,requestId:id,data:{ok:true,ticket:'CTA-'+id,receipt:'ACK-'+id,paid:true,verified:true,paymentStatus:'CONFIRMADA',total:40,method:'Efectivo'}});
  await new Promise(r=>server.listen(0,'127.0.0.1',r));const port=server.address().port;
  const browser=await chromium.launch({headless:true,...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE?{executablePath:process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE}:{})});
  try {
@@ -45,11 +46,11 @@ async function main(){
   const waitForRequest=async id=>{for(let i=0;i<100&&!pending.has(id);i++)await new Promise(r=>setTimeout(r,10));assert(pending.has(id),id);};
   await waitForRequest('A');await waitForRequest('B');
   assert.deepEqual((await a.evaluate(()=>window.__review.getOutbox().map(q=>q.requestId))).sort(),['A','B']);
-  await pending.get('A')({ok:true,data:{receipt:'ACK-A'}});await first;
+  await pending.get('A')(saleAck('A'));await first;
   const third=a.evaluate(()=>window.__review.call('C'));await waitForRequest('C');
   await pending.get('B')({ok:false,status:500,code:'SERVER_ERROR',error:'INJECTED_WRITE_FAILURE'});assert((await second).localOutbox);
   assert.deepEqual((await b.evaluate(()=>window.__review.getOutbox().map(q=>q.requestId))).sort(),['B','C']);
-  await pending.get('C')({ok:true,data:{receipt:'ACK-C'}});await third;
+  await pending.get('C')(saleAck('C'));await third;
   assert.deepEqual(await a.evaluate(()=>window.__review.getOutbox().map(q=>[q.requestId,q.status])),[['B','RETRY']]);
   assert.deepEqual(calls.map(p=>p.requestId).sort(),['A','B','C']);
   await b.reload();await b.waitForFunction(()=>window.__review);
@@ -59,7 +60,7 @@ async function main(){
   await waitForRequest('B');
   const bRequests=calls.filter(p=>p.requestId==='B');assert.equal(bRequests.length,2);
   assert.deepEqual(bRequests[0].args,bRequests[1].args);assert.equal(bRequests[0].deviceId,bRequests[1].deviceId);
-  await pending.get('B')({ok:true,data:{receipt:'ACK-B'}});
+  await pending.get('B')(saleAck('B'));
   await b.waitForFunction(()=>window.__review.getOutbox().length===0);
   assert.equal(await b.evaluate(()=>JSON.parse(localStorage.getItem('domus_confirmation_B')).data.receipt),'ACK-B');
   console.log(JSON.stringify({suite:'real-chromium-two-tab-outbox',passed:1,assertions:'enqueue + ACK + failure + reload + same-ID recovery',liveBackend:false,hardware:false,productionWrites:0}));
