@@ -1,3 +1,11 @@
+# ACTIVIDADES canónica: encabezados recibidos — 5 noviembre 2026 (Ciudad de México)
+
+**IMPLEMENTED / LOCAL_TESTED; reglas operativas pendientes.** Se recibió la lista completa A6:AI6 y la revisión de IDE ya realizada sobre 28b2. Se reconoce y lee el perfil de 35 columnas: estado en U, Área/Proyecto separados, aforo null. Nuevas altas/selección/admisión y replay de eventos permanecen bloqueados por `ACTIVITY_POLICY_REQUIRED` hasta definir estados, acuerdos, reparto y aforo. No se adoptaron ejemplos del revisor como reglas. 20 casos de esquema y regresiones relevantes pasan localmente; no hubo consultas remotas nuevas ni datos reales. [Mapa, pruebas y decisiones pendientes](ACTIVITY_CANONICAL35_20261105.md). Candidata no instalada.
+
+---
+
+## Entrega anterior conservada
+
 # Guardas de ACTIVIDADES — 5 noviembre 2026 (Ciudad de México)
 
 **IMPLEMENTED / LOCAL_TESTED; contrato productivo de 35 columnas pendiente.** Access/Events dejan de usar índices para el esquema legado y fallan cerrado ante encabezados ambiguos o sin mapa. La recuperación de eventos verifica el vínculo entre columnas y encabezados antes de continuar. La UI no inventa éxito ni cambia el evento activo cuando crear evento falla. 12 regresiones nuevas pasan; aún falta recibir desde coordinación los 35 encabezados exactos y el texto íntegro de IDE ya obtenidos. No se releyó Google ni se definieron reglas de aforo/estados por inferencia. [Cambios, pruebas y límite](ACTIVITY_SCHEMA_GUARDS_20261105.md). Candidata no instalada.

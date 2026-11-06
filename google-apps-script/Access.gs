@@ -41,13 +41,15 @@ function accesoSimpleDatos() {
   const props = PropertiesService.getScriptProperties();
 
   // 1. Obtener actividades / eventos y sus tipos de boletos
-  const rawActs = activityRows_(activitySchema_(sAct));
+  const activitySchema=activitySchema_(sAct);
+  const policyPending=activitySchema.kind==='canonical35';
+  const rawActs = activityRows_(activitySchema);
   const activities = [];
   rawActs.forEach(r => {
     if (r.name) {
-      const pGen = typeof r.priceGeneral === 'number' ? r.priceGeneral : (parseFloat(r.priceGeneral) || 0);
-      const pPar = typeof r.pricePareja === 'number' ? r.pricePareja : (parseFloat(r.pricePareja) || 0);
-      const pTrio = typeof r.priceTrio === 'number' ? r.priceTrio : (parseFloat(r.priceTrio) || 0);
+      const pGen = policyPending ? activityCanonicalAmount_(r.priceGeneral) : typeof r.priceGeneral === 'number' ? r.priceGeneral : (parseFloat(r.priceGeneral) || 0);
+      const pPar = policyPending ? activityCanonicalAmount_(r.pricePareja) : typeof r.pricePareja === 'number' ? r.pricePareja : (parseFloat(r.pricePareja) || 0);
+      const pTrio = policyPending ? activityCanonicalAmount_(r.priceTrio) : typeof r.priceTrio === 'number' ? r.priceTrio : (parseFloat(r.priceTrio) || 0);
       let pGua = 50;
       if (typeof r.priceGuardarropa === 'number') {
         pGua = r.priceGuardarropa;
@@ -56,10 +58,12 @@ function accesoSimpleDatos() {
         pGua = isNaN(parsed) ? 50 : parsed;
       }
 
+      if(policyPending)pGua=activityCanonicalAmount_(r.priceGuardarropa);
+
       // Tipos de boletos del evento, tomados del campo Notas por nombre.
       let customTicketTypes = [];
       try {
-        if (r.notes && String(r.notes).trim().startsWith('[')) {
+        if (!policyPending && r.notes && String(r.notes).trim().startsWith('[')) {
           customTicketTypes = JSON.parse(r.notes);
         }
       } catch (e) {}
@@ -74,8 +78,12 @@ function accesoSimpleDatos() {
       activities.push({
         name: String(r.name),
         date: r.date instanceof Date ? Utilities.formatDate(r.date, 'America/Mexico_City', 'yyyy-MM-dd') : String(r.date || ''),
-        type: String(r.type || 'CLUB_NOCTURNO'),
-        organizer: String(r.organizer || 'DOMUS'),
+        type: policyPending ? '' : String(r.type || 'CLUB_NOCTURNO'),
+        organizer: policyPending ? '' : String(r.organizer || 'DOMUS'),
+        area: String(r.area || ''),
+        project: String(r.project || ''),
+        schemaKind: activitySchema.kind,
+        policyPending: policyPending,
         priceGeneral: pGen,
         pricePareja: pPar,
         priceTrio: pTrio,
@@ -90,7 +98,7 @@ function accesoSimpleDatos() {
   // Actividad activa configurada
   const settings=m.getSheetByName('DOMUS_SETTINGS');
   let activeActivity = (settings && settings.getRange(1,2).getValue()) || props.getProperty('actividadAcceso') || '';
-  if (!activeActivity && activities.length > 0) {
+  if (!policyPending && !activeActivity && activities.length > 0) {
     activeActivity = activities[0].name;
   }
 
@@ -168,6 +176,7 @@ function accesoSimpleDatos() {
 
   return {
     activeActivity: activeActivity,
+    activityPolicyPending: policyPending,
     activities: activities,
     recentAccess: recentAccess,
     metrics: {

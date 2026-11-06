@@ -34,7 +34,7 @@
   window.DOMUS_BUILD = {
     baseCommit: '2b7ba1f4030b1013555b93cb96cfcb594141fdcb',
     buildId: 'repair-reconcile-20261105',
-    ui: '20261106-activities-06',
+    ui: '20261106-activities-07',
     environment: isProductionLocked ? 'PRODUCTION' : 'STAGING'
   };
 
@@ -80,6 +80,7 @@
     eventChangePending: false,
     eventChangeRevision: 0,
     eventsList: [],
+    activityPolicyPending: false,
     recentAccessList: [],
     accessSelectedType: 'General',
     accessWardrobeQty: 0,
@@ -3259,7 +3260,8 @@ const DEFAULT_CATALOG = [
       const eventReadRevision = STATE.eventChangeRevision;
       callBackend('accesoSimpleDatos', [], data => {
         if (STATE.eventChangePending || eventReadRevision !== STATE.eventChangeRevision) return;
-        if (data.activities && data.activities.length) {
+        STATE.activityPolicyPending = data.activityPolicyPending === true;
+        if (Array.isArray(data.activities) && (data.activities.length || STATE.activityPolicyPending)) {
           STATE.eventsList = data.activities;
         }
         // REGLA DE ORO DE GOBERNANZA:
@@ -3268,6 +3270,8 @@ const DEFAULT_CATALOG = [
         if (data.activeActivity) {
           STATE.activeActivity = data.activeActivity;
           localStorage.setItem('domus_active_event', data.activeActivity);
+        } else if (STATE.activityPolicyPending) {
+          STATE.activeActivity = '';
         } else if (!STATE.activeActivity) {
           const forza = (STATE.eventsList || []).find(e => e.name && e.name.includes('Forza'));
           STATE.activeActivity = forza ? forza.name : (STATE.eventsList[0] ? STATE.eventsList[0].name : 'Forza · sábado');
@@ -4325,6 +4329,7 @@ const DEFAULT_CATALOG = [
 
   function getActiveEvent() {
     let ev = (STATE.eventsList || []).find(e => e.name === STATE.activeActivity);
+    if (!ev && STATE.activityPolicyPending) return {name:'',capacity:null,status:'',ticketTypes:[],policyPending:true};
     if (!ev) {
       // Priorizar evento nocturno de jornada en curso (Forza) antes de saltar al siguiente día
       ev = (STATE.eventsList || []).find(e => e.name && e.name.includes('Forza'));
@@ -4366,7 +4371,8 @@ const DEFAULT_CATALOG = [
 
     const btnConfirm = $('btnConfirmAccess');
     if (btnConfirm) {
-      btnConfirm.disabled = isRegisteringAccess;
+      btnConfirm.disabled = isRegisteringAccess || STATE.activityPolicyPending === true;
+      btnConfirm.title = STATE.activityPolicyPending ? 'Contrato operativo de eventos pendiente de definición.' : '';
       btnConfirm.onclick = () => confirmAccessAndRegister();
     }
   }
@@ -4374,8 +4380,10 @@ const DEFAULT_CATALOG = [
   function renderAccessActivitySelector() {
     const select = $('accessActivitySelect');
     if (!select) return;
+    select.disabled = STATE.activityPolicyPending === true;
 
     if (!STATE.eventsList || STATE.eventsList.length === 0) {
+      if(STATE.activityPolicyPending){select.innerHTML='<option value="">Sin eventos disponibles</option>';return;}
       STATE.eventsList = [...DEFAULT_EVENTS];
     }
 
@@ -4729,6 +4737,10 @@ const DEFAULT_CATALOG = [
   let isRegisteringAccess = false;
 
   function confirmAccessAndRegister() {
+    if (STATE.activityPolicyPending) {
+      toast('Contrato operativo de eventos pendiente de definición por Dirección.', 'warn');
+      return;
+    }
     if (STATE.eventChangePending) {
       toast('Espera la confirmación del evento antes de registrar accesos.', 'warn');
       return;
@@ -5066,26 +5078,31 @@ const DEFAULT_CATALOG = [
     if (!tbody) return;
 
     if (!STATE.eventsList || STATE.eventsList.length === 0) {
+      if(STATE.activityPolicyPending){tbody.innerHTML='<tr><td colspan="8">Sin eventos disponibles. Contrato operativo pendiente.</td></tr>';return;}
       STATE.eventsList = [...DEFAULT_EVENTS];
     }
 
     tbody.innerHTML = STATE.eventsList.map(ev => {
       const isActive = ev.name === STATE.activeActivity;
+      const canonical=ev.schemaKind==='canonical35';
+      const description=canonical ? `Área: ${ev.area || 'Sin dato'} · Proyecto: ${ev.project || 'Sin dato'}` : `${ev.type || ''} · ${ev.organizer || 'DOMUS'}`;
+      const amount=(value,fallback=0)=>canonical && (typeof value!=='number' || !Number.isFinite(value) || value<0)
+        ? 'Tarifa sin confirmar' : '$'+Number(value ?? fallback).toFixed(2);
 
       return `
         <tr class="${isActive ? 'active-event-row' : ''}">
           <td>
             <strong>${escapeHtml(ev.name)}</strong>
-            <div style="font-size: 0.75rem; color: var(--text-muted);">${escapeHtml(ev.type || '')} · ${escapeHtml(ev.organizer || 'DOMUS')}</div>
+            <div style="font-size: 0.75rem; color: var(--text-muted);">${escapeHtml(description)}</div>
           </td>
           <td style="font-size: 0.82rem; color: var(--text-muted);">${escapeHtml(ev.date || '---')}</td>
-          <td><strong>$${Number(ev.priceGeneral || 0).toFixed(2)}</strong></td>
-          <td><strong>$${Number(ev.pricePareja || 0).toFixed(2)}</strong></td>
-          <td><strong>$${Number(ev.priceTrio || 0).toFixed(2)}</strong></td>
-          <td><span style="color: var(--gold-primary);">$${Number(ev.priceGuardarropa ?? 50).toFixed(2)}</span></td>
+          <td><strong>${amount(ev.priceGeneral)}</strong></td>
+          <td><strong>${amount(ev.pricePareja)}</strong></td>
+          <td><strong>${amount(ev.priceTrio)}</strong></td>
+          <td><span style="color: var(--gold-primary);">${amount(ev.priceGuardarropa,50)}</span></td>
           <td style="font-size: 0.82rem;">${Number.isInteger(ev.capacity) && ev.capacity > 0 ? ev.capacity + ' pers.' : 'Sin aforo confirmado'}</td>
           <td>
-            ${isActive 
+            ${ev.policyPending ? '<span>Contrato operativo pendiente</span>' : isActive
               ? '<span class="badge-active-event">⭐ Activo Ahora</span>'
               : `<button type="button" class="btn-set-active-event" onclick="window.__domusApp.setActiveEvent('${escapeHtml(ev.name)}')">
                    Fijar Activo
@@ -5097,6 +5114,10 @@ const DEFAULT_CATALOG = [
   }
 
   function changeActiveEvent(eventName) {
+    if (STATE.activityPolicyPending) {
+      toast('Contrato operativo de eventos pendiente de definición por Dirección.', 'warn');
+      return;
+    }
     if (STATE.eventChangePending) {
       toast('Cambio de evento pendiente de confirmación del servidor.', 'warn');
       return;
@@ -5224,6 +5245,10 @@ const DEFAULT_CATALOG = [
   // --- MODAL: ALTA Y CONFIGURACIÓN DE NUEVO EVENTO ---
 
   function openNewEventModal() {
+    if (STATE.activityPolicyPending) {
+      toast('Contrato operativo de eventos pendiente de definición por Dirección.', 'warn');
+      return;
+    }
     const modal = $('newEventModal');
     if (!modal) return;
 
@@ -5248,6 +5273,10 @@ const DEFAULT_CATALOG = [
   }
 
   function saveNewEvent() {
+    if (STATE.activityPolicyPending) {
+      toast('Contrato operativo de eventos pendiente de definición por Dirección.', 'warn');
+      return;
+    }
     const name = ($('eventFormName').value || '').trim();
     const date = $('eventFormDate').value;
     const type = $('eventFormType').value;

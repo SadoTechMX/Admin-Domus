@@ -1,5 +1,7 @@
 # Integración en la app maestra — 6 noviembre 2026
 
+> Actualización posterior: [mapa canónico de 35 encabezados recibido](ACTIVITY_CANONICAL35_20261105.md). Ya no faltan los nombres ni la revisión íntegra de IDE. Sigue pendiente aprobar el contrato operativo; no habilitar escrituras por los ejemplos del revisor.
+
 > Seguimiento posterior: [guardas de ACTIVIDADES](ACTIVITY_SCHEMA_GUARDS_20261105.md) implementadas y probadas. El mapa completo de 35 encabezados sigue pendiente; no interpretar las guardas como compatibilidad productiva ni instalar la candidata.
 
 **IMPLEMENTED / LOCAL_TESTED · integración bloqueada.** Continuación de `28b2de4d6b6535dc4a62ffaca6202ed8bb7c22b9` en `repair/reconcile-pr18-main-20261105`. La candidata no está instalada. No hubo PR nuevo, merge, deployment, mutaciones Google ni otro motor de ensayo. IntegratedStore queda fuera de este trabajo.

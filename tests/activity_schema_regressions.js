@@ -1,10 +1,11 @@
 'use strict';
-// Actual source, in-memory Sheets. Unknown 35-column layout below is a NEGATIVE
-// synthetic fixture, not the missing full production-header export.
+// Actual source and in-memory Sheets. The 35 canonical header names were supplied
+// by coordination; every row/value is synthetic. Unknown/mixed negative fixtures remain.
 const assert=require('assert/strict');
 const {setup}=require('./recovery_regressions');
 const client=require('./reconciliation_regressions');
 const fixture=require('./fixtures/schema_headers.json').ACTIVIDADES;
+const canonicalHeaders=require('./fixtures/activities_headers_35.json');
 let passed=0,failed=0;
 async function test(name,fn){try{await fn();passed++;console.log('PASS',name);}catch(e){failed++;console.error('FAIL',name,e);}}
 const event=()=>({name:'New QA event',date:'2026-11-05',type:'Fiesta',organizer:'QA',priceGeneral:100,pricePareja:180,priceTrio:250,priceGuardarropa:0,capacity:150,notes:'QA'});
@@ -104,5 +105,86 @@ await test('event UI preserves explicit zero wardrobe price and unknown capacity
  t.ctx.$('eventFormName').value='QA';t.ctx.$('eventFormDate').value='2026-11-05';t.ctx.$('eventFormPriceWardrobe').value='';
  t.ctx.saveNewEvent();assert.equal(sent,0);assert(t.notices.at(-1)[0].includes('tarifa de guardarropa'));
 });
-console.log(JSON.stringify({suite:'activity-schema-guards',passed,failed,production35HeadersComplete:false,liveSheets:false}));if(failed)process.exitCode=1;
+function canonicalSheet(t,overrides={}) {
+ const sheet=t.main.getSheetByName('ACTIVIDADES');sheet.cells.clear();
+ sheet.getRange(6,1,1,35).setValues([canonicalHeaders]);
+ const row=Array(35).fill('PROTECTED');
+ Object.assign(row,{0:'QA canonical',1:new Date('2026-11-05T12:00:00Z'),2:'QA area',3:'QA project',4:100,5:180,6:250,7:0,8:0.7,9:'QA beneficiary',10:'QA basis',11:'AGREEMENT_RAW',12:'[{"id":"Unapproved","price":1,"persons":99}]',20:'STATE_RAW'},overrides);
+ sheet.getRange(7,1,1,35).setValues([row]);return sheet;
+}
+await test('canonical 35-header read uses U status, distinct area/project and no inferred capacity or notes policy',()=>{
+ const t=setup();canonicalSheet(t);const before=business(t);
+ const data=t.request('accesoSimpleDatos',[],undefined,'ACCESOS',login(t)),ev=data.activities[0];
+ assert.equal(ev.name,'QA canonical');assert.equal(ev.area,'QA area');assert.equal(ev.project,'QA project');
+ assert.equal(ev.type,'');assert.equal(ev.organizer,'');assert.equal(ev.status,'STATE_RAW');assert.equal(ev.capacity,null);
+ assert.equal(ev.priceGeneral,100);assert.equal(ev.pricePareja,180);assert.equal(ev.priceTrio,250);assert.equal(ev.priceGuardarropa,0);
+ assert.equal(ev.ticketTypes.length,3);assert.equal(ev.schemaKind,'canonical35');assert.equal(ev.policyPending,true);
+ assert.equal(data.activityPolicyPending,true);assert.equal(data.activeActivity,'');assert.equal(business(t),before);
+});
+await test('canonical unknown prices remain null while explicit numeric zero is preserved',()=>{
+ for(const bad of ['',null,'150',true,-1,NaN]){
+  const t=setup();canonicalSheet(t,{4:bad,7:bad});const ev=t.request('accesoSimpleDatos',[],undefined,'ACCESOS',login(t)).activities[0];
+  assert.equal(ev.priceGeneral,null);assert.equal(ev.priceGuardarropa,null);
+ }
+ const t=setup();canonicalSheet(t,{4:0,7:0});const ev=t.request('accesoSimpleDatos',[],undefined,'ACCESOS',login(t)).activities[0];
+ assert.equal(ev.priceGeneral,0);assert.equal(ev.priceGuardarropa,0);
+});
+await test('canonical proposal enums never authorize selection, admissions or creation without owner policy',()=>{
+ for(const status of ['Confirmado','ACTIVO','BORRADOR',''])for(const action of ['registrarNuevoEvento','accesoSimpleRegistrar','accesoCambiarActividad']){
+  const t=setup();canonicalSheet(t,{11:'Confirmado',20:status});const before=business(t);
+  const body=action==='registrarNuevoEvento'?event():action==='accesoSimpleRegistrar'?{...admission(),activity:'QA canonical'}:{activity:'QA canonical'};
+  assert.throws(()=>call(t,action,body),e=>e.code==='ACTIVITY_POLICY_REQUIRED'&&e.status===409);
+  assert.equal(business(t),before);assert.equal(t.main.getSheetByName('DOMUS_JOURNAL'),null);assert.equal(t.main.getSheetByName('DOMUS_SETTINGS'),null);
+ }
+});
+await test('all 35 supplied headers are checked, including protected financial columns; shifted/extra schemas fail closed',()=>{
+ for(let column=1;column<=35;column++){
+  const t=setup(),sheet=canonicalSheet(t);sheet.getRange(6,column).setValue('UNRECOGNIZED '+column);const before=business(t);
+  assert.throws(()=>t.request('accesoSimpleDatos',[],undefined,'ACCESOS',login(t)),/ACTIVITY_SCHEMA_REQUIRES_REVIEW/);assert.equal(business(t),before);
+ }
+ for(const kind of ['duplicate','shifted','extra']){
+  const t=setup(),sheet=canonicalSheet(t);
+  if(kind==='duplicate')sheet.getRange(6,35).setValue(canonicalHeaders[0]);
+  if(kind==='shifted')sheet.getRange(6,1,1,2).setValues([[canonicalHeaders[1],canonicalHeaders[0]]]);
+  if(kind==='extra')sheet.getRange(6,36).setValue('Extra unapproved');
+  assert.throws(()=>call(t,'registrarNuevoEvento',event()),/ACTIVITY_SCHEMA_REQUIRES_REVIEW/);assert.equal(t.main.getSheetByName('DOMUS_JOURNAL'),null);
+ }
+});
+await test('pending legacy event cannot replay after switching to the canonical contract, including header-bound plans',()=>{
+ const t=setup(),old=t.main.getSheetByName('ACTIVIDADES'),body=event();old.failAt='8:5';
+ assert.throws(()=>call(t,'registrarNuevoEvento',body),/INJECTED_WRITE_FAILURE/);
+ old.getRange(6,1,1,35).setValues([canonicalHeaders]);const before=business(t);
+ assert.throws(()=>call(t,'registrarNuevoEvento',body),e=>e.code==='ACTIVITY_POLICY_REQUIRED');assert.equal(business(t),before);
+ assert.equal(t.ctx.journalFind_('activity-test',t.main).data[2],'PREPARED');
+});
+await test('canonical metadata does not block POS account selection or a real-source fixture sale',()=>{
+ const t=setup();canonicalSheet(t);const before=JSON.stringify([...t.main.getSheetByName('ACTIVIDADES').cells]);
+ assert(t.request('cajaSimpleDatos',[]).activities.includes('QA canonical'));
+ const body=t.sale({activity:'QA canonical'}),result=t.request('cajaSimpleRegistrar',[body],body.id);
+ assert(result.paid&&result.receipt);assert.equal(result.total,40);assert.equal(t.main.getSheetByName('COBROS').getLastRow(),7);
+ assert.equal(JSON.stringify([...t.main.getSheetByName('ACTIVIDADES').cells]),before);
+});
+await test('canonical policy flag blocks frontend mutations and labels area/project without claiming organizer or active state',()=>{
+ const t=client.setup();t.ctx.STATE.activityPolicyPending=true;t.ctx.STATE.activeActivity='QA canonical';
+ t.ctx.STATE.eventsList=[{name:'QA canonical',schemaKind:'canonical35',policyPending:true,area:'QA area',project:'QA project',priceGeneral:null,pricePareja:180,priceTrio:250,priceGuardarropa:0,capacity:null}];
+ let sent=0;t.ctx.callBackend=()=>sent++;
+ for(const name of ['changeActiveEvent','openNewEventModal','saveNewEvent','confirmAccessAndRegister']){t.load(name);t.ctx[name]('QA canonical');}
+ assert.equal(sent,0);assert.equal(t.ctx.STATE.activeActivity,'QA canonical');
+ t.load('renderEventsTable');t.ctx.renderEventsTable();const html=t.ctx.$('eventsTableBody').innerHTML;
+ assert(html.includes('Área: QA area · Proyecto: QA project'));assert(html.includes('Tarifa sin confirmar'));
+ assert(html.includes('Contrato operativo pendiente'));assert(!html.includes('Fijar Activo'));assert(!html.includes('Activo Ahora'));assert(!html.includes('· DOMUS'));
+});
+await test('empty canonical response cannot restore default or locally invented events/active selection',()=>{
+ const t=client.setup(),fs=require('fs'),src=fs.readFileSync(require('path').join(__dirname,'../js/app.js'),'utf8');
+ const start=src.indexOf('        if (STATE.eventChangePending || eventReadRevision'),end=src.indexOf('        if (data.recentAccess)',start);
+ const poll=t.run('(function(data,eventReadRevision){'+src.slice(start,end)+'})');
+ Object.assign(t.ctx.STATE,{eventChangePending:false,eventChangeRevision:0,activeActivity:'old-local',eventsList:[{name:'local'}]});
+ poll({activityPolicyPending:true,activities:[],activeActivity:''},0);
+ assert.equal(t.ctx.STATE.activityPolicyPending,true);assert.equal(t.ctx.STATE.eventsList.length,0);assert.equal(t.ctx.STATE.activeActivity,'');
+ for(const name of ['getActiveEvent','renderEventsTable','renderAccessActivitySelector'])t.load(name);
+ assert.equal(t.ctx.getActiveEvent().name,'');t.ctx.renderEventsTable();t.ctx.renderAccessActivitySelector();
+ assert.equal(t.ctx.STATE.eventsList.length,0);assert.equal(t.ctx.$('accessActivitySelect').disabled,true);
+ assert(t.ctx.$('eventsTableBody').innerHTML.includes('Contrato operativo pendiente'));
+});
+console.log(JSON.stringify({suite:'activity-schema-guards',passed,failed,canonicalHeaderFixture:true,operationalPolicyApproved:false,liveSheets:false}));if(failed)process.exitCode=1;
 })().catch(e=>{console.error(e);process.exitCode=1;});

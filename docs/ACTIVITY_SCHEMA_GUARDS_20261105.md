@@ -1,5 +1,7 @@
 # Guardas de ACTIVIDADES — 5 noviembre 2026, Ciudad de México
 
+> Actualización posterior: [mapa canónico de 35 encabezados recibido](ACTIVITY_CANONICAL35_20261105.md). Ya no faltan los nombres ni la revisión íntegra de IDE. Sigue pendiente aprobar el contrato operativo; no habilitar escrituras por los ejemplos del revisor.
+
 **IMPLEMENTED / LOCAL_TESTED. Adaptación completa al contrato real de 35 columnas BLOQUEADA por información faltante. No instalado.** Base `d49aeae6dfa500957f4f83f8d022813f0bc9bfbc`, misma rama `repair/reconcile-pr18-main-20261105` y un único editor Codex. Access, Events, Data, app y sus generados se mantienen en esta rama; no se abrió otro motor, laboratorio operativo ni rama paralela.
 
 ## Evidencia reutilizada y límite
