@@ -132,11 +132,22 @@
       "sha256": "cb8bb3724764a6aceed38a25728145f410c44223391163337c0c461fcd4b666d"
     }
   ],
-  "result": {
+  "lookupResultAtTime": {
     "independentRootDeltaLocated": false,
     "integrated": false,
     "sourceChanged": false,
     "blocker": "Need published root commit or exact patch with base SHA. No equivalence to the private preventive delta has been established.",
     "authorization": "Integration is already authorized when the artifact is available and compatible; no new permission gate introduced."
+  },
+  "resolution": {
+    "dateMexicoCity": "2026-11-06",
+    "source": "Explicit clarification from root and parent coordination",
+    "independentImplementationDeltaExists": false,
+    "pendingPrivatePatch": false,
+    "priorBlockingAssumptionWithdrawn": true,
+    "candidateSha": "3f29bdc6b39e364c579c2eb6e2cfd925659537a8",
+    "implementationOwner": "Financial recovery integrator",
+    "rootRole": "Static review and private evidence, not implementation changes",
+    "sourceChanged": false
   }
 }

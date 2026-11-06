@@ -1,5 +1,7 @@
 # Integración en la app maestra — 6 noviembre 2026
 
+> **Estado vigente:** [compatibilidad y reversión de 3f29bdc](COMPATIBILIDAD_REVERSION_3f29bdc_20261106.md). Root aclaró que Data/Events ya son la implementación publicada del integrador; su trabajo fue revisión/evidencia y no existe delta privado pendiente. La fuente/artefactos exactos están inventariados, sin nueva suite, CI, Google ni instalación. Los análisis y versiones siguientes se conservan como antecedentes; no sustituyen el estado vigente ni acreditan una pareja inmutable V16/HTML.
+
 > Actualización posterior: [mapa canónico de 35 encabezados recibido](ACTIVITY_CANONICAL35_20261105.md). Ya no faltan los nombres ni la revisión íntegra de IDE. Sigue pendiente aprobar el contrato operativo; no habilitar escrituras por los ejemplos del revisor.
 
 > Seguimiento posterior: [guardas de ACTIVIDADES](ACTIVITY_SCHEMA_GUARDS_20261105.md) implementadas y probadas. El mapa completo de 35 encabezados sigue pendiente; no interpretar las guardas como compatibilidad productiva ni instalar la candidata.

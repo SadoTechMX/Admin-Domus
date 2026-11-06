@@ -8,7 +8,7 @@ Steven aceptó **provisionalmente** las cuatro reglas simplificadas que coordina
 
 ## Propuesta anterior conservada como antecedente
 
-**Propuesta para responder, no reglas aprobadas.** Base de código local `739a40a97abb1ef77195bfb74ef8c12b167608d8`, CI `42164620785` ya verificada success. Esta preparación sólo usa documentación/código local y evidencia recibida; sin nuevas suites, Google, datos reales, instalación o despliegue. El delta preventivo Data/Events comunicado por root no se considera política operativa aprobada ni se vuelve a editar aquí.
+**Propuesta para responder, no reglas aprobadas.** Base de código local `739a40a97abb1ef77195bfb74ef8c12b167608d8`, CI `42164620785` ya verificada success. Esta preparación sólo usa documentación/código local y evidencia recibida; sin nuevas suites, Google, datos reales, instalación o despliegue. Corrección del 6 de noviembre: lo comunicado por root era revisión preventiva de Data/Events, no un delta de implementación; no hay integración adicional pendiente.
 
 Steven puede responder **«1A, 2A, 3A, 4A, 5A»** o cambiar una opción. Las A son recomendaciones; no se aplican por silencio.
 
@@ -42,7 +42,7 @@ Se conserva un único paquete/candidata de referencia y se deja esta secuencia d
 
 | Paso preparado | Responsable/límite | Resultado que debe conservarse |
 | --- | --- | --- |
-| Integrar el delta preventivo de root por SHA explícito | Root conserva Data/Events; este hilo no los modifica ni supone que el delta ya está en 739. | Distinguir código candidato, delta de root y deployment. No atribuir la CI de 739 al resultado combinado. |
+| Conservar la fuente única Data/Events | Aclaración del 6 de noviembre: implementación del integrador publicada en 3f29bdc; root conserva revisión/evidencia. | No existe delta privado que integrar. Distinguir fuente, dictamen y deployment; la CI exacta vigente de 3f29bdc está registrada aparte. |
 | Usar `release-manifest.json` y la revisión del recibo ya recibida | Codex: app/Index/POS/Idempotency/Access. Root: paquete privado/reversión. IDE: revisión estática acotada del recibo. | Misma pareja de artefactos; la descarga local no llama backend ni modifica Outbox. Gemini sigue sin dictamen exacto válido mientras su rectificación no llegue. |
 | Protocolo de validación en el staging canónico, pendiente de autorización | Reutilizar las regresiones y destinos existentes; no repetir ahora suites ni crear otro motor. | Cobro efectivo/terminal → cuenta/comanda/recibo únicos; ACK perdido/recarga → mismo ID y recibo; entrega → inventario una vez; ticket impreso o archivo realmente recibido. |
 | Criterios de aceptación para futuras transferencias | Preparación de requisitos, sin implementar una política no elegida. | Pendiente no liquida; comprobante de otra cuenta/referencia no aplica; confirmación repetida no duplica; reintento parcial recupera; entrega respeta origen financiero y crédito autorizado; fallo de impresión no recobra. |

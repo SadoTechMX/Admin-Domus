@@ -1,0 +1,95 @@
+{
+  "dateMexicoCity": "2026-11-06",
+  "method": "Read immutable local Git objects and compare SHA-256 to the published release manifest; no code execution, test suites, CI query, Google or deployment.",
+  "candidate": {
+    "sha": "3f29bdc6b39e364c579c2eb6e2cfd925659537a8",
+    "backendSourceSha256": "98ac440efbc293649ada90054fb9f092c614c099ceb458eb0be4434dc543008c",
+    "ui": "20261106-transfers-09",
+    "manifestFilesVerified": 20,
+    "dataEvents": {
+      "google-apps-script/Data.gs": "175714b970dba7f3545e78336227a77cadfaf237e2b1b4935310605646820ce6",
+      "google-apps-script/Events.gs": "cb8bb3724764a6aceed38a25728145f410c44223391163337c0c461fcd4b666d"
+    },
+    "artifacts": [
+      {
+        "path": "google-apps-script/DOMUS_PRODUCTION_BUNDLE.gs",
+        "sha256": "d15aa2c7d2ceda303682a5963723ce21ce437eca7fedee525ac0bee5ce0df34d",
+        "bytes": 122278
+      },
+      {
+        "path": "google-apps-script/DOMUS_STAGING_BUNDLE.gs",
+        "sha256": "0f6d20b481e85e558f185d9fc30830843cb7e7c75aa34bd3398c97f76e22106e",
+        "bytes": 122275
+      },
+      {
+        "path": "google-apps-script/Index.html",
+        "sha256": "abd8986fa1011854e3ed25a26e60dc20546aacc3cb908c2b49a467b7ea31985c",
+        "bytes": 344409
+      },
+      {
+        "path": "index.html",
+        "sha256": "bb0d128e93b098ef40fbcf23bbf0eb5ceebedadfb71588379dd9d1b5c3500897",
+        "bytes": 68048
+      },
+      {
+        "path": "js/app.js",
+        "sha256": "8983f9e7a93d9ea4a679fd707ace6cd967df0c092aa7a290255a4748b5b0f5da",
+        "bytes": 230871
+      },
+      {
+        "path": "css/app.css",
+        "sha256": "ba858075372247629c34e4703aaac7f759e2bba97eaa5e25d2ee3f908860653d",
+        "bytes": 45491
+      },
+      {
+        "path": "release-manifest.json",
+        "sha256": "d2a82115693dda3b19ee63a3ce406b93df831451a67f4d0c48748683d9fe88f1",
+        "bytes": 2294
+      }
+    ]
+  },
+  "priorReferences": {
+    "editor": {
+      "sha": "acb47f614c806a904cfd3afc955459e8ffb54859",
+      "artifact": {
+        "path": "google-apps-script/DOMUS_PRODUCTION_BUNDLE.gs",
+        "sha256": "0940cf651dbe4ac14e3c967b1063603ca76f4e10edfd89f9d99310981b32fcb2",
+        "bytes": 97782
+      },
+      "limit": "Matches the hash of the editor backup previously confirmed by coordination. Not an immutable V16 export."
+    },
+    "pages": {
+      "sha": "2b7ba1f4030b1013555b93cb96cfcb594141fdcb",
+      "artifacts": [
+        {
+          "path": "index.html",
+          "sha256": "81ab5e8bdce12e4254f94907b1c7e0827eed53ede1f7bd5edcdf69c473c4ba54",
+          "bytes": 64981
+        },
+        {
+          "path": "js/app.js",
+          "sha256": "f58341606c3390ed8346b17efcc142be43481c15c2ef827f94da9b7d13825789",
+          "bytes": 221361
+        },
+        {
+          "path": "css/app.css",
+          "sha256": "ba858075372247629c34e4703aaac7f759e2bba97eaa5e25d2ee3f908860653d",
+          "bytes": 45491
+        }
+      ],
+      "limit": "Prior published frontend reference supplied by coordination. No fresh remote inspection."
+    },
+    "immutableV16NativeHtml": {
+      "available": false,
+      "limit": "No verified immutable V16 native HTML in this environment; do not invent a rollback pair."
+    }
+  },
+  "coordination": {
+    "rootWork": "Review/evidence only; no private implementation delta exists",
+    "privatePackage": "Update existing root-owned package using this inventory; no second backup/package created",
+    "desktopReviews3f": "Awaiting delivery per coordination; not repeated"
+  },
+  "rollbackStatus": "PREPARED_NOT_EXECUTED_OR_VERIFIED",
+  "codeChanged": false,
+  "productionWrites": 0
+}
