@@ -2568,20 +2568,28 @@ html, body {
             <div class="form-row-2">
               <div class="input-group">
                 <label for="accessTicketProvider">Boletera / Plataforma:</label>
-                <select id="accessTicketProvider" class="event-select-styled">
-                  <option value="Boletia">Boletia</option>
-                  <option value="Passline">Passline</option>
-                  <option value="Eventbrite">Eventbrite</option>
-                  <option value="Ticketmaster">Ticketmaster</option>
-                  <option value="Otra">Otra Boletera Aliada</option>
-                </select>
+                <input type="text" id="accessTicketProvider" maxlength="160" placeholder="Sistema utilizado por el proyecto" />
               </div>
               <div class="input-group">
-                <label for="accessExternalTicketId">Folio / Código QR de Boleto (Opcional):</label>
-                <input type="text" id="accessExternalTicketId" placeholder="Ej. BOL-99482 / QR (Opcional)" />
+                <label for="accessExternalTicketId">Referencia real del boleto:</label>
+                <input type="text" id="accessExternalTicketId" maxlength="160" placeholder="Folio del proveedor" />
               </div>
             </div>
-            <div class="channel-status-pill badge-neutral" id="bannerBoleteraText">✓ Boleto pagado externamente · $0 por cobrar en puerta por entrada</div>
+            <div class="form-row-2">
+              <div class="input-group">
+                <label for="accessExternalAmount">Importe reportado de esta referencia (MXN):</label>
+                <input type="number" id="accessExternalAmount" min="0" step="0.01" placeholder="Importe del comprobante externo" />
+              </div>
+              <div class="input-group">
+                <label for="accessExternalRecipient">Quién recibió ese pago, según el comprobante:</label>
+                <input type="text" id="accessExternalRecipient" maxlength="160" placeholder="Proyecto, proveedor o receptor identificado" />
+              </div>
+            </div>
+            <div class="input-group">
+              <label for="accessExternalMethod">Medio del pago externo:</label>
+              <input type="text" id="accessExternalMethod" maxlength="160" placeholder="Ej. Transferencia, tarjeta o efectivo" />
+            </div>
+            <div class="channel-status-pill badge-neutral" id="bannerBoleteraText">Pago externo reportado · Sin verificación automática · Entrada $0 en puerta</div>
           </div>
 
           <!-- B. Transferencia Previa Panel -->
@@ -2957,6 +2965,7 @@ html, body {
         <button type="button" class="btn-secondary" id="btnPrintReceipt">
           🖨️ Imprimir Ticket
         </button>
+        <button type="button" class="btn-secondary" id="btnDownloadReceipt">Descargar ticket</button>
         <button type="button" class="btn-primary-action" id="btnAcceptReceipt">
           Aceptar
         </button>
@@ -3470,7 +3479,7 @@ html, body {
 
         <!-- Build Version Footer -->
         <footer class="app-version-footer" style="text-align: center; font-size: 0.72rem; color: var(--text-muted, #71717a); padding: 8px 16px; border-top: 1px solid rgba(255,255,255,0.05); user-select: none;">
-          <span id="domusBuildLabel">DOMUS OS · UI 20261106-activities-07 · PRODUCTION</span>
+          <span id="domusBuildLabel">DOMUS OS · UI 20261106-registration-08 · PRODUCTION</span>
         </footer>
 
         <!-- Toast Container -->
@@ -3513,7 +3522,7 @@ html, body {
   window.DOMUS_BUILD = {
     baseCommit: '2b7ba1f4030b1013555b93cb96cfcb594141fdcb',
     buildId: 'repair-reconcile-20261105',
-    ui: '20261106-activities-07',
+    ui: '20261106-registration-08',
     environment: isProductionLocked ? 'PRODUCTION' : 'STAGING'
   };
 
@@ -7291,6 +7300,36 @@ const DEFAULT_CATALOG = [
     });
   }
 
+  // Standalone customer copy from a server-confirmed result. Downloading is not
+  // delivery confirmation and must never start another payment or contact a vendor.
+  function receiptDocument_(data) {
+    if (!data || !data.ticket || !Array.isArray(data.items) || !Number.isFinite(data.total)) throw new Error('Comprobante no disponible.');
+    const confirmed = data.paid === true && data.verified === true && data.paymentStatus === 'CONFIRMADA' && !!data.receipt;
+    const state = confirmed ? 'COBRO CONFIRMADO' : data.paymentStatus === 'CORTESIA_AUTORIZADA' ? 'CORTESÍA AUTORIZADA · SIN COBRO' : data.method === 'Transferencia' ? 'TRANSFERENCIA PENDIENTE DE VERIFICACIÓN' : 'CUENTA ABIERTA · PENDIENTE DE COBRO';
+    const esc = value => escapeHtml(String(value == null ? '' : value));
+    const items = data.items.map(i => `<tr><td>${esc(i.qty)} × ${esc(i.name)}</td><td>${esc(money(i.price * i.qty))}</td></tr>`).join('');
+    const cash = confirmed && data.method === 'Efectivo' ? `<p>Recibido: ${esc(money(data.received))}<br>Propina: ${esc(money(data.tip || 0))}<br>Cambio: ${esc(money(data.change))}</p>` : '';
+    return `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Ticket DOMUS</title><style>body{font:16px sans-serif;max-width:32rem;margin:2rem auto;padding:1rem}td{padding:.4rem}td:last-child{text-align:right}table{width:100%}</style></head><body><h1>DOMUS</h1><p>${esc(state)}</p><p>Recibo: ${esc(data.receipt || 'Sin cobro')}<br>Cuenta: ${esc(data.ticket)}<br>Cliente: ${esc(data.customer)}<br>Fecha: ${esc(data.date)}<br>Medio: ${esc(data.method)}</p><table>${items}</table><p>Total de la cuenta: <strong>${esc(money(data.total))}</strong></p>${cash}</body></html>`;
+  }
+
+  function downloadReceipt_() {
+    let url;
+    try {
+      const data = STATE.lastReceiptData;
+      const html = receiptDocument_(data);
+      url = URL.createObjectURL(new Blob([html], {type:'text/html;charset=utf-8'}));
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'DOMUS-' + String(data.receipt || data.ticket).replace(/[^a-zA-Z0-9_-]/g,'_') + '.html';
+      document.body.appendChild(link); link.click(); link.remove();
+      toast('Descarga solicitada. Entrega el archivo al cliente y comprueba que pueda abrirlo.', 'ok');
+    } catch(err) {
+      toast('No se pudo descargar el ticket. Recupera el comprobante; no repitas el cobro.', 'warn');
+    } finally {
+      if(url) setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+  }
+
   // --- MODAL DE RECIBO DE PAGO ---
   function showReceiptModal(data) {
     if (data) {
@@ -8118,9 +8157,7 @@ const DEFAULT_CATALOG = [
 
     // Banner de estado de canal
     if ($('bannerBoleteraText')) {
-      $('bannerBoleteraText').textContent = isForza 
-        ? '✓ Boleto / Lista FORZA · Genera $150 para DOMUS (liquidación de evento) · $0 por cobrar en puerta'
-        : '✓ Boleto pagado externamente · $0 por cobrar en puerta por entrada';
+      $('bannerBoleteraText').textContent = 'Pago externo reportado · Sin verificación automática · Entrada $0 en puerta';
     }
 
     // Dinamismo del botón de acción principal (siempre habilitado)
@@ -8269,21 +8306,30 @@ const DEFAULT_CATALOG = [
 
     let externalTicketId = '';
     let ticketProvider = 'DOMUS';
+    let externalReportedAmount = null, externalPaymentRecipient = '', externalPaymentMethod = '';
     let courtesyAuth = '';
     let paymentStatus = 'CONFIRMADA';
     let paymentReference = '';
 
     if (channel === 'BOLETERA_EXTERNA') {
       externalTicketId = ($('accessExternalTicketId') ? $('accessExternalTicketId').value : '').trim();
-      ticketProvider = ($('accessTicketProvider') ? $('accessTicketProvider').value : 'Boletia');
-      if (!externalTicketId) {
-        externalTicketId = `BOL-${rowId}`;
+      ticketProvider = ($('accessTicketProvider') ? $('accessTicketProvider').value : '').trim();
+      const amountText = ($('accessExternalAmount') ? $('accessExternalAmount').value : '').trim();
+      externalReportedAmount = amountText === '' ? null : Number(amountText);
+      externalPaymentRecipient = ($('accessExternalRecipient') ? $('accessExternalRecipient').value : '').trim();
+      externalPaymentMethod = ($('accessExternalMethod') ? $('accessExternalMethod').value : '').trim();
+      if (!externalTicketId || externalTicketId.startsWith('=') || !ticketProvider || !externalPaymentRecipient || !externalPaymentMethod || externalReportedAmount === null || !Number.isFinite(externalReportedAmount) || externalReportedAmount < 0) {
+        unlockBtn();
+        toast('Completa proveedor, referencia real, importe, receptor y medio del pago externo. No se verifica automáticamente.', 'warn');
+        return;
       }
       paymentStatus = 'PAGADO_EXTERNAMENTE';
     } else if (channel === 'PREVENTA_DOMUS') {
       externalTicketId = ($('accessPresaleDomusFolio') ? $('accessPresaleDomusFolio').value : '').trim();
       if (!externalTicketId) {
-        externalTicketId = `PRE-${rowId}`;
+        unlockBtn();
+        toast('Indica la referencia real de preventa; no se genera un folio sustituto.', 'warn');
+        return;
       }
       paymentStatus = 'CONFIRMADA';
     } else if (channel === 'TRANSFERENCIA_DIRECTA') {
@@ -8317,6 +8363,9 @@ const DEFAULT_CATALOG = [
       entryType: ticketTypeId,
       ticketProvider: ticketProvider,
       externalTicketId: externalTicketId,
+      externalReportedAmount: externalReportedAmount,
+      externalPaymentRecipient: externalPaymentRecipient,
+      externalPaymentMethod: externalPaymentMethod,
       persons: persons,
       packages: persons,
       faceValue: faceValue,
@@ -8332,8 +8381,8 @@ const DEFAULT_CATALOG = [
       paid: doorTotal,
       totalAmount: doorTotal,
       due: 0,
-      paymentMethod: (doorTotal > 0 ? method : (channel === 'BOLETERA_EXTERNA' ? 'Externo' : 'Gratis')),
-      method: (doorTotal > 0 ? method : (channel === 'BOLETERA_EXTERNA' ? 'Externo' : 'Gratis')),
+      paymentMethod: method,
+      method: method,
       paymentStatus: paymentStatus,
       paymentReference: paymentReference,
       courtesyAuth: courtesyAuth,
@@ -8357,6 +8406,9 @@ const DEFAULT_CATALOG = [
     if ($('accessCustomerPhone')) $('accessCustomerPhone').value = '';
     if ($('accessCustomerEmail')) $('accessCustomerEmail').value = '';
     if ($('accessExternalTicketId')) $('accessExternalTicketId').value = '';
+    if ($('accessExternalAmount')) $('accessExternalAmount').value = '';
+    if ($('accessExternalRecipient')) $('accessExternalRecipient').value = '';
+    if ($('accessExternalMethod')) $('accessExternalMethod').value = '';
     if ($('accessPresaleDomusFolio')) $('accessPresaleDomusFolio').value = '';
     if ($('accessTransferRef')) $('accessTransferRef').value = '';
     if ($('accessCourtesyAuth')) $('accessCourtesyAuth').value = '';
@@ -8674,6 +8726,7 @@ const DEFAULT_CATALOG = [
       }
       if (record.externalTicketId) {
         html += `<div style="font-size: 0.72rem; color: #4b5563; padding: 2px 0;">Folio Ext: ${escapeHtml(record.externalTicketId)}</div>`;
+        html += `<div>Proveedor: ${escapeHtml(record.ticketProvider || 'Sin informar')}<br>Importe externo reportado: ${record.externalReportedAmount == null ? 'Sin informar' : escapeHtml(money(record.externalReportedAmount))}<br>Receptor reportado: ${escapeHtml(record.externalPaymentRecipient || 'Sin informar')}<br>Medio externo: ${escapeHtml(record.externalPaymentMethod || 'Sin informar')}<br>Sin verificación automática. No es un cobro nuevo de DOMUS.</div>`;
       }
       if (record.courtesyAuth) {
         html += `<div style="font-size: 0.72rem; color: #4b5563; padding: 2px 0;">Cortesía: ${escapeHtml(record.courtesyAuth)}</div>`;
@@ -8686,7 +8739,7 @@ const DEFAULT_CATALOG = [
     const payInfo = $('accessTicketPaymentInfo');
     if (payInfo) {
       payInfo.innerHTML = `
-        <div>Método: <strong>${escapeHtml(record.method || record.paymentMethod || 'Efectivo')}</strong></div>
+        <div>Cobro en puerta: <strong>${totalPaid > 0 ? escapeHtml(record.paymentMethod || record.method || '') : Number(record.amountDueAtDoor) > 0 ? 'PENDIENTE DE VERIFICACIÓN' : 'SIN COBRO'}</strong></div>
         <div style="font-size: 0.7rem; color: #6b7280; margin-top: 4px;">DOMUS Centro Cultural &middot; Ciudad de México</div>
       `;
     }
@@ -9011,6 +9064,7 @@ const DEFAULT_CATALOG = [
       const m = $('receiptModal');
       if (m) m.classList.remove('open');
     });
+    bindEvent('btnDownloadReceipt', 'click', downloadReceipt_);
     bindEvent('btnPrintReceipt', 'click', () => {
       if (STATE.lastReceiptData) {
         printReceiptDirect(STATE.lastReceiptData, true).catch(() => {});

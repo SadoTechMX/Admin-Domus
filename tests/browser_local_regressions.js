@@ -75,6 +75,11 @@ async function main(){
   assert.equal(await page.locator('#receiptFolio').innerText(),'RECIBO: FIXTURE-RECEIPT');
   assert.equal(chargeCalls,2);assert.deepEqual(errors,[]);
   passed++;console.log('PASS browser retrieves persisted receipt after navigation without another sale',viewport.width);
+  const downloaded=page.waitForEvent('download');await page.locator('#btnDownloadReceipt').click();
+  const file=await downloaded,html=fs.readFileSync(await file.path(),'utf8');
+  assert.equal(file.suggestedFilename(),'DOMUS-FIXTURE-RECEIPT.html');assert(html.includes('FIXTURE-ACCOUNT'));assert(html.includes('COBRO CONFIRMADO'));assert(!html.includes('<script'));
+  const reader=await context.newPage();await reader.setContent(html);assert((await reader.locator('body').innerText()).includes('FIXTURE-RECEIPT'));await reader.close();
+  assert.equal(chargeCalls,2);assert.deepEqual(errors,[]);passed++;console.log('PASS browser downloads and opens recovered ticket without another collection',viewport.width);
   await context.close();
  }
  console.log(JSON.stringify({suite:'real-chromium-local-fixtures',passed,liveBackend:false,hardware:false,productionWrites:0}));

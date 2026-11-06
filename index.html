@@ -411,20 +411,28 @@
             <div class="form-row-2">
               <div class="input-group">
                 <label for="accessTicketProvider">Boletera / Plataforma:</label>
-                <select id="accessTicketProvider" class="event-select-styled">
-                  <option value="Boletia">Boletia</option>
-                  <option value="Passline">Passline</option>
-                  <option value="Eventbrite">Eventbrite</option>
-                  <option value="Ticketmaster">Ticketmaster</option>
-                  <option value="Otra">Otra Boletera Aliada</option>
-                </select>
+                <input type="text" id="accessTicketProvider" maxlength="160" placeholder="Sistema utilizado por el proyecto" />
               </div>
               <div class="input-group">
-                <label for="accessExternalTicketId">Folio / Código QR de Boleto (Opcional):</label>
-                <input type="text" id="accessExternalTicketId" placeholder="Ej. BOL-99482 / QR (Opcional)" />
+                <label for="accessExternalTicketId">Referencia real del boleto:</label>
+                <input type="text" id="accessExternalTicketId" maxlength="160" placeholder="Folio del proveedor" />
               </div>
             </div>
-            <div class="channel-status-pill badge-neutral" id="bannerBoleteraText">✓ Boleto pagado externamente · $0 por cobrar en puerta por entrada</div>
+            <div class="form-row-2">
+              <div class="input-group">
+                <label for="accessExternalAmount">Importe reportado de esta referencia (MXN):</label>
+                <input type="number" id="accessExternalAmount" min="0" step="0.01" placeholder="Importe del comprobante externo" />
+              </div>
+              <div class="input-group">
+                <label for="accessExternalRecipient">Quién recibió ese pago, según el comprobante:</label>
+                <input type="text" id="accessExternalRecipient" maxlength="160" placeholder="Proyecto, proveedor o receptor identificado" />
+              </div>
+            </div>
+            <div class="input-group">
+              <label for="accessExternalMethod">Medio del pago externo:</label>
+              <input type="text" id="accessExternalMethod" maxlength="160" placeholder="Ej. Transferencia, tarjeta o efectivo" />
+            </div>
+            <div class="channel-status-pill badge-neutral" id="bannerBoleteraText">Pago externo reportado · Sin verificación automática · Entrada $0 en puerta</div>
           </div>
 
           <!-- B. Transferencia Previa Panel -->
@@ -800,6 +808,7 @@
         <button type="button" class="btn-secondary" id="btnPrintReceipt">
           🖨️ Imprimir Ticket
         </button>
+        <button type="button" class="btn-secondary" id="btnDownloadReceipt">Descargar ticket</button>
         <button type="button" class="btn-primary-action" id="btnAcceptReceipt">
           Aceptar
         </button>
@@ -1313,14 +1322,14 @@
 
         <!-- Build Version Footer -->
         <footer class="app-version-footer" style="text-align: center; font-size: 0.72rem; color: var(--text-muted, #71717a); padding: 8px 16px; border-top: 1px solid rgba(255,255,255,0.05); user-select: none;">
-          <span id="domusBuildLabel">DOMUS OS · UI 20261106-activities-07 · PRODUCTION</span>
+          <span id="domusBuildLabel">DOMUS OS · UI 20261106-registration-08 · PRODUCTION</span>
         </footer>
 
         <!-- Toast Container -->
         <div class="toast-container" id="toastContainer" aria-live="polite"></div>
 
         <!-- Script -->
-        <script src="js/app.js?v=20261106-activities-07"></script>
+        <script src="js/app.js?v=20261106-registration-08"></script>
 </body>
 
 </html>

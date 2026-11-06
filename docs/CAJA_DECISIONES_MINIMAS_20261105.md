@@ -1,6 +1,8 @@
 # Decisiones mínimas para Caja — 5 noviembre 2026, Ciudad de México
 
-**Propuesta para Steven; ninguna opción está aprobada ni aplicada.** Revisión local del código `69aeb07f620dcdc1f38a1614a122a242d14c0b69` y documentación existente. Sin pruebas nuevas, consultas remotas, instalación o cambios de operación. La candidata continúa sin instalar/certificar.
+**Propuesta histórica; leer primero la actualización de alcance.** Steven priorizó Caja/comandas con ticket impreso o digital y aclaró que cada proyecto usa su propia boletera; DOMUS sólo registra. La instrucción posterior conserva transferencias incluidas, pendientes de verificación: no se aplicó su exclusión. Se prepararon captura externa y ticket descargable; siguen sin instalar/certificar. Evidencia, límites y decisiones aún pendientes en [BOLETERA_REGISTRO_20261105.md](BOLETERA_REGISTRO_20261105.md).
+
+La propuesta original siguiente corresponde a la revisión local de `69aeb07f620dcdc1f38a1614a122a242d14c0b69`, anterior a esas aclaraciones. No debe interpretarse como autorización de instalación ni como configuración vigente.
 
 **Recomendación: habilitar primero el alcance de consumos Caja + KDS, sujeto a validación técnica.** El contrato pendiente de ACTIVIDADES no impide por sí solo ese flujo. Puede conservarse bloqueada la creación/selección de eventos y el registro de nuevas admisiones mientras se resuelven sus reglas. Elegir este alcance no autoriza desplegar ni permite omitir conciliación o pruebas.
 
