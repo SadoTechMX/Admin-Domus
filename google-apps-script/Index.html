@@ -2358,6 +2358,7 @@ html, body {
           </div>
 
           <button type="button" class="btn-clear" id="btnRecoverReceipt">Recuperar comprobante</button>
+          <button type="button" class="btn-clear" id="btnTransferReview">Revisar transferencias · Gerencia</button>
           <button type="button" class="btn-primary-action" id="btnOpenPaymentModal" disabled>
             <span>💳</span>
             <span>Cobrar y Enviar a Comanda</span>
@@ -2828,6 +2829,26 @@ html, body {
     </section>
 
   </main>
+
+  <div class="modal-overlay" id="transferReviewModal" role="dialog" aria-modal="true" aria-labelledby="transferReviewTitle">
+    <div class="modal-card">
+      <div class="modal-header"><h3 id="transferReviewTitle">Revisión bancaria · Gerencia</h3><button type="button" class="modal-close-btn" id="btnCloseTransferReview" aria-label="Cerrar">&times;</button></div>
+      <div class="modal-body">
+        <p>Confirma únicamente un ingreso revisado en la cuenta bancaria de DOMUS. Una captura del cliente no acredita el depósito.</p>
+        <p id="transferReviewStatus" role="status"></p>
+        <div class="input-group"><label for="transferPendingSelect">Recibo pendiente de Caja:</label><select id="transferPendingSelect"></select></div>
+        <div class="input-group"><label for="transferReceiverSelect">Cuenta receptora DOMUS:</label><select id="transferReceiverSelect"></select></div>
+        <div class="form-row-2">
+          <div class="input-group"><label for="transferReviewAmount">Importe recibido en banco (MXN):</label><input type="number" min="0.01" step="0.01" id="transferReviewAmount" /></div>
+          <div class="input-group"><label for="transferReceivedDate">Fecha del ingreso:</label><input type="date" id="transferReceivedDate" /></div>
+        </div>
+        <div class="input-group"><label for="transferBankReference">Identificador único del movimiento bancario:</label><input type="text" maxlength="128" id="transferBankReference" /></div>
+        <div class="input-group"><label for="transferEvidenceReference">Referencia de la evidencia revisada:</label><input type="text" maxlength="200" id="transferEvidenceReference" placeholder="Referencia del comprobante o registro bancario" /></div>
+        <label><input type="checkbox" id="transferBankReviewed" /> Revisé el ingreso en banco, su importe, cuenta y referencia.</label>
+      </div>
+      <div class="modal-footer"><button type="button" class="btn-primary-action" id="btnConfirmTransferReview" disabled>Confirmar revisión y aplicar una vez</button></div>
+    </div>
+  </div>
 
   <!-- ========================================================================
        MODAL 1: COBRO Y FORMA DE PAGO (CAJA)
@@ -3479,7 +3500,7 @@ html, body {
 
         <!-- Build Version Footer -->
         <footer class="app-version-footer" style="text-align: center; font-size: 0.72rem; color: var(--text-muted, #71717a); padding: 8px 16px; border-top: 1px solid rgba(255,255,255,0.05); user-select: none;">
-          <span id="domusBuildLabel">DOMUS OS · UI 20261106-registration-08 · PRODUCTION</span>
+          <span id="domusBuildLabel">DOMUS OS · UI 20261106-transfers-09 · PRODUCTION</span>
         </footer>
 
         <!-- Toast Container -->
@@ -3522,7 +3543,7 @@ html, body {
   window.DOMUS_BUILD = {
     baseCommit: '2b7ba1f4030b1013555b93cb96cfcb594141fdcb',
     buildId: 'repair-reconcile-20261105',
-    ui: '20261106-registration-08',
+    ui: '20261106-transfers-09',
     environment: isProductionLocked ? 'PRODUCTION' : 'STAGING'
   };
 
@@ -5774,6 +5795,7 @@ const DEFAULT_CATALOG = [
   // --- OUTBOX & IDEMPOTENCIA TRANSACCIONAL (FASE 0C) ---
   const MUTATION_ACTIONS = new Set([
     'cajaSimpleRegistrar',
+    'confirmarTransferencia',
     'comandasSimpleAccion',
     'comandasSimpleResolver',
     'accesoSimpleRegistrar',
@@ -5869,11 +5891,26 @@ const DEFAULT_CATALOG = [
       result.paymentStatus === 'CONFIRMADA' && result.paid === true && result.verified === true;
   }
 
+  function validTransferResult_(result, intention) {
+    return !!result && typeof result==='object' && !Array.isArray(result) && result.ok===true && result.kind==='TRANSFER_CONFIRMATION' &&
+      ['sourceRequestId','sourceReceipt','ticket','receiver'].every(k=>typeof result[k]==='string' && !!result[k].trim()) && intention.currency==='MXN' &&
+      result.sourceRequestId===intention.sourceRequestId && result.sourceReceipt===intention.sourceReceipt && result.ticket===intention.ticket &&
+      typeof result.receipt==='string' && !!result.receipt.trim() && result.receipt!==result.sourceReceipt && typeof result.confirmationRequestId==='string' && !!result.confirmationRequestId.trim() &&
+      typeof result.total==='number' && Number.isFinite(result.total) && result.total>0 && result.total===intention.amount && result.amountApplied===intention.amount && result.currency==='MXN' &&
+      result.method==='Transferencia' && result.paymentStatus==='CONFIRMADA' && result.paid===true && result.verified===true && result.verificationMode==='MANUAL_BANK_REVIEW' &&
+      ['ADMIN','GERENCIA'].includes(result.verifiedRole) && typeof result.verifiedBy==='string' && !!result.verifiedBy.trim() && typeof result.verifiedAt==='string' && Number.isFinite(Date.parse(result.verifiedAt)) &&
+      typeof result.verifiedPrincipal==='string' && !!result.verifiedPrincipal.trim() &&
+      result.receiver===intention.receiver && result.receivedDate===intention.receivedDate && result.evidenceReference===String(intention.evidenceReference || '').trim() &&
+      result.bankTransactionId===String(intention.bankTransactionId || '').trim().toUpperCase().replace(/\s+/g,'');
+  }
+
   function validateBackendResponse_(response, payload) {
     if (!response || typeof response !== 'object' || Array.isArray(response) || typeof response.ok !== 'boolean' ||
         (response.ok && (response.data === undefined || response.data === null)) ||
         (response.ok && payload && payload.action === 'cajaSimpleRegistrar' &&
-          (!payload.requestId || response.requestId !== payload.requestId || !validSaleResult_(response.data, payload.args && payload.args[0] || {})))) {
+          (!payload.requestId || response.requestId !== payload.requestId || !validSaleResult_(response.data, payload.args && payload.args[0] || {}))) ||
+        (response.ok && payload && payload.action==='confirmarTransferencia' &&
+          (!payload.requestId || response.requestId!==payload.requestId || !validTransferResult_(response.data,payload.args && payload.args[0] || {})))) {
       // Missing acknowledgement is uncertainty, including after a committed payment.
       // Keep its original ID/body for recovery; never clear the draft or invent success.
       const err = new Error('Respuesta incompleta del servidor. La operación sigue sin confirmar; recupera el mismo ID.');
@@ -5970,8 +6007,10 @@ const DEFAULT_CATALOG = [
       requestId:item.requestId, action:item.action, args:item.args,
       operator:item.operatorId, confirmedAt:new Date().toISOString(), data
     }));
-    if (item.action === 'cajaSimpleRegistrar') {
+    if (['cajaSimpleRegistrar','confirmarTransferencia'].includes(item.action)) {
       localStorage.setItem('domus_last_sale_confirmation', item.requestId);
+    }
+    if (item.action === 'cajaSimpleRegistrar') {
       const pending = JSON.parse(localStorage.getItem('domus_pending_sale') || 'null');
       if (pending && (pending.requestId || pending.id) === item.requestId) {
         localStorage.removeItem('domus_pending_sale');
@@ -6002,7 +6041,7 @@ const DEFAULT_CATALOG = [
     if (!id) return;
     try {
       const record = JSON.parse(localStorage.getItem('domus_confirmation_' + id));
-      if (!record || record.action !== 'cajaSimpleRegistrar') throw new Error('No hay comprobante confirmado para este ID en el equipo.');
+      if (!record || !['cajaSimpleRegistrar','confirmarTransferencia'].includes(record.action)) throw new Error('No hay comprobante confirmado para este ID en el equipo.');
       const res = record.data, body = record.args[0];
       showReceiptModal({
         ...res, customer:res.customer || body.customer, operator:record.operator,
@@ -6136,8 +6175,9 @@ const DEFAULT_CATALOG = [
   function isSaleRejectionWithoutEffects_(action, error) {
     // Only explicit server validation outcomes authorize a replacement intention.
     // Neither Spanish error text nor a generic 4xx/5xx proves absence of effects.
-    return action === 'cajaSimpleRegistrar' && Number(error.status) === 422 &&
-      ['SALE_PHASE_CHANGED_NO_EFFECTS', 'SALE_VALIDATION_REJECTED_NO_EFFECTS'].includes(error.code);
+    return Number(error.status)===422 && ((action==='cajaSimpleRegistrar' &&
+      ['SALE_PHASE_CHANGED_NO_EFFECTS','SALE_VALIDATION_REJECTED_NO_EFFECTS'].includes(error.code)) ||
+      (action==='confirmarTransferencia' && ['TRANSFER_POLICY_REQUIRED_NO_EFFECTS','TRANSFER_REVIEW_INCOMPLETE_NO_EFFECTS'].includes(error.code)));
   }
 
   /**
@@ -6381,7 +6421,7 @@ const DEFAULT_CATALOG = [
 
   // --- COMUNICACIÓN CON BACKEND (IDEMPOTENTE & CON OUTBOX) ---
   function callBackend(fnName, args, onSuccess, onError) {
-    let role = (['cambiarFase','anularAcceso','sincronizarCartaConCatalogoDOMUS','registrarNuevoProducto','registrarNuevoEvento'].includes(fnName) ? 'GERENCIA' : getStationRole()).toUpperCase();
+    let role = (['cambiarFase','anularAcceso','sincronizarCartaConCatalogoDOMUS','registrarNuevoProducto','registrarNuevoEvento','transferenciasPendientes','confirmarTransferencia'].includes(fnName) ? 'GERENCIA' : getStationRole()).toUpperCase();
     let deviceId = getDeviceId(), operator = STATE.operator;
     try { args = JSON.parse(JSON.stringify(args || [])); }
     catch (err) { if (onError) onError(err); return; }
@@ -7330,6 +7370,57 @@ const DEFAULT_CATALOG = [
     }
   }
 
+  function openTransferReview_() {
+    if(STATE.transferReviewSending)return;
+    STATE.transferPending=[];
+    $('transferReviewModal').classList.add('open');$('btnConfirmTransferReview').disabled=true;
+    $('transferReviewStatus').textContent='Consultando pendientes con sesión de Gerencia…';
+    $('transferPendingSelect').innerHTML='';$('transferReceiverSelect').innerHTML='';
+    ['transferReviewAmount','transferReceivedDate','transferBankReference','transferEvidenceReference'].forEach(id=>$(id).value='');
+    $('transferBankReviewed').checked=false;
+    callBackend('transferenciasPendientes',[],data=>{
+      if(!data || data.verificationMode!=='MANUAL_BANK_REVIEW' || data.currency!=='MXN' || !Array.isArray(data.pending) || !Array.isArray(data.receivers)) {
+        $('transferReviewStatus').textContent='Respuesta incompleta. No aplicar pagos.';return;
+      }
+      STATE.transferPending=data.pending;
+      $('transferPendingSelect').innerHTML='<option value="">Selecciona el recibo original</option>'+data.pending.map(p=>`<option value="${escapeHtml(p.sourceRequestId)}" ${p.requiresReview?'disabled':''}>${escapeHtml(p.sourceReceipt)} · ${escapeHtml(p.ticket)} · ${escapeHtml(money(p.amount))}${p.requiresReview?' · Requiere revisión':''}</option>`).join('');
+      $('transferReceiverSelect').innerHTML='<option value="">Selecciona cuenta receptora</option>'+data.receivers.map(r=>`<option value="${escapeHtml(r)}">${escapeHtml(r)}</option>`).join('');
+      $('btnConfirmTransferReview').disabled=!data.pending.some(p=>!p.requiresReview);
+      $('transferReviewStatus').textContent=data.pending.length?'La confirmación registra tu revisión bancaria; no consulta al banco automáticamente.':'No hay transferencias pendientes de Caja.';
+    },err=>{$('transferReviewStatus').textContent=err.message || 'No se pudo consultar. No aplicar pagos.';});
+  }
+
+  function submitTransferReview_() {
+    if(STATE.transferReviewSending)return;
+    try {
+      const pending=(STATE.transferPending || []).find(p=>p.sourceRequestId===$('transferPendingSelect').value && !p.requiresReview);
+      const amount=Number($('transferReviewAmount').value),receiver=$('transferReceiverSelect').value;
+      const bankTransactionId=$('transferBankReference').value.trim(),receivedDate=$('transferReceivedDate').value,evidenceReference=$('transferEvidenceReference').value.trim();
+      if(!pending || !$('transferBankReviewed').checked || !receiver || !bankTransactionId || !receivedDate || !evidenceReference || !Number.isFinite(amount) || amount<=0 || amount!==pending.amount) {
+        toast('Revisa el recibo, importe recibido completo, cuenta, referencia, fecha y evidencia bancaria antes de confirmar.','warn');return;
+      }
+      const unresolved=getOutbox().find(q=>q.action==='confirmarTransferencia' && q.status!=='REJECTED' && q.args && q.args[0] && q.args[0].sourceReceipt===pending.sourceReceipt);
+      if(unresolved) {toast('Confirmación sin resolver. Conserva la operación '+unresolved.requestId+' y recupera su resultado; no crees otro cobro.','warn');return;}
+      const id='TRF-'+crypto.randomUUID();
+      const body={id:id,requestId:id,sourceRequestId:pending.sourceRequestId,sourceReceipt:pending.sourceReceipt,ticket:pending.ticket,receiver:receiver,
+        bankTransactionId:bankTransactionId,receivedDate:receivedDate,evidenceReference:evidenceReference,amount:amount,currency:'MXN'};
+      STATE.transferReviewSending=true;$('btnConfirmTransferReview').disabled=true;
+      callBackend('confirmarTransferencia',[body],res=>{
+        STATE.transferReviewSending=false;
+        if(res.localOutbox) {$('transferReviewStatus').textContent='Sin confirmar. Recupera el mismo ID: '+res.requestId;return;}
+        $('transferReviewModal').classList.remove('open');
+        const receipt={...res,date:res.verifiedAt,operator:res.verifiedBy};showReceiptModal(receipt);
+        printReceiptDirect(receipt,false).catch(()=>toast('Pago aplicado. Ticket pendiente; no repitas la confirmación.','warn'));
+        toast('Transferencia aplicada una sola vez. Entrega el comprobante confirmado.','ok');syncBackendData();
+      },err=>{
+        STATE.transferReviewSending=false;
+        const noEffects=isSaleRejectionWithoutEffects_('confirmarTransferencia',err);
+        $('btnConfirmTransferReview').disabled=!noEffects;
+        $('transferReviewStatus').textContent=(noEffects?'Rechazo sin efectos. Corrige los datos antes de crear otra intención: ':'Confirmación requiere revisión: ')+(err.message || String(err));
+      });
+    } catch(err) {toast(err.message || String(err),'warn');}
+  }
+
   // --- MODAL DE RECIBO DE PAGO ---
   function showReceiptModal(data) {
     if (data) {
@@ -7490,9 +7581,10 @@ const DEFAULT_CATALOG = [
                     ` : ''}
                     
                     ${hasResponsible && item.state === 'Lista' ? `
-                      <button type="button" class="btn-action-small btn-deliver" onclick="window.__domusApp.deliverOrder('${item.key}')">
+                      <button type="button" class="btn-action-small btn-deliver" ${item.deliveryAllowed===true?'':'disabled'} title="${escapeHtml(item.deliveryBlockReason || '')}" onclick="window.__domusApp.deliverOrder('${item.key}')">
                         📦 Entregar
                       </button>
+                      ${item.deliveryAllowed===true?'':`<small>${escapeHtml(item.deliveryBlockReason || 'Entrega pendiente de autorización financiera.')}</small>`}
                     ` : ''}
 
                     ${!item.incident ? `
@@ -7611,6 +7703,10 @@ const DEFAULT_CATALOG = [
       toast('Sólo una comanda marcada como Lista puede registrarse como Entregada.', 'warn');
       syncBackendData();
       return;
+    }
+    if(ord.deliveryAllowed!==true) {
+      toast(ord.deliveryBlockReason || 'Entrega sin autorización financiera acreditada. Actualiza el estado.', 'warn');
+      syncBackendData();return;
     }
     const prodName = ord.product || '1 unidad';
     
@@ -8260,6 +8356,9 @@ const DEFAULT_CATALOG = [
     if (STATE.eventChangePending) {
       toast('Espera la confirmación del evento antes de registrar accesos.', 'warn');
       return;
+    }
+    if(STATE.accessPaymentMethod==='Transferencia' || STATE.accessSalesChannel==='TRANSFERENCIA_DIRECTA') {
+      toast('La confirmación bancaria de Accesos sigue pendiente de habilitar. No registrar una admisión contra ese pago.','warn');return;
     }
     if (isRegisteringAccess) {
       console.warn('Registro de acceso bloqueado: debounce activo.');
@@ -9054,6 +9153,9 @@ const DEFAULT_CATALOG = [
     bindEvent('btnConfirmChargeAndSend', 'click', () => confirmPaymentAndDispatch(true));
     bindEvent('btnSendPendingPayment', 'click', () => confirmPaymentAndDispatch(false));
     bindEvent('btnRecoverReceipt', 'click', recoverReceipt_);
+    bindEvent('btnTransferReview', 'click', openTransferReview_);
+    bindEvent('btnConfirmTransferReview', 'click', submitTransferReview_);
+    bindEvent('btnCloseTransferReview', 'click', ()=>$('transferReviewModal').classList.remove('open'));
 
     // Receipt Close & Print
     bindEvent('btnCloseReceipt', 'click', () => {

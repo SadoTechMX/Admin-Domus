@@ -7,6 +7,57 @@
 
 'use strict';
 
+// A browser's credit/paid flag is not a delivery authorization. Bind the unit to
+// its original completed sale and inspect durable payment/credit evidence.
+function kdsPaymentContext_(m) {
+  return {index:paymentRequestIndex_(m),cashRows:null,transfers:null};
+}
+
+function kdsDeliveryDecision_(m,item,context) {
+  const c=context || kdsPaymentContext_(m),record=paymentRequest_(c.index,item.batch),p=record && record.result;
+  const f=p && p.fulfillment;
+  if(!record || record.action!=='cajaSimpleRegistrar' || record.status!=='COMPLETED' || !p || p.ok!==true || p.ticket!==item.ticket ||
+      !f || f.version!==1 || f.sourceRequestId!==record.id || !Array.isArray(f.units) ||
+      !f.units.some(u=>u.id===item.id && u.row===item.row && u.sku===item.sku && u.product===item.product && u.qty===item.qty && u.destination===item.destination)) {
+    return {allowed:false,code:'DELIVERY_EVIDENCE_REQUIRED',reason:'Comanda sin vínculo financiero acreditado; requiere revisión.',paymentStatus:'REQUIRES_REVIEW',credit:false};
+  }
+  if(f.kind==='AUTHORIZED_CREDIT' && p.paymentStatus==='CUENTA_ABIERTA' && p.paid===false && ['Amigo','Creador de proyecto'].includes(f.creditType) && ['CAJA','ADMIN','GERENCIA'].includes(f.authorizedRole)) {
+    return {allowed:true,paymentStatus:'CUENTA_ABIERTA',credit:true};
+  }
+  if(f.kind==='AUTHORIZED_COURTESY' && p.paymentStatus==='CORTESIA_AUTORIZADA' && p.total===0 && ['ADMIN','GERENCIA'].includes(f.authorizedRole)) {
+    return {allowed:true,paymentStatus:'CORTESIA_AUTORIZADA',credit:false};
+  }
+  if(f.kind==='PAYMENT_CONFIRMED' && p.paid===true && p.verified===true && p.paymentStatus==='CONFIRMADA' && ['Efectivo','Terminal 1','Terminal 2'].includes(p.method)) {
+    if(!c.cashRows)c.cashRows=dataRows_(m.getSheetByName('COBROS'),7,31);
+    const rows=c.cashRows.filter(r=>r[0]===p.receipt);
+    if(rows.length===1 && rows[0][2]==='Caja' && rows[0][3]===item.ticket && rows[0][4]===p.method && rows[0][8]==='CAJA-RAPIDA:'+record.id && paymentApplied_(rows[0])===p.total) {
+      return {allowed:true,paymentStatus:'CONFIRMADA',credit:false};
+    }
+  }
+  if(f.kind==='PENDING_TRANSFER' && p.method==='Transferencia' && p.paid===false && p.verified===false && p.paymentStatus==='PENDIENTE_VERIFICACION') {
+    transferSource_(m,c.index,{sourceRequestId:record.id,sourceReceipt:p.receipt,ticket:p.ticket});
+    if(!c.transfers)c.transfers=transferConfirmedRecords_(m,c.index);
+    if(c.transfers.some(t=>t.sourceRequestId===record.id && t.sourceReceipt===p.receipt && t.ticket===p.ticket && t.amountApplied===p.total)) {
+      return {allowed:true,paymentStatus:'CONFIRMADA',credit:false};
+    }
+    return {allowed:false,code:'DELIVERY_TRANSFER_PENDING',reason:'Transferencia pendiente de acreditar. No entregar por este pago.',paymentStatus:'PENDIENTE_VERIFICACION',credit:false};
+  }
+  return {allowed:false,code:'DELIVERY_EVIDENCE_REQUIRED',reason:'Pago o autorización sin evidencia compatible; requiere revisión.',paymentStatus:'REQUIRES_REVIEW',credit:false};
+}
+
+function kdsAssertDeliveryRequest_(body,m,replaying) {
+  if(!body || String(body.action).toUpperCase()!=='ENTREGAR')return;
+  const matches=[];
+  dataRows_(m.getSheetByName('COMANDAS'),7,1,13).forEach(r=>{
+    if(!r[0])return;let item;try { item=JSON.parse(r[0]); } catch(_) {return;}
+    if(item && 'DCS-'+item.row+'-'+(item.batch||item.id)===body.key)matches.push(item);
+  });
+  if(matches.length!==1)throw transferError_('DELIVERY_EVIDENCE_REQUIRED','Comanda inexistente o duplicada.');
+  if(matches[0].state==='Entregada' && !replaying)return; // Read-only acknowledgement of an existing delivery.
+  const decision=kdsDeliveryDecision_(m,matches[0]);
+  if(!decision.allowed)throw transferError_(decision.code,decision.reason);
+}
+
 /**
  * Consulta de comandas activas, historial reciente y solicitudes de resurtido
  */
@@ -23,6 +74,7 @@ function comandasSimpleDatos(token) {
   const orders = [];
   const history = [];
   const now = Date.now();
+  const paymentContext=kdsPaymentContext_(m);
 
   const toClientItem = item => ({
     key: 'DCS-' + item.row + '-' + (item.batch || item.id),
@@ -52,6 +104,15 @@ function comandasSimpleDatos(token) {
       const item = JSON.parse(row[0]);
       if (!item) return;
       const clientItem = toClientItem(item);
+      if(!['Entregada','Cancelada'].includes(item.state)) {
+        let decision;
+        try { decision=kdsDeliveryDecision_(m,item,paymentContext); }
+        catch(err) { decision={allowed:false,reason:err.message,paymentStatus:'REQUIRES_REVIEW',credit:false}; }
+        clientItem.deliveryAllowed=decision.allowed;
+        clientItem.deliveryBlockReason=decision.reason || '';
+        clientItem.paymentStatus=decision.paymentStatus;
+        clientItem.credit=decision.credit;
+      }
       if (clientItem.state === 'Entregada') {
         history.push(clientItem);
       } else if (clientItem.state !== 'Cancelada') {
@@ -107,6 +168,8 @@ function comandasSimpleAccion(tokenOrBody, maybeBody) {
   return withLock_(CONFIG.lockTimeoutMs,()=>{
     const m=SpreadsheetApp.openById(CONFIG.mainSheetId), s=m.getSheetByName('COMANDAS');
     const req=String(body.requestId || body.id || '');
+    const existingPlan=journalFind_(req,m);
+    if(!existingPlan || existingPlan.data[2]!=='COMPLETED')kdsAssertDeliveryRequest_(body,m,!!existingPlan);
     const resumed=journalResume_(req,'comandasSimpleAccion',m);if(resumed)return resumed;
     const rows=dataRows_(s,7,1,13);
     const entries=[];

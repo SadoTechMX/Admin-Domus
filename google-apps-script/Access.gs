@@ -201,12 +201,22 @@ function accesoSimpleDatos() {
  * Registra un acceso/asistencia y su cobro en ACCESO y COBROS bajo candado estricto
  * Fase 0.5: Atribución correcta de ingresos (Boleteras vs Taquilla vs Guardarropa)
  */
+function accessAssertTransferReplay_(record) {
+  if(!record || record.data[2]==='COMPLETED')return;
+  let result;try { result=JSON.parse(record.data[4]); } catch(_) {}
+  if(!result || typeof result!=='object' || Array.isArray(result) || result.ok!==true ||
+      !['Efectivo','Terminal 1','Terminal 2'].includes(result.paymentMethod) || result.paymentStatus==='PENDIENTE_VERIFICACION') {
+    throw transferError_('ACCESS_TRANSFER_REQUIRES_REVIEW','No reanudar una admisión por transferencia sin confirmación compatible.');
+  }
+}
+
 function accesoSimpleRegistrar(payload) {
   authRequireContext_('accesoSimpleRegistrar');
   if (!payload) throw new Error('Datos de acceso requeridos.');
   return withLock_(CONFIG.lockTimeoutMs, () => {
     const m=SpreadsheetApp.openById(CONFIG.mainSheetId), s=m.getSheetByName('ACCESO'), cob=m.getSheetByName('COBROS');
     const req=String(payload.requestId || payload.id || '');
+    accessAssertTransferReplay_(journalFind_(req,m));
     const replay=journalResume_(req,'accesoSimpleRegistrar',m); if(replay)return replay;
     schemaColumns_(s,['Folio acceso','2 · NOMBRE','ORDEN PREVENTA','DESGLOSE / ESTADO','TICKET / PRENDA']);
     const customer=String(payload.customer || '').trim(), activity=String(payload.activity || '').trim();
@@ -254,6 +264,9 @@ function accesoSimpleRegistrar(payload) {
     const pending=method==='Transferencia' || channel==='TRANSFERENCIA_DIRECTA';
     const doorEntry=['TAQUILLA_DOMUS','TRANSFERENCIA_DIRECTA'].includes(channel)?face:0;
     const wardrobe=qty*unitPrice, charged=doorEntry+wardrobe;
+    // Caja reconciliation does not authorize an access or wardrobe payment.
+    // Keep this path closed until its own compatible confirmation flow exists.
+    if(pending && charged>0)throw transferError_('ACCESS_TRANSFER_CONFIRMATION_REQUIRED','No registrar acceso o guardarropa contra una transferencia pendiente. Falta confirmación compatible.');
     const row=Math.max(7,s.getLastRow()+1), id='A-'+Utilities.getUuid(), gua=qty?'GUA-'+id:'';
     const status=pending?'PENDIENTE_VERIFICACION':(channel==='BOLETERA_EXTERNA'?'PAGADO_EXTERNAMENTE':'CONFIRMADA');
     const result={ok:true,id:id,rowId:id,ticket:id,customer:customer,activity:activity,ticketTypeId:type,

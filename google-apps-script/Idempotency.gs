@@ -204,6 +204,13 @@ function idempotentExecute_(requestId, action, payload, deviceId, fn) {
     }
     if (prior && prior.status === REQUEST_STATUS.COMPLETED) return prior.response;
     if (prior) {
+      // A PREPARED delivery can predate the payment guard. Check before any
+      // inventory/status replay; completed acknowledgements do not write again.
+      if(action==='comandasSimpleAccion') {
+        const plan=journalFind_(cleanReqId,m);
+        if(plan && plan.data[2]!=='COMPLETED')kdsAssertDeliveryRequest_(payload,m,true);
+      }
+      if(action==='accesoSimpleRegistrar')accessAssertTransferReplay_(journalFind_(cleanReqId,m));
       const resumed = journalResume_(cleanReqId, action, m);
       if (resumed) {
         prior.status = REQUEST_STATUS.COMPLETED; prior.response = resumed;
@@ -214,11 +221,16 @@ function idempotentExecute_(requestId, action, payload, deviceId, fn) {
         const err = new Error(prior.response.error);
         err.code = prior.response.code; err.status = 422; throw err;
       }
+      if(action==='confirmarTransferencia' && prior.response && Number(prior.response.status)===422 &&
+          ['TRANSFER_POLICY_REQUIRED_NO_EFFECTS','TRANSFER_REVIEW_INCOMPLETE_NO_EFFECTS'].includes(prior.response.code)) {
+        const err=new Error(prior.response.error);err.code=prior.response.code;err.status=422;throw err;
+      }
       // Old code may have written effects before FAILED. Never rerun it blindly.
       const err = new Error('IDEMPOTENCY_REQUIRES_REVIEW: intención previa sin plan recuperable.');
       err.status = 409; err.code = 'IDEMPOTENCY_REQUIRES_REVIEW'; throw err;
     }
     assertNoUnboundHistory_(cleanReqId, action, m);
+    if(action==='comandasSimpleAccion')kdsAssertDeliveryRequest_(payload,m,false);
     const record = {requestId: cleanReqId, action: action, payloadHash: currentPayloadHash,
       deviceId: devId, status: REQUEST_STATUS.PROCESSING, createdAt: new Date().toISOString(), response: null};
     saveRequestRecord_(record, m);

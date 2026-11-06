@@ -21,6 +21,8 @@ const ACTION_PERMISSIONS = Object.freeze({
   cajaSimpleRegistrar: ['CAJA', 'GERENCIA', 'ADMIN'],
   cajaSimpleEstado: ['CAJA', 'GERENCIA', 'ADMIN'],
   cajaSimplePreparar: ['CAJA', 'GERENCIA', 'ADMIN'],
+  transferenciasPendientes: ['GERENCIA', 'ADMIN'],
+  confirmarTransferencia: ['GERENCIA', 'ADMIN'],
 
   // Comandas y KDS
   comandasSimpleDatos: ['BARRA', 'COCINA', 'CAJA', 'GERENCIA', 'ADMIN'],
@@ -65,6 +67,7 @@ function authCreateSession(requestedRole, deviceId, operator, credential) {
     role: cleanRole,
     deviceId: cleanDevice,
     operator: cleanOperator,
+    principal: manager ? email : 'STATION:'+cleanDevice,
     created: Date.now(),
     expires: Date.now() + (CONFIG.sessionDurationHours * 3600 * 1000)
   };
@@ -133,11 +136,16 @@ function authValidateAction(action, sessionToken, clientClaimedRole, clientDevic
   if (!allowedRoles.includes(serverAssignedRole)) {
     throw new Error(`Acceso denegado: El rol autenticado '${serverAssignedRole}' no tiene autorización para ejecutar '${action}'. Roles autorizados: [${allowedRoles.join(', ')}].`);
   }
+  if(['transferenciasPendientes','confirmarTransferencia'].includes(action) && !CONFIG.managers.includes(session.principal)) {
+    const err=new Error('Sesión inválida para revisión bancaria: renueva la identidad de Gerencia.');
+    err.code='AUTH_PRINCIPAL_REQUIRED';err.status=401;throw err;
+  }
 
   return {
     ok: true,
     role: serverAssignedRole,
     operator: session.operator || 'Operador',
+    principal: session.principal || '',
     deviceId: session.deviceId || clientDeviceId || 'DEV-ESTACION'
   };
 }

@@ -16,7 +16,7 @@ function setup(options={}) {
   const ctx = vm.createContext({console, Date, JSON, Map, Set, Promise, Error, crypto,
     localStorage, sessionStorage, sessionRequests:new Map(), isOutboxCoreRunning:false, outboxStoreHeld_:false, paymentInFlight:false, activePaymentMethod:'Efectivo',
     STATE:{mode:'caja',operator:'Fixture',cart:[],isNativeGas:false,isProductionLocked:false,apiUrl:'https://fixture.invalid'},
-    MUTATION_ACTIONS:new Set(['cajaSimpleRegistrar','comandasSimpleAccion','accesoCambiarActividad','cambiarFase']),
+    MUTATION_ACTIONS:new Set(['cajaSimpleRegistrar','confirmarTransferencia','comandasSimpleAccion','accesoCambiarActividad','cambiarFase']),
     updateSyncPill(){}, updateOutboxUI(){}, notifyOutboxTabs(){}, cacheQuerySnapshot(){},
     toast:(...args)=>notices.push(args), playChime(){}, syncBackendData(){},
     clearCart(){ctx.STATE.cart=[];}, renderActivityDropdown(){}, window:{navigator:{locks}}, getDeviceId:()=> 'fixture-device',
@@ -32,7 +32,7 @@ function setup(options={}) {
     vm.runInContext(source.slice(start,end),ctx);
   }
   for (const name of ['isSessionExpiredError','getStationRole','getSessionToken','setSessionToken','clearSessionToken',
-    'ensureSessionToken','authenticatedTransport_','validSaleResult_','validateBackendResponse_','getOutbox','withOutboxStore_','saveOutbox','enqueueOutbox','isSaleRejectionWithoutEffects_','classifyMutationFailure',
+    'ensureSessionToken','authenticatedTransport_','validSaleResult_','validTransferResult_','validateBackendResponse_','getOutbox','withOutboxStore_','saveOutbox','enqueueOutbox','isSaleRejectionWithoutEffects_','classifyMutationFailure',
     'retainConfirmation_','saleDraftSnapshot_','settleConfirmedBasket_','recoverReceipt_','migrateLegacyOutbox_','sincronizarOutboxCore_','callBackend','recordOutboxFailure_','calculateCartTotal','confirmPaymentAndDispatch']) load(name);
   ctx.setSessionToken('old-CAJA','CAJA');ctx.setSessionToken('old-BARRA','BARRA');
   const call = (action,args) => new Promise((resolve,reject)=>ctx.callBackend(action,args,resolve,reject));
@@ -148,7 +148,7 @@ await test('event change preserves server ACK checks and forbids a success notic
   assert.equal(t.ctx.getOutbox()[0].status,'REQUIRES_REVIEW');assert(!t.notices.some(([text])=>text.startsWith('Evento confirmado')));
 });
 await test('KDS incident evidence does not block canonical action progression or allow early delivery',()=>{
-  const t=setup(),actions=[];t.ctx.STATE.comandas=[{key:'k',state:'Pendiente',incident:'Agotado',responsible:''}];
+  const t=setup(),actions=[];t.ctx.STATE.comandas=[{key:'k',state:'Pendiente',incident:'Agotado',responsible:'',deliveryAllowed:true}];
   t.ctx.ensureOperator=()=>true;t.ctx.confirm=()=>true;t.ctx.callBackend=(action,args)=>actions.push(copy(args[0]));
   for(const n of ['claimOrder','markOrderReady','deliverOrder'])t.load(n);
   t.ctx.deliverOrder('k');assert.equal(actions.length,0);t.ctx.claimOrder('k');assert.equal(actions.at(-1).action,'TOMAR');
@@ -159,7 +159,7 @@ await test('queued KDS actions never announce confirmed preparation or delivery'
   const t=setup();t.ctx.ensureOperator=()=>true;t.ctx.confirm=()=>true;
   t.ctx.callBackend=(_,__,ok)=>ok({localOutbox:true,paid:false});
   for(const [name,state] of [['claimOrder','Pendiente'],['markOrderReady','En preparación'],['deliverOrder','Lista']]) {
-    t.ctx.STATE.comandas=[{key:'k',state,incident:'Agotado'}];t.load(name);t.ctx[name]('k');
+    t.ctx.STATE.comandas=[{key:'k',state,incident:'Agotado',deliveryAllowed:true}];t.load(name);t.ctx[name]('k');
     assert(t.notices.at(-1)[0].includes('sin confirmar'));
   }
 });

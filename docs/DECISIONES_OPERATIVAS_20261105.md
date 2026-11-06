@@ -1,5 +1,13 @@
 # Decisiones mínimas para Steven — 5 noviembre 2026, Ciudad de México
 
+## Respuesta recibida y alcance vigente
+
+Steven aceptó **provisionalmente** las cuatro reglas simplificadas que coordinación le presentó: eventos existentes con acuerdo/reparto validados y aforo manual; cotejo de boletos externos, referencia única y grupos juntos, con diferencias a Gerencia; conciliación separada del dinero del proyecto y de DOMUS; ingreso bancario confirmado antes de aplicar/entregar. No volver a pedir esas mismas decisiones. La respuesta no incluyó los literales `Confirmado`/`Sí` de la tabla histórica siguiente.
+
+[Implementación y pruebas de confirmación de transferencias](TRANSFER_CONFIRMATION_20261105.md): preparada en la app existente para Caja y comandas, con aplicación idempotente, revisión de Gerencia y entrega bloqueada mientras permanezca pendiente. Accesos/ACTIVIDADES35 siguen cerrados; no se instaló nada ni se cambió configuración real. Faltan el alias canónico por cuenta receptora y el campo bancario que identifica un movimiento único; el vocabulario/mapeo real de estados/acuerdos de ACTIVIDADES sigue pendiente. Son datos concretos para configurar/verificar, no una nueva aprobación de las cuatro reglas.
+
+## Propuesta anterior conservada como antecedente
+
 **Propuesta para responder, no reglas aprobadas.** Base de código local `739a40a97abb1ef77195bfb74ef8c12b167608d8`, CI `42164620785` ya verificada success. Esta preparación sólo usa documentación/código local y evidencia recibida; sin nuevas suites, Google, datos reales, instalación o despliegue. El delta preventivo Data/Events comunicado por root no se considera política operativa aprobada ni se vuelve a editar aquí.
 
 Steven puede responder **«1A, 2A, 3A, 4A, 5A»** o cambiar una opción. Las A son recomendaciones; no se aplican por silencio.

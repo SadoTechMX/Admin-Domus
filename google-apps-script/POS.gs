@@ -151,8 +151,12 @@ function cajaSimpleRegistrarCore_(p) {
   while (free.length < units.length) free.push(nextRow++);
   const writes = [];
   const now = new Date();
+  const fulfillment={version:1,sourceRequestId:p.id,
+    kind:freeCourtesy?'AUTHORIZED_COURTESY':pending?'PENDING_TRANSFER':confirmed?'PAYMENT_CONFIRMED':'AUTHORIZED_CREDIT',
+    creditType:!p.paid?p.credit:'',authorizedBy:who,authorizedRole:_authContext.role,units:[]};
   units.forEach((u,i) => {
     const row = free[i];
+    fulfillment.units.push({id:'U-'+row,row:row,sku:u.sku,product:u.name,qty:1,destination:u.destination});
     const inputs = {1:'U-'+row,2:ticket,3:now,4:activity,5:customer,6:u.group,7:u.name,8:1,
       9:u.courtesy?'Cortesía':'Normal',10:u.price,11:'',16:'Enviar',17:u.notes,
       18:u.share,19:u.beneficiary,21:u.inventory,25:u.destination};
@@ -174,6 +178,7 @@ function cajaSimpleRegistrarCore_(p) {
     }));
   }
   const result = {ok:true,ticket:ticket,receipt:receipt,paid:confirmed,verified:confirmed,
+    fulfillment:fulfillment,
     paymentStatus:freeCourtesy?'CORTESIA_AUTORIZADA':pending?'PENDIENTE_VERIFICACION':(confirmed?'CONFIRMADA':'CUENTA_ABIERTA'),
     method:method,total:due,customer:customer,received:math.received,tip:math.tip,change:math.change,
     items: units.map(u=>({name:u.name,qty:1,price:u.courtesy?0:u.price})),
@@ -188,8 +193,10 @@ function cajaSimpleEstado(id) {
   authRequireContext_('cajaSimpleEstado');
   if (!id) throw new Error('Referencia de operación requerida.');
   const prior = findRequestRecord_(String(id));
+  if(prior && prior.action!=='cajaSimpleRegistrar')throw new Error('Acceso denegado: la consulta de Caja sólo devuelve ventas de Caja.');
   if (prior && prior.status === REQUEST_STATUS.COMPLETED) return {done:true,result:prior.response};
   const journal = journalFind_(String(id),SpreadsheetApp.openById(CONFIG.mainSheetId));
+  if(journal && journal.data[1]!=='cajaSimpleRegistrar')throw new Error('Acceso denegado: resultado de otra acción.');
   if (journal && journal.data[2] === 'COMPLETED') return {done:true,result:JSON.parse(journal.data[4])};
   const props = PropertiesService.getScriptProperties();
   const raw = props.getProperty('cajaSimple:' + id) || props.getProperty('idemp:' + id);

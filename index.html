@@ -201,6 +201,7 @@
           </div>
 
           <button type="button" class="btn-clear" id="btnRecoverReceipt">Recuperar comprobante</button>
+          <button type="button" class="btn-clear" id="btnTransferReview">Revisar transferencias · Gerencia</button>
           <button type="button" class="btn-primary-action" id="btnOpenPaymentModal" disabled>
             <span>💳</span>
             <span>Cobrar y Enviar a Comanda</span>
@@ -671,6 +672,26 @@
     </section>
 
   </main>
+
+  <div class="modal-overlay" id="transferReviewModal" role="dialog" aria-modal="true" aria-labelledby="transferReviewTitle">
+    <div class="modal-card">
+      <div class="modal-header"><h3 id="transferReviewTitle">Revisión bancaria · Gerencia</h3><button type="button" class="modal-close-btn" id="btnCloseTransferReview" aria-label="Cerrar">&times;</button></div>
+      <div class="modal-body">
+        <p>Confirma únicamente un ingreso revisado en la cuenta bancaria de DOMUS. Una captura del cliente no acredita el depósito.</p>
+        <p id="transferReviewStatus" role="status"></p>
+        <div class="input-group"><label for="transferPendingSelect">Recibo pendiente de Caja:</label><select id="transferPendingSelect"></select></div>
+        <div class="input-group"><label for="transferReceiverSelect">Cuenta receptora DOMUS:</label><select id="transferReceiverSelect"></select></div>
+        <div class="form-row-2">
+          <div class="input-group"><label for="transferReviewAmount">Importe recibido en banco (MXN):</label><input type="number" min="0.01" step="0.01" id="transferReviewAmount" /></div>
+          <div class="input-group"><label for="transferReceivedDate">Fecha del ingreso:</label><input type="date" id="transferReceivedDate" /></div>
+        </div>
+        <div class="input-group"><label for="transferBankReference">Identificador único del movimiento bancario:</label><input type="text" maxlength="128" id="transferBankReference" /></div>
+        <div class="input-group"><label for="transferEvidenceReference">Referencia de la evidencia revisada:</label><input type="text" maxlength="200" id="transferEvidenceReference" placeholder="Referencia del comprobante o registro bancario" /></div>
+        <label><input type="checkbox" id="transferBankReviewed" /> Revisé el ingreso en banco, su importe, cuenta y referencia.</label>
+      </div>
+      <div class="modal-footer"><button type="button" class="btn-primary-action" id="btnConfirmTransferReview" disabled>Confirmar revisión y aplicar una vez</button></div>
+    </div>
+  </div>
 
   <!-- ========================================================================
        MODAL 1: COBRO Y FORMA DE PAGO (CAJA)
@@ -1322,14 +1343,14 @@
 
         <!-- Build Version Footer -->
         <footer class="app-version-footer" style="text-align: center; font-size: 0.72rem; color: var(--text-muted, #71717a); padding: 8px 16px; border-top: 1px solid rgba(255,255,255,0.05); user-select: none;">
-          <span id="domusBuildLabel">DOMUS OS · UI 20261106-registration-08 · PRODUCTION</span>
+          <span id="domusBuildLabel">DOMUS OS · UI 20261106-transfers-09 · PRODUCTION</span>
         </footer>
 
         <!-- Toast Container -->
         <div class="toast-container" id="toastContainer" aria-live="polite"></div>
 
         <!-- Script -->
-        <script src="js/app.js?v=20261106-registration-08"></script>
+        <script src="js/app.js?v=20261106-transfers-09"></script>
 </body>
 
 </html>

@@ -1,3 +1,9 @@
+# Transferencias de Caja y entrega — 5 noviembre 2026 (Ciudad de México)
+
+**IMPLEMENTED / LOCAL_TESTED; no instalado.** [TRANSFER_CONFIRMATION_20261105.md](TRANSFER_CONFIRMATION_20261105.md) registra las cuatro reglas aceptadas provisionalmente por Steven y la UI `20261106-transfers-09`: Gerencia confirma manualmente un ingreso bancario, vinculado al pendiente original de Caja, y lo aplica una sola vez; KDS bloquea entrega hasta contar con evidencia durable, conservando crédito/cortesía autorizados. 20 pruebas nuevas + 5 de navegador pasan con servicios simulados, además de regresiones existentes. Configuración de receptores y movimiento único sigue cerrada, sin escritura en Google. Accesos por transferencia y ACTIVIDADES35 aún bloqueados; Data/Events siguen reservados a root. No certifica operación ni autoriza deployment.
+
+## Entrega anterior conservada
+
 # ACTIVIDADES canónica: encabezados recibidos — 5 noviembre 2026 (Ciudad de México)
 
 > **Actualización vigente, registro externo y ticket (5 noviembre, Ciudad de México):** [BOLETERA_REGISTRO_20261105.md](BOLETERA_REGISTRO_20261105.md). UI `20261106-registration-08` conserva datos declarados de cada boletera en AD, no usa la columna financiera U como proveedor ni inventa folios. Entrada externa no genera otro cobro; transferencias siguen pendientes. Caja puede descargar el recibo original; entrega al cliente todavía no acreditada. 9 + 4 pruebas nuevas, navegador 21 y regresiones existentes pasan localmente. No instalación; admisiones canónicas continúan bloqueadas por contrato operativo.

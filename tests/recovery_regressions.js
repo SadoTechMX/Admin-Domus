@@ -166,7 +166,8 @@ test('access replay and duplicate QR are bounded to real event records',()=>{
 });
 test('access cannot claim bank transfer verified via browser flag',()=>{
   const t=setup(),token=t.login('ACCESOS'),a={id:'transfer-access',customer:'QA',activity:'QA event',ticketTypeId:'General',wardrobeQty:0,paymentMethod:'Transferencia',isTransferVerified:true};
-  const r=t.request('accesoSimpleRegistrar',[a],a.id,'ACCESOS',token);assert.equal(r.paymentStatus,'PENDIENTE_VERIFICACION');assert.equal(r.doorCollected,0);
+  assert.throws(()=>t.request('accesoSimpleRegistrar',[a],a.id,'ACCESOS',token),e=>e.code==='ACCESS_TRANSFER_CONFIRMATION_REQUIRED');
+  assert.equal(t.main.getSheetByName('ACCESO').getLastRow(),6);assert.equal(t.main.getSheetByName('COBROS').getLastRow(),6);
 });
 test('new access after row 5000 is visible, template folios do not inflate attendance',()=>{
   const t=setup(),s=t.main.getSheetByName('ACCESO'),row=Array(32).fill('');s.getRange(7,1).setValue('template');

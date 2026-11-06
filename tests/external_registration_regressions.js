@@ -34,7 +34,11 @@ test('external declaration round-trips in AD, never financial T/U/V or a new ent
 });
 test('wardrobe is a distinct DOMUS collection; external transfer is only a declaration',()=>{
  for(const method of ['Efectivo','Terminal 1','Terminal 2','Transferencia']){
-  const t=setup(),result=call(t,body({wardrobeQty:2,paymentMethod:method}));
+  const t=setup();
+  if(method==='Transferencia'){
+   const before=business(t);assert.throws(()=>call(t,body({wardrobeQty:2,paymentMethod:method})),e=>e.code==='ACCESS_TRANSFER_CONFIRMATION_REQUIRED');assert.equal(business(t),before);continue;
+  }
+  const result=call(t,body({wardrobeQty:2,paymentMethod:method}));
   const cob=t.main.getSheetByName('COBROS');assert.equal(cob.getLastRow(),7);assert.equal(cob.raw(7,6),40);
   assert.equal(cob.value(7,14),method==='Transferencia'?0:40);
   assert.equal(result.doorCollected,method==='Transferencia'?0:40);assert.equal(result.externalReportedAmount,375);
