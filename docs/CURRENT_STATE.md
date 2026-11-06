@@ -4,6 +4,8 @@
 
 La coincidencia comunicada del frontend publicado con main **no verifica el backend Apps Script desplegado**. El JS público muestra UI `20261029-06` y el endpoint oficial; su GET health actual declara PRODUCTION y los dos libros esperados, pero no expone build ni versión. ARIADNA coteja proyecto/versión por lectura. No hubo instalación en maestra, merge, deployment ni datos reales. La inspección privada mediante TinyFish fue denegada por revisión automática y no se reintentó; apertura de PR sigue detenida. Estado, pasos mínimos y evidencia en [MASTER_INTEGRATION_20261106.md](MASTER_INTEGRATION_20261106.md).
 
+La ficha nueva de Steven fija los proyectos producción `1A45kAhl…` y staging `1sh5fyAaa…`. El health del staging canónico `AKfycbyIHD…` declara los libros aislados y build `c40b71de…`, coincidente con PR #18; aún no declara `1437ae5b…` de la candidata. Se alineó el endpoint staging por defecto del código con ese destino comprobado; no hubo cambio en el endpoint de producción. Las versiones numéricas 16/6 siguen como afirmaciones de la ficha, sin cotejo del editor.
+
 ---
 
 ## Entrega anterior conservada
