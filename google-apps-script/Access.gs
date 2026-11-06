@@ -41,26 +41,26 @@ function accesoSimpleDatos() {
   const props = PropertiesService.getScriptProperties();
 
   // 1. Obtener actividades / eventos y sus tipos de boletos
-  const rawActs = sAct ? dataRows_(sAct, 7, 13) : [];
+  const rawActs = activityRows_(activitySchema_(sAct));
   const activities = [];
   rawActs.forEach(r => {
-    if (r[0]) {
-      const pGen = typeof r[4] === 'number' ? r[4] : (parseFloat(r[4]) || 0);
-      const pPar = typeof r[5] === 'number' ? r[5] : (parseFloat(r[5]) || 0);
-      const pTrio = typeof r[6] === 'number' ? r[6] : (parseFloat(r[6]) || 0);
+    if (r.name) {
+      const pGen = typeof r.priceGeneral === 'number' ? r.priceGeneral : (parseFloat(r.priceGeneral) || 0);
+      const pPar = typeof r.pricePareja === 'number' ? r.pricePareja : (parseFloat(r.pricePareja) || 0);
+      const pTrio = typeof r.priceTrio === 'number' ? r.priceTrio : (parseFloat(r.priceTrio) || 0);
       let pGua = 50;
-      if (typeof r[7] === 'number') {
-        pGua = r[7];
-      } else if (r[7] !== '' && r[7] !== null && r[7] !== undefined) {
-        const parsed = parseFloat(r[7]);
+      if (typeof r.priceGuardarropa === 'number') {
+        pGua = r.priceGuardarropa;
+      } else if (r.priceGuardarropa !== '' && r.priceGuardarropa !== null && r.priceGuardarropa !== undefined) {
+        const parsed = parseFloat(r.priceGuardarropa);
         pGua = isNaN(parsed) ? 50 : parsed;
       }
 
-      // Tipos de boletos del evento (estándar + personalizados en notas col M)
+      // Tipos de boletos del evento, tomados del campo Notas por nombre.
       let customTicketTypes = [];
       try {
-        if (r[12] && String(r[12]).trim().startsWith('[')) {
-          customTicketTypes = JSON.parse(r[12]);
+        if (r.notes && String(r.notes).trim().startsWith('[')) {
+          customTicketTypes = JSON.parse(r.notes);
         }
       } catch (e) {}
 
@@ -72,16 +72,16 @@ function accesoSimpleDatos() {
       ];
 
       activities.push({
-        name: String(r[0]),
-        date: r[1] instanceof Date ? Utilities.formatDate(r[1], 'America/Mexico_City', 'yyyy-MM-dd') : String(r[1] || ''),
-        type: String(r[2] || 'CLUB_NOCTURNO'),
-        organizer: String(r[3] || 'DOMUS'),
+        name: String(r.name),
+        date: r.date instanceof Date ? Utilities.formatDate(r.date, 'America/Mexico_City', 'yyyy-MM-dd') : String(r.date || ''),
+        type: String(r.type || 'CLUB_NOCTURNO'),
+        organizer: String(r.organizer || 'DOMUS'),
         priceGeneral: pGen,
         pricePareja: pPar,
         priceTrio: pTrio,
         priceGuardarropa: pGua,
-        capacity: Number(r[8]) || 150,
-        status: String(r[11] || 'Confirmado'),
+        capacity: Number.isInteger(Number(r.capacity)) && Number(r.capacity)>0 ? Number(r.capacity) : null,
+        status: String(r.status || ''),
         ticketTypes: ticketTypes
       });
     }
@@ -196,13 +196,12 @@ function accesoSimpleRegistrar(payload) {
     schemaColumns_(s,['Folio acceso','2 · NOMBRE','ORDEN PREVENTA','DESGLOSE / ESTADO','TICKET / PRENDA']);
     const customer=String(payload.customer || '').trim(), activity=String(payload.activity || '').trim();
     if(!customer || !activity)throw new Error('Nombre y actividad obligatorios.');
-    const event=dataRows_(m.getSheetByName('ACTIVIDADES'),7,13).find(r=>String(r[0])===activity);
-    if(!event || String(event[11]).toLowerCase()!=='confirmado')throw new Error('EVENT_PRICING_NOT_CONFIRMED');
+    const event=activityFindConfirmed_(m,activity);
     const channel=String(payload.salesChannel || 'TAQUILLA_DOMUS');
     if(!Object.values(ACCESS_SALES_CHANNELS).includes(channel))throw new Error('Canal inválido.');
     const type=String(payload.ticketTypeId || payload.entryType || 'General');
-    let kinds=[{id:'General',price:event[4],persons:1},{id:'Pareja',price:event[5],persons:2},{id:'Trío',price:event[6],persons:3}];
-    if(event[12] && String(event[12]).trim()[0]==='[') kinds=kinds.concat(JSON.parse(event[12]));
+    let kinds=[{id:'General',price:event.priceGeneral,persons:1},{id:'Pareja',price:event.pricePareja,persons:2},{id:'Trío',price:event.priceTrio,persons:3}];
+    if(event.notes && String(event.notes).trim()[0]==='[') kinds=kinds.concat(JSON.parse(event.notes));
     const kind=kinds.find(k=>k.id===type || k.name===type);
     const onlyWardrobe=['SOLO_GUARDARROPA','GUARDARROPA'].includes(type);
     if(!kind && !onlyWardrobe)throw new Error('Tipo de entrada inválido.');
@@ -210,7 +209,7 @@ function accesoSimpleRegistrar(payload) {
     if(!Number.isInteger(persons) || persons<0 || persons>100)throw new Error('Personas inválidas.');
     const qty=payload.wardrobeQty==null?0:Number(payload.wardrobeQty);
     if(!Number.isInteger(qty)||qty<0||qty>100)throw new Error('Prendas inválidas.');
-    const unitPrice=Number(event[7]);
+    const unitPrice=Number(event.priceGuardarropa);
     if(!Number.isFinite(unitPrice)||unitPrice<0)throw new Error('Tarifa de guardarropa no confirmada.');
     let face=onlyWardrobe?0:Number(kind.price);
     if(!Number.isFinite(face)||face<0)throw new Error('Tarifa inválida.');
@@ -296,7 +295,7 @@ function guardarropaDevolver(payload) {
 function accesoCambiarActividad(payload) {
   authRequireContext_('accesoCambiarActividad');
   const m=SpreadsheetApp.openById(CONFIG.mainSheetId),act=String(payload && payload.activity || '');
-  if(!dataRows_(m.getSheetByName('ACTIVIDADES'),7,13).some(r=>String(r[0])===act && String(r[11]).toLowerCase()==='confirmado'))throw new Error('Actividad no confirmada.');
+  activityFindConfirmed_(m,act);
   let settings=m.getSheetByName('DOMUS_SETTINGS');if(!settings)settings=m.insertSheet('DOMUS_SETTINGS');
   return journalCommit_(payload.requestId,'accesoCambiarActividad',m,[cellWrite_(settings,1,1,'ACTIVE_ACTIVITY'),cellWrite_(settings,1,2,act)],{ok:true,activeActivity:act});
 }

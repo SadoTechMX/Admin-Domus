@@ -70,6 +70,7 @@ function journalResume_(id, action, m) {
       plan.push(...JSON.parse(chunks[0][3]));
     }
   }
+  activityValidateJournal_(plan,m);
   const comparable=v=>v instanceof Date?v.toISOString():v;
   plan.forEach(w=>{
     const s=(w.book && w.book!==m.getId()?SpreadsheetApp.openById(w.book):m).getSheetByName(w.sheet);
@@ -92,6 +93,7 @@ function journalResume_(id, action, m) {
 function journalCommit_(id, action, m, writes, result) {
   if(!id)throw new Error('REQUEST_ID_REQUIRED');
   const old=journalResume_(id,action,m);if(old)return old;
+  activityValidateJournal_(writes,m);
   const s=journalSheet_(m);
   if(dataRows_(s,2,6).some(r=>r[0] && r[2]!=='COMPLETED'))throw new Error('JOURNAL_RECOVERY_REQUIRED: resolver intención previa antes de continuar.');
   const seen=new Set();
@@ -101,8 +103,8 @@ function journalCommit_(id, action, m, writes, result) {
     const key=w.book+':'+w.sheet+':'+w.row+':'+w.column;
     if(seen.has(key))throw new Error('JOURNAL_DUPLICATE_CELL: '+key);seen.add(key);
     const last=groups[groups.length-1];
-    if(last && last.book===w.book && last.sheet===w.sheet && last.row===w.row && last.column+last.raw.length===w.column)last.raw.push(w.value);
-    else groups.push({book:w.book,sheet:w.sheet,row:w.row,column:w.column,raw:[w.value]});
+    if(last && last.book===w.book && last.sheet===w.sheet && last.row===w.row && last.column+last.raw.length===w.column){last.raw.push(w.value);if(last.activityHeaders)last.activityHeaders.push(w.activityHeader);}
+    else groups.push({book:w.book,sheet:w.sheet,row:w.row,column:w.column,raw:[w.value],...(w.sheet==='ACTIVIDADES'?{activityHeaders:[w.activityHeader]}:{})});
   });
   groups.forEach(w=>{
     const target=(w.book && w.book!==m.getId()?SpreadsheetApp.openById(w.book):m).getSheetByName(w.sheet);

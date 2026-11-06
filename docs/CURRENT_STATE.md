@@ -1,3 +1,11 @@
+# Guardas de ACTIVIDADES — 5 noviembre 2026 (Ciudad de México)
+
+**IMPLEMENTED / LOCAL_TESTED; contrato productivo de 35 columnas pendiente.** Access/Events dejan de usar índices para el esquema legado y fallan cerrado ante encabezados ambiguos o sin mapa. La recuperación de eventos verifica el vínculo entre columnas y encabezados antes de continuar. La UI no inventa éxito ni cambia el evento activo cuando crear evento falla. 12 regresiones nuevas pasan; aún falta recibir desde coordinación los 35 encabezados exactos y el texto íntegro de IDE ya obtenidos. No se releyó Google ni se definieron reglas de aforo/estados por inferencia. [Cambios, pruebas y límite](ACTIVITY_SCHEMA_GUARDS_20261105.md). Candidata no instalada.
+
+---
+
+## Entrega anterior conservada
+
 # ACK de cobro y transición desde el legado — 6 noviembre 2026
 
 **IMPLEMENTED / LOCAL_TESTED · integración bloqueada.** Sobre `28b2de4`, UI `20261106-master-05` valida el resultado de cobro y su ID, no sólo el sobre. ACK vacío/incompleto o de otra intención conserva carrito/Outbox/ID y se recupera tras recarga; cuenta abierta, cortesía cero y transferencia mantienen sus contratos. 13 pruebas de transporte y 9 de transición histórica pasan. Se bloquean IDs con evidencia previa sin vínculo durable en REQUESTS, sin migrar ni inventar recibos. Backend fuente `19639ee1…89ee`.

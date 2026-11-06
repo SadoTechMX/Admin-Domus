@@ -34,7 +34,7 @@
   window.DOMUS_BUILD = {
     baseCommit: '2b7ba1f4030b1013555b93cb96cfcb594141fdcb',
     buildId: 'repair-reconcile-20261105',
-    ui: '20261106-master-05',
+    ui: '20261106-activities-06',
     environment: isProductionLocked ? 'PRODUCTION' : 'STAGING'
   };
 
@@ -5082,8 +5082,8 @@ const DEFAULT_CATALOG = [
           <td><strong>$${Number(ev.priceGeneral || 0).toFixed(2)}</strong></td>
           <td><strong>$${Number(ev.pricePareja || 0).toFixed(2)}</strong></td>
           <td><strong>$${Number(ev.priceTrio || 0).toFixed(2)}</strong></td>
-          <td><span style="color: var(--gold-primary);">$${Number(ev.priceGuardarropa || 50).toFixed(2)}</span></td>
-          <td style="font-size: 0.82rem;">${ev.capacity || 150} pers.</td>
+          <td><span style="color: var(--gold-primary);">$${Number(ev.priceGuardarropa ?? 50).toFixed(2)}</span></td>
+          <td style="font-size: 0.82rem;">${Number.isInteger(ev.capacity) && ev.capacity > 0 ? ev.capacity + ' pers.' : 'Sin aforo confirmado'}</td>
           <td>
             ${isActive 
               ? '<span class="badge-active-event">⭐ Activo Ahora</span>'
@@ -5256,8 +5256,14 @@ const DEFAULT_CATALOG = [
     const priceGeneral = parseFloat($('eventFormPriceGeneral').value) || 0;
     const pricePareja = parseFloat($('eventFormPricePareja').value) || 0;
     const priceTrio = parseFloat($('eventFormPriceTrio').value) || 0;
-    const priceWardrobe = parseFloat($('eventFormPriceWardrobe').value) || 50;
+    const priceWardrobe = parseFloat($('eventFormPriceWardrobe').value);
     const notes = ($('eventFormNotes').value || '').trim();
+
+    if (!Number.isFinite(priceWardrobe) || priceWardrobe < 0) {
+      toast('Confirma una tarifa de guardarropa válida; cero debe ser explícito.', 'warn');
+      $('eventFormPriceWardrobe').focus();
+      return;
+    }
 
     if (!name) {
       toast('Ingresa el nombre del evento.', 'warn');
@@ -5284,26 +5290,24 @@ const DEFAULT_CATALOG = [
       status: 'Confirmado'
     };
 
-    // Prepend to events list & set as active
-    STATE.eventsList.unshift(newEv);
-    STATE.activeActivity = name;
-    localStorage.setItem('domus_active_event', name);
-
-    try {
-      localStorage.setItem('domus_custom_events', JSON.stringify(STATE.eventsList.slice(0, 30)));
-    } catch (e) {}
-
-    toast(`Evento "${name}" guardado exitosamente.`, 'ok');
-    playChime('success');
-    closeNewEventModal();
-
+    // The server may reject an unknown schema. A local draft or queued request
+    // cannot create/select an event or announce that it was saved.
     callBackend('registrarNuevoEvento', [newEv], res => {
+      if (res && res.localOutbox) {
+        toast('Evento pendiente de confirmación. Conserva la intención en la cola.', 'warn');
+        return;
+      }
+      if (!res || res.ok !== true) {
+        toast('El servidor no confirmó el evento. Conserva el formulario y revisa la intención.', 'error');
+        return;
+      }
+      toast(`Evento "${name}" registrado. Selecciónalo cuando esté disponible.`, 'ok');
+      playChime('success');
+      closeNewEventModal();
       syncBackendData();
     }, err => {
-      console.warn('Evento registrado en modo local:', err);
+      toast(err.message || 'No se pudo confirmar el evento.', 'error');
     });
-
-    renderAccesosView();
   }
 
   // --- EVENT LISTENERS CON VINCULACIÓN SEGURA (bindEvent) ---

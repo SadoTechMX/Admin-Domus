@@ -24,6 +24,7 @@ jobs:
       - run: node tests/reload_rejection_regressions.js
       - run: node tests/master_transport_regressions.js
       - run: node tests/legacy_cutover_regressions.js
+      - run: node tests/activity_schema_regressions.js
       - run: node tests/test_event_selection.mjs
       - run: node tests/test_access_channel.mjs
       - run: python tests/test_hotfix_v13.py
