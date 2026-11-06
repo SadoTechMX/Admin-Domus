@@ -8,7 +8,7 @@ let passed = 0;
 async function test(name, run) { await run(); passed++; console.log('PASS', name); }
 function storage() {
   const data = new Map();
-  return {data, getItem:k=>data.get(k) ?? null, setItem:(k,v)=>data.set(k,String(v)), removeItem:k=>data.delete(k)};
+  return {data, get length(){return data.size;},key:i=>Array.from(data.keys())[i]??null,getItem:k=>data.get(k) ?? null, setItem:(k,v)=>data.set(k,String(v)), removeItem:k=>data.delete(k)};
 }
 function setup(options={}) {
   const localStorage = options.storage || storage(), sessionStorage = storage(), calls = [], notices = [], cells={};
@@ -31,12 +31,13 @@ function setup(options={}) {
     const end = source.indexOf('\n  }',start)+4;
     vm.runInContext(source.slice(start,end),ctx);
   }
-  for (const name of ['isSessionExpiredError','getStationRole','getSessionToken','setSessionToken','clearSessionToken',
+  for (const name of ['outboxReviewRequired_','assertOutboxTraffic_','validateReviewSnapshot_','assertOutboxStoreWritable_','withOutboxTraffic_',
+    'isSessionExpiredError','getStationRole','getSessionToken','setSessionToken','clearSessionToken',
     'ensureSessionToken','authenticatedTransport_','validSaleResult_','validTransferResult_','validateBackendResponse_','getOutbox','withOutboxStore_','saveOutbox','enqueueOutbox','isSaleRejectionWithoutEffects_','classifyMutationFailure',
     'retainConfirmation_','saleDraftSnapshot_','settleConfirmedBasket_','recoverReceipt_','migrateLegacyOutbox_','sincronizarOutboxCore_','callBackend','recordOutboxFailure_','calculateCartTotal','confirmPaymentAndDispatch']) load(name);
   ctx.setSessionToken('old-CAJA','CAJA');ctx.setSessionToken('old-BARRA','BARRA');
   const call = (action,args) => new Promise((resolve,reject)=>ctx.callBackend(action,args,resolve,reject));
-  const item = (id='fixture-sale') => ({requestId:id,action:'cajaSimpleRegistrar',args:[{id,requestId:id,customer:'Fixture',items:[{sku:'QA',qty:1}],paid:true}],role:'CAJA',deviceId:'fixture-device',operatorId:'Fixture',status:'RETRY'});
+  const item = (id='fixture-sale') => ({clientContract:'domus-outbox-v2',requestId:id,action:'cajaSimpleRegistrar',args:[{id,requestId:id,customer:'Fixture',items:[{sku:'QA',qty:1}],paid:true}],role:'CAJA',deviceId:'fixture-device',operatorId:'Fixture',status:'RETRY'});
   const seed = queue => ctx.withOutboxStore_(()=>ctx.saveOutbox(queue));
   return {ctx,localStorage,sessionStorage,calls,notices,cells,load,call,item,seed,run:code=>vm.runInContext(code,ctx)};
 }

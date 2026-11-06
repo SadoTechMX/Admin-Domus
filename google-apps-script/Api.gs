@@ -38,7 +38,8 @@ function doGet(e) {
       })).setMimeType(ContentService.MimeType.JSON);
     }
 
-    const boot={view:e && e.parameter && e.parameter.vista || 'caja',environment:CONFIG.environment};
+    const boot={view:e && e.parameter && e.parameter.vista || 'caja',environment:CONFIG.environment,
+      queueReview:!!(e && e.parameter && e.parameter.revision==='cola')};
     output.setContent(output.getContent().replace('</head>','<script>window.DOMUS_NATIVE_BOOT='+JSON.stringify(boot).replace(/</g,'\\u003c')+';</script></head>'));
     return output
       .setTitle('DOMUS · Administración, Caja, Comandas & Accesos')

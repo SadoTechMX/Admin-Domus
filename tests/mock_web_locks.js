@@ -1,13 +1,23 @@
 'use strict';
 // Shared deterministic scheduler for separate VM realms. No timers, network or browser emulation.
 module.exports = function mockWebLocks() {
-  const tails = new Map();
+  const states = new Map();
+  function pump(name,s) {
+    if(s.active && s.mode==='exclusive')return;
+    while(s.queue.length && (!s.active || (s.mode==='shared' && s.queue[0].mode==='shared'))) {
+      const job=s.queue.shift();s.mode=job.mode;s.active++;
+      Promise.resolve().then(()=>job.callback({name,mode:job.mode})).then(job.resolve,job.reject).finally(()=>{
+        s.active--;pump(name,s);
+        if(!s.active && !s.queue.length)states.delete(name);
+      });
+      if(job.mode==='exclusive')break;
+    }
+  }
   return {request(name, options, callback) {
     if (typeof options === 'function') {callback=options; options={};}
-    if (options.ifAvailable && tails.has(name)) return Promise.resolve(callback(null));
-    const previous=tails.get(name) || Promise.resolve();
-    const run=previous.catch(()=>{}).then(()=>callback({name}));
-    const tail=run.finally(()=>{if(tails.get(name)===tail)tails.delete(name);});
-    tails.set(name,tail);return tail;
+    const s=states.get(name)||{active:0,mode:null,queue:[]},mode=options.mode||'exclusive';
+    if(options.ifAvailable && (s.queue.length || (s.active && (s.mode!=='shared' || mode!=='shared'))))return Promise.resolve(callback(null));
+    states.set(name,s);
+    return new Promise((resolve,reject)=>{s.queue.push({mode,callback,resolve,reject});pump(name,s);});
   }};
 };

@@ -58,7 +58,7 @@ async function main(){
   const recoveryPayload={...chargeBodies[0].args[0],id:recoveryId,requestId:recoveryId};
   await page.evaluate(({recoveryId,recoveryPayload})=>{
    localStorage.setItem('domus_pending_sale',JSON.stringify(recoveryPayload));
-   localStorage.setItem('domus_outbox',JSON.stringify([{requestId:recoveryId,action:'cajaSimpleRegistrar',args:[recoveryPayload],role:'CAJA',deviceId:'fixture-device',operatorId:'QA',status:'SYNCING',lastAttempt:new Date(Date.now()-100000).toISOString()}]));
+   localStorage.setItem('domus_outbox',JSON.stringify([{clientContract:'domus-outbox-v2',requestId:recoveryId,action:'cajaSimpleRegistrar',args:[recoveryPayload],role:'CAJA',deviceId:'fixture-device',operatorId:'QA',status:'SYNCING',lastAttempt:new Date(Date.now()-100000).toISOString()}]));
   },{recoveryId,recoveryPayload});
   await page.reload();
   await page.waitForFunction(()=>JSON.parse(localStorage.getItem('domus_outbox')||'[]').length===0);

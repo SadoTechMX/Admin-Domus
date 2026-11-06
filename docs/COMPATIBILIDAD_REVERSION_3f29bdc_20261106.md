@@ -1,10 +1,12 @@
+> **Seguimiento del 6 de noviembre:** [Outbox en revisión](OUTBOX_REVIEW_20261106.md) añade pausa local y preservación de colas; no interruptor global ni resolución histórica. Este inventario sigue describiendo exactamente 3f; la pareja nueva está en su manifiesto.
+
 # Compatibilidad y reversión — 6 noviembre 2026, Ciudad de México
 
 **PREPARADO; no instalado ni probado en Google.** Candidata funcional `3f29bdc6b39e364c579c2eb6e2cfd925659537a8`, UI `20261106-transfers-09`, backend fuente `98ac440efbc293649ada90054fb9f092c614c099ceb458eb0be4434dc543008c`. Este documento corrige la coordinación y prepara el cambio controlado; no añade código ni autoriza instalación. Se reutilizan las pruebas y la CI ya registradas, sin otra suite ni consulta remota.
 
 ## Bloqueo retirado y fuentes exactas
 
-Root confirmó que **no existe un delta privado Data/Events**: hizo revisión estática y conservó evidencia. Las huellas de ambos módulos coinciden con el manifiesto de 3f29bdc. La implementación permanece exclusivamente con el integrador. No se espera otro patch, no se reconstruye trabajo y no se repiten las revisiones desktop aún pendientes de entrega.
+Root confirmó que **no existe un delta privado Data/Events**: hizo revisión estática y conservó evidencia. Las huellas de ambos módulos coinciden con el manifiesto de 3f29bdc. La implementación permanece exclusivamente con el integrador. No se espera otro patch, no se reconstruye trabajo y no se repiten las revisiones desktop. Actualización posterior: coordinación entregó los dictámenes estáticos Gemini/IDE de 3f, con límites descritos en OUTBOX_REVIEW_20261106.md.
 
 Se cotejaron por lectura de objetos Git inmutables los **20 archivos del manifiesto**, sin ejecutar la aplicación. El [inventario de integración](evidence/integration_inventory_3f29bdc_20261106.json) añade las huellas del CSS de Pages y de las referencias anteriores conocidas. Sirve para actualizar el paquete privado existente de root; no crea un segundo paquete ni copia respaldos privados.
 
@@ -48,4 +50,4 @@ Antes del ensayo de reversión debe fijarse quién detiene estaciones, clientes 
 
 Quedaron preparados el inventario de la pareja, la matriz de contratos, las ramas de reversión y la secuencia de aceptación de [Caja/transferencias](TRANSFER_CONFIRMATION_20261105.md). Se actualiza el paquete existente, no otro ensayo. No hace falta volver a preguntar las cuatro reglas provisionales aprobadas.
 
-Faltan evidencia de la pareja anterior inmutable, revisiones desktop ya asignadas, configuración bancaria aprobada, comprobación de fórmulas/historia/stock y validación de staging/estación en un tramo autorizado. El trabajo documental/offline no depende de la iMac; esos resultados no pueden sustituirse con más documentos o fixtures. PR/merge/deployment siguen fuera de este tramo y sujetos a sus bloqueos previos.
+Faltan evidencia de la pareja anterior inmutable, configuración bancaria aprobada, comprobación de fórmulas/historia/stock y validación de staging/estación en un tramo autorizado. El trabajo documental/offline no depende de la iMac; esos resultados no pueden sustituirse con más documentos o fixtures. PR/merge/deployment siguen fuera de este tramo y sujetos a sus bloqueos previos.

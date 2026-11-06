@@ -139,12 +139,12 @@ await test('dispatcher excludes rejected, review and confirmed evidence when ret
   await t.seed(rows);await t.ctx.sincronizarOutboxCore_();
   assert.deepEqual(t.calls.map(p=>p.requestId),['id-3']);assert.equal(t.ctx.getOutbox().length,3);
 });
-await test('crash before enqueue recovers the saved intention with its original ID',async()=>{
+await test('orphan intention before enqueue is preserved for review without inventing a new queue entry',async()=>{
   const t=setup(),old=t.item('crash').args[0];delete old.requestId;
   t.localStorage.setItem('domus_pending_sale',JSON.stringify(old));
-  await t.ctx.migrateLegacyOutbox_();assert.equal(t.ctx.getOutbox()[0].requestId,'crash');
-  await t.ctx.sincronizarOutboxCore_();assert.equal(t.calls[0].requestId,'crash');assert.equal(t.calls[0].args[0].id,'crash');
-  assert.equal(t.localStorage.getItem('domus_pending_sale'),null);
+  const raw=t.localStorage.getItem('domus_pending_sale');assert.equal(t.ctx.outboxReviewRequired_(true),true);
+  await t.ctx.migrateLegacyOutbox_();assert.equal(t.ctx.getOutbox().length,0);
+  assert.equal(t.calls.length,0);assert.equal(t.localStorage.getItem('domus_pending_sale'),raw);
 });
 await test('two sale UIs cannot overwrite the shared pending pointer; the second draft remains untouched',async()=>{
   const shared=storage(),locks=locksFactory(),a=setup({storage:shared,locks}),b=setup({storage:shared,locks});

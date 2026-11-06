@@ -6,6 +6,140 @@
 'use strict';
 
 (function () {
+  // This gate runs before sessions, migrations, polling, printing or any transport.
+  // The original queue/pending/receipts are never rewritten by review mode.
+  function outboxReviewRequired_(includeOrphan) {
+    if (window.DOMUS_OUTBOX_REVIEW_REQUESTED || localStorage.getItem('domus_outbox_review_hold_v1') !== null) return true;
+    const raw=localStorage.getItem('domus_outbox'),queue=raw===null?[]:JSON.parse(raw);
+    if(!Array.isArray(queue) || queue.some(q=>!q || q.clientContract!=='domus-outbox-v2' || !q.requestId))return true;
+    if(includeOrphan && localStorage.getItem('domus_pending_sale')!==null) {
+      const p=JSON.parse(localStorage.getItem('domus_pending_sale'));
+      if(!p || !queue.some(q=>q.requestId===(p.requestId || p.id)))return true;
+    }
+    return false;
+  }
+
+  function assertOutboxTraffic_() {
+    if(outboxReviewRequired_(false)) {
+      const err=new Error('OUTBOX_REVIEW_REQUIRED: cola conservada; revisar sin reenviar.');
+      err.code='OUTBOX_REVIEW_REQUIRED';err.status=409;throw err;
+    }
+  }
+
+  function assertOutboxStoreWritable_() {
+    const raw=localStorage.getItem('domus_outbox_review_hold_v1');
+    if(raw!==null) {
+      const hold=JSON.parse(raw);
+      // Only operations already in flight may finish while the exclusive review
+      // lock is pending, and only after their initial evidence is durable.
+      if(!hold || hold.state!=='DRAINING' || localStorage.getItem('domus_outbox_review_initial_v1')===null) {
+        throw new Error('OUTBOX_REVIEW_REQUIRED: conservar la evidencia original.');
+      }
+      validateReviewSnapshot_(localStorage.getItem('domus_outbox_review_initial_v1'));
+    }
+  }
+
+  async function withOutboxTraffic_(fn) {
+    assertOutboxTraffic_();
+    if(!window.navigator?.locks?.request)throw new Error('OUTBOX_LOCK_REQUIRED');
+    return window.navigator.locks.request('domus-outbox-traffic',{mode:'shared'},async()=>{
+      assertOutboxTraffic_();return fn();
+    });
+  }
+
+  function captureOutboxEvidence_() {
+    const keys=new Set(['domus_outbox','domus_pending_sale','domus_device_id','domus_last_sale_confirmation']);
+    for(let i=0;i<localStorage.length;i++) {
+      const key=localStorage.key(i);
+      if(key && key.startsWith('domus_confirmation_'))keys.add(key);
+    }
+    const values={};Array.from(keys).sort().forEach(k=>{values[k]=localStorage.getItem(k);});
+    return {version:1,capturedAt:new Date().toISOString(),origin:window.location.origin,values:values};
+  }
+
+  function validateReviewSnapshot_(raw) {
+    const snapshot=JSON.parse(raw);
+    if(!snapshot || snapshot.version!==1 || !snapshot.values || Array.isArray(snapshot.values) ||
+        !Object.prototype.hasOwnProperty.call(snapshot.values,'domus_outbox'))throw new Error('Copia de revisión incompleta; conservar sin sustituir.');
+    return snapshot;
+  }
+
+  async function preserveOutboxForReview_() {
+    window.DOMUS_OUTBOX_REVIEW_REQUESTED=true;
+    if(!window.navigator?.locks?.request)throw new Error('Faltan Web Locks. No se inició la app; conserva el almacenamiento.');
+    // Persist a small stop marker first. If the snapshot hits quota, the original
+    // remains untouched and every subsequent store writer fails closed.
+    await window.navigator.locks.request('domus-outbox-store',()=>{
+      const raw=localStorage.getItem('domus_outbox_review_hold_v1');
+      if(raw===null)localStorage.setItem('domus_outbox_review_hold_v1',JSON.stringify({version:1,state:'DRAINING',requestedAt:new Date().toISOString()}));
+      else {
+        const hold=JSON.parse(raw);
+        if(!hold || hold.version!==1 || !['DRAINING','REQUIRES_REVIEW'].includes(hold.state))throw new Error('Marca de revisión ilegible; se conserva sin sustituirla.');
+        if(hold.state==='REQUIRES_REVIEW') {
+          validateReviewSnapshot_(localStorage.getItem('domus_outbox_review_initial_v1'));
+          validateReviewSnapshot_(localStorage.getItem('domus_outbox_review_settled_v1'));
+        }
+      }
+      if(localStorage.getItem('domus_outbox_review_initial_v1')===null) {
+        localStorage.setItem('domus_outbox_review_initial_v1',JSON.stringify(captureOutboxEvidence_()));
+      }
+      validateReviewSnapshot_(localStorage.getItem('domus_outbox_review_initial_v1'));
+    });
+    // Shared traffic includes enqueue, response/ACK and failure persistence.
+    // A request already sent cannot be undone; wait for it, then capture its end.
+    return window.navigator.locks.request('domus-outbox-traffic',()=>window.navigator.locks.request('domus-outbox-store',()=>{
+      const hold=JSON.parse(localStorage.getItem('domus_outbox_review_hold_v1'));
+      if(hold.state==='REQUIRES_REVIEW')return hold;
+      localStorage.setItem('domus_outbox_review_settled_v1',JSON.stringify(captureOutboxEvidence_()));
+      const result={...hold,state:'REQUIRES_REVIEW',settledAt:new Date().toISOString()};
+      localStorage.setItem('domus_outbox_review_hold_v1',JSON.stringify(result));return result;
+    }));
+  }
+
+  function downloadOutboxEvidence_() {
+    const evidence={format:'DOMUS_OUTBOX_REVIEW_V1',exportedAt:new Date().toISOString(),
+      holdRaw:localStorage.getItem('domus_outbox_review_hold_v1'),
+      initialRaw:localStorage.getItem('domus_outbox_review_initial_v1'),
+      settledRaw:localStorage.getItem('domus_outbox_review_settled_v1'),observed:captureOutboxEvidence_()};
+    const url=URL.createObjectURL(new Blob([JSON.stringify(evidence,null,2)],{type:'application/json'}));
+    const link=document.createElement('a');link.href=url;link.download='DOMUS-cola-revision-'+Date.now()+'.json';
+    document.body.appendChild(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
+  }
+
+  function enterOutboxReview_() {
+    window.DOMUS_OUTBOX_REVIEW_REQUESTED=true;
+    if(window.DOMUS_QUEUE_REVIEW_UI_STARTED)return;
+    window.DOMUS_QUEUE_REVIEW_UI_STARTED=true;
+    if(window.DOMUS_PAUSE_FOR_REVIEW)window.DOMUS_PAUSE_FOR_REVIEW();
+    // Works before normal app initialization and from an already-open new client.
+    const render=()=>{
+      document.body.innerHTML='<main style="max-width:760px;margin:40px auto;padding:24px;color:#eee;background:#151820;font:16px system-ui">'+
+        '<h1>Cola en revisión</h1><p>La app operativa está detenida. No se reenvía, descarta ni confirma ningún ID desde esta pantalla.</p>'+
+        '<p id="queueReviewStatus" role="status">Preservando evidencia y esperando solicitudes que ya estaban en curso…</p>'+
+        '<button id="queueReviewDownload" type="button">Descargar evidencia privada</button>'+
+        '<p>Guarda el archivo de forma privada. Incluye los cuerpos originales y recibos disponibles, sin verificar cobros contra el servidor.</p>'+
+        '<p>Cierra clientes de versiones anteriores: no conocen este bloqueo. Una solicitud ya enviada puede haber tenido efectos.</p>'+
+        '<p>Esta pantalla no libera la cola ni habilita ventas. La conciliación requiere revisar cada ID con su evidencia.</p></main>';
+      const status=document.getElementById('queueReviewStatus');
+      document.getElementById('queueReviewDownload').onclick=()=>{
+        try{downloadOutboxEvidence_();}catch(err){status.textContent='No se pudo descargar: '+err.message+'. Conserva este perfil; no borres la cola.';}
+      };
+      preserveOutboxForReview_().then(()=>{
+        status.textContent='Revisión persistida. Cola original y copias conservadas. Esta versión no iniciará nuevos envíos; revisa los efectos de solicitudes anteriores.';
+      },err=>{
+        status.textContent='Bloqueo local sin completar: '+err.message+'. No operar ni cerrar sin preservar la evidencia. Descargar no libera la cola.';
+      });
+    };
+    if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',render,{once:true});else render();
+  }
+
+  let startInReview;
+  try {
+    startInReview=new URLSearchParams(window.location.search).get('revision')==='cola' ||
+      window.DOMUS_NATIVE_BOOT?.queueReview===true || outboxReviewRequired_(true);
+  } catch(_) {startInReview=true;}
+  if(startInReview){enterOutboxReview_();return;}
+
   // --- CONFIGURACIÓN & ESTADO INICIAL ---
   const OFFICIAL_PRODUCTION_ENDPOINT = 'https://script.google.com/macros/s/AKfycbzy7wZZ55zPnzZ6h9iRKXNAvitP5EZMCPyjsxPtLIpdtuv4_3Zt9SYqQS65I1WRGJGL/exec';
   const STAGING_ENDPOINT = 'https://script.google.com/macros/s/AKfycbyIHDox7F7DpyS5ag-5vdoffn01qnX99IqkxB9olhQAbePvU9JZCbF6u8HeubS7RVgZ/exec';
@@ -34,7 +168,7 @@
   window.DOMUS_BUILD = {
     baseCommit: '2b7ba1f4030b1013555b93cb96cfcb594141fdcb',
     buildId: 'repair-reconcile-20261105',
-    ui: '20261106-transfers-09',
+    ui: '20261106-review-10',
     environment: isProductionLocked ? 'PRODUCTION' : 'STAGING'
   };
 
@@ -2411,6 +2545,7 @@ const DEFAULT_CATALOG = [
   }
 
   async function transport_(payload) {
+    assertOutboxTraffic_();
     if(MUTATION_ACTIONS.has(payload.action)) {
       const health=await transport_({action:'health',args:[],role:payload.role,deviceId:payload.deviceId});
       const d=health && health.data || {};
@@ -2421,6 +2556,7 @@ const DEFAULT_CATALOG = [
         const err=new Error('ENVIRONMENT_MISMATCH: no se envió la operación; entorno/libros no coinciden.');err.status=400;throw err;
       }
     }
+    assertOutboxTraffic_();
     if (STATE.isNativeGas && window.google && google.script && google.script.run) {
       const result = await new Promise((resolve, reject) => google.script.run.withSuccessHandler(resolve).withFailureHandler(reject).dispatchNativeAction(payload));
       return validateBackendResponse_(result, payload);
@@ -2587,6 +2723,7 @@ const DEFAULT_CATALOG = [
   async function withOutboxStore_(fn) {
     if (!window.navigator || !window.navigator.locks || typeof window.navigator.locks.request !== 'function') throw new Error('OUTBOX_LOCK_REQUIRED: usa un navegador con Web Locks antes de enviar operaciones.');
     return window.navigator.locks.request('domus-outbox-store', () => {
+      assertOutboxStoreWritable_();
       outboxStoreHeld_ = true;
       try {
         const result = fn();
@@ -2635,6 +2772,7 @@ const DEFAULT_CATALOG = [
       }
 
       const item = {
+        clientContract: 'domus-outbox-v2',
         requestId: reqId,
         deviceId: getDeviceId(),
         operatorId: STATE.operator || 'Operador',
@@ -2738,6 +2876,7 @@ const DEFAULT_CATALOG = [
    */
   async function migrateLegacyOutbox_() {
     try {
+      if(outboxReviewRequired_(true))return;
       await withOutboxStore_(() => {
         const queue = getOutbox();
         let modified = false;
@@ -2788,11 +2927,13 @@ const DEFAULT_CATALOG = [
 
   let isOutboxCoreRunning = false;
   async function sincronizarOutboxCore_() {
+    return withOutboxTraffic_(async()=>{
     if (isOutboxCoreRunning) return;
     isOutboxCoreRunning = true;
 
     try {
       while (true) {
+        assertOutboxTraffic_();
         const item = await withOutboxStore_(() => {
           const queue = getOutbox();
           const selected = queue.find(it => it.status === 'LOCAL_PENDING' || it.status === 'RETRY');
@@ -2840,6 +2981,7 @@ const DEFAULT_CATALOG = [
       isOutboxCoreRunning = false;
       updateOutboxUI();
     }
+    });
   }
 
   function processOutbox() {
@@ -2848,6 +2990,7 @@ const DEFAULT_CATALOG = [
 
   // Sincronización entre pestañas y reactividad a conexión de red
   window.addEventListener('storage', e => {
+    if(e.key==='domus_outbox_review_hold_v1' && e.newValue!==null){enterOutboxReview_();return;}
     if (e.key === 'domus_outbox') {
       updateOutboxUI();
     }
@@ -2863,7 +3006,7 @@ const DEFAULT_CATALOG = [
     const text = $('outboxStatusText');
     const btnRetry = $('btnOutboxRetry');
     const queue = getOutbox();
-    const pending = queue.filter(q => q.status === 'LOCAL_PENDING' || q.status === 'RETRY' || q.status === 'SYNCING');
+    const pending = queue.filter(q => ['LOCAL_PENDING','RETRY','SYNCING','SENDING'].includes(q.status));
     const inReview = queue.filter(q => q.status === 'REQUIRES_REVIEW');
     const rejected = queue.filter(q => q.status === 'REJECTED');
 
@@ -2941,7 +3084,7 @@ const DEFAULT_CATALOG = [
       STATE.isSyncing=false; STATE.lastSyncTimestamp=Date.now();updateSyncPill('ok');
       try {if(isMutation)settleConfirmedBasket_(reqId);if(onSuccess)onSuccess(data);} catch(err){console.error('Operación confirmada; error de presentación. Recupera el recibo original.',err);}
     };
-    run().catch(async err=>{
+    const failed=async err=>{
       STATE.isSyncing=false;updateSyncPill('error');
       try {
         if(isMutation && item){
@@ -2949,8 +3092,10 @@ const DEFAULT_CATALOG = [
           if(item.status==='RETRY' && onSuccess) {onSuccess({localOutbox:true,requestId:reqId,status:'RETRY',paid:false,message:'Intención guardada; cobro sin confirmar.'});return;}
         }
       } catch(storageErr) { err=storageErr; }
-      if (onError) onError(err); else toast(err.message,'error');
-    });
+      try {if (onError) onError(err); else toast(err.message,'error');}
+      catch(renderError) {console.error('Error de presentación; evidencia conservada.',renderError);}
+    };
+    withOutboxTraffic_(()=>run().catch(failed)).catch(failed);
   }
 
   async function recordOutboxFailure_(item, err) {
@@ -3022,6 +3167,7 @@ const DEFAULT_CATALOG = [
   }
 
   function checkPrinterStatus(callback) {
+    try {assertOutboxTraffic_();} catch(_) {return;}
     fetch(`${PRINT_BRIDGE_URL}/health`, {
       method: 'GET',
       headers: {
@@ -3048,6 +3194,7 @@ const DEFAULT_CATALOG = [
   }
 
   function openCashDrawer_(receipt) {
+    assertOutboxTraffic_();
     if(!receipt || receipt.paid!==true || receipt.method!=='Efectivo' || !receipt.receipt)return;
     fetch(PRINT_BRIDGE_URL+'/drawer/open',{method:'POST',headers:{'Content-Type':'application/json','X-Domus-Print-Token':getPrintToken()},
       body:JSON.stringify({requestId:'DRAWER-'+receipt.receipt,reason:'CASH_PAYMENT',receipt:receipt.receipt,method:'Efectivo',paid:true,operator:receipt.operator,reprint:false})})
@@ -3056,6 +3203,7 @@ const DEFAULT_CATALOG = [
   }
 
   function printReceiptDirect(receiptData, isReprint = false) {
+    assertOutboxTraffic_();
     if (!receiptData) {
       toast('No hay datos de comprobante para imprimir.', 'warn');
       return Promise.reject(new Error('Sin datos de ticket'));
@@ -5556,6 +5704,7 @@ const DEFAULT_CATALOG = [
     });
 
     // Botón Reintentar Outbox
+    bindEvent('btnOutboxReview', 'click', enterOutboxReview_);
     bindEvent('btnOutboxRetry', 'click', () => {
       toast('Recuperando operaciones pendientes con sus IDs originales…', 'info');
       processOutbox();
@@ -5839,6 +5988,7 @@ const DEFAULT_CATALOG = [
     });
 
     bindEvent('btnTestPrinter', 'click', () => {
+      try {assertOutboxTraffic_();} catch(_) {return;}
       const msg = $('printerStatusMsg');
       if (msg) {
         msg.textContent = 'Enviando ticket de prueba a DOMUS_TICKETS...';
@@ -6001,6 +6151,9 @@ const DEFAULT_CATALOG = [
   }
 
   // --- INICIALIZAR APP ---
+  window.DOMUS_PAUSE_FOR_REVIEW=()=>{
+    clearInterval(STATE.pollTimer);clearInterval(STATE.printerPollTimer);
+  };
   document.addEventListener('DOMContentLoaded', () => {
     try {
       loadInitialData();
@@ -6019,7 +6172,7 @@ const DEFAULT_CATALOG = [
     }
     try {
       checkPrinterStatus();
-      setInterval(checkPrinterStatus, 30000);
+      STATE.printerPollTimer=setInterval(checkPrinterStatus, 30000);
     } catch (e) {
       console.warn('[DOMUS BOOT] Error iniciando monitor de DOMUS Print Bridge:', e);
     }

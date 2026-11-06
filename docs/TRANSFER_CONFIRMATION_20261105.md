@@ -99,6 +99,10 @@ La búsqueda previa está conservada como evidencia histórica: no encontró un 
 | Data.gs | `175714b970dba7f3545e78336227a77cadfaf237e2b1b4935310605646820ce6` |
 | Events.gs | `cb8bb3724764a6aceed38a25728145f410c44223391163337c0c461fcd4b666d` |
 
-La implementación continúa exclusivamente con el integrador. Root conserva revisión/evidencia y el paquete privado existente. [Búsqueda histórica y resolución](evidence/data_events_lookup_20261106.json). Las revisiones desktop de 3f siguen pendientes de entrega según coordinación; no se volvieron a encargar ni se pidió desbloquear la iMac.
+La implementación continúa exclusivamente con el integrador. Root conserva revisión/evidencia y el paquete privado existente. [Búsqueda histórica y resolución](evidence/data_events_lookup_20261106.json). Actualización del 6 de noviembre: coordinación entregó revisión estática Gemini de Auth/Payments y Antigravity IDE de KDS/lectores Payments de 3f, sin defecto concreto nuevo. Sus límites no cubren journal, atomicidad, banco ni despliegue; no se repitieron encargos.
 
 Se preparó [compatibilidad y reversión para la candidata exacta](COMPATIBILIDAD_REVERSION_3f29bdc_20261106.md), con inventario público de artefactos para actualizar el paquete existente. No se creó otro paquete privado, no se modificó código ni se repitieron suites o consultas CI/Google. Los bloqueos reales restantes son los de entorno, datos/configuración y evidencia operativa descritos allí.
+
+## Continuación de preservación de colas — 6 noviembre 2026
+
+[OUTBOX_REVIEW_20261106.md](OUTBOX_REVIEW_20261106.md) añade pausa previa al arranque y copias de evidencia. La fuente de Payments/Auth/KDS sigue siendo la de 3f; la UI y bandera nativa cambian y requieren su propio SHA/CI. No se tocó Google ni la cola real.
