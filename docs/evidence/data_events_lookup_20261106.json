@@ -1,0 +1,142 @@
+{
+  "checkedAt": "2026-11-06 06:12:47 UTC",
+  "candidateSha": "3f29bdc6b39e364c579c2eb6e2cfd925659537a8",
+  "headBeforeLookup": "e9d8e4f45227ebd912fdd41836594e41ba3de1ac",
+  "github": {
+    "repository": "SadoTechMX/Admin-Domus",
+    "publishedBranchCount": 24,
+    "branches": [
+      {
+        "name": "arch/domus-erp-v15-antigravity",
+        "sha": "6bd23049df4b2f22de2d7c76d22f53b061d9f46f"
+      },
+      {
+        "name": "coord/domus-ecosistema-20261103",
+        "sha": "0d30678bb8763e328ee0999164e42b8beb5a3503"
+      },
+      {
+        "name": "coord/upgrade-trimestre-20261102",
+        "sha": "2b7ba1f4030b1013555b93cb96cfcb594141fdcb"
+      },
+      {
+        "name": "event/uds-20261030",
+        "sha": "f6d760d2e442db5cba2c940bd467e496729a988b"
+      },
+      {
+        "name": "feat/erp-v15-dimensions-daily-finance",
+        "sha": "e9c4160d1ebad2d0ae9db787c52b33dcb0441ff2"
+      },
+      {
+        "name": "feat/erp-v15-universal-ledger",
+        "sha": "6091eaed58207c7c28ac10abfffd73a8ec41ee89"
+      },
+      {
+        "name": "feat/solar-lunar-operating-profiles",
+        "sha": "f43a1deac80dcd746eeb6552377db7d0f3eb7562"
+      },
+      {
+        "name": "feature/phase-1-shifts-cuts",
+        "sha": "881a71c9f705ebe8ef4772273c9ed0a7a1b0d8fd"
+      },
+      {
+        "name": "fix/access-channel-event",
+        "sha": "494475cc9c493be22bf73f8019ca418c7f383172"
+      },
+      {
+        "name": "fix/kds-incident-action-unblock",
+        "sha": "2b7ba1f4030b1013555b93cb96cfcb594141fdcb"
+      },
+      {
+        "name": "fix/session-renewal-permanent",
+        "sha": "94fe99e4d386059d7b7d6d324030f1eb8ca3b8bd"
+      },
+      {
+        "name": "fix/31oct-event-selection",
+        "sha": "2867f2b086331f2743e073445f175fcf1a5bf51e"
+      },
+      {
+        "name": "hotfix/access-overnight-event",
+        "sha": "73b81736118763e464095d8776ab6fc1f8a1b9b4"
+      },
+      {
+        "name": "hotfix/caja-comandas-v13",
+        "sha": "081d97a1b01654ea7b9a433027f5f2ac21170a50"
+      },
+      {
+        "name": "hotfix/event-2026-10-24",
+        "sha": "96ad5475f30a1e1a15780940ea63d4be9b691e08"
+      },
+      {
+        "name": "hotfix/kds-formula-ledger",
+        "sha": "f954e3ae8b1151934d8e7f3eec8253482f7b7175"
+      },
+      {
+        "name": "hotfix/kds-history-state-v14",
+        "sha": "3ecbac5013aae1ddadcab3d3217386f62596b061"
+      },
+      {
+        "name": "hotfix/native-appsscript-ui",
+        "sha": "77552b62084238715c72c6f5e9e9e6f5e9f90279"
+      },
+      {
+        "name": "hotfix/print-bridge-security-cash-drawer",
+        "sha": "b0d4f2bcdc92ba7696211fc1a88de08ad197db88"
+      },
+      {
+        "name": "main",
+        "sha": "2b7ba1f4030b1013555b93cb96cfcb594141fdcb"
+      },
+      {
+        "name": "qa/acceptance-20261030",
+        "sha": "e8e858349dacb81e039314322adb35db2702d69a"
+      },
+      {
+        "name": "repair/qa-20261030",
+        "sha": "f0c24ea032d72eb2847d62455d866bbf4c3b52a0"
+      },
+      {
+        "name": "repair/reconcile-pr18-main-20261105",
+        "sha": "e9d8e4f45227ebd912fdd41836594e41ba3de1ac"
+      },
+      {
+        "name": "stabilization/backend-v1",
+        "sha": "14d9d0696a1d4f118f07509b4321275ae6c1f62e"
+      }
+    ],
+    "gitFetch": "All published refs/heads fetched read-only; no pushes or branch creation during lookup"
+  },
+  "coordinationHistory": {
+    "queries": [
+      "Data Events",
+      "Data",
+      "Events",
+      "preventivo"
+    ],
+    "visibleMatches": 0,
+    "partial": false,
+    "limitation": "Only history accessible to this thread was searched; absence of matches does not prove absence in another private thread/worktree."
+  },
+  "currentFiles": [
+    {
+      "path": "google-apps-script/Data.gs",
+      "lastChangeCommit": "70f8df22e3618d136918c40748bf139d05b867c5",
+      "alreadyInCandidate": true,
+      "blob": "b0856e1a88dcd73d15da42e54450f3fc6fe11880",
+      "sha256": "175714b970dba7f3545e78336227a77cadfaf237e2b1b4935310605646820ce6"
+    },
+    {
+      "path": "google-apps-script/Events.gs",
+      "lastChangeCommit": "69aeb07f620dcdc1f38a1614a122a242d14c0b69",
+      "alreadyInCandidate": true,
+      "blob": "4cb1a879675b5874218f942d968a3611c840a281",
+      "sha256": "cb8bb3724764a6aceed38a25728145f410c44223391163337c0c461fcd4b666d"
+    }
+  ],
+  "result": {
+    "independentRootDeltaLocated": false,
+    "integrated": false,
+    "sourceChanged": false,
+    "blocker": "Need published root commit or exact patch with base SHA. No equivalence to the private preventive delta has been established.",
+    "authorization": "Integration is already authorized when the artifact is available and compatible; no new permission gate introduced."
+  }
+}

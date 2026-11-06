@@ -89,3 +89,23 @@ La secuencia mínima de aceptación de staging queda preparada así, sin ejecuta
 6. **Ticket final:** imprimir o entregar archivo confirmado y verificar recepción; recuperar el mismo comprobante tras recarga sin nuevo cobro ni cajón por transferencia.
 
 Estos pasos no autorizan cambiar datos reales, iniciar pruebas Google, instalar ni eludir los bloqueos de revisión. La falta de iMac no impide terminar código/CI/preparación; sí permanece pendiente acreditar el entorno operativo y la estación que se vaya a usar.
+
+## Localización del delta Data/Events de coordinación
+
+Se consultaron las **24 ramas publicadas** en GitHub, se obtuvieron todos sus heads con Git y se examinó el historial de cambios de ambos módulos desde el 3 de noviembre. La rama `coord/domus-ecosistema-20261103` sigue en `0d30678bb8763e328ee0999164e42b8beb5a3503`, del 3 de noviembre. Las búsquedas del historial de coordinación accesible a este hilo no devolvieron un SHA para el delta preventivo comunicado por root. [Evidencia de búsqueda, ramas y huellas](evidence/data_events_lookup_20261106.json).
+
+| Archivo | Último cambio publicado de esta candidata | Resultado |
+| --- | --- | --- |
+| Data.gs | `70f8df22e3618d136918c40748bf139d05b867c5` | Ya es ancestro de `3f29bdc`; no se vuelve a aplicar. |
+| Events.gs | `69aeb07f620dcdc1f38a1614a122a242d14c0b69` | Ya es ancestro de `3f29bdc`; no se vuelve a aplicar. |
+
+**No se localizó un delta independiente integrable.** Esto no prueba que no exista en otro hilo o worktree privado; tampoco demuestra que el delta de root sea equivalente a los commits anteriores. No se reconstruyó ni se duplicó su trabajo. La integración ya está autorizada si aparece un artefacto disponible y compatible: falta **un commit publicado o el patch exacto con su SHA base**, no otra autorización de Steven ni datos bancarios. Se conserva la reserva de root sobre esos módulos.
+
+Queda preparado el cotejo para recibirlo, sin ejecutarlo sobre un artefacto supuesto:
+
+1. Verificar SHA base/objetivo y diff completo; descartar que sea una repetición de los cambios ya presentes. Delimitar los cambios Data/Events y sus pruebas, sin importar archivos del ensayo, configuración de destinos ni respaldos privados.
+2. Comprobar que conserva contrato de 35 encabezados, guardas antes de escribir/reanudar journal, separación acuerdo/estado, recuperación financiera y bloqueo de operaciones sin evidencia. No aprobar literales, aforo o reparto por inferencia.
+3. Integrar sólo el delta compatible en esta rama. Regenerar con `python3 scripts/build_release.py` y comprobar `--check`. Las regresiones afectadas previstas son `activity_schema_regressions`, `recovery_regressions`, `legacy_cutover_regressions` y `transfer_review_regressions`; ampliar sólo si el diff real lo requiere. Obtener CI del nuevo SHA funcional.
+4. Mantener receptores bancarios pendientes, sin pedir información sensible ni configurar Google. La secuencia de aceptación de Caja, recuperación, entrega y ticket anterior ya está preparada y no depende de recibir esos alias para revisar código.
+
+Este seguimiento no cambia código ni repite suites/revisiones de Gemini/Antigravity. La evidencia funcional vigente sigue siendo el SHA `3f29bdc` y su CI exitosa; los cambios posteriores de este tramo son documentación.
