@@ -33,6 +33,7 @@ jobs:
       - run: node tests/operating_period_regressions.js
       - run: node tests/mixed_payment_regressions.js
       - run: node tests/print_token_removal_regressions.js
+      - run: node tests/journey_context_regressions.js
       - run: node tests/test_event_selection.mjs
       - run: node tests/test_access_channel.mjs
       - run: python tests/test_hotfix_v13.py

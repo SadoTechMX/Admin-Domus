@@ -1,6 +1,6 @@
 {
   "baseCommit": "989d59e9d424c659af61784febfa7b184a641fbc",
-  "mode": "STATIC_READ_ONLY",
+  "mode": "STATIC_ANALYSIS_WITH_ISOLATED_CONTEXT_TESTS",
   "liveFormulaEvaluation": false,
   "remoteSheetsRead": false,
   "productionWrites": 0,
@@ -43,7 +43,7 @@
     "current-report-formulas-and-consumers",
     "historical-closed-report-contract"
   ],
-  "runtimeChanged": false,
+  "runtimeChanged": true,
   "approvedGrouping": [
     "event",
     "project",
@@ -53,19 +53,66 @@
   "decisionSource": {
     "kind": "user instruction via coordination",
     "date": "2026-11-07",
-    "text": "Será por evento, proyecto y jornada"
+    "text": "Será por evento, proyecto y jornada",
+    "lifecycleText": "Cada jornada empieza al abrir caja para el evento o proyecto y termina cuando haces su corte, aunque pase la medianoche. Steven: Si ya que la mayoría de los eventos son de 8 pm a 7 am, cada proyecto es distinto"
   },
   "pendingDecisions": [
-    "shared-DOMUS-journey-versus-event-project-journeys",
-    "authorized-manual-opening-and-closing",
-    "operational-close-with-declared-pending-versus-all-resolved"
+    "cut-with-declared-transfer-and-delivery-pending-versus-wait-for-those-pending"
   ],
   "coordinationCheck": {
-    "integratorHead": "af1735818a3364a52e2483dc846a7d978fcdd7f6",
+    "integratorHead": "7b80fb38766f74f46f7c44acb36563d0e957bb58",
     "shiftBranch": "feature/phase-1-shifts-cuts",
     "shiftHead": "881a71c9f705ebe8ef4772273c9ed0a7a1b0d8fd",
     "remoteHeadsVerified": true,
     "directEditorContact": false,
     "newShiftImplementation": false
+  },
+  "posBehaviorChanged": false,
+  "runtimeChangeScope": "Private context reader loaded in bundle; no public RPC, opening, cut, POS integration or formula changes",
+  "approvedJourneyLifecycle": {
+    "scope": "event/project",
+    "starts": "explicit cash opening",
+    "ends": "explicit linked cut",
+    "crossesMidnight": true,
+    "automaticCutoff": null,
+    "preserveActualTimestamps": true
+  },
+  "preparation": {
+    "baseCommit": "7b80fb38766f74f46f7c44acb36563d0e957bb58",
+    "module": "google-apps-script/Journeys.gs",
+    "contract": "domus-journey-v1",
+    "privateReadOnly": true,
+    "publicRpc": false,
+    "newShiftImplementation": false,
+    "posIntegration": false,
+    "schemaWrites": 0,
+    "productionWrites": 0,
+    "newSuite": {
+      "path": "tests/journey_context_regressions.js",
+      "passed": 9,
+      "liveSheets": false,
+      "realOpenings": 0,
+      "realCuts": 0
+    },
+    "relevantRegressions": {
+      "recovery": 27,
+      "reconciliation": 17,
+      "legacyCutover": 9,
+      "operatingPeriod": 11,
+      "transferReview": 20,
+      "mixedPayment": 17
+    },
+    "limitations": [
+      "Current report formulas and downstream dependencies not verified",
+      "Opening and cut writers not adapted or exposed",
+      "Event/project identity map not defined from existing labels",
+      "Unknown cut blocks all context resolution until reviewed",
+      "Journal fixture does not validate integrated POS journey behavior",
+      "Existing pending accounts retain origin; transfer/delivery cut policy still to specify"
+    ],
+    "printing": "Reserved to Steven and Antigravity; unchanged",
+    "backendSourceSha256": "9b6f7b0e5f2e9d3968cf0d6a5430988260d6706469719a0aeaf2856dbe922d78",
+    "productionGuardrailCasesPassed": 4,
+    "stagingHarnessSafetyCasesPassed": 3
   }
 }
