@@ -264,7 +264,7 @@
   window.DOMUS_BUILD = {
     baseCommit: '2b7ba1f4030b1013555b93cb96cfcb594141fdcb',
     buildId: 'repair-reconcile-20261105',
-    ui: '20261107-mixed-12',
+    ui: '20261107-print-token-13',
     environment: isProductionLocked ? 'PRODUCTION' : 'STAGING'
   };
 
@@ -3101,6 +3101,7 @@ const DEFAULT_CATALOG = [
 
   // Sincronización entre pestañas y reactividad a conexión de red
   window.addEventListener('storage', e => {
+    if(e.key==='domus_print_token' && e.newValue===null){clearPrintTokenView_();return;}
     if(e.key==='domus_outbox_review_hold_v1' && e.newValue!==null){enterOutboxReview_();return;}
     if (e.key === 'domus_outbox') {
       updateOutboxUI();
@@ -3256,6 +3257,29 @@ const DEFAULT_CATALOG = [
     }
   }
 
+  function clearPrintTokenView_() {
+    const input=$('printBridgeTokenInput');
+    if(input){input.value='';input.placeholder='Sin token guardado';}
+    STATE.printerStatus='offline';
+    updatePrinterPill('offline','🖨️ Sin token','Acceso de impresión retirado de este navegador.');
+    const message=$('printerStatusMsg');
+    if(message){message.textContent='Token retirado de este navegador. Colas y comprobantes conservados.';message.style.color='var(--text-muted)';}
+  }
+
+  function removePrintToken_() {
+    try {
+      // Do not clear the profile, Outbox, receipts, sessions or bridge credentials.
+      localStorage.removeItem('domus_print_token');
+      if(localStorage.getItem('domus_print_token')!==null)throw new Error('Removal not confirmed');
+    } catch(_) {
+      toast('No se pudo confirmar la retirada del token. Conserva este perfil y vuelve a intentarlo.','error');
+      return false;
+    }
+    clearPrintTokenView_();
+    toast('Token de impresión retirado de este navegador.','ok');
+    return true;
+  }
+
   function updatePrinterPill(state = 'offline', text = null, title = null) {
     const pill = $('printerPill');
     const dot = $('printerDot');
@@ -3287,6 +3311,10 @@ const DEFAULT_CATALOG = [
     })
     .then(r => r.json())
     .then(data => {
+      if(!getPrintToken()) {
+        STATE.printerStatus='offline';updatePrinterPill('offline','🖨️ Sin token','Configura el acceso de impresión en este navegador.');
+        if(callback)callback(false,{status:'TOKEN_REQUIRED'});return;
+      }
       if (data && data.ok && data.status === 'READY') {
         STATE.printerStatus = 'ready';
         updatePrinterPill('ready', '🖨️ Conectada', `DOMUS_TICKETS: Lista (${data.printer})`);
@@ -4600,7 +4628,10 @@ const DEFAULT_CATALOG = [
   // --- CONFIGURACIÓN & MODAL API ---
   function openConfigModal() {
     if ($('gasApiUrlInput')) $('gasApiUrlInput').value = STATE.apiUrl;
-    if ($('printBridgeTokenInput')) $('printBridgeTokenInput').value = getPrintToken();
+    if ($('printBridgeTokenInput')) {
+      $('printBridgeTokenInput').value = '';
+      $('printBridgeTokenInput').placeholder = getPrintToken() ? 'Token guardado; escribe sólo para reemplazarlo' : 'Sin token guardado';
+    }
     if ($('printerStatusMsg')) {
       $('printerStatusMsg').textContent = STATE.printerStatus === 'ready'
         ? '✓ Conexión establecida con DOMUS Print Bridge (127.0.0.1:17321).'
@@ -4630,6 +4661,7 @@ const DEFAULT_CATALOG = [
     if (printToken) {
       setPrintToken(printToken);
     }
+    if($('printBridgeTokenInput'))$('printBridgeTokenInput').value='';
     $('configModal').classList.remove('open');
     toast('Configuración guardada.', 'ok');
     syncBackendData();
@@ -5997,10 +6029,12 @@ const DEFAULT_CATALOG = [
     // Config Modal
     bindEvent('btnOpenSettings', 'click', openConfigModal);
     bindEvent('btnCloseConfig', 'click', () => {
+      if($('printBridgeTokenInput'))$('printBridgeTokenInput').value='';
       const m = $('configModal');
       if (m) m.classList.remove('open');
     });
     bindEvent('btnCancelConfig', 'click', () => {
+      if($('printBridgeTokenInput'))$('printBridgeTokenInput').value='';
       const m = $('configModal');
       if (m) m.classList.remove('open');
     });
@@ -6118,6 +6152,7 @@ const DEFAULT_CATALOG = [
     });
 
     // Printer Pill click & Config buttons
+    bindEvent('btnRemovePrintToken','click',removePrintToken_);
     bindEvent('printerPill', 'click', () => {
       checkPrinterStatus((ok, data) => {
         if (ok) {
