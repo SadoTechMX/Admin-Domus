@@ -151,6 +151,19 @@
 
       <!-- Right: Cart & Order Drawer -->
       <aside class="cart-sidebar" aria-label="Pedido actual">
+        <section id="journeyControls" class="hidden" style="padding:12px 16px" aria-label="Jornada de caja">
+          <p id="journeyStatus" role="status"></p>
+          <label for="journeyScopeSelect">Evento / proyecto de la apertura</label>
+          <select id="journeyScopeSelect"></select>
+          <label for="journeyOpeningFloat">Fondo inicial</label>
+          <input id="journeyOpeningFloat" type="number" min="0" step="0.01" placeholder="Importe contado">
+          <button type="button" id="btnJourneyOpen" class="btn-secondary-action">Abrir jornada</button>
+          <label for="journeyCountedCash">Efectivo contado al corte</label>
+          <input id="journeyCountedCash" type="number" min="0" step="0.01" placeholder="Importe contado">
+          <button type="button" id="btnJourneyClose" class="btn-secondary-action">Cerrar jornada · Gerencia</button>
+          <p id="journeyCutSummary" role="status"></p>
+          <small>La jornada continúa hasta su corte, aunque pase medianoche. El corte conserva las cuentas abiertas; el reparto y los movimientos ajenos a esta caja se concilian por separado.</small>
+        </section>
         <p id="cashPeriodStatus" role="status" style="padding:12px 16px;margin:0">Verificando periodo operativo antes de cobrar…</p>
         <div class="cart-header">
           <h2>

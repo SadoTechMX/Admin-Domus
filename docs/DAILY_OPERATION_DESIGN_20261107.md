@@ -1,3 +1,5 @@
+> **Conexión de jornada, 7 noviembre 2026 UTC — IMPLEMENTED / LOCAL_TESTED:** [Apertura, ventas y corte vinculados](JOURNEY_INTEGRATION_20261107.md), UI `20261107-journey-14`. Mapa explícito de servidor, REQUESTS/journal, cuenta de origen y movimiento posterior separados. 18 casos de operaciones + 8 de transporte + 5 de Chromium pasan. Corte limitado a recibos POS, sin liquidación financiera definitiva; transferencias/entregas pendientes al cortar siguen bloqueadas por decisión pendiente. SEMANA y fórmulas intactas. Ninguna configuración Google, deployment, impresión o dato real modificado. Este avance sustituye la preparación privada descrita abajo.
+
 # Operación continua y periodos de reporte — diseño, 7 noviembre 2026 UTC
 
 > **Decisiones recibidas de Steven, 7 noviembre:** «Será por evento, proyecto y jornada»; cada jornada de evento/proyecto empieza al abrir caja y termina al hacer su corte, aunque cruce medianoche. Se conservan fecha/hora reales. Los eventos de 20:00 a 07:00 son un ejemplo de duración, **no un horario automático de cierre**. La impresión queda exclusivamente con Steven y Antigravity.

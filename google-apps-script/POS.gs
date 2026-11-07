@@ -85,6 +85,7 @@ function cajaSimpleDatos() {
   return {
     phase: ['Solar', 'Lunar'].includes(phase) ? phase : 'Solar',
     operatingPeriod: cashOperatingPeriod_(m,new Date()),
+    journey: journeyState_(m),
     products: products,
     accounts: accounts,
     activities: activities,
@@ -128,6 +129,7 @@ function cajaSimpleRegistrarCore_(p) {
   const now = new Date();
   const period = cashOperatingPeriod_(m,now);
   if(!period.allowed)throw posValidationError_(period.message);
+  const journey=journeyForMovement_(m,p,now);
   const who = _authContext.operator;
   const canCourtesy = ['ADMIN','GERENCIA'].includes(_authContext.role);
   const ticket = String(p.ticket || ('CTA-' + Utilities.getUuid())).trim();
@@ -149,6 +151,8 @@ function cajaSimpleRegistrarCore_(p) {
   const confirmed = !!p.paid && !pending && !freeCourtesy;
   const customer = String(p.ticket ? oldBalance.rows[0][4] : p.customer || 'Público General').trim();
   const activity = String(p.ticket ? oldBalance.rows[0][3] : p.activity || 'Visita general DOMUS');
+  if(journey && !p.ticket && activity!==journey.activity)throw journeyReject_('El evento/proyecto seleccionado no corresponde a la jornada abierta.');
+  const originJourney=journey && (p.ticket?journeyAccountOrigin_(m,ticket,journey,units.length>0):journey);
   const rows = dataRows_(sCaja,7,32);
   const free = [];
   rows.forEach((r,i) => { if (!r[1] && !r[6] && free.length < units.length) free.push(i+7); });
@@ -170,6 +174,7 @@ function cajaSimpleRegistrarCore_(p) {
     const item = {id:'U-'+row,row:row,ticket:ticket,batch:p.id,alias:customer,product:u.name,
       sku:u.sku,qty:1,notes:u.notes,destination:u.destination,sent:now.toISOString(),
       state:'Pendiente',credit:!(confirmed || freeCourtesy),incident:'',responsible:''};
+    if(journey)item.journey=journey;
     const com = {1:'U-'+row,2:ticket,3:now,4:u.destination,5:u.name,6:1,7:u.notes,8:'Recibida',13:JSON.stringify(item)};
     Object.keys(com).forEach(c => writes.push(cellWrite_(sComandas,row,Number(c),com[c])));
   });
@@ -196,6 +201,7 @@ function cajaSimpleRegistrarCore_(p) {
     items: units.map(u=>({name:u.name,qty:1,price:u.courtesy?0:u.price})),
     message:freeCourtesy?'Cortesía autorizada. Pedido enviado sin cobro.':pending?'PAGO POR TRANSFERENCIA PENDIENTE DE VERIFICACIÓN':(confirmed?'Cobro confirmado.':'Pedido enviado a cuenta abierta.')};
   if(payments)Object.assign(result,{payments:payments,sourceRequestId:p.id,terminalConfirmed:true,terminalReference:math.terminalReference});
+  if(journey)Object.assign(result,{sourceRequestId:p.id,journey:journey,originJourney:originJourney});
   return journalCommit_(p.id,'cajaSimpleRegistrar',m,writes,result);
 }
 

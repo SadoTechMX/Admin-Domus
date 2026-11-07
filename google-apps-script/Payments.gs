@@ -152,18 +152,22 @@ function confirmarTransferencia(p) {
     const previous=confirmed.find(r=>r.sourceReceipt===proof.sourceReceipt);
     if(previous) {
       if(previous.evidenceHash!==evidenceHash)throw transferError_('TRANSFER_ALREADY_CONFIRMED','Ese recibo ya tiene otra confirmación; revisar sin repetir cobro.');
+      if(previous.journey && p.openingRequestId!==previous.journey.openingRequestId)throw journeyReject_('Transferencia ya confirmada en otra jornada. Recupera su intención original.');
       return previous;
     }
     if(confirmed.some(r=>r.bankKey===bankKey))throw transferError_('TRANSFER_BANK_REFERENCE_USED','Ese movimiento bancario ya fue aplicado.');
     if(proof.amount!==source.total)throw transferError_('TRANSFER_AMOUNT_REQUIRES_REVIEW','Sólo se admite el importe completo del pendiente original; diferencias requieren conciliación.',422);
     const balance=posBalanceFast_({m:m},source.ticket);
     if(!balance.rows.length || balance.due+0.001<proof.amount)throw transferError_('TRANSFER_BALANCE_REQUIRES_REVIEW','La cuenta cambió o ya fue pagada; no aplicar otro cobro.');
-    const receipt='REC-TRF-'+Utilities.getUuid(),verifiedAt=new Date().toISOString();
+    const now=new Date(),journey=journeyForMovement_(m,p,now);
+    const originJourney=journey && journeyAccountOrigin_(m,source.ticket,journey,false);
+    const receipt='REC-TRF-'+Utilities.getUuid(),verifiedAt=now.toISOString();
     const result={ok:true,kind:'TRANSFER_CONFIRMATION',confirmationRequestId:id,sourceRequestId:proof.sourceRequestId,sourceReceipt:source.receipt,ticket:source.ticket,
       receipt:receipt,total:proof.amount,amountApplied:proof.amount,currency:'MXN',method:'Transferencia',paymentStatus:'CONFIRMADA',paid:true,verified:true,
       verificationMode:'MANUAL_BANK_REVIEW',verifiedBy:_authContext.operator,verifiedRole:_authContext.role,verifiedPrincipal:_authContext.principal,verifiedAt:verifiedAt,
       receiver:proof.receiver,bankTransactionId:proof.bankTransactionId,bankKey:bankKey,receivedDate:proof.receivedDate,evidenceReference:proof.evidenceReference,evidenceHash:evidenceHash,
       customer:source.customer,items:source.items || [],tip:0,received:null,change:null};
+    if(journey)Object.assign(result,{journey:journey,originJourney:originJourney});
     const s=transferSheet_(m),row=Math.max(7,s.getLastRow()+1);
     const metadata={version:1,confirmationRequestId:id,sourceRequestId:proof.sourceRequestId,sourceReceipt:source.receipt,bankKey:bankKey};
     const writes=paymentWrites_(s,{row:row,folio:receipt,origin:'Caja',ticket:source.ticket,method:'Transferencia',amount:proof.amount,

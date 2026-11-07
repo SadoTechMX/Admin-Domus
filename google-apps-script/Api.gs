@@ -110,6 +110,13 @@ function executeDomusActionCore_(action, payload, params) {
       break;
 
     // --- CAJA / POS ---
+    case 'turnoAbrir':
+    case 'corteZCerrar':
+      result = idempotentExecute_(requestId, action, args[0], deviceId, () => action==='turnoAbrir'?turnoAbrir(args[0]):corteZCerrar(args[0]));
+      break;
+    case 'turnoEstado':
+      result = turnoEstado();
+      break;
     case 'cajaSimpleDatos':
       result = cajaSimpleDatos();
       break;

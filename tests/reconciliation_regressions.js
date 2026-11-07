@@ -33,7 +33,7 @@ function setup(options={}) {
   }
   for (const name of ['outboxReviewRequired_','assertOutboxTraffic_','validateReviewSnapshot_','assertOutboxStoreWritable_','withOutboxTraffic_',
     'isSessionExpiredError','getStationRole','getSessionToken','setSessionToken','clearSessionToken',
-    'ensureSessionToken','authenticatedTransport_','validSaleResult_','validTransferResult_','validateBackendResponse_','getOutbox','withOutboxStore_','saveOutbox','enqueueOutbox','isSaleRejectionWithoutEffects_','classifyMutationFailure',
+    'ensureSessionToken','authenticatedTransport_','validSaleResult_','validTransferResult_','validJourneyContext_','validMovementJourney_','validJourneyResult_','validateBackendResponse_','getOutbox','withOutboxStore_','saveOutbox','enqueueOutbox','isSaleRejectionWithoutEffects_','classifyMutationFailure',
     'retainConfirmation_','saleDraftSnapshot_','settleConfirmedBasket_','recoverReceipt_','migrateLegacyOutbox_','sincronizarOutboxCore_','callBackend','recordOutboxFailure_','calculateCartTotal','mixedPaymentInput_','confirmPaymentAndDispatch']) load(name);
   ctx.setSessionToken('old-CAJA','CAJA');ctx.setSessionToken('old-BARRA','BARRA');
   const call = (action,args) => new Promise((resolve,reject)=>ctx.callBackend(action,args,resolve,reject));

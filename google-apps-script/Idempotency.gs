@@ -216,6 +216,10 @@ function idempotentExecute_(requestId, action, payload, deviceId, fn) {
         prior.status = REQUEST_STATUS.COMPLETED; prior.response = resumed;
         prior.completedAt = new Date().toISOString(); saveRequestRecord_(prior, m); return resumed;
       }
+      if(prior.response && prior.response.code==='JOURNEY_VALIDATION_NO_EFFECTS' && prior.response.status===422 &&
+          ['turnoAbrir','corteZCerrar','cajaSimpleRegistrar','confirmarTransferencia'].includes(action)) {
+        throw journeyReject_(prior.response.error);
+      }
       if (action === 'cajaSimpleRegistrar' && prior.response && Number(prior.response.status) === 422 &&
           ['SALE_PHASE_CHANGED_NO_EFFECTS', 'SALE_VALIDATION_REJECTED_NO_EFFECTS'].includes(prior.response.code)) {
         const err = new Error(prior.response.error);

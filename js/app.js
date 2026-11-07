@@ -264,7 +264,7 @@
   window.DOMUS_BUILD = {
     baseCommit: '2b7ba1f4030b1013555b93cb96cfcb594141fdcb',
     buildId: 'repair-reconcile-20261105',
-    ui: '20261107-print-token-13',
+    ui: '20261107-journey-14',
     environment: isProductionLocked ? 'PRODUCTION' : 'STAGING'
   };
 
@@ -2516,6 +2516,8 @@ const DEFAULT_CATALOG = [
 
   // --- OUTBOX & IDEMPOTENCIA TRANSACCIONAL (FASE 0C) ---
   const MUTATION_ACTIONS = new Set([
+    'turnoAbrir',
+    'corteZCerrar',
     'cajaSimpleRegistrar',
     'confirmarTransferencia',
     'comandasSimpleAccion',
@@ -2640,8 +2642,42 @@ const DEFAULT_CATALOG = [
       result.bankTransactionId===String(intention.bankTransactionId || '').trim().toUpperCase().replace(/\s+/g,'');
   }
 
+  function validJourneyContext_(c) {
+    return !!c && typeof c==='object' && !Array.isArray(c) && c.version===1 &&
+      typeof c.openingRequestId==='string' && !!c.openingRequestId && c.journeyId==='JOR-'+c.openingRequestId &&
+      typeof c.shiftId==='string' && !!c.shiftId && c.status==='OPEN' && c.allowed===true &&
+      ['openedAt','occurredAt'].every(k=>typeof c[k]==='string' && Number.isFinite(Date.parse(c[k]))) &&
+      !!c.scope && ['projectId','projectName'].every(k=>typeof c.scope[k]==='string' && !!c.scope[k].trim()) &&
+      ((c.scope.eventId===null && c.scope.eventName==='') || ['eventId','eventName'].every(k=>typeof c.scope[k]==='string' && !!c.scope[k].trim()));
+  }
+
+  function validMovementJourney_(r,body) {
+    return !!r && validJourneyContext_(r.journey) && validJourneyContext_(r.originJourney) &&
+      r.journey.openingRequestId===body.openingRequestId && r.originJourney.scope.projectId===r.journey.scope.projectId;
+  }
+
+  function validJourneyResult_(r,payload) {
+    const body=payload.args?.[0] || {},id=payload.requestId;
+    if(!r || typeof r!=='object' || Array.isArray(r) || r.ok!==true || r.journeyContract!=='domus-journey-v1' || !id)return false;
+    if(payload.action==='turnoAbrir')return r.openingRequestId===id && r.journeyId==='JOR-'+id && r.shiftId==='TURNO-'+id && r.status==='OPEN' &&
+      r.scopeId===body.scopeId && typeof r.openingFloat==='number' && r.openingFloat===body.openingFloat &&
+      ['stationId','registerId','openedAt','activity'].every(k=>typeof r[k]==='string' && !!r[k]) && Number.isFinite(Date.parse(r.openedAt)) &&
+      validJourneyContext_({version:1,openingRequestId:id,journeyId:r.journeyId,shiftId:r.shiftId,status:'OPEN',allowed:true,openedAt:r.openedAt,occurredAt:r.openedAt,scope:r.scope});
+    return r.closingRequestId===id && r.openingRequestId===body.openingRequestId && r.journeyId==='JOR-'+body.openingRequestId &&
+      r.shiftId==='TURNO-'+body.openingRequestId && r.cutId==='CORTE-JOR-'+id && r.status==='CLOSED' &&
+      typeof r.closedAt==='string' && Number.isFinite(Date.parse(r.closedAt)) && r.countedCash===body.countedCash &&
+      r.financialFinal===false && r.coverage==='JOURNEY_POS_RECEIPTS' && !!r.snapshot && r.snapshot.financialFinal===false &&
+      r.snapshot.coverage===r.coverage && Array.isArray(r.snapshot.movements) && Array.isArray(r.snapshot.openAccounts) &&
+      Array.isArray(r.snapshot.pendingTransfers) && Array.isArray(r.snapshot.pendingDeliveries) && !!r.snapshot.totals &&
+      ['Efectivo','Terminal 1','Terminal 2','Transferencia'].every(k=>typeof r.snapshot.totals[k]==='number' && Number.isFinite(r.snapshot.totals[k]) && r.snapshot.totals[k]>=0);
+  }
+
   function validateBackendResponse_(response, payload) {
     if (!response || typeof response !== 'object' || Array.isArray(response) || typeof response.ok !== 'boolean' ||
+        (response.ok && payload && ['turnoAbrir','corteZCerrar'].includes(payload.action) &&
+          (response.requestId!==payload.requestId || !validJourneyResult_(response.data,payload))) ||
+        (response.ok && payload && ['cajaSimpleRegistrar','confirmarTransferencia'].includes(payload.action) && payload.args?.[0]?.openingRequestId &&
+          (!validMovementJourney_(response.data,payload.args[0]) || (payload.action==='cajaSimpleRegistrar' && response.data.sourceRequestId!==payload.requestId))) ||
         (response.ok && (response.data === undefined || response.data === null)) ||
         (response.ok && payload && payload.action === 'cajaSimpleRegistrar' &&
           (!payload.requestId || response.requestId !== payload.requestId || !validSaleResult_(response.data, payload.args && payload.args[0] || {}))) ||
@@ -2758,6 +2794,7 @@ const DEFAULT_CATALOG = [
 
   function saleDraftSnapshot_() {
     return JSON.stringify({cart:STATE.cart, ticket:STATE.selectedAccountTicket || '', phase:STATE.phase,
+      openingRequestId:STATE.journey?.active?.openingRequestId || '',
       customer:$('customerNameInput')?.value || '', activity:$('activitySelect')?.value || ''});
   }
 
@@ -2917,6 +2954,7 @@ const DEFAULT_CATALOG = [
     // Neither Spanish error text nor a generic 4xx/5xx proves absence of effects.
     return Number(error.status)===422 && ((action==='cajaSimpleRegistrar' &&
       ['SALE_PHASE_CHANGED_NO_EFFECTS','SALE_VALIDATION_REJECTED_NO_EFFECTS'].includes(error.code)) ||
+      (['turnoAbrir','corteZCerrar','cajaSimpleRegistrar','confirmarTransferencia'].includes(action) && error.code==='JOURNEY_VALIDATION_NO_EFFECTS') ||
       (action==='confirmarTransferencia' && ['TRANSFER_POLICY_REQUIRED_NO_EFFECTS','TRANSFER_REVIEW_INCOMPLETE_NO_EFFECTS'].includes(error.code)));
   }
 
@@ -3167,7 +3205,7 @@ const DEFAULT_CATALOG = [
 
   // --- COMUNICACIÓN CON BACKEND (IDEMPOTENTE & CON OUTBOX) ---
   function callBackend(fnName, args, onSuccess, onError) {
-    let role = (['cambiarFase','anularAcceso','sincronizarCartaConCatalogoDOMUS','registrarNuevoProducto','registrarNuevoEvento','transferenciasPendientes','confirmarTransferencia'].includes(fnName) ? 'GERENCIA' : getStationRole()).toUpperCase();
+    let role = (['corteZCerrar','cambiarFase','anularAcceso','sincronizarCartaConCatalogoDOMUS','registrarNuevoProducto','registrarNuevoEvento','transferenciasPendientes','confirmarTransferencia'].includes(fnName) ? 'GERENCIA' : getStationRole()).toUpperCase();
     let deviceId = getDeviceId(), operator = STATE.operator;
     try { args = JSON.parse(JSON.stringify(args || [])); }
     catch (err) { if (onError) onError(err); return; }
@@ -3466,10 +3504,46 @@ const DEFAULT_CATALOG = [
     startPolling();
   }
 
+  function renderJourney_() {
+    const panel=$('journeyControls'),state=STATE.journey;
+    if(!panel)return;
+    panel.classList.toggle('hidden',!state?.enabled);if(!state?.enabled)return;
+    const active=state.active,scope=$('journeyScopeSelect'),previous=scope.value;
+    scope.innerHTML='<option value="">Selecciona evento / proyecto</option>'+(state.scopes || []).map(s=>`<option value="${escapeHtml(s.id)}">${escapeHtml(s.eventName || s.projectName)} · ${escapeHtml(s.projectName)}</option>`).join('');
+    scope.value=active?.scopeId || previous;scope.disabled=!!active || !!STATE.journeySending;
+    $('journeyStatus').textContent=active?`Jornada abierta · ${active.scope.eventName || active.scope.projectName} · ${active.openedAt}`:'Sin jornada abierta en esta estación.';
+    $('btnJourneyOpen').disabled=!!active || !!STATE.journeySending;
+    $('btnJourneyClose').disabled=!active || !!STATE.journeySending;
+    const cut=state.lastCut;
+    $('journeyCutSummary').textContent=cut?`Último corte ${cut.cutId} · efectivo declarado ${money(cut.countedCash)} · ventas en efectivo ${money(cut.snapshot.totals.Efectivo)} · terminales ${money(cut.snapshot.totals['Terminal 1']+cut.snapshot.totals['Terminal 2'])} · transferencias confirmadas ${money(cut.snapshot.totals.Transferencia)} · cuentas abiertas ${cut.snapshot.openAccounts.length}. Alcance: recibos de esta jornada; liquidación pendiente de revisión.`:'';
+  }
+
+  function submitJourney_(closing) {
+    if(STATE.journeySending)return;
+    try {
+      if(!STATE.journey?.enabled)throw new Error('Jornadas sin configuración acreditada.');
+      if(getOutbox().some(q=>q.status!=='REJECTED'))throw new Error('Resuelve las intenciones pendientes antes de abrir o cortar. No se reenviaron.');
+      if(closing && STATE.cart?.length)throw new Error('Resuelve el pedido del carrito antes del corte.');
+      const input=$(closing?'journeyCountedCash':'journeyOpeningFloat'),amount=Number(input.value);
+      if(!input.value.trim() || !Number.isFinite(amount) || amount<0 || Math.abs(amount*100-Math.round(amount*100))>0.00001)throw new Error('Indica el efectivo contado con máximo dos decimales.');
+      if(closing && !STATE.journey.active?.openingRequestId)throw new Error('No hay jornada abierta.');
+      const body=closing?{openingRequestId:STATE.journey.active.openingRequestId,countedCash:amount}:{scopeId:$('journeyScopeSelect').value,openingFloat:amount};
+      if(!closing && !body.scopeId)throw new Error('Selecciona evento / proyecto para abrir.');
+      body.requestId='JOR-REQ-'+crypto.randomUUID();STATE.journeySending=true;renderJourney_();
+      callBackend(closing?'corteZCerrar':'turnoAbrir',[body],res=>{
+        STATE.journeySending=false;renderJourney_();
+        if(res.localOutbox){toast('Intención sin confirmar. Recupera el mismo ID: '+res.requestId,'warn');return;}
+        toast(closing?'Jornada cerrada; conciliación y reparto se revisan por separado.':'Jornada abierta. Conserva su evento/proyecto al registrar.','ok');syncBackendData();
+      },err=>{STATE.journeySending=false;renderJourney_();toast(err.message || String(err),'warn');});
+    } catch(err) {toast(err.message || String(err),'warn');}
+  }
+
   function syncBackendData() {
     // 1. Catálogo y cuentas de Caja en modo Caja (y lectura inicial autoritativa de fase de CAJA 2!F2)
     if (STATE.mode === 'caja' || !STATE.phaseSyncedFromServer) {
       callBackend('cajaSimpleDatos', [], data => {
+        STATE.journey=data.journey || {enabled:false,active:null};
+        renderJourney_();
         STATE.operatingPeriod=data.operatingPeriod && typeof data.operatingPeriod.allowed==='boolean' ? data.operatingPeriod :
           {allowed:false,message:'El servidor no acreditó el periodo operativo. Revisar la versión instalada antes de cobrar.'};
         const periodStatus=$('cashPeriodStatus');
@@ -4015,6 +4089,7 @@ const DEFAULT_CATALOG = [
   async function confirmPaymentAndDispatch(isPaid) {
     if(paymentInFlight)return;
     if(!STATE.operatingPeriod || STATE.operatingPeriod.allowed!==true){toast(STATE.operatingPeriod?.message || 'Periodo operativo sin verificar.','warn');return;}
+    if(STATE.journey?.enabled && !STATE.journey.active?.openingRequestId){toast('Abre una jornada antes de registrar la venta.','warn');return;}
     if (STATE.pendingSaleId && localStorage.getItem('domus_confirmation_' + STATE.pendingSaleId)) settleConfirmedBasket_(STATE.pendingSaleId);
     if ((!$('activitySelect') || !$('activitySelect').value)) {
       toast('Selecciona el proyecto antes de registrar el pedido.', 'warn');
@@ -4076,6 +4151,7 @@ const DEFAULT_CATALOG = [
       }))
     };
     if(mixed)Object.assign(payload,mixed);
+    if(STATE.journey?.enabled)payload.openingRequestId=STATE.journey.active.openingRequestId;
 
     payload.requestId = payload.id;
     const submittedDraft = saleDraftSnapshot_();
@@ -4084,6 +4160,7 @@ const DEFAULT_CATALOG = [
     if($('btnSendPendingPayment'))$('btnSendPendingPayment').disabled=true;
     try {
       await withOutboxStore_(() => {
+        if(getOutbox().some(q=>['turnoAbrir','corteZCerrar'].includes(q.action) && q.status!=='REJECTED'))throw new Error('Recupera la apertura/corte pendiente antes de crear otra venta.');
         const saved = JSON.parse(localStorage.getItem('domus_pending_sale') || 'null');
         if (saved) {
           const id = saved.requestId || saved.id;
@@ -4221,6 +4298,10 @@ const DEFAULT_CATALOG = [
       const id='TRF-'+crypto.randomUUID();
       const body={id:id,requestId:id,sourceRequestId:pending.sourceRequestId,sourceReceipt:pending.sourceReceipt,ticket:pending.ticket,receiver:receiver,
         bankTransactionId:bankTransactionId,receivedDate:receivedDate,evidenceReference:evidenceReference,amount:amount,currency:'MXN'};
+      if(STATE.journey?.enabled) {
+        if(!STATE.journey.active?.openingRequestId)throw new Error('Abre una jornada antes de aplicar el ingreso.');
+        body.openingRequestId=STATE.journey.active.openingRequestId;
+      }
       STATE.transferReviewSending=true;$('btnConfirmTransferReview').disabled=true;
       callBackend('confirmarTransferencia',[body],res=>{
         STATE.transferReviewSending=false;
@@ -5941,6 +6022,8 @@ const DEFAULT_CATALOG = [
 
     // Payment Modal
     bindEvent('btnOpenPaymentModal', 'click', openPaymentModal);
+    bindEvent('btnJourneyOpen', 'click', () => submitJourney_(false));
+    bindEvent('btnJourneyClose', 'click', () => submitJourney_(true));
     bindEvent('btnClosePayModal', 'click', closePaymentModal);
     bindEvent('btnCancelPayment', 'click', closePaymentModal);
 

@@ -63,7 +63,9 @@ test('prepared journal retains original journey/time after cut, without recomput
  const recovered=t.ctx.journalResume_('fixture-plan','fixture-context',t.main);assert.deepEqual(JSON.parse(JSON.stringify(recovered.context)),JSON.parse(JSON.stringify(context)));assert.equal(recovered.context.occurredAt,'2026-11-07T05:59:00.000Z');
  assert.deepEqual(t.ctx.journalResume_('fixture-plan','fixture-context',t.main),recovered);assert.equal(sheet.getLastRow(),7);
 });
-test('new resolver is private and does not expose opening/cut as authorized RPC actions',()=>{
- const t=setup();for(const action of ['journeyContext_','turnoAbrir','corteZCerrar'])assert.throws(()=>t.request(action,[],action),/Acceso denegado/);
+test('resolver stays private; opening requires configured policy and cut requires manager',()=>{
+ const t=setup();assert.throws(()=>t.request('journeyContext_',[]),/Acceso denegado/);
+ assert.throws(()=>t.request('turnoAbrir',[{scopeId:'A',openingFloat:0}]),e=>e.code==='JOURNEY_VALIDATION_NO_EFFECTS');
+ assert.throws(()=>t.request('corteZCerrar',[{countedCash:0}]),/Acceso denegado/);
 });
 console.log(JSON.stringify({suite:'journey-context-read-only',passed,realOpenings:0,realCuts:0,posIntegration:false,liveSheets:false}));
