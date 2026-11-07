@@ -142,7 +142,8 @@ function cajaSimpleRegistrarCore_(p) {
   if (p.paid && due <= 0.01 && !freeCourtesy) throw posValidationError_('Cuenta sin saldo pendiente. No repetir cobro.');
   if (!p.paid && !['Amigo','Creador de proyecto'].includes(p.credit)) throw posValidationError_('Autorización de crédito requerida.');
   const method = freeCourtesy ? 'Cortesía' : String(p.method || '');
-  const math = p.paid && !freeCourtesy ? posPaymentMath_(due, method, p.received, p.tip) : {sale:0,tip:0,received:null,change:null};
+  if(p.payments != null && (!p.paid || freeCourtesy || method!=='Mixto'))throw posValidationError_('El desglose sólo corresponde a un cobro mixto.');
+  const math = p.paid && !freeCourtesy ? (method==='Mixto'?posMixedPaymentMath_(due,p):posPaymentMath_(due, method, p.received, p.tip)) : {sale:0,tip:0,received:null,change:null};
   if (p.paid && p.expectedTotal != null && Math.abs(Number(p.expectedTotal)-due)>0.01) throw posValidationError_('Saldo cambió. Actualiza la cuenta antes de confirmar.');
   const pending = !!p.paid && !freeCourtesy && method === 'Transferencia';
   const confirmed = !!p.paid && !pending && !freeCourtesy;
@@ -172,10 +173,18 @@ function cajaSimpleRegistrarCore_(p) {
     const com = {1:'U-'+row,2:ticket,3:now,4:u.destination,5:u.name,6:1,7:u.notes,8:'Recibida',13:JSON.stringify(item)};
     Object.keys(com).forEach(c => writes.push(cellWrite_(sComandas,row,Number(c),com[c])));
   });
-  let receipt = '';
+  let receipt = '', payments;
   if (p.paid && !freeCourtesy) {
     receipt = 'REC-'+Utilities.getUuid();
-    writes.push(...paymentWrites_(sCobros, {
+    if(method==='Mixto') {
+      // Reserve distinct rows in this one journal before applying either tender.
+      const firstRow=Math.max(sCobros.getLastRow()+1,7);
+      payments=math.payments.map((part,i)=>({receipt:receipt+(i===0?'-E':'-T'),method:part.method,amount:part.amount}));
+      payments.forEach((part,i)=>writes.push(...paymentWrites_(sCobros,{
+        row:firstRow+i,folio:part.receipt,origin:'Caja',ticket:ticket,method:part.method,amount:part.amount,tag:'CAJA-RAPIDA:'+p.id,
+        operator:who,activity:activity,tip:i===0?math.tip:0,received:i===0?math.received:null,change:i===0?math.change:null
+      })));
+    } else writes.push(...paymentWrites_(sCobros, {
       folio:receipt, origin:'Caja',ticket:ticket, method:method,amount:due,tag:'CAJA-RAPIDA:'+p.id,
       operator:who,activity:activity,tip:math.tip,received:math.received,change:math.change
     }));
@@ -186,6 +195,7 @@ function cajaSimpleRegistrarCore_(p) {
     method:method,total:due,customer:customer,received:math.received,tip:math.tip,change:math.change,
     items: units.map(u=>({name:u.name,qty:1,price:u.courtesy?0:u.price})),
     message:freeCourtesy?'Cortesía autorizada. Pedido enviado sin cobro.':pending?'PAGO POR TRANSFERENCIA PENDIENTE DE VERIFICACIÓN':(confirmed?'Cobro confirmado.':'Pedido enviado a cuenta abierta.')};
+  if(payments)Object.assign(result,{payments:payments,sourceRequestId:p.id,terminalConfirmed:true,terminalReference:math.terminalReference});
   return journalCommit_(p.id,'cajaSimpleRegistrar',m,writes,result);
 }
 
@@ -266,6 +276,24 @@ function posPaymentMath_(due, method, received, tip) {
     throw posValidationError_('Efectivo insuficiente: faltan $' + posRound_(due + tip - received).toFixed(2) + '.');
   }
   return { sale: due, received: received, tip: tip, change: posRound_(received - due - tip) };
+}
+
+// Only cash plus one terminal, all amounts in whole cents. Terminal approval is
+// an operator assertion, not a bank/terminal integration. Tip belongs to cash.
+function posMixedPaymentMath_(due,p) {
+  const cents=v=>typeof v==='number' && Number.isFinite(v) && v>=0 && Number.isSafeInteger(Math.round(v*100)) && Math.abs(v*100-Math.round(v*100))<0.00001?Math.round(v*100):null;
+  const parts=p.payments,total=cents(due),received=cents(p.received),tip=cents(p.tip);
+  if(!Array.isArray(parts) || parts.length!==2 || !parts[0] || !parts[1] || parts[0].method!=='Efectivo' || !['Terminal 1','Terminal 2'].includes(parts[1].method) ||
+      total===null || cents(p.expectedTotal)!==total || received===null || tip===null ||
+      parts.some(v=>cents(v.amount)===null || cents(v.amount)<=0) || cents(parts[0].amount)+cents(parts[1].amount)!==total) {
+    throw posValidationError_('Mixto requiere efectivo y una terminal, importes positivos con dos decimales y suma exacta del saldo.');
+  }
+  if(p.terminalConfirmed!==true || typeof p.terminalReference!=='string' || !p.terminalReference.trim() || p.terminalReference.length>120 || /[\x00-\x1f\x7f]/.test(p.terminalReference)) {
+    throw posValidationError_('Confirma la aprobación de la terminal e indica su referencia antes de registrar el pago mixto.');
+  }
+  const change=received-cents(parts[0].amount)-tip;
+  if(change<0)throw posValidationError_('Efectivo insuficiente para su parte de la cuenta y la propina.');
+  return {sale:due,received:p.received,tip:p.tip,change:change/100,payments:parts,terminalReference:p.terminalReference.trim()};
 }
 
 function posExpandCart_(items, cat, phase, canCourtesy) {

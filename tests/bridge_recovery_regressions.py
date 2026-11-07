@@ -45,6 +45,21 @@ class BridgeRecovery(unittest.TestCase):
         raw=bridge.build_receipt_escpos({'receipt':'r','total':40,'method':'Transferencia','paymentStatus':'PENDIENTE_VERIFICACION'})
         self.assertIn(b'PENDIENTE',raw)
 
+    def test_mixed_receipt_breakdown_cash_change_and_one_print_id(self):
+        data={'printId':'PRINT-mixed','receipt':'REC-mixed','total':40,'method':'Mixto',
+              'payments':[{'method':'Efectivo','amount':15},{'method':'Terminal 1','amount':25}],
+              'received':20,'tip':2,'change':3,'terminalReference':'QA-APPROVED-1'}
+        raw=bridge.build_receipt_escpos(data)
+        text=raw.decode('cp850')
+        for value in ['Efectivo:', '$15.00', 'Terminal 1:', '$25.00', 'CAMBIO:', '$3.00', 'PROPINA:', '$2.00', 'QA-APPROVED-1']:
+            self.assertIn(value,text)
+        self.assertNotIn(bridge.DRAWER_PULSE_CH0,raw)
+        self.assertNotIn(bridge.DRAWER_PULSE_CH1,raw)
+        with patch.object(bridge.subprocess,'run',return_value=Mock(returncode=0,stdout=b'job 1',stderr=b'')) as run:
+            self.assertEqual(self.request('/print',data)[0],200)
+            self.assertTrue(self.request('/print',data)[1]['alreadyPrinted'])
+            self.assertEqual(run.call_count,1)
+
     def test_origin_rejected_before_cups(self):
         with patch.object(bridge.subprocess,'run') as run:
             status,_=self.request('/print',{'printId':'p'},origin='https://untrusted.invalid')

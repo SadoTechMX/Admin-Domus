@@ -34,6 +34,10 @@ function kdsDeliveryDecision_(m,item,context) {
       return {allowed:true,paymentStatus:'CONFIRMADA',credit:false};
     }
   }
+  if(f.kind==='PAYMENT_CONFIRMED' && p.method==='Mixto' && p.paid===true && p.verified===true && p.paymentStatus==='CONFIRMADA') {
+    if(!c.cashRows)c.cashRows=dataRows_(m.getSheetByName('COBROS'),7,31);
+    if(kdsMixedPaymentEvidence_(p,record.id,c.cashRows))return {allowed:true,paymentStatus:'CONFIRMADA',credit:false};
+  }
   if(f.kind==='PENDING_TRANSFER' && p.method==='Transferencia' && p.paid===false && p.verified===false && p.paymentStatus==='PENDIENTE_VERIFICACION') {
     transferSource_(m,c.index,{sourceRequestId:record.id,sourceReceipt:p.receipt,ticket:p.ticket});
     if(!c.transfers)c.transfers=transferConfirmedRecords_(m,c.index);
@@ -43,6 +47,21 @@ function kdsDeliveryDecision_(m,item,context) {
     return {allowed:false,code:'DELIVERY_TRANSFER_PENDING',reason:'Transferencia pendiente de acreditar. No entregar por este pago.',paymentStatus:'PENDIENTE_VERIFICACION',credit:false};
   }
   return {allowed:false,code:'DELIVERY_EVIDENCE_REQUIRED',reason:'Pago o autorización sin evidencia compatible; requiere revisión.',paymentStatus:'REQUIRES_REVIEW',credit:false};
+}
+
+function kdsMixedPaymentEvidence_(p,id,rows) {
+  try {
+    const math=posMixedPaymentMath_(p.total,Object.assign({},p,{expectedTotal:p.total}));
+    if(!p.receipt || p.sourceRequestId!==id || p.change!==math.change)return false;
+    const linked=rows.filter(r=>r[8]==='CAJA-RAPIDA:'+id);
+    return linked.length===2 && p.payments.every((part,i)=>{
+      if(part.receipt!==p.receipt+(i===0?'-E':'-T'))return false;
+      const matches=rows.filter(r=>r[0]===part.receipt),r=matches[0];
+      return matches.length===1 && linked.includes(r) && r[2]==='Caja' && r[3]===p.ticket && r[4]===part.method && r[10]==='Confirmado' &&
+        r[5]===part.amount && paymentApplied_(r)===part.amount && r[28]===(i===0?p.tip:0) &&
+        r[29]===(i===0?p.received:'') && r[30]===(i===0?p.change:'');
+    });
+  } catch(_) {return false;}
 }
 
 function kdsAssertDeliveryRequest_(body,m,replaying) {

@@ -731,7 +731,25 @@
             <button type="button" class="payment-method-btn" data-method="Transferencia">
               📱 Transferencia
             </button>
+            <button type="button" class="payment-method-btn" data-method="Mixto">
+              Efectivo + terminal
+            </button>
           </div>
+        </div>
+
+        <div id="mixedPaymentSection" class="hidden">
+          <div class="input-group"><label for="mixedTerminalSelect">Terminal:</label>
+            <select id="mixedTerminalSelect"><option>Terminal 1</option><option>Terminal 2</option></select>
+          </div>
+          <div class="input-group"><label for="mixedTerminalAmount">Importe aprobado en terminal:</label>
+            <input id="mixedTerminalAmount" type="number" min="0.01" step="0.01" placeholder="0.00" />
+          </div>
+          <p id="mixedCashAmount">Parte de la cuenta en efectivo: —</p>
+          <div class="input-group"><label for="mixedTerminalReference">Referencia del comprobante de terminal:</label>
+            <input id="mixedTerminalReference" type="text" maxlength="120" autocomplete="off" />
+          </div>
+          <label><input id="mixedTerminalConfirmed" type="checkbox" /> Verifiqué que la terminal aprobó ese importe.</label>
+          <p>DOMUS registra el pago; no cobra la tarjeta. La propina y el cambio se manejan sólo en efectivo. Si queda sin confirmar, recupera la misma operación sin volver a pasar la tarjeta.</p>
         </div>
 
         <!-- Calculadora de Efectivo y Cambio -->

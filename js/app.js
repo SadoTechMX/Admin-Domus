@@ -264,7 +264,7 @@
   window.DOMUS_BUILD = {
     baseCommit: '2b7ba1f4030b1013555b93cb96cfcb594141fdcb',
     buildId: 'repair-reconcile-20261105',
-    ui: '20261107-recovery-11',
+    ui: '20261107-mixed-12',
     environment: isProductionLocked ? 'PRODUCTION' : 'STAGING'
   };
 
@@ -2609,6 +2609,20 @@ const DEFAULT_CATALOG = [
     if (intention.method === 'Transferencia') {
       return result.paymentStatus === 'PENDIENTE_VERIFICACION' && result.paid === false && result.verified === false;
     }
+    if(intention.method==='Mixto') {
+      const cents=v=>typeof v==='number' && Number.isFinite(v) && v>=0 && Number.isSafeInteger(Math.round(v*100)) && Math.abs(v*100-Math.round(v*100))<0.00001?Math.round(v*100):null;
+      const parts=result.payments,expected=intention.payments;
+      return result.paymentStatus==='CONFIRMADA' && result.paid===true && result.verified===true &&
+        result.sourceRequestId===(intention.requestId || intention.id) && intention.terminalConfirmed===true && result.terminalConfirmed===true &&
+        typeof intention.terminalReference==='string' && !!intention.terminalReference.trim() && result.terminalReference===intention.terminalReference.trim() &&
+        Array.isArray(parts) && parts.length===2 && Array.isArray(expected) && expected.length===2 &&
+        parts.every((p,i)=>p && expected[i] && p.receipt===result.receipt+(i===0?'-E':'-T') && p.method===expected[i].method && p.amount===expected[i].amount && cents(p.amount)>0) &&
+        parts[0].method==='Efectivo' && ['Terminal 1','Terminal 2'].includes(parts[1].method) &&
+        cents(result.total)!==null && cents(parts[0].amount)+cents(parts[1].amount)===cents(result.total) &&
+        cents(result.received)!==null && cents(result.tip)!==null && cents(result.change)!==null &&
+        result.received===intention.received && result.tip===intention.tip &&
+        cents(result.received)-cents(parts[0].amount)-cents(result.tip)===cents(result.change);
+    }
     return ['Efectivo','Terminal 1','Terminal 2'].includes(intention.method) &&
       result.paymentStatus === 'CONFIRMADA' && result.paid === true && result.verified === true;
   }
@@ -3292,7 +3306,8 @@ const DEFAULT_CATALOG = [
 
   function openCashDrawer_(receipt) {
     assertOutboxTraffic_();
-    if(!receipt || receipt.paid!==true || receipt.method!=='Efectivo' || !receipt.receipt)return;
+    if(!receipt || receipt.paid!==true || !receipt.receipt || !(receipt.method==='Efectivo' ||
+        (receipt.method==='Mixto' && receipt.verified===true && Array.isArray(receipt.payments) && receipt.payments.some(p=>p.method==='Efectivo' && p.amount>0))))return;
     fetch(PRINT_BRIDGE_URL+'/drawer/open',{method:'POST',headers:{'Content-Type':'application/json','X-Domus-Print-Token':getPrintToken()},
       body:JSON.stringify({requestId:'DRAWER-'+receipt.receipt,reason:'CASH_PAYMENT',receipt:receipt.receipt,method:'Efectivo',paid:true,operator:receipt.operator,reprint:false})})
       .then(r=>r.json()).then(r=>{if(!r.ok)toast('Cobro confirmado; cajón pendiente.','warn');})
@@ -3329,6 +3344,8 @@ const DEFAULT_CATALOG = [
       paid: receiptData.paid === true,
       verified: receiptData.verified === true,
       paymentStatus: receiptData.paymentStatus || '',
+      payments: receiptData.payments,
+      terminalReference: receiptData.terminalReference,
       reprint: Boolean(isReprint)
     };
 
@@ -3891,6 +3908,9 @@ const DEFAULT_CATALOG = [
     $('cashDueInput').value = total.toFixed(2);
     $('cashReceivedInput').value = '';
     $('cashTipInput').value = '0';
+    $('mixedTerminalAmount').value = '';
+    $('mixedTerminalReference').value = '';
+    $('mixedTerminalConfirmed').checked = false;
     STATE.accountType = '';
     if ($('creditAuthorizationSelect')) $('creditAuthorizationSelect').value = '';
     updateChangeDisplay();
@@ -3910,7 +3930,9 @@ const DEFAULT_CATALOG = [
       btn.classList.toggle('active', btn.getAttribute('data-method') === method);
     });
 
-    $('cashCalculatorSection').classList.toggle('hidden', method !== 'Efectivo');
+    $('cashCalculatorSection').classList.toggle('hidden', !['Efectivo','Mixto'].includes(method));
+    $('mixedPaymentSection').classList.toggle('hidden', method !== 'Mixto');
+    updateChangeDisplay();
   }
 
   function calculateCartTotal() {
@@ -3919,14 +3941,19 @@ const DEFAULT_CATALOG = [
   }
 
   function updateChangeDisplay() {
-    const due = calculateCartTotal();
+    let due = calculateCartTotal();
+    if(activePaymentMethod==='Mixto') {
+      const terminal=Number($('mixedTerminalAmount').value);
+      due=Math.round((due-terminal)*100)/100;
+      $('mixedCashAmount').textContent=terminal>0 && due>0?'Parte de la cuenta en efectivo: '+money(due):'Indica un importe de terminal mayor que cero y menor al total.';
+    }
     const received = parseFloat($('cashReceivedInput').value) || 0;
     const tip = parseFloat($('cashTipInput').value) || 0;
 
     const changeBox = $('changeDisplayBox');
     const changeAmt = $('changeAmountText');
 
-    if (activePaymentMethod !== 'Efectivo') {
+    if (!['Efectivo','Mixto'].includes(activePaymentMethod)) {
       changeAmt.textContent = '$0.00';
       changeBox.classList.remove('insufficient');
       return;
@@ -3941,6 +3968,19 @@ const DEFAULT_CATALOG = [
       changeBox.classList.remove('insufficient');
       changeAmt.textContent = `$${cambio}`;
     }
+  }
+
+  function mixedPaymentInput_(total,received,tip) {
+    const terminal=Number($('mixedTerminalAmount').value),cash=Math.round((total-terminal)*100)/100;
+    const valid=v=>Number.isFinite(v) && v>=0 && Number.isSafeInteger(Math.round(v*100)) && Math.abs(v*100-Math.round(v*100))<0.00001;
+    if(![total,terminal,cash,received,tip].every(valid) || terminal<=0 || cash<=0 || Math.round(received*100)<Math.round(cash*100)+Math.round(tip*100)) {
+      throw new Error('Revisa los importes de terminal y efectivo: deben cubrir el total y la propina en efectivo, con máximo dos decimales.');
+    }
+    const method=$('mixedTerminalSelect').value,reference=$('mixedTerminalReference').value.trim();
+    if(!['Terminal 1','Terminal 2'].includes(method) || !$('mixedTerminalConfirmed').checked || !reference || reference.length>120 || /[\x00-\x1f\x7f]/.test(reference)) {
+      throw new Error('Confirma la aprobación de la terminal e indica la referencia de su comprobante.');
+    }
+    return {payments:[{method:'Efectivo',amount:cash},{method:method,amount:terminal}],terminalConfirmed:true,terminalReference:reference};
   }
 
   let paymentInFlight = false;
@@ -3981,6 +4021,10 @@ const DEFAULT_CATALOG = [
       return;
     }
 
+    let mixed;
+    if(isPaid && activePaymentMethod==='Mixto') {
+      try {mixed=mixedPaymentInput_(total,received,tip);} catch(err) {toast(err.message,'error');return;}
+    }
     const payload = {
       id: 'POS-'+crypto.randomUUID(),
       phase: STATE.phase,
@@ -3990,8 +4034,8 @@ const DEFAULT_CATALOG = [
       expectedTotal: total,
       paid: isPaid,
       method: isPaid ? activePaymentMethod : '',
-      received: isPaid && activePaymentMethod === 'Efectivo' ? received : null,
-      tip: isPaid && activePaymentMethod === 'Efectivo' ? tip : 0,
+      received: isPaid && ['Efectivo','Mixto'].includes(activePaymentMethod) ? received : null,
+      tip: isPaid && ['Efectivo','Mixto'].includes(activePaymentMethod) ? tip : 0,
       credit: isPaid ? '' : explicitCredit,
       items: STATE.cart.map(i => ({
         name: i.name,
@@ -4003,6 +4047,7 @@ const DEFAULT_CATALOG = [
         destination: i.destination
       }))
     };
+    if(mixed)Object.assign(payload,mixed);
 
     payload.requestId = payload.id;
     const submittedDraft = saleDraftSnapshot_();
@@ -4059,11 +4104,12 @@ const DEFAULT_CATALOG = [
         tip: res.tip,
         change: res.change
       };
+      if(res.payments)Object.assign(receiptData,{payments:res.payments,terminalReference:res.terminalReference});
       STATE.lastReceiptData = receiptData;
       showReceiptModal(receiptData);
 
       // Auto-imprimir ticket con DOMUS Print Bridge si es cobro confirmado
-      if (res.paid === true && res.receipt && res.method === 'Efectivo') {
+      if (res.paid === true && res.receipt && ['Efectivo','Mixto'].includes(res.method)) {
         openCashDrawer_(receiptData);
       }
       if (res.receipt) {
@@ -4090,7 +4136,8 @@ const DEFAULT_CATALOG = [
     const state = confirmed ? 'COBRO CONFIRMADO' : data.paymentStatus === 'CORTESIA_AUTORIZADA' ? 'CORTESÍA AUTORIZADA · SIN COBRO' : data.method === 'Transferencia' ? 'TRANSFERENCIA PENDIENTE DE VERIFICACIÓN' : 'CUENTA ABIERTA · PENDIENTE DE COBRO';
     const esc = value => escapeHtml(String(value == null ? '' : value));
     const items = data.items.map(i => `<tr><td>${esc(i.qty)} × ${esc(i.name)}</td><td>${esc(money(i.price * i.qty))}</td></tr>`).join('');
-    const cash = confirmed && data.method === 'Efectivo' ? `<p>Recibido: ${esc(money(data.received))}<br>Propina: ${esc(money(data.tip || 0))}<br>Cambio: ${esc(money(data.change))}</p>` : '';
+    const breakdown = data.method==='Mixto' && Array.isArray(data.payments)?`<p>${data.payments.map(p=>esc(p.method)+': '+esc(money(p.amount))).join('<br>')}<br>Referencia terminal: ${esc(data.terminalReference)}</p>`:'';
+    const cash = confirmed && ['Efectivo','Mixto'].includes(data.method) ? `${breakdown}<p>Recibido: ${esc(money(data.received))}<br>Propina: ${esc(money(data.tip || 0))}<br>Cambio: ${esc(money(data.change))}</p>` : '';
     return `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Ticket DOMUS</title><style>body{font:16px sans-serif;max-width:32rem;margin:2rem auto;padding:1rem}td{padding:.4rem}td:last-child{text-align:right}table{width:100%}</style></head><body><h1>DOMUS</h1><p>${esc(state)}</p><p>Recibo: ${esc(data.receipt || 'Sin cobro')}<br>Cuenta: ${esc(data.ticket)}<br>Cliente: ${esc(data.customer)}<br>Fecha: ${esc(data.date)}<br>Medio: ${esc(data.method)}</p><table>${items}</table><p>Total de la cuenta: <strong>${esc(money(data.total))}</strong></p>${cash}</body></html>`;
   }
 
@@ -4187,9 +4234,10 @@ const DEFAULT_CATALOG = [
     const paymentInfo = $('receiptPaymentDetails');
     if (data.paymentStatus === 'CORTESIA_AUTORIZADA') {
       paymentInfo.textContent = 'CORTESÍA AUTORIZADA · SIN COBRO';
-    } else if (data.paid && data.method === 'Efectivo') {
+    } else if (data.paid && ['Efectivo','Mixto'].includes(data.method)) {
       paymentInfo.innerHTML = `
-        <div class="receipt-line"><span>Método:</span><span>Efectivo</span></div>
+        <div class="receipt-line"><span>Método:</span><span>${escapeHtml(data.method)}</span></div>
+        ${data.method==='Mixto' && Array.isArray(data.payments)?data.payments.map(p=>`<div class="receipt-line"><span>${escapeHtml(p.method)}:</span><span>${money(p.amount)}</span></div>`).join('')+`<div>Referencia terminal: ${escapeHtml(data.terminalReference || '')}</div>`:''}
         <div class="receipt-line"><span>Recibido:</span><span>${money(data.received)}</span></div>
         ${data.tip > 0 ? `<div class="receipt-line"><span>Propina:</span><span>${money(data.tip)}</span></div>` : ''}
         <div class="receipt-line"><span>Cambio:</span><span>${money(data.change)}</span></div>
@@ -5875,6 +5923,10 @@ const DEFAULT_CATALOG = [
     // Cash Calculator inputs
     bindEvent('cashReceivedInput', 'input', updateChangeDisplay);
     bindEvent('cashTipInput', 'input', updateChangeDisplay);
+    ['mixedTerminalAmount','mixedTerminalReference'].forEach(id=>bindEvent(id,'input',()=>{
+      $('mixedTerminalConfirmed').checked=false;updateChangeDisplay();
+    }));
+    bindEvent('mixedTerminalSelect','change',()=>{$('mixedTerminalConfirmed').checked=false;});
 
     // Preset Cash Buttons ($50, $100, $200, $500, Exacto)
     document.querySelectorAll('.btn-cash-preset').forEach(btn => {
@@ -5883,7 +5935,9 @@ const DEFAULT_CATALOG = [
         const cashInput = $('cashReceivedInput');
         if (cashInput) {
           if (val === 'exact') {
-            cashInput.value = calculateCartTotal().toFixed(2);
+            const terminal=activePaymentMethod==='Mixto'?Number($('mixedTerminalAmount').value)||0:0;
+            const tip=Number($('cashTipInput').value)||0;
+            cashInput.value = Math.max(0,calculateCartTotal()-terminal+tip).toFixed(2);
           } else {
             cashInput.value = parseFloat(val).toFixed(2);
           }

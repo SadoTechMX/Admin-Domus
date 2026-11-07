@@ -316,7 +316,11 @@ def build_receipt_escpos(data, is_reprint=False):
     buf.extend(escpos_bold(False))
 
     buf.extend(encode_cp850(fmt_two_columns("MÉTODO:", method) + "\n"))
-    if method == 'Efectivo' and received is not None:
+    if method == 'Mixto':
+        for part in data.get('payments') or []:
+            buf.extend(encode_cp850(fmt_two_columns(str(part['method']) + ':', f"${float(part['amount']):,.2f}") + "\n"))
+        buf.extend(encode_cp850('REF. TERMINAL: ' + str(data.get('terminalReference') or '') + '\n'))
+    if method in ('Efectivo', 'Mixto') and received is not None:
         try:
             rec_val = float(received)
             buf.extend(encode_cp850(fmt_two_columns("RECIBIDO:", f"${rec_val:,.2f}") + "\n"))

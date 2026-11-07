@@ -1,3 +1,5 @@
+> **Seguimiento 7 noviembre UTC:** coordinación reportó instalación de 687 en staging, cierre de revisión resuelta y entrega/consumo de la misma comanda. No se repitió el cobro. Ver [siguiente delta de pago mixto](MIXED_PAYMENT_20261107.md); los pendientes históricos siguientes corresponden al corte anterior.
+
 # Periodo operativo y salida de revisión — 7 noviembre 2026 UTC
 
 **IMPLEMENTED / LOCAL_TESTED; esta corrección no está instalada.** Base `8b3439dd0893aec9a7c07622981e76263d4655a3`, misma rama de reparación. UI `20261107-recovery-11`; fuente backend `51ca9a69f6823a547a3968b29fa099defa594471752f01517064d6f6eca4ac46`. Artefactos y huellas en `release-manifest.json`. Sin PR, merge, deployment ni modificación de libros/perfiles reales por este tramo.

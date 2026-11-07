@@ -27,6 +27,7 @@ def build(check=False):
     generated['google-apps-script/Index.html']=native
     manifest={f'google-apps-script/{n}.gs':hashlib.sha256(v.encode()).hexdigest() for n,v in source.items()}
     manifest.update({'js/app.js':hashlib.sha256(app.encode()).hexdigest(),'index.html':hashlib.sha256(index.encode()).hexdigest()})
+    manifest['services/print-bridge/server.py']=hashlib.sha256((ROOT/'services/print-bridge/server.py').read_bytes()).hexdigest()
     manifest.update({name:hashlib.sha256(content.encode()).hexdigest() for name,content in generated.items()})
     generated['release-manifest.json']=json.dumps({'build':build_info,'files':manifest},indent=2)+'\n'
     for name,content in generated.items():
