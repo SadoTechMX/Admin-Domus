@@ -27,7 +27,7 @@ async function main(){
    let data={};
    if(action==='authCrearSesion')data={token:'FIXTURE-'+body.role};
    else if(action==='health')data={environment:'STAGING',mainSheetId:'114VSwo3bXyn_audh1LHr4qqjW5aSDSTP_bR_-Iz5dkg',opsSheetId:'1NDpuyx6EfCHcoKW9CZ6pwR0oe2JS0aKpTTMa7RdqmlE'};
-   else if(action==='cajaSimpleDatos')data={phase:'Solar',products:[],accounts:[],activities:['QA event'],staff:['QA']};
+   else if(action==='cajaSimpleDatos')data={phase:'Solar',operatingPeriod:{allowed:true,message:'Fixture period'},products:[],accounts:[],activities:['QA event'],staff:['QA']};
    else if(action==='cajaSimpleRegistrar'){
     calls.push(body);await new Promise(resolve=>pending.set(body.requestId,async json=>{pending.delete(body.requestId);await route.fulfill({json});resolve();}));return;
    }

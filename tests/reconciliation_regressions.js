@@ -15,7 +15,7 @@ function setup(options={}) {
   const locks = options.locks || require('./mock_web_locks')();
   const ctx = vm.createContext({console, Date, JSON, Map, Set, Promise, Error, crypto,
     localStorage, sessionStorage, sessionRequests:new Map(), isOutboxCoreRunning:false, outboxStoreHeld_:false, paymentInFlight:false, activePaymentMethod:'Efectivo',
-    STATE:{mode:'caja',operator:'Fixture',cart:[],isNativeGas:false,isProductionLocked:false,apiUrl:'https://fixture.invalid'},
+    STATE:{mode:'caja',operator:'Fixture',cart:[],operatingPeriod:{allowed:true,message:'Fixture period'},isNativeGas:false,isProductionLocked:false,apiUrl:'https://fixture.invalid'},
     MUTATION_ACTIONS:new Set(['cajaSimpleRegistrar','confirmarTransferencia','comandasSimpleAccion','accesoCambiarActividad','cambiarFase']),
     updateSyncPill(){}, updateOutboxUI(){}, notifyOutboxTabs(){}, cacheQuerySnapshot(){},
     toast:(...args)=>notices.push(args), playChime(){}, syncBackendData(){},

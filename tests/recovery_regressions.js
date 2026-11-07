@@ -49,7 +49,8 @@ class Sheet {
   setFrozenRows(){}
 }
 class Book {
-  constructor(id){this.id=id;this.sheets=new Map();}
+  constructor(id){this.id=id;this.sheets=new Map();this.timeZone='America/Mexico_City';}
+  getSpreadsheetTimeZone(){return this.timeZone;}
   getId(){return this.id;}getSheetByName(n){return this.sheets.get(n)||null;}
   insertSheet(n){const s=new Sheet(this,n);this.sheets.set(n,s);return s;}
 }
@@ -61,7 +62,10 @@ function setup(){
   let email='',held=false,acquires=0,releases=0;
   const ctx=vm.createContext({console,Date,Math,Map,Set,JSON,Object,Array,Number,String,Boolean,Error,RegExp,
     Session:{getActiveUser:()=>({getEmail:()=>email})},
-    Utilities:{getUuid:()=>crypto.randomUUID(),formatDate:()=>new Date().toISOString().slice(0,10),DigestAlgorithm:{SHA_256:'sha256'},Charset:{UTF_8:'utf8'},computeDigest:(_,s)=>[...crypto.createHash('sha256').update(s).digest()]},
+    Utilities:{getUuid:()=>crypto.randomUUID(),formatDate:(date,zone,format)=>{
+      const parts=Object.fromEntries(new Intl.DateTimeFormat('en-CA',{timeZone:zone,year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).formatToParts(date).map(p=>[p.type,p.value]));
+      return parts.year+'-'+parts.month+'-'+parts.day+(format.includes('HH:mm')?' '+parts.hour+':'+parts.minute:'');
+    },DigestAlgorithm:{SHA_256:'sha256'},Charset:{UTF_8:'utf8'},computeDigest:(_,s)=>[...crypto.createHash('sha256').update(s).digest()]},
     PropertiesService:{getScriptProperties:()=>({getProperty:k=>props.get(k)||null,setProperty:(k,v)=>props.set(k,v)})},
     CacheService:{getScriptCache:()=>({get:k=>cache.get(k)||null,put:(k,v)=>cache.set(k,v)})},
     LockService:{getScriptLock:()=>({waitLock:()=>{if(held)throw new Error('Nested physical lock');held=true;acquires++;},releaseLock:()=>{assert(held);held=false;releases++;}})},
@@ -71,6 +75,7 @@ function setup(){
   const headers=JSON.parse(fs.readFileSync(root+'/tests/fixtures/schema_headers.json','utf8'));
   for(const [name,values] of Object.entries(headers)){main.insertSheet(name).getRange(name==='RECETAS CARTA'?1:6,1,1,values.length).setValues([values]);}
   main.getSheetByName('CAJA 2').getRange('F2').setValue('Solar');
+  main.insertSheet('SEMANA').getRange('B7:B8').setValues([[new Date(Date.now()-86400000)],[new Date(Date.now()+86400000)]]);
   const catalog=['QA drink','Bebidas',40,0.3,'DOMUS',0,'QA-01','Barra','Sí','','DOMUS','pieza',0,'','','B01',40,50,'Sí',''];
   main.getSheetByName('CATALOGO').getRange(7,1,1,20).setValues([catalog]);
   main.getSheetByName('ACTIVIDADES').getRange(7,1,1,13).setValues([['QA event',new Date(),'Fiesta','DOMUS',100,180,250,20,150,'','','Confirmado','']]);

@@ -22,3 +22,24 @@ function cashFormulaWrites_(sheet, row) {
     return cellWrite_(sheet, row, Number(c), formula, true);
   });
 }
+
+// Read the workbook's operational calendar; never change it or backdate a sale.
+function cashOperatingPeriod_(book, now) {
+  const result={allowed:false,code:'OPERATING_PERIOD_INVALID',start:'',end:'',today:'',timeZone:'',
+    message:'Periodo operativo sin fechas válidas. Dirección debe revisar SEMANA!B7:B8 antes de cobrar.'};
+  try {
+    const sheet=book.getSheetByName('SEMANA'),zone=book.getSpreadsheetTimeZone();
+    if(!sheet || !zone || !(now instanceof Date) || !Number.isFinite(now.getTime()))return result;
+    result.timeZone=zone;result.today=Utilities.formatDate(now,zone,'yyyy-MM-dd');
+    const dates=sheet.getRange('B7:B8').getValues().map(r=>r[0]);
+    if(dates.some(d=>!(d instanceof Date) || !Number.isFinite(d.getTime())))return result;
+    result.start=Utilities.formatDate(dates[0],zone,'yyyy-MM-dd');
+    result.end=Utilities.formatDate(dates[1],zone,'yyyy-MM-dd');
+    if(result.start>result.end)return result;
+    result.allowed=result.today>=result.start && result.today<=result.end;
+    result.code=result.allowed?'OPERATING_PERIOD_OPEN':'OPERATING_PERIOD_OUT_OF_RANGE';
+    result.message=result.allowed?'Periodo operativo '+result.start+' a '+result.end+'. Fecha actual: '+result.today+'.':
+      'No cobrar: fecha actual '+result.today+' fuera del periodo '+result.start+' a '+result.end+'. Dirección debe revisar SEMANA!B7:B8; no cambiar la fecha de la venta.';
+    return result;
+  } catch(_) {return result;}
+}

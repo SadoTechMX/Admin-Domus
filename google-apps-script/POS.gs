@@ -84,6 +84,7 @@ function cajaSimpleDatos() {
 
   return {
     phase: ['Solar', 'Lunar'].includes(phase) ? phase : 'Solar',
+    operatingPeriod: cashOperatingPeriod_(m,new Date()),
     products: products,
     accounts: accounts,
     activities: activities,
@@ -124,6 +125,9 @@ function cajaSimpleRegistrarCore_(p) {
     const err = new Error('Cambió la carta. Actualiza antes de cobrar.');
     err.code = 'SALE_PHASE_CHANGED_NO_EFFECTS'; err.status = 422; throw err;
   }
+  const now = new Date();
+  const period = cashOperatingPeriod_(m,now);
+  if(!period.allowed)throw posValidationError_(period.message);
   const who = _authContext.operator;
   const canCourtesy = ['ADMIN','GERENCIA'].includes(_authContext.role);
   const ticket = String(p.ticket || ('CTA-' + Utilities.getUuid())).trim();
@@ -150,7 +154,6 @@ function cajaSimpleRegistrarCore_(p) {
   let nextRow=Math.max(sCaja.getLastRow()+1,7);
   while (free.length < units.length) free.push(nextRow++);
   const writes = [];
-  const now = new Date();
   const fulfillment={version:1,sourceRequestId:p.id,
     kind:freeCourtesy?'AUTHORIZED_COURTESY':pending?'PENDING_TRANSFER':confirmed?'PAYMENT_CONFIRMED':'AUTHORIZED_CREDIT',
     creditType:!p.paid?p.credit:'',authorizedBy:who,authorizedRole:_authContext.role,units:[]};

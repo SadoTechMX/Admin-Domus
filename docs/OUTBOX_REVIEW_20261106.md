@@ -1,3 +1,5 @@
+> **Continuación del 7 de noviembre:** [Salida de revisión y periodo](OPERATING_PERIOD_RECOVERY_20261107.md) añade cierre explícito condicionado y archivo durable. Este documento conserva el contrato original de 8b, que no tenía salida. La cola real no se modificó.
+
 # Preservación de Outbox para revisión — 6 noviembre 2026
 
 **IMPLEMENTED / LOCAL_TESTED; no instalado ni aplicado a colas reales.** Misma rama `repair/reconcile-pr18-main-20261105`, sobre `57fb2e5` / funcional `3f29bdc`. UI `20261106-review-10`, fuente backend `f9c2cfa84348fa6c380454549909b9984143c5e10c914699e764936e1eb2ccd9`. Huellas de la pareja generada en `release-manifest.json`. El SHA de entrega y su CI se verifican después del commit; la CI de 3f no acredita este cambio.

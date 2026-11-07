@@ -29,6 +29,8 @@ jobs:
       - run: node tests/receipt_delivery_regressions.js
       - run: node tests/transfer_review_regressions.js
       - run: node tests/outbox_quarantine_regressions.js
+      - run: node tests/outbox_release_regressions.js
+      - run: node tests/operating_period_regressions.js
       - run: node tests/test_event_selection.mjs
       - run: node tests/test_access_channel.mjs
       - run: python tests/test_hotfix_v13.py
@@ -42,3 +44,4 @@ jobs:
       - run: node tests/browser_outbox_concurrency.js
       - run: node tests/browser_transfer_review.js
       - run: node tests/browser_outbox_review.js
+      - run: node tests/browser_operating_recovery.js
