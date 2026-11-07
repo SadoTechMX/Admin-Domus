@@ -1,0 +1,48 @@
+{
+  "baseCommit": "989d59e9d424c659af61784febfa7b184a641fbc",
+  "mode": "STATIC_READ_ONLY",
+  "liveFormulaEvaluation": false,
+  "remoteSheetsRead": false,
+  "productionWrites": 0,
+  "formulaSource": "google-apps-script/Schema.gs",
+  "formulaSourceSha256": "d3236b7e73ea9ec4745ee5e9f16a77b86a5cc31ea9b9549f619c4443dc756372",
+  "dependencies": [
+    {
+      "column": "O",
+      "formulaSha256": "e6574483b53d39fbdbd82e087af83618f91e256b85fb8cd5a400633a697a3768",
+      "referencesSEMANA": false,
+      "referencesW": true
+    },
+    {
+      "column": "T",
+      "formulaSha256": "fbccb2d3ead49d43a3d35f1d2cb9c4fcb3defd55f3c7fc0c3492b81d0e242b13",
+      "referencesSEMANA": false,
+      "referencesW": true
+    },
+    {
+      "column": "W",
+      "formulaSha256": "a118ba7f7ae2aa958f3b0885bacfc69c1f66e51c9d3b4e58fec8b5b0f326ceaf",
+      "referencesSEMANA": true,
+      "referencesW": false
+    },
+    {
+      "column": "AA",
+      "formulaSha256": "e172bba389f0aba012687bb17ad4f1ccb5b9019f4e7e57c52f4afdf483e9f5d2",
+      "referencesSEMANA": false,
+      "referencesW": true
+    },
+    {
+      "column": "AB",
+      "formulaSha256": "0714bccd0603cba346c7ac891ff97d8d4a2482876a7e6370dbed8d9a0680cd75",
+      "referencesSEMANA": false,
+      "referencesW": true
+    }
+  ],
+  "sameAccountTimestampInequality": true,
+  "missingEvidence": [
+    "current-report-formulas-and-consumers",
+    "historical-closed-report-contract"
+  ],
+  "pendingDecision": "calendar-day-versus-opening-day-for-daily-report",
+  "runtimeChanged": false
+}
