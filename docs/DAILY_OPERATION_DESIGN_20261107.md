@@ -1,5 +1,7 @@
 # Operación continua y periodos de reporte — diseño, 7 noviembre 2026 UTC
 
+> **Decisión recibida de Steven, 7 noviembre:** «Será por evento, proyecto y jornada». Se conservan fecha/hora reales. La alternativa de agrupación por fecha calendario queda descartada como recomendación operativa. Falta definir alcance, responsables y cierre de jornada; no se activó una política por inferencia.
+
 **DESIGN_PREPARED / CONTRACT_INCOMPLETE. No se habilitó cobro fuera de SEMANA.** Se inspeccionó la candidata `989d59e9d424c659af61784febfa7b184a641fbc`: rama local limpia y mismo SHA remoto. Ramas y coordinación publicadas no muestran otro editor activo sobre este cambio. Esto no prueba ausencia de trabajo privado no comunicado. No se ejecutaron suites anteriores, pruebas Google, ventas ni despliegues. Esta entrega sólo agrega diseño y evidencia estática; no es una nueva implementación ni otro motor de ensayo.
 
 ## Hallazgos que determinan el alcance
@@ -22,10 +24,21 @@ La fuente actual de fórmulas está capturada sólo para nuevas filas de Caja. N
 
 `feat/erp-v15-dimensions-daily-finance`, SHA `e9c4160d1ebad2d0ae9db787c52b33dcb0441ff2`, contiene trabajo de analítica diaria. Tampoco se fusiona ni se reconstruye su motor aquí. El cambio mínimo propuesto se limita a la candidata POS actual y a sus dependencias de fórmulas, coordinando cualquier trabajo posterior sobre turnos/reportes.
 
+**Cotejo posterior a la decisión:** la rama de turnos sigue en `881a71c` y la integradora en `af17358`, comprobado en GitHub, sin cambios publicados adicionales. No apareció otro editor activo en la coordinación visible; no hubo contacto directo con un editor de esa rama ni se afirma coordinación humana completada. Se conservan `Shifts.gs`/`Cuts.gs` como trabajo existente para adaptar en esta integración, sin abrir una segunda implementación de turnos.
+
+| Elemento de la rama de turnos | Compatibilidad con lo solicitado |
+| --- | --- |
+| `operationDayId = OPDAY-<fecha>` | No distingue dos jornadas abiertas el mismo día. No usar la fecha ni el nombre del evento como identidad única. |
+| `shiftId`, `stationId`, `registerId` | Identifican turno/custodia de caja, no evento/proyecto/jornada de DOMUS. Deben poder relacionarse sin sustituirse entre sí. |
+| `businessDate` congelada al abrir | Útil como etiqueta de inicio; no reemplaza timestamps reales ni determina por sí sola qué estaciones/eventos comparten jornada. |
+| `getActiveShiftForStation_` con fallback `NO_SHIFT` y fecha actual | No acredita una jornada abierta. No usar el fallback para asignar movimientos silenciosamente a otra jornada. |
+| `corteZCerrar` | Cierre financiero de un turno, distinto del cierre operativo de una jornada con pendientes. No se declara equivalente ni se copia como nueva regla de negocio. |
+| `ensurePhase1Schema_` / consultas de corte | Agregan hojas/columnas; `corteXConsultar` llama a helpers que pueden agregar encabezados. No ejecutar como cotejo de sólo lectura ni trasladar a producción para descubrir el esquema. |
+
 ## Contrato propuesto para implementación
 
 1. **Instante real del movimiento:** conservar timestamp del servidor y zona del libro, sin fecha fija de caducidad, sin backdate enviado por el cliente y sin modificar SEMANA para permitir operar. Es el comportamiento temporal que ya existe al registrar una venta; no requiere inventar una hora de corte.
-2. **Fecha/jornada de agrupación:** separada del timestamp. La elección de calendario o jornada comercial afecta reportes y cierres, no debe falsear la hora real de venta/cobro/entrega. No agregar automáticamente el motor de turnos ni aperturas/cierres obligatorios.
+2. **Agrupación aprobada:** evento, proyecto y jornada como dimensiones separadas del timestamp. Cada movimiento conserva el contexto de origen y su instante real. No usar la fecha calendario como sustituto de jornada ni cambiar de jornada a medianoche. Apertura/cierre y alcance quedan sujetos a las decisiones siguientes; no se agrega automáticamente un corte Z.
 3. **Ventana de reporte:** SEMANA sólo selecciona qué movimientos se presentan en un informe. Un periodo vencido o mal formado produce un informe no disponible/aviso, no invalida una venta ni un pago. La habilitación exige que la versión compatible de fórmulas/reportes esté acreditada; no basta cambiar el texto o `allowed` del cliente.
 4. **Validación operativa independiente:** la nueva W conserva datos requeridos, cuenta/proyecto/cliente coherentes, categoría, producto activo, reparto autorizado, cortesía y precio. Retira únicamente las dependencias temporales de reporte y la igualdad de timestamps dentro de la misma cuenta. Mantiene prohibición de reutilizar ticket con otro cliente/proyecto. La fórmula exacta se revisa junto con T/AA/AB y los consumidores reales antes de activarla.
 5. **Nuevo contrato por versión:** nuevos registros reciben metadatos de contrato/fecha dentro del plan y resultado durable, sin confiar en banderas del navegador. No se añaden columnas por inferencia ni se sobrescribe COBROS. Una migración de fórmulas se prepara con precondiciones y diferencias exactas; las filas históricas y pendientes desconocidos no se convierten automáticamente a la nueva versión.
@@ -34,14 +47,26 @@ La fuente actual de fórmulas está capturada sólo para nuevas filas de Caja. N
 
 ## Lo que falta, separado por responsable
 
-**Decisión de Steven para el reporte diario:** qué día debe agrupar una operación de madrugada. Ejemplo: venta el sábado a las 02:00, con operación iniciada el viernes.
+**Agrupación ya resuelta:** evento + proyecto + jornada, conservando fecha/hora reales. No preguntar de nuevo calendario contra jornada.
 
-| Opción | Consecuencia |
-| --- | --- |
-| **Fecha calendario local, 00:00–23:59 (recomendada para el mínimo actual)** | La venta pertenece al sábado. Conserva el criterio temporal de captura actual y no incorpora todavía turnos/cortes; la noche aparece dividida en la vista diaria. |
-| Jornada que conserva el día de apertura hasta su cierre | La venta sigue en el viernes. Requiere un contrato de apertura/cierre autorizado y recuperación de jornadas no cerradas; se debe coordinar con la rama de turnos existente. No se inventa una hora límite. |
+**Tres reglas mínimas pendientes para Steven:**
 
-Esta elección **puede posponerse para registrar timestamps reales**, pero debe quedar resuelta antes de presentar una vista como día comercial/corte. No es necesario preguntar otra vez si las cuentas pueden permanecer abiertas: ya está definido en la regla 3. No es necesario decidir precios, reparto ni reinicio semanal de inventario para esta separación: deben mantenerse.
+| Regla | Opción recomendada para el mínimo | Alternativa y consecuencia |
+| --- | --- | --- |
+| Alcance de la jornada | Una jornada general de DOMUS compartida por sus estaciones, con varios eventos/proyectos distinguidos en cada movimiento. | Jornadas independientes por evento/proyecto: pueden abrir/cerrar por separado; hay que resolver qué jornada atiende cada estación y cómo comparte la gaveta. |
+| Apertura/cierre | Gerencia abre y cierra manualmente; la jornada continúa después de medianoche hasta esa acción. | Caja puede abrir y Gerencia cierra: delega la apertura y requiere definir los operadores autorizados. No se propone un horario automático ni una duración máxima no aprobada. |
+| Pendientes al cerrar | Cierre **operativo** con lista explícita de cuentas, transferencias y entregas pendientes. No admite nuevas ventas en esa jornada; conserva vínculos originales y conciliación pendiente. No equivale a cierre financiero definitivo. | Bloquear cierre hasta resolver todos los pendientes: es más restrictivo y puede mantener abierta la jornada mientras existan cuentas autorizadas a crédito. |
+
+No es necesario preguntar otra vez si las cuentas pueden permanecer abiertas: ya está definido en la regla 3. La decisión es qué significa cerrar la jornada cuando existen, sin cancelar ni cobrar automáticamente. Tampoco se necesitan nuevas reglas de precios, reparto o reinicio de inventario para esta separación.
+
+## Preparación técnica independiente de esas decisiones
+
+- Proponer un ID de jornada generado en servidor y estable, separado de nombre/fecha/turno. Es una elección técnica; no pedir a Steven que invente folios. `operationDayId` por fecha del prototipo no basta para esa identidad.
+- Mantener evento y proyecto separados: ACTIVIDADES canónica tiene A = actividad/evento y D = proyecto; el POS actual conserva sólo la etiqueta `activity`. No deducir un `projectId` de un organizador legado ni convertir etiquetas históricas ambiguas en IDs. El vínculo duradero necesita un registro/mapeo explícito, con casos duplicados o incompletos en revisión. No se agregan campos a las 35 columnas sin plan compatible.
+- Preparar contexto de origen de la venta y contexto del movimiento posterior por separado. Ejemplo: consumo en jornada J1 y pago acreditado en J2 mantienen origen J1 y timestamp/jornada del cobro J2, sin trasladar la venta ni duplicar ingreso. La vista puede desglosar ambos; no sellar un informe financiero de J1 como definitivo si aún depende de pagos pendientes.
+- Apertura, selección y cierre deberán pasar por autorización del servidor, lock y journal de la candidata; no se copiarán escrituras directas del prototipo como si ya tuvieran recuperación equivalente.
+- Al cerrar, un PREPARED/COMPLETED ya vinculado debe recuperarse con su contexto original. Un pedido offline que nunca llegó al servidor y refiere a una jornada cerrada no se reasigna ni acepta automáticamente; queda para revisión explícita. La regla de tratamiento/roles debe quedar incluida en el flujo de cierre acordado, no resolverse por la hora del navegador.
+- Preparar pruebas de dos jornadas el mismo día, múltiples proyectos/eventos, cruce de medianoche, estación equivocada, cierre concurrente con venta, ACK perdido y cobro posterior. No se marcan PASS antes de implementar el contrato aprobado.
 
 **Bloqueo técnico previo a habilitar cobro fuera de SEMANA:** obtener/reutilizar evidencia privada actual de fórmulas y dependencias de SEMANA, LIQUIDAR, CAJA 2 O/T/W/AA/AB/AL, reportes que las consumen e inventario/recetas. Sólo expresiones y estructura necesarias; no clientes, payloads o filas operativas completas. Identificar dónde ya hay filtro de fecha, dónde hay sumas globales/rangos cerrados y qué resultados históricos se consideran cerrados. No se hicieron lecturas remotas nuevas en este tramo.
 

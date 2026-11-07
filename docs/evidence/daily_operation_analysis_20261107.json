@@ -43,6 +43,29 @@
     "current-report-formulas-and-consumers",
     "historical-closed-report-contract"
   ],
-  "pendingDecision": "calendar-day-versus-opening-day-for-daily-report",
-  "runtimeChanged": false
+  "runtimeChanged": false,
+  "approvedGrouping": [
+    "event",
+    "project",
+    "operatingJourney"
+  ],
+  "preserveActualTimestamps": true,
+  "decisionSource": {
+    "kind": "user instruction via coordination",
+    "date": "2026-11-07",
+    "text": "Será por evento, proyecto y jornada"
+  },
+  "pendingDecisions": [
+    "shared-DOMUS-journey-versus-event-project-journeys",
+    "authorized-manual-opening-and-closing",
+    "operational-close-with-declared-pending-versus-all-resolved"
+  ],
+  "coordinationCheck": {
+    "integratorHead": "af1735818a3364a52e2483dc846a7d978fcdd7f6",
+    "shiftBranch": "feature/phase-1-shifts-cuts",
+    "shiftHead": "881a71c9f705ebe8ef4772273c9ed0a7a1b0d8fd",
+    "remoteHeadsVerified": true,
+    "directEditorContact": false,
+    "newShiftImplementation": false
+  }
 }
