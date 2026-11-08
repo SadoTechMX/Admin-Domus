@@ -175,10 +175,13 @@ await test('frontend denies unknown/pending delivery before confirmation dialog 
 });
 await test('bank review UI requires attestation and preserves an unresolved confirmation instead of issuing another ID',async()=>{
  const t=client.setup(),b=prepare(),p=b.proof();t.load('submitTransferReview_');t.ctx.STATE.transferPending=[{...p,requiresReview:false}];
+ // Match index.html: cancellation review starts hidden, outside the bank flow.
+ t.ctx.$('transferCancellationPanel').hidden=true;
  for(const [id,value] of Object.entries({transferPendingSelect:p.sourceRequestId,transferReviewAmount:'40',transferReceiverSelect:p.receiver,transferBankReference:p.bankTransactionId,transferReceivedDate:p.receivedDate,transferEvidenceReference:p.evidenceReference}))t.ctx.$(id).value=value;
  let sends=0;t.ctx.callBackend=()=>sends++;t.ctx.submitTransferReview_();assert.equal(sends,0);
  t.ctx.$('transferBankReviewed').checked=true;
  await t.seed([{requestId:'unresolved',action:'confirmarTransferencia',args:[p],status:'RETRY'}]);t.ctx.submitTransferReview_();assert.equal(sends,0);assert(t.notices.at(-1)[0].includes('unresolved'));
+ t.ctx.$('transferCancellationPanel').hidden=false;t.ctx.submitTransferReview_();assert.equal(sends,0);assert(t.notices.at(-1)[0].includes('Cierra la revisión de cancelación'));
 });
 console.log(JSON.stringify({suite:'transfer-review-real-source-isolated',passed,failed,bankVerified:false,liveSheets:false,hardware:false}));if(failed)process.exitCode=1;
 })().catch(e=>{console.error(e);process.exitCode=1;});
