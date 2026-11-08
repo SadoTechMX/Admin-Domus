@@ -41,7 +41,11 @@ function kdsDeliveryDecision_(m,item,context) {
   if(f.kind==='PENDING_TRANSFER' && p.method==='Transferencia' && p.paid===false && p.verified===false && p.paymentStatus==='PENDIENTE_VERIFICACION') {
     transferSource_(m,c.index,{sourceRequestId:record.id,sourceReceipt:p.receipt,ticket:p.ticket});
     if(!c.transfers)c.transfers=transferConfirmedRecords_(m,c.index);
+    if(!c.existingPayments)c.existingPayments=transferExistingPaymentRecords_(m,c.index);
     if(c.transfers.some(t=>t.sourceRequestId===record.id && t.sourceReceipt===p.receipt && t.ticket===p.ticket && t.amountApplied===p.total)) {
+      return {allowed:true,paymentStatus:'CONFIRMADA',credit:false};
+    }
+    if(c.existingPayments.some(t=>t.sourceRequestId===record.id && t.sourceReceipt===p.receipt && t.ticket===p.ticket && t.linkedAmount===p.total)) {
       return {allowed:true,paymentStatus:'CONFIRMADA',credit:false};
     }
     return {allowed:false,code:'DELIVERY_TRANSFER_PENDING',reason:'Transferencia pendiente de acreditar. No entregar por este pago.',paymentStatus:'PENDIENTE_VERIFICACION',credit:false};

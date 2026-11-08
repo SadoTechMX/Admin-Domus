@@ -58,7 +58,7 @@ test('delivered, partial delivery or recorded consumption cannot be cancelled or
   const p=t.body(),b=business(t);assert.throws(()=>t.cancel(p),e=>e.code==='TRANSFER_CANCELLATION_VALIDATION_NO_EFFECTS');assert.equal(business(t),b);
  }
 });
-test('already recorded other payment remains blocked for cancellation/substitution and is never charged twice',()=>{
+test('cancellation cannot consume another recorded payment; linkage requires its separate action',()=>{
  const t=fixture(),s=t.sale({id:'cash-payment',openingRequestId:'open',ticket:t.source.ticket,items:[],method:'Efectivo'});t.request('cajaSimpleRegistrar',[s],s.id);
  const p=t.body(),b=business(t);assert.throws(()=>t.cancel(p),e=>e.code==='TRANSFER_CANCELLATION_VALIDATION_NO_EFFECTS');assert.equal(business(t),b);assert.equal(t.main.getSheetByName('COBROS').getLastRow(),8);
 });
@@ -116,7 +116,7 @@ test('cannot move cancellation to another opening or revive cancelled account wi
  t.cancel(t.body(),'valid');const s=t.sale({id:'wrong-payment',openingRequestId:'open',ticket:t.source.ticket,items:[],method:'Efectivo'}),after=business(t);
  assert.throws(()=>t.request('cajaSimpleRegistrar',[s],s.id),/Cuenta no encontrada/);assert.equal(business(t),after);
 });
-console.log(JSON.stringify({suite:'transfer-cancellation-real-source-mocks',passed,liveBank:false,liveSheets:false,inventoryAdjustments:0,substitutionImplemented:false}));
+console.log(JSON.stringify({suite:'transfer-cancellation-real-source-mocks',passed,liveBank:false,liveSheets:false,inventoryAdjustments:0,substitutionAttempted:false}));
 }
 module.exports={fixture,originals,preserved,business};
 if(require.main===module)main();

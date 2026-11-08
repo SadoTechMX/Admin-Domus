@@ -206,6 +206,7 @@ function idempotentExecute_(requestId, action, payload, deviceId, fn) {
     if(action==='confirmarTransferencia')transferAssertNotCancelled_(m,payload);
     if (prior) {
       if(action==='cancelarTransferenciaNoRecibida')transferCancellationReplayGuard_(m,cleanReqId);
+      if(action==='vincularPagoExistente')existingPaymentReplayGuard_(m,cleanReqId);
       // A PREPARED delivery can predate the payment guard. Check before any
       // inventory/status replay; completed acknowledgements do not write again.
       if(action==='comandasSimpleAccion') {
@@ -234,6 +235,7 @@ function idempotentExecute_(requestId, action, payload, deviceId, fn) {
       if(action==='cancelarTransferenciaNoRecibida' && prior.response && prior.response.status===422 && prior.response.code==='TRANSFER_CANCELLATION_VALIDATION_NO_EFFECTS') {
         throw transferCancellationReject_(prior.response.error);
       }
+      if(action==='vincularPagoExistente' && prior.response && prior.response.status===422 && prior.response.code==='EXISTING_PAYMENT_VALIDATION_NO_EFFECTS')throw existingPaymentError_(prior.response.error,true);
       // Old code may have written effects before FAILED. Never rerun it blindly.
       const err = new Error('IDEMPOTENCY_REQUIRES_REVIEW: intención previa sin plan recuperable.');
       err.status = 409; err.code = 'IDEMPOTENCY_REQUIRES_REVIEW'; throw err;

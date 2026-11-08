@@ -31,6 +31,8 @@ jobs:
       - run: node tests/transfer_resolution_proposal_regressions.js
       - run: node tests/transfer_cancellation_regressions.js
       - run: node tests/transfer_cancellation_transport.js
+      - run: node tests/existing_payment_link_regressions.js
+      - run: node tests/existing_payment_link_transport.js
       - run: node tests/outbox_quarantine_regressions.js
       - run: node tests/outbox_release_regressions.js
       - run: node tests/operating_period_regressions.js
@@ -52,6 +54,7 @@ jobs:
       - run: node tests/browser_outbox_concurrency.js
       - run: node tests/browser_transfer_review.js
       - run: node tests/browser_transfer_cancellation.js
+      - run: node tests/browser_existing_payment_link.js
       - run: node tests/browser_outbox_review.js
       - run: node tests/browser_operating_recovery.js
       - run: node tests/browser_journey_operations.js

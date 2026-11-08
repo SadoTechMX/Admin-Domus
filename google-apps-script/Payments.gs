@@ -115,7 +115,8 @@ function transferenciasPendientes() {
   authRequireContext_('transferenciasPendientes');
   let policy;try {policy=transferPolicy_();}catch(e){if(e.code!=='TRANSFER_POLICY_REQUIRED')throw e;policy={receivers:[]};}
   const m=SpreadsheetApp.openById(CONFIG.mainSheetId),index=paymentRequestIndex_(m),cancelled=transferCancellationRecords_(m,index);
-  const confirmed=transferConfirmedRecords_(m,index),done=new Set(confirmed.map(p=>p.sourceReceipt).concat(cancelled.map(p=>p.sourceReceipt))),pending=[];
+  const linked=transferExistingPaymentRecords_(m,index);
+  const confirmed=transferConfirmedRecords_(m,index),done=new Set(confirmed.map(p=>p.sourceReceipt).concat(cancelled.map(p=>p.sourceReceipt),linked.map(p=>p.sourceReceipt))),pending=[];
   dataRows_(transferSheet_(m),7,31).forEach(r=>{
     if(r[2]!=='Caja' || r[4]!=='Transferencia' || r[10]!=='Borrador' || done.has(r[0]))return;
     const sourceRequestId=String(r[8]).startsWith('CAJA-RAPIDA:')?String(r[8]).slice('CAJA-RAPIDA:'.length):'';
@@ -124,7 +125,8 @@ function transferenciasPendientes() {
     catch(_) { pending.push(Object.assign(item,{requiresReview:true})); }
   });
   return {ok:true,currency:'MXN',verificationMode:'MANUAL_BANK_REVIEW',receivers:policy.receivers,pending:pending,
-    cancelled:cancelled.map(c=>({requestId:c.cancellationRequestId,sourceReceipt:c.sourceReceipt,ticket:c.ticket,wasteStatus:c.wasteReview.status,closureBlocked:c.closureBlocked}))};
+    cancelled:cancelled.map(c=>({requestId:c.cancellationRequestId,sourceReceipt:c.sourceReceipt,ticket:c.ticket,wasteStatus:c.wasteReview.status,closureBlocked:c.closureBlocked})),
+    linked:linked.map(c=>({requestId:c.linkRequestId,sourceReceipt:c.sourceReceipt,ticket:c.ticket,existingPaymentReceipt:c.existingPaymentReceipt,linkedAmount:c.linkedAmount,newCharge:0}))};
 }
 
 function confirmarTransferencia(p) {
@@ -180,8 +182,7 @@ function confirmarTransferencia(p) {
   });
 }
 
-// Read-only preparation. Manager cancellation of undelivered orders is approved;
-// payment substitution is not. This query itself cannot apply a resolution.
+// Read-only preparation; approved administrative resolutions use separate actions.
 // Bank non-receipt is a human review requirement, never inferred from Borrador.
 function prepararResolucionTransferencia(p) {
   authRequireContext_('prepararResolucionTransferencia');
@@ -206,7 +207,7 @@ function prepararResolucionTransferencia(p) {
       snapshotHash:context.snapshotHash,
       observedAt:new Date().toISOString(),preparedBy:_authContext.operator,preparedRole:_authContext.role,preparedPrincipal:_authContext.principal,
       policyRequired:true,canConfirm:false,canCancel:false,canReplacePayment:false,canDeliver:false,canCloseJourney:false,
-      policy:{managerCancellationApproved:true,preparedOrdersIncluded:true,paymentSubstitutionApproved:false},
+      policy:{managerCancellationApproved:true,preparedOrdersIncluded:true,paymentSubstitutionApproved:true},
       proposedEffects:{paymentApplied:0,refund:0,inventoryMovement:0,writes:0},
       message:'Propuesta de conciliación. Conserva el pendiente y la deuda; no acredita banco, anula, cobra, entrega ni habilita el cierre.'};
   });
@@ -215,7 +216,7 @@ function prepararResolucionTransferencia(p) {
 function transferResolutionContext_(m,p,ownId) {
   const index=paymentRequestIndex_(m),journal=m.getSheetByName('DOMUS_JOURNAL'),journalRows=journal?dataRows_(journal,2,6):[];
   const own=ownId && index.get(ownId);
-  if(own && own.length===1 && own[0][1]==='cancelarTransferenciaNoRecibida' && own[0][4]==='PROCESSING' && !journalFind_(ownId,m))index.delete(ownId);
+  if(own && own.length===1 && ['cancelarTransferenciaNoRecibida','vincularPagoExistente'].includes(own[0][1]) && own[0][4]==='PROCESSING' && !journalFind_(ownId,m))index.delete(ownId);
   if(journalRows.some(r=>r[0] && r[2]!=='COMPLETED'))throw transferError_('TRANSFER_RESOLUTION_REQUIRES_REVIEW','Existe un plan incompleto. Conservar su intención; esta consulta no lo reanuda.');
   index.forEach(rows=>{
     if(rows.length!==1 || (rows[0][4]!=='COMPLETED' && !journeyKnownNoEffects_(m,rows)))throw transferError_('TRANSFER_RESOLUTION_REQUIRES_REVIEW','REQUESTS contiene una intención incierta o duplicada.');
@@ -223,6 +224,7 @@ function transferResolutionContext_(m,p,ownId) {
   const source=transferSource_(m,index,p),confirmed=transferConfirmedRecords_(m,index);
   if(confirmed.some(r=>r.sourceRequestId===p.sourceRequestId || r.sourceReceipt===p.sourceReceipt))throw transferError_('TRANSFER_ALREADY_CONFIRMED','Ya existe ingreso acreditado; no cancelar como no recibido.');
   if(transferCancellationRecords_(m,index).some(r=>r.sourceRequestId===p.sourceRequestId))throw transferError_('TRANSFER_ALREADY_CANCELLED','La cancelación ya tiene resolución; recuperar su ID original.');
+  if(transferExistingPaymentRecords_(m,index).some(r=>r.sourceRequestId===p.sourceRequestId))throw transferError_('TRANSFER_ALREADY_LINKED','Ya existe un vínculo. Recupera su ID original, sin nuevo cobro.');
   const snapshot=transferResolutionSnapshot_(m,index,source,p.sourceRequestId);
   return {index:index,source:source,snapshot:snapshot,snapshotHash:computePayloadHash_(JSON.parse(JSON.stringify({version:1,book:m.getId(),environment:CONFIG.environment,
     sourceRequestId:p.sourceRequestId,snapshot:snapshot,ledger:Array.from(index.values()),journal:journalRows})))};
@@ -333,6 +335,9 @@ function transferAssertNotCancelled_(m,p) {
   if(p && records.some(r=>r.sourceRequestId===p.sourceRequestId || r.sourceReceipt===p.sourceReceipt)) {
     throw transferError_('TRANSFER_CANCELLED_REQUIRES_RECONCILIATION','Pendiente cancelado. Un ingreso posterior requiere conciliación; no aplicarlo automáticamente.');
   }
+  if(p && transferExistingPaymentRecords_(m).some(r=>r.sourceRequestId===p.sourceRequestId || r.sourceReceipt===p.sourceReceipt)) {
+    throw transferError_('TRANSFER_LINKED_REQUIRES_RECONCILIATION','Pendiente resuelto con otro pago. Un ingreso posterior requiere conciliación; no aplicarlo otra vez.');
+  }
 }
 
 function transferCancellationReplayGuard_(m,id) {
@@ -374,13 +379,13 @@ function cancelarTransferenciaNoRecibida(p) {
       if(p.expectedAmount!==context.source.total || !Array.isArray(p.expectedUnitIds) ||
         canonicalJsonStringify_(p.expectedUnitIds.slice().sort())!==canonicalJsonStringify_(s.units.map(u=>u.id).sort()))throw transferCancellationReject_('Importe o unidades diferentes de la propuesta revisada.');
       if(s.units.some(u=>u.deliveryEvidence))throw transferCancellationReject_('Hay entrega o consumo registrado. No cancelar ni devolver inventario.');
-      if(s.records.length!==1 || s.records[0].id!==p.sourceRequestId || s.payments.length!==1 || s.balance.paid!==0)throw transferCancellationReject_('La cuenta tiene otros movimientos. Sustitución de pago no autorizada; conciliar sin recobrar.');
+      if(s.records.length!==1 || s.records[0].id!==p.sourceRequestId || s.payments.length!==1 || s.balance.paid!==0)throw transferCancellationReject_('La cuenta tiene otros movimientos. Revisa el pago existente por separado; no cancelar ni recobrar.');
       journey=journeyForMovement_(m,p,new Date());
       if(!journey || !context.source.journey || journey.journeyId!==context.source.journey.journeyId)throw transferCancellationReject_('Se requiere la misma jornada de origen abierta; no adoptar historia ni reasignarla.');
       review={noDeliveryConfirmed:true,noBankReceiptConfirmed:true,evidenceReference:p.review.evidenceReference.trim()};
       waste={status:p.wasteReview.status,note:p.wasteReview.note.trim(),inventoryApplied:false};
     } catch(e) {
-      if(['TRANSFER_RESOLUTION_REQUIRES_REVIEW','TRANSFER_ALREADY_CANCELLED','TRANSFER_ALREADY_CONFIRMED','TRANSFER_SOURCE_REQUIRES_REVIEW','TRANSFER_SCHEMA_REQUIRES_REVIEW','TRANSFER_HISTORY_REQUIRES_REVIEW',
+      if(['TRANSFER_RESOLUTION_REQUIRES_REVIEW','TRANSFER_ALREADY_CANCELLED','TRANSFER_ALREADY_CONFIRMED','TRANSFER_ALREADY_LINKED','TRANSFER_SOURCE_REQUIRES_REVIEW','TRANSFER_SCHEMA_REQUIRES_REVIEW','TRANSFER_HISTORY_REQUIRES_REVIEW',
         'JOURNEY_REQUIRES_REVIEW','JOURNEY_VALIDATION_NO_EFFECTS'].includes(e.code))throw transferCancellationReject_(e.message);
       throw e;
     }
@@ -403,5 +408,163 @@ function cancelarTransferenciaNoRecibida(p) {
       snapshotHash:p.snapshotHash,sourceEvidenceHash:transferCancellationSourceHash_(m,context.index,p),journey:journey,
       closureBlocked:waste.status!=='NO_WASTE_OBSERVED',message:'Pedido y pendiente cancelados sin ingreso ni devolución. Originales conservados; merma '+waste.status+'.'};
     return journalCommit_(id,'cancelarTransferenciaNoRecibida',m,writes,result);
+  });
+}
+
+// Administrative linkage only: no new COBROS, command, balance or stock write.
+function existingPaymentError_(message, noEffects) {
+  return transferError_(noEffects?'EXISTING_PAYMENT_VALIDATION_NO_EFFECTS':'EXISTING_PAYMENT_REQUIRES_REVIEW',message,noEffects?422:409);
+}
+
+function existingPaymentJournal_(m,id,action,completed) {
+  const s=m.getSheetByName('DOMUS_JOURNAL'),rows=s?dataRows_(s,2,6).filter(r=>r[0]===id):[];
+  if(rows.length!==1 || rows[0][1]!==action || (completed?rows[0][2]!=='COMPLETED':!['PREPARED','COMPLETED'].includes(rows[0][2])))throw existingPaymentError_('Journal inexistente, duplicado o incompleto.');
+  return rows[0];
+}
+
+function existingPaymentSale_(m,index,id) {
+  const r=paymentRequest_(index,id),row=index.get(id),j=existingPaymentJournal_(m,id,'cajaSimpleRegistrar',true);
+  let result;try {result=JSON.parse(j[4]);}catch(_){throw existingPaymentError_('Resultado ilegible.');}
+  if(!r || r.status!=='COMPLETED' || r.action!=='cajaSimpleRegistrar' || !r.result || !row || row.length!==1 ||
+      !/^[a-f0-9]{64}$/.test(String(row[0][2])) || !row[0][3] || canonicalJsonStringify_(result)!==canonicalJsonStringify_(r.result))throw existingPaymentError_('Venta y journal sin correspondencia única.');
+  return r.result;
+}
+
+function existingPaymentEvidence_(m,index,p) {
+  const fail=()=>{throw existingPaymentError_('Pago existente sin identidad, importe o estado confirmado compatibles. No cobrar otra vez.');};
+  const source=transferSource_(m,index,p),original=existingPaymentSale_(m,index,p.sourceRequestId);
+  const payment=existingPaymentSale_(m,index,p.existingPaymentRequestId),f=payment.fulfillment,sf=source.fulfillment;
+  if(original!==source && canonicalJsonStringify_(original)!==canonicalJsonStringify_(source))fail();
+  if(p.sourceRequestId===p.existingPaymentRequestId || payment.ok!==true || payment.sourceRequestId!==p.existingPaymentRequestId ||
+      payment.ticket!==source.ticket || payment.receipt!==p.existingPaymentReceipt || !payment.receipt || payment.receipt===source.receipt ||
+      payment.paid!==true || payment.verified!==true || payment.paymentStatus!=='CONFIRMADA' || !['Efectivo','Terminal 1','Terminal 2','Mixto'].includes(payment.method) ||
+      !journeyMoney_(source.total) || source.total<=0 || payment.total!==source.total || !Array.isArray(payment.items) || payment.items.length ||
+      !f || f.version!==1 || f.sourceRequestId!==p.existingPaymentRequestId || f.kind!=='PAYMENT_CONFIRMED' || !Array.isArray(f.units) || f.units.length ||
+      !['CAJA','GERENCIA','ADMIN'].includes(f.authorizedRole) || !f.authorizedBy ||
+      !sf || sf.version!==1 || sf.sourceRequestId!==p.sourceRequestId || sf.kind!=='PENDING_TRANSFER' || !Array.isArray(sf.units) || !sf.units.length)fail();
+  const contexts=[source.journey,source.originJourney,payment.journey,payment.originJourney];
+  if(contexts.some(c=>!c || c.version!==1 || !c.scope || !c.openingRequestId || c.journeyId!=='JOR-'+c.openingRequestId ||
+      c.journeyId!==source.journey.journeyId || c.scope.projectId!==source.journey.scope.projectId || c.scope.eventId!==source.journey.scope.eventId))fail();
+  const created=journeyTimestamp_(index.get(p.sourceRequestId)[0][5]),paidAt=journeyTimestamp_(index.get(p.existingPaymentRequestId)[0][5]);
+  if(created===null || paidAt===null || paidAt<created)fail();
+  const rows=dataRows_(transferSheet_(m),7,31),tag='CAJA-RAPIDA:'+p.existingPaymentRequestId;
+  const parts=payment.method==='Mixto'?payment.payments:[{receipt:payment.receipt,method:payment.method,amount:payment.total}];
+  if(!Array.isArray(parts) || !parts.length || (payment.method==='Mixto' && !kdsMixedPaymentEvidence_(payment,p.existingPaymentRequestId,rows)) ||
+      rows.filter(r=>r[8]===tag).length!==parts.length)fail();
+  const paymentRows=parts.map(part=>{
+    const found=rows.filter(r=>r[0]===part.receipt),r=found[0];
+    if(found.length!==1 || r[2]!=='Caja' || r[3]!==source.ticket || r[4]!==part.method || r[5]!==part.amount || r[8]!==tag ||
+        r[10]!=='Confirmado' || r[11]!==f.authorizedBy || r[13]!==part.amount || r[15]!==payment.journey.activity || !journeyMoney_(part.amount) || part.amount<=0)fail();
+    return r;
+  });
+  if(posRound_(parts.reduce((sum,part)=>sum+part.amount,0))!==source.total)fail();
+  const evidence={sourceRequest:index.get(p.sourceRequestId),paymentRequest:index.get(p.existingPaymentRequestId),
+    sourceJournal:existingPaymentJournal_(m,p.sourceRequestId,'cajaSimpleRegistrar',true),paymentJournal:existingPaymentJournal_(m,p.existingPaymentRequestId,'cajaSimpleRegistrar',true),
+    sourceRows:rows.filter(r=>r[0]===source.receipt),paymentRows:paymentRows};
+  return {source:source,payment:payment,parts:parts,recordedAt:new Date(paidAt).toISOString(),
+    evidenceHash:computePayloadHash_(JSON.parse(JSON.stringify(evidence)))};
+}
+
+function existingPaymentLinkResult_(m,index,id,p,journal) {
+  const fail=()=>{throw existingPaymentError_('Vínculo sin evidencia íntegra. Mantener pendiente y conservar originales.');};
+  if(!p || p.ok!==true || p.kind!=='TRANSFER_EXISTING_PAYMENT_LINK' || p.version!==1 || p.status!=='LINKED_EXISTING_PAYMENT' || p.linkRequestId!==id ||
+      p.newCharge!==0 || p.amountApplied!==0 || p.refund!==0 || p.inventoryMovement!==0 || p.confirmExistingPayment!==true ||
+      !['GERENCIA','ADMIN'].includes(p.authorizedRole) || !CONFIG.managers.includes(p.authorizedPrincipal) || !p.authorizedBy ||
+      !p.reason || !p.evidenceReference || !Number.isFinite(Date.parse(p.linkedAt)) || !/^[a-f0-9]{64}$/.test(p.snapshotHash || ''))fail();
+  let result,plan;try {result=JSON.parse(journal[4]);plan=JSON.parse(journal[3]);}catch(_){fail();}
+  // This action can never replay a commercial-cell plan, even if the journal is altered.
+  if(!plan || Array.isArray(plan) || Object.keys(plan).length!==1 || plan.parts!==0 || canonicalJsonStringify_(p)!==canonicalJsonStringify_(result))fail();
+  const e=existingPaymentEvidence_(m,index,p);
+  if(p.sourceEvidenceHash!==e.evidenceHash || p.linkedAmount!==e.source.total || p.currency!=='MXN' || p.existingPaymentMethod!==e.payment.method ||
+      !p.journey || p.journey.journeyId!==e.source.journey.journeyId || p.journey.openingRequestId!==e.source.journey.openingRequestId ||
+      canonicalJsonStringify_(p.units)!==canonicalJsonStringify_(e.source.fulfillment.units) || canonicalJsonStringify_(p.paymentParts)!==canonicalJsonStringify_(e.parts))fail();
+  return p;
+}
+
+function transferExistingPaymentRecords_(m,index,skipId) {
+  index=index || paymentRequestIndex_(m);
+  const found=[],sources=new Set(),payments=new Set(),receipts=new Set();
+  index.forEach((rows,id)=>{
+    if(id===skipId || !rows.some(r=>r[1]==='vincularPagoExistente') || journeyKnownNoEffects_(m,rows))return;
+    const r=paymentRequest_(index,id);
+    if(!r || r.status!=='COMPLETED')throw existingPaymentError_('Vínculo incierto. Recuperar su mismo ID antes de entregar, confirmar o cerrar.');
+    const p=existingPaymentLinkResult_(m,index,id,r.result,existingPaymentJournal_(m,id,'vincularPagoExistente',true));
+    if(sources.has(p.sourceRequestId) || payments.has(p.existingPaymentRequestId) || p.paymentParts.some(part=>receipts.has(part.receipt)))throw existingPaymentError_('Pago o pendiente reutilizado.');
+    sources.add(p.sourceRequestId);payments.add(p.existingPaymentRequestId);p.paymentParts.forEach(part=>receipts.add(part.receipt));found.push(p);
+  });
+  if(found.length) {
+    const confirmed=transferConfirmedRecords_(m,index),cancelled=transferCancellationRecords_(m,index);
+    if(found.some(p=>confirmed.concat(cancelled).some(r=>r.sourceRequestId===p.sourceRequestId)))throw existingPaymentError_('Hay resoluciones incompatibles para el mismo pendiente.');
+  }
+  return found;
+}
+
+function existingPaymentContext_(m,p,ownId) {
+  const c=transferResolutionContext_(m,p,ownId),s=c.snapshot;
+  const candidates=s.records.filter(r=>r.id!==p.sourceRequestId);
+  if(candidates.length!==1 || s.records.length!==2 || s.units.some(u=>u.state==='Cancelada') ||
+      s.balance.total!==c.source.total || s.balance.paid!==c.source.total || s.balance.due!==0)throw existingPaymentError_('Se requiere una cuenta íntegra y un único pago completo. Diferencias requieren conciliación.');
+  const candidate=candidates[0];
+  const e=existingPaymentEvidence_(m,c.index,{...p,existingPaymentRequestId:candidate.id,existingPaymentReceipt:candidate.result.receipt});
+  if(s.payments.length!==e.parts.length+1)throw existingPaymentError_('Hay pagos adicionales o sin vínculo.');
+  if(transferExistingPaymentRecords_(m,c.index).some(r=>r.existingPaymentRequestId===candidate.id || r.paymentParts.some(a=>e.parts.some(b=>a.receipt===b.receipt))))throw existingPaymentError_('El pago ya se usó en otra resolución.');
+  return {...c,evidence:e};
+}
+
+function prepararVinculoPagoExistente(p) {
+  authRequireContext_('prepararVinculoPagoExistente');
+  if(!CONFIG.managers.includes(_authContext.principal))throw transferError_('AUTH_PRINCIPAL_REQUIRED','Renueva la identidad de Gerencia.',401);
+  if(!p || !['sourceRequestId','sourceReceipt','ticket'].every(k=>typeof p[k]==='string' && p[k].trim()===p[k] && p[k] && p[k].length<=200))throw existingPaymentError_('Indica pendiente, recibo y cuenta originales.');
+  return withLock_(CONFIG.lockTimeoutMs,()=>{
+    const m=SpreadsheetApp.openById(CONFIG.mainSheetId),c=existingPaymentContext_(m,p),e=c.evidence;
+    return {ok:true,kind:'TRANSFER_EXISTING_PAYMENT_PROPOSAL',version:1,readOnly:true,sourceRequestId:p.sourceRequestId,sourceReceipt:p.sourceReceipt,ticket:p.ticket,
+      amount:e.source.total,currency:'MXN',newCharge:0,snapshotHash:c.snapshotHash,sourceJourney:e.source.journey,unitIds:e.source.fulfillment.units.map(u=>u.id),
+      existingPayment:{requestId:e.payment.sourceRequestId,receipt:e.payment.receipt,ticket:e.payment.ticket,amount:e.payment.total,method:e.payment.method,parts:e.parts,
+        recordedAt:e.recordedAt,recordedBy:e.payment.fulfillment.authorizedBy,paymentStatus:'CONFIRMADA'},
+      message:'Usar pago existente. Nuevo cobro: $0. Requiere confirmación explícita de Gerencia; no marca entrega.'};
+  });
+}
+
+function existingPaymentReplayGuard_(m,id) {
+  const plan=journalFind_(id,m);if(!plan)return;
+  const index=paymentRequestIndex_(m),j=existingPaymentJournal_(m,id,'vincularPagoExistente',false);
+  let p;try {p=JSON.parse(j[4]);}catch(_){throw existingPaymentError_('Vínculo ilegible.');}
+  existingPaymentLinkResult_(m,index,id,p,j);
+  const source=transferSource_(m,index,p),snapshot=transferResolutionSnapshot_(m,index,source,p.sourceRequestId);
+  if(snapshot.records.length!==2 || !snapshot.records.some(r=>r.id===p.existingPaymentRequestId) || snapshot.payments.length!==p.paymentParts.length+1 ||
+      snapshot.units.some(u=>u.state==='Cancelada') || snapshot.balance.total!==p.linkedAmount || snapshot.balance.paid!==p.linkedAmount || snapshot.balance.due!==0)throw existingPaymentError_('La cuenta cambió durante el vínculo. Conservar la intención sin liberar permisos.');
+  const others=transferExistingPaymentRecords_(m,index,id);
+  if(others.some(r=>r.sourceRequestId===p.sourceRequestId || r.existingPaymentRequestId===p.existingPaymentRequestId || r.paymentParts.some(a=>p.paymentParts.some(b=>a.receipt===b.receipt))))throw existingPaymentError_('Pago o pendiente ya vinculados.');
+  if(transferConfirmedRecords_(m,index).concat(transferCancellationRecords_(m,index)).some(r=>r.sourceRequestId===p.sourceRequestId))throw existingPaymentError_('El pendiente tiene otra resolución.');
+}
+
+function vincularPagoExistente(p) {
+  authRequireContext_('vincularPagoExistente');
+  if(!CONFIG.managers.includes(_authContext.principal))throw transferError_('AUTH_PRINCIPAL_REQUIRED','Renueva la identidad de Gerencia.',401);
+  return withLock_(CONFIG.lockTimeoutMs,()=>{
+    const m=SpreadsheetApp.openById(CONFIG.mainSheetId),id=p && p.requestId;
+    existingPaymentReplayGuard_(m,id);const resumed=journalResume_(id,'vincularPagoExistente',m);if(resumed)return resumed;
+    let c,journey;
+    try {
+      const text=v=>typeof v==='string' && !!v.trim() && v.length<=300 && v[0]!=='=';
+      if(!p || p.confirmExistingPayment!==true || p.newCharge!==0 || !['sourceRequestId','sourceReceipt','ticket','existingPaymentRequestId','existingPaymentReceipt','openingRequestId','reason','evidenceReference'].every(k=>text(p[k])) ||
+          !/^[a-f0-9]{64}$/.test(p.snapshotHash || ''))throw existingPaymentError_('Confirma expresamente el folio existente y nuevo cobro $0; indica motivo y evidencia.',true);
+      c=existingPaymentContext_(m,p,id);const e=c.evidence;
+      if(p.snapshotHash!==c.snapshotHash || p.expectedAmount!==e.source.total || p.existingPaymentRequestId!==e.payment.sourceRequestId || p.existingPaymentReceipt!==e.payment.receipt ||
+          p.expectedPaymentMethod!==e.payment.method || canonicalJsonStringify_(p.expectedPaymentParts)!==canonicalJsonStringify_(e.parts) ||
+          !Array.isArray(p.expectedUnitIds) || canonicalJsonStringify_(p.expectedUnitIds.slice().sort())!==canonicalJsonStringify_(e.source.fulfillment.units.map(u=>u.id).sort()))throw existingPaymentError_('Cambió la cuenta o el pago. Revisa otra propuesta antes de crear una intención nueva.',true);
+      journey=journeyForMovement_(m,p,new Date());
+      if(!journey || journey.journeyId!==e.source.journey.journeyId)throw existingPaymentError_('Se requiere la misma jornada de origen abierta.',true);
+    }catch(e) {
+      if(e.status===409 || e.code==='JOURNEY_VALIDATION_NO_EFFECTS')throw existingPaymentError_(e.message,true);
+      throw e;
+    }
+    const e=c.evidence,result={ok:true,kind:'TRANSFER_EXISTING_PAYMENT_LINK',version:1,status:'LINKED_EXISTING_PAYMENT',linkRequestId:id,
+      sourceRequestId:p.sourceRequestId,sourceReceipt:p.sourceReceipt,ticket:p.ticket,existingPaymentRequestId:p.existingPaymentRequestId,existingPaymentReceipt:p.existingPaymentReceipt,
+      existingPaymentMethod:e.payment.method,paymentParts:e.parts,linkedAmount:e.source.total,currency:'MXN',newCharge:0,amountApplied:0,refund:0,inventoryMovement:0,
+      confirmExistingPayment:true,reason:p.reason.trim(),evidenceReference:p.evidenceReference.trim(),snapshotHash:p.snapshotHash,sourceEvidenceHash:e.evidenceHash,
+      units:e.source.fulfillment.units,journey:journey,authorizedRole:_authContext.role,authorizedPrincipal:_authContext.principal,authorizedBy:_authContext.operator,linkedAt:new Date().toISOString(),
+      message:'Pago existente vinculado. Nuevo cobro: $0. Se conserva el recibo original; la entrega requiere su acción normal.'};
+    return journalCommit_(id,'vincularPagoExistente',m,[],result);
   });
 }

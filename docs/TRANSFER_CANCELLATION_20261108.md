@@ -1,3 +1,5 @@
+> **Decisión posterior:** Steven aprobó el flujo explícito de pago existente con nuevo cobro $0. Ver [contrato e implementación aislada](EXISTING_PAYMENT_LINK_20261108.md). Se conserva abajo la evidencia histórica de la autorización pendiente.
+
 # Cancelación de transferencia no recibida — 8 noviembre 2026 UTC
 
 Estado: **implementada y probada con servicios simulados en la rama aislada**, sobre `2178e27`, UI `20261108-transfer-cancel-16`. No instalada ni validada con banco, datos productivos o equipos físicos. No cambia impresión, SEMANA, fórmulas ni las dos pruebas V9 clasificadas por separado.

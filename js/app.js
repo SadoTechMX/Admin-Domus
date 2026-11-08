@@ -102,7 +102,8 @@
         const body=item.args && item.args[0];
         if(!body || !((item.action==='cajaSimpleRegistrar' && validSaleResult_(ack.data,body)) ||
           (item.action==='confirmarTransferencia' && validTransferResult_(ack.data,body)) ||
-          (item.action==='cancelarTransferenciaNoRecibida' && validTransferCancellationResult_(ack.data,body))))throw new Error('Comprobante incompleto o acción sin contrato de cierre.');
+          (item.action==='cancelarTransferenciaNoRecibida' && validTransferCancellationResult_(ack.data,body)) ||
+          (item.action==='vincularPagoExistente' && validExistingPaymentResult_(ack.data,body))))throw new Error('Comprobante incompleto o acción sin contrato de cierre.');
       }
       if(initial.domus_pending_sale!==null) {
         const pending=JSON.parse(initial.domus_pending_sale),id=pending && (pending.requestId || pending.id);
@@ -265,7 +266,7 @@
   window.DOMUS_BUILD = {
     baseCommit: '2b7ba1f4030b1013555b93cb96cfcb594141fdcb',
     buildId: 'repair-reconcile-20261105',
-    ui: '20261108-transfer-cancel-16',
+    ui: '20261108-existing-payment-17',
     environment: isProductionLocked ? 'PRODUCTION' : 'STAGING'
   };
 
@@ -2522,6 +2523,7 @@ const DEFAULT_CATALOG = [
     'cajaSimpleRegistrar',
     'confirmarTransferencia',
     'cancelarTransferenciaNoRecibida',
+    'vincularPagoExistente',
     'comandasSimpleAccion',
     'comandasSimpleResolver',
     'accesoSimpleRegistrar',
@@ -2669,6 +2671,23 @@ const DEFAULT_CATALOG = [
     return ids.every(id=>typeof id==='string' && !!id) && new Set(ids).size===ids.length && JSON.stringify(ids.slice().sort())===JSON.stringify(p.expectedUnitIds.slice().sort());
   }
 
+  function validExistingPaymentResult_(r,p) {
+    if(!r || typeof r!=='object' || Array.isArray(r) || !p || r.ok!==true || r.kind!=='TRANSFER_EXISTING_PAYMENT_LINK' || r.version!==1 ||
+      r.status!=='LINKED_EXISTING_PAYMENT' || r.linkRequestId!==(p.requestId || p.id) || r.sourceRequestId!==p.sourceRequestId || r.sourceReceipt!==p.sourceReceipt ||
+      r.ticket!==p.ticket || r.existingPaymentRequestId!==p.existingPaymentRequestId || r.existingPaymentReceipt!==p.existingPaymentReceipt ||
+      r.existingPaymentMethod!==p.expectedPaymentMethod || !['Efectivo','Terminal 1','Terminal 2','Mixto'].includes(r.existingPaymentMethod) ||
+      r.linkedAmount!==p.expectedAmount || typeof r.linkedAmount!=='number' || !Number.isFinite(r.linkedAmount) || r.linkedAmount<=0 || r.currency!=='MXN' ||
+      r.newCharge!==0 || r.amountApplied!==0 || r.refund!==0 || r.inventoryMovement!==0 || r.paid===true || r.verified===true ||
+      r.confirmExistingPayment!==true || p.confirmExistingPayment!==true || p.newCharge!==0 || r.snapshotHash!==p.snapshotHash || !/^[a-f0-9]{64}$/.test(r.sourceEvidenceHash || '') ||
+      !validJourneyContext_(r.journey) || r.journey.openingRequestId!==p.openingRequestId ||
+      !['GERENCIA','ADMIN'].includes(r.authorizedRole) || !['authorizedPrincipal','authorizedBy'].every(k=>typeof r[k]==='string' && !!r[k]) ||
+      typeof r.linkedAt!=='string' || !Number.isFinite(Date.parse(r.linkedAt)) || r.reason!==String(p.reason || '').trim() || r.evidenceReference!==String(p.evidenceReference || '').trim() ||
+      !Array.isArray(r.units) || !r.units.length || !Array.isArray(p.expectedUnitIds) || !Array.isArray(r.paymentParts) || !r.paymentParts.length || !Array.isArray(p.expectedPaymentParts))return false;
+    const ids=r.units.map(u=>u && u.id),parts=x=>x.map(a=>[a?.receipt,a?.method,a?.amount]);
+    return ids.every(id=>typeof id==='string' && !!id) && new Set(ids).size===ids.length && JSON.stringify(ids.slice().sort())===JSON.stringify(p.expectedUnitIds.slice().sort()) &&
+      JSON.stringify(parts(r.paymentParts))===JSON.stringify(parts(p.expectedPaymentParts));
+  }
+
   function validMovementJourney_(r,body) {
     return !!r && validJourneyContext_(r.journey) && validJourneyContext_(r.originJourney) &&
       r.journey.openingRequestId===body.openingRequestId && r.originJourney.scope.projectId===r.journey.scope.projectId;
@@ -2694,6 +2713,8 @@ const DEFAULT_CATALOG = [
 
   function validateBackendResponse_(response, payload) {
     if (!response || typeof response !== 'object' || Array.isArray(response) || typeof response.ok !== 'boolean' ||
+        (response.ok && payload && payload.action==='vincularPagoExistente' &&
+          (!payload.requestId || response.requestId!==payload.requestId || !validExistingPaymentResult_(response.data,payload.args?.[0]))) ||
         (response.ok && payload && payload.action==='cancelarTransferenciaNoRecibida' &&
           (!payload.requestId || response.requestId!==payload.requestId || !validTransferCancellationResult_(response.data,payload.args?.[0]))) ||
         (response.ok && payload && ['turnoAbrir','corteZCerrar'].includes(payload.action) &&
@@ -2978,7 +2999,8 @@ const DEFAULT_CATALOG = [
       ['SALE_PHASE_CHANGED_NO_EFFECTS','SALE_VALIDATION_REJECTED_NO_EFFECTS'].includes(error.code)) ||
       (['turnoAbrir','corteZCerrar','cajaSimpleRegistrar','confirmarTransferencia'].includes(action) && error.code==='JOURNEY_VALIDATION_NO_EFFECTS') ||
       (action==='confirmarTransferencia' && ['TRANSFER_POLICY_REQUIRED_NO_EFFECTS','TRANSFER_REVIEW_INCOMPLETE_NO_EFFECTS'].includes(error.code)) ||
-      (action==='cancelarTransferenciaNoRecibida' && error.code==='TRANSFER_CANCELLATION_VALIDATION_NO_EFFECTS'));
+      (action==='cancelarTransferenciaNoRecibida' && error.code==='TRANSFER_CANCELLATION_VALIDATION_NO_EFFECTS') ||
+      (action==='vincularPagoExistente' && error.code==='EXISTING_PAYMENT_VALIDATION_NO_EFFECTS'));
   }
 
   /**
@@ -3228,7 +3250,7 @@ const DEFAULT_CATALOG = [
 
   // --- COMUNICACIÓN CON BACKEND (IDEMPOTENTE & CON OUTBOX) ---
   function callBackend(fnName, args, onSuccess, onError) {
-    let role = (['corteZCerrar','cambiarFase','anularAcceso','sincronizarCartaConCatalogoDOMUS','registrarNuevoProducto','registrarNuevoEvento','transferenciasPendientes','prepararResolucionTransferencia','cancelarTransferenciaNoRecibida','confirmarTransferencia'].includes(fnName) ? 'GERENCIA' : getStationRole()).toUpperCase();
+    let role = (['corteZCerrar','cambiarFase','anularAcceso','sincronizarCartaConCatalogoDOMUS','registrarNuevoProducto','registrarNuevoEvento','transferenciasPendientes','prepararResolucionTransferencia','cancelarTransferenciaNoRecibida','prepararVinculoPagoExistente','vincularPagoExistente','confirmarTransferencia'].includes(fnName) ? 'GERENCIA' : getStationRole()).toUpperCase();
     let deviceId = getDeviceId(), operator = STATE.operator;
     try { args = JSON.parse(JSON.stringify(args || [])); }
     catch (err) { if (onError) onError(err); return; }
@@ -4305,6 +4327,8 @@ const DEFAULT_CATALOG = [
       $('transferReceiverSelect').innerHTML='<option value="">Selecciona cuenta receptora</option>'+data.receivers.map(r=>`<option value="${escapeHtml(r)}">${escapeHtml(r)}</option>`).join('');
       $('btnConfirmTransferReview').disabled=!data.receivers.length || !data.pending.some(p=>!p.requiresReview);
       $('btnPrepareTransferCancellation').disabled=!data.pending.some(p=>!p.requiresReview);
+      $('btnPrepareExistingPayment').disabled=!data.pending.some(p=>!p.requiresReview);
+      $('existingPaymentHistory').textContent=(data.linked || []).map(p=>`Cuenta ${p.ticket} · pendiente ${p.sourceReceipt} resuelto con folio ${p.existingPaymentReceipt} · ${money(p.linkedAmount)} · nuevo cobro $0`).join(' | ');
       $('transferCancellationHistory').textContent=(data.cancelled || []).map(c=>`${c.sourceReceipt}: cancelación ${c.requestId} · sin ingreso · ${c.closureBlocked?'merma por conciliar, corte bloqueado':'sin merma observada'}`).join(' | ');
       $('transferReviewStatus').textContent=data.pending.length?'La confirmación registra tu revisión bancaria; no consulta al banco automáticamente.':'No hay transferencias pendientes de Caja.';
     },err=>{$('transferReviewStatus').textContent=err.message || 'No se pudo consultar. No aplicar pagos.';});
@@ -4313,6 +4337,7 @@ const DEFAULT_CATALOG = [
   function submitTransferReview_() {
     if(STATE.transferReviewSending)return;
     try {
+      if(STATE.existingPaymentReviewOpen)throw new Error('Cierra la revisión de pago existente antes de confirmar banco.');
       if(!$('transferCancellationPanel').hidden)throw new Error('Cierra la revisión de cancelación antes de revisar un ingreso bancario.');
       const pending=(STATE.transferPending || []).find(p=>p.sourceRequestId===$('transferPendingSelect').value && !p.requiresReview);
       const amount=Number($('transferReviewAmount').value),receiver=$('transferReceiverSelect').value;
@@ -4320,7 +4345,7 @@ const DEFAULT_CATALOG = [
       if(!pending || !$('transferBankReviewed').checked || !receiver || !bankTransactionId || !receivedDate || !evidenceReference || !Number.isFinite(amount) || amount<=0 || amount!==pending.amount) {
         toast('Revisa el recibo, importe recibido completo, cuenta, referencia, fecha y evidencia bancaria antes de confirmar.','warn');return;
       }
-      const unresolved=getOutbox().find(q=>['confirmarTransferencia','cancelarTransferenciaNoRecibida'].includes(q.action) && q.status!=='REJECTED' && q.args && q.args[0] && q.args[0].sourceReceipt===pending.sourceReceipt);
+      const unresolved=getOutbox().find(q=>['confirmarTransferencia','cancelarTransferenciaNoRecibida','vincularPagoExistente'].includes(q.action) && q.status!=='REJECTED' && q.args && q.args[0] && q.args[0].sourceReceipt===pending.sourceReceipt);
       if(unresolved) {toast('Confirmación sin resolver. Conserva la operación '+unresolved.requestId+' y recupera su resultado; no crees otro cobro.','warn');return;}
       const id='TRF-'+crypto.randomUUID();
       const body={id:id,requestId:id,sourceRequestId:pending.sourceRequestId,sourceReceipt:pending.sourceReceipt,ticket:pending.ticket,receiver:receiver,
@@ -4347,6 +4372,9 @@ const DEFAULT_CATALOG = [
   }
 
   function resetTransferCancellation_() {
+    STATE.existingPaymentReviewOpen=false;STATE.existingPaymentPlan=null;
+    $('existingPaymentPanel').hidden=true;$('btnLinkExistingPayment').disabled=true;$('confirmExistingPayment').checked=false;
+    ['existingPaymentReason','existingPaymentEvidence'].forEach(id=>$(id).value='');
     STATE.transferCancellationRevision=(STATE.transferCancellationRevision || 0)+1;STATE.transferCancellationPlan=null;
     $('transferCancellationPanel').hidden=true;$('btnCancelUnreceivedTransfer').disabled=true;
     ['transferCancellationReason','transferCancellationEvidence','transferWasteNote','transferWasteStatus'].forEach(id=>$(id).value='');
@@ -4358,7 +4386,7 @@ const DEFAULT_CATALOG = [
     if(STATE.transferReviewSending)return;
     const pending=(STATE.transferPending || []).find(p=>p.sourceRequestId===$('transferPendingSelect').value && !p.requiresReview);
     if(!pending){toast('Selecciona el recibo pendiente original.','warn');return;}
-    if(getOutbox().some(q=>['confirmarTransferencia','cancelarTransferenciaNoRecibida'].includes(q.action) && q.status!=='REJECTED' && q.args?.[0]?.sourceReceipt===pending.sourceReceipt)) {
+    if(getOutbox().some(q=>['confirmarTransferencia','cancelarTransferenciaNoRecibida','vincularPagoExistente'].includes(q.action) && q.status!=='REJECTED' && q.args?.[0]?.sourceReceipt===pending.sourceReceipt)) {
       toast('Existe una intención sin resolver. Recupera su mismo ID; no confirmes ni canceles otra vez.','warn');return;
     }
     resetTransferCancellation_();const revision=STATE.transferCancellationRevision;
@@ -4375,7 +4403,7 @@ const DEFAULT_CATALOG = [
       $('transferCancellationSummary').textContent=`Cuenta ${p.ticket} · pendiente ${p.sourceReceipt} · importe ${money(p.amount)} · aplicado ${money(p.account.paid)} · saldo ${money(p.account.due)} · ${p.fulfillment.total} unidad(es), ${p.fulfillment.deliveryEvidence} con señal de entrega. Cancelar no registra ingreso ni devolución.`;
       if(p.account.paid!==0 || p.fulfillment.deliveryEvidence!==0 || !p.sourceJourney?.openingRequestId ||
         !['NO_RECORDED_DELIVERY_DECISION','CANCELLED_ORDER_RECONCILIATION'].includes(p.decision)) {
-        $('transferCancellationSummary').textContent+=' Requiere conciliación: no cancelar, vincular pagos ni cobrar otra vez.';return;
+        $('transferCancellationSummary').textContent+=' Requiere conciliación: no cancelar ni cobrar otra vez. Si hay un recibo confirmado, usa Revisar pago existente.';return;
       }
       STATE.transferCancellationPlan=p;$('btnCancelUnreceivedTransfer').disabled=false;
     },err=>{
@@ -4390,7 +4418,7 @@ const DEFAULT_CATALOG = [
       const wasteStatus=$('transferWasteStatus').value,wasteNote=$('transferWasteNote').value.trim();
       if(!p || p.sourceRequestId!==$('transferPendingSelect').value || !reason || !evidence || !$('transferNoBankReceipt').checked || !$('transferNoDelivery').checked ||
         !['NO_WASTE_OBSERVED','WASTE_OBSERVED','PENDING_REVIEW'].includes(wasteStatus) || !wasteNote)throw new Error('Completa motivo, revisión de banco, ausencia de entrega y observación física de merma.');
-      if(getOutbox().some(q=>['confirmarTransferencia','cancelarTransferenciaNoRecibida'].includes(q.action) && q.status!=='REJECTED' && q.args?.[0]?.sourceReceipt===p.sourceReceipt))throw new Error('Intención sin resolver. Recupera el mismo ID; no repitas el trámite.');
+      if(getOutbox().some(q=>['confirmarTransferencia','cancelarTransferenciaNoRecibida','vincularPagoExistente'].includes(q.action) && q.status!=='REJECTED' && q.args?.[0]?.sourceReceipt===p.sourceReceipt))throw new Error('Intención sin resolver. Recupera el mismo ID; no repitas el trámite.');
       if(!confirm(`Cancelar ${p.sourceReceipt} de ${p.ticket}, por ${money(p.amount)}, sin ingreso ni devolución. ¿Confirmas que no se entregó ninguna unidad?`))return;
       const id='CANCEL-TRF-'+crypto.randomUUID(),body={id,requestId:id,sourceRequestId:p.sourceRequestId,sourceReceipt:p.sourceReceipt,ticket:p.ticket,
         openingRequestId:p.sourceJourney.openingRequestId,snapshotHash:p.snapshotHash,expectedAmount:p.amount,expectedUnitIds:p.fulfillment.units.map(u=>u.id),reason,
@@ -4404,6 +4432,57 @@ const DEFAULT_CATALOG = [
       },err=>{
         STATE.transferReviewSending=false;STATE.transferCancellationPlan=null;
         $('transferCancellationSummary').textContent=(isSaleRejectionWithoutEffects_('cancelarTransferenciaNoRecibida',err)?'Rechazo sin efectos. Consulta de nuevo la cuenta: ':'Cancelación incierta. Conserva el mismo ID: ')+(err.message || String(err));
+      });
+    }catch(err){toast(err.message || String(err),'warn');}
+  }
+
+  function prepareExistingPayment_() {
+    if(STATE.transferReviewSending)return;
+    const pending=(STATE.transferPending || []).find(p=>p.sourceRequestId===$('transferPendingSelect').value && !p.requiresReview);
+    if(!pending){toast('Selecciona el recibo pendiente original.','warn');return;}
+    if(getOutbox().some(q=>['confirmarTransferencia','cancelarTransferenciaNoRecibida','vincularPagoExistente'].includes(q.action) && q.status!=='REJECTED' && q.args?.[0]?.sourceReceipt===pending.sourceReceipt)) {
+      toast('Hay una intención sin resolver. Recupera su mismo ID antes de usar otro pago.','warn');return;
+    }
+    resetTransferCancellation_();const revision=STATE.transferCancellationRevision;
+    STATE.existingPaymentReviewOpen=true;$('existingPaymentPanel').hidden=false;$('btnConfirmTransferReview').disabled=true;
+    $('existingPaymentSummary').textContent='Cotejando cuenta y recibo existente…';
+    callBackend('prepararVinculoPagoExistente',[{sourceRequestId:pending.sourceRequestId,sourceReceipt:pending.sourceReceipt,ticket:pending.ticket}],p=>{
+      if(revision!==STATE.transferCancellationRevision || $('transferPendingSelect').value!==pending.sourceRequestId)return;
+      const e=p && p.existingPayment;
+      if(!p || p.kind!=='TRANSFER_EXISTING_PAYMENT_PROPOSAL' || p.version!==1 || p.readOnly!==true || p.newCharge!==0 || p.currency!=='MXN' ||
+        p.sourceRequestId!==pending.sourceRequestId || p.sourceReceipt!==pending.sourceReceipt || p.ticket!==pending.ticket || p.amount!==pending.amount ||
+        !/^[a-f0-9]{64}$/.test(p.snapshotHash || '') || !validJourneyContext_(p.sourceJourney) || !Array.isArray(p.unitIds) || !p.unitIds.length ||
+        p.unitIds.some(id=>typeof id!=='string' || !id) || new Set(p.unitIds).size!==p.unitIds.length || !e || !e.requestId || !e.receipt ||
+        e.ticket!==p.ticket || e.amount!==p.amount || e.paymentStatus!=='CONFIRMADA' || !['Efectivo','Terminal 1','Terminal 2','Mixto'].includes(e.method) ||
+        !Array.isArray(e.parts) || !e.parts.length || e.parts.some(a=>!a || typeof a.receipt!=='string' || !a.receipt || typeof a.amount!=='number' || !Number.isFinite(a.amount) || a.amount<=0) ||
+        Math.abs(e.parts.reduce((n,a)=>n+a.amount,0)-p.amount)>0.001 || !Number.isFinite(Date.parse(e.recordedAt)) || !e.recordedBy) {
+        $('existingPaymentSummary').textContent='Propuesta incompleta. Conserva el pendiente; no cobres otra vez.';return;
+      }
+      STATE.existingPaymentPlan=p;
+      $('existingPaymentSummary').textContent=`Cuenta: ${p.ticket}\nPendiente: ${p.sourceReceipt}\nPago existente: ${e.receipt}\nImporte: ${money(e.amount)} · ${e.method}\nRegistrado: ${e.recordedAt} · ${e.recordedBy}\nProyecto: ${p.sourceJourney.scope.projectName} · Evento: ${p.sourceJourney.scope.eventName || 'Sin evento'}\nNuevo cobro: $0. La entrega conserva su estado actual.`;
+      $('btnLinkExistingPayment').disabled=false;
+    },err=>{if(revision===STATE.transferCancellationRevision)$('existingPaymentSummary').textContent='No se puede vincular: '+(err.message || String(err));});
+  }
+
+  function submitExistingPayment_() {
+    if(STATE.transferReviewSending)return;
+    try {
+      const p=STATE.existingPaymentPlan,reason=$('existingPaymentReason').value.trim(),evidenceReference=$('existingPaymentEvidence').value.trim();
+      if(!p || p.sourceRequestId!==$('transferPendingSelect').value || !$('confirmExistingPayment').checked || !reason || !evidenceReference)throw new Error('Revisa cuenta, importe y folio; confirma usar el pago existente con nuevo cobro $0 y registra la evidencia.');
+      if(getOutbox().some(q=>['confirmarTransferencia','cancelarTransferenciaNoRecibida','vincularPagoExistente'].includes(q.action) && q.status!=='REJECTED' && q.args?.[0]?.sourceReceipt===p.sourceReceipt))throw new Error('Intención sin resolver. Conserva y recupera su mismo ID.');
+      const e=p.existingPayment;
+      if(!confirm(`Cuenta: ${p.ticket}\nFolio existente: ${e.receipt}\nImporte ya registrado: ${money(e.amount)}\nUsar pago existente. Nuevo cobro: $0. ¿Confirmas?`))return;
+      const id='LINK-PAY-'+crypto.randomUUID(),body={id,requestId:id,sourceRequestId:p.sourceRequestId,sourceReceipt:p.sourceReceipt,ticket:p.ticket,
+        existingPaymentRequestId:e.requestId,existingPaymentReceipt:e.receipt,expectedAmount:p.amount,expectedPaymentMethod:e.method,expectedPaymentParts:e.parts,
+        expectedUnitIds:p.unitIds,openingRequestId:p.sourceJourney.openingRequestId,snapshotHash:p.snapshotHash,confirmExistingPayment:true,newCharge:0,reason,evidenceReference};
+      STATE.transferReviewSending=true;$('btnLinkExistingPayment').disabled=true;$('btnConfirmTransferReview').disabled=true;
+      callBackend('vincularPagoExistente',[body],res=>{
+        STATE.transferReviewSending=false;
+        if(res.localOutbox){$('existingPaymentSummary').textContent='Vínculo sin confirmar. Recupera el mismo ID: '+res.requestId;return;}
+        toast('Pago existente vinculado. Nuevo cobro: $0. Conserva el recibo '+res.existingPaymentReceipt+'.','ok');openTransferReview_();syncBackendData();
+      },err=>{
+        STATE.transferReviewSending=false;STATE.existingPaymentPlan=null;
+        $('existingPaymentSummary').textContent=(isSaleRejectionWithoutEffects_('vincularPagoExistente',err)?'Rechazo sin efectos. Consulta de nuevo: ':'Vínculo incierto. Recupera el mismo ID: ')+(err.message || String(err));
       });
     }catch(err){toast(err.message || String(err),'warn');}
   }
@@ -6158,6 +6237,9 @@ const DEFAULT_CATALOG = [
     bindEvent('btnPrepareTransferCancellation', 'click', prepareTransferCancellation_);
     bindEvent('btnCancelUnreceivedTransfer', 'click', submitTransferCancellation_);
     bindEvent('btnBackToTransferReview', 'click', resetTransferCancellation_);
+    bindEvent('btnPrepareExistingPayment', 'click', prepareExistingPayment_);
+    bindEvent('btnLinkExistingPayment', 'click', submitExistingPayment_);
+    bindEvent('btnCloseExistingPayment', 'click', resetTransferCancellation_);
     bindEvent('transferPendingSelect', 'change', resetTransferCancellation_);
     bindEvent('btnConfirmTransferReview', 'click', submitTransferReview_);
     bindEvent('btnCloseTransferReview', 'click', ()=>$('transferReviewModal').classList.remove('open'));

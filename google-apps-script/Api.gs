@@ -139,6 +139,12 @@ function executeDomusActionCore_(action, payload, params) {
     case 'cancelarTransferenciaNoRecibida':
       result = idempotentExecute_(requestId, action, args[0], deviceId, () => cancelarTransferenciaNoRecibida(args[0]));
       break;
+    case 'prepararVinculoPagoExistente':
+      result = prepararVinculoPagoExistente(args[0]);
+      break;
+    case 'vincularPagoExistente':
+      result = idempotentExecute_(requestId, action, args[0], deviceId, () => vincularPagoExistente(args[0]));
+      break;
     case 'confirmarTransferencia':
       result = idempotentExecute_(requestId, action, args[0], deviceId, () => confirmarTransferencia(args[0]));
       break;
@@ -268,7 +274,7 @@ function dispatchNativeAction(payload) {
 function handleApiGetRequest_(action, params) {
   try {
     let data;
-    if (['cajaSimpleDatos','comandasSimpleDatos','accesoSimpleDatos','cajaSimpleEstado','transferenciasPendientes','prepararResolucionTransferencia','cancelarTransferenciaNoRecibida'].includes(action)) {
+    if (['cajaSimpleDatos','comandasSimpleDatos','accesoSimpleDatos','cajaSimpleEstado','transferenciasPendientes','prepararResolucionTransferencia','cancelarTransferenciaNoRecibida','prepararVinculoPagoExistente','vincularPagoExistente'].includes(action)) {
       throw new Error('Acceso denegado: consulta privada requiere dispatcher autenticado POST.');
     } else if (action === 'ping' || action === 'health') {
       data = {

@@ -44,7 +44,7 @@ async function main(){
    }else{
     await page.waitForFunction(()=>document.querySelector('#transferCancellationSummary').textContent.includes('Requiere conciliación'));
     assert.equal(await page.locator('#btnCancelUnreceivedTransfer').isDisabled(),true);assert.equal(cancels,0);assert.equal(confirms,0);preserved(b,before);
-    passed++;console.log('PASS '+mode+' cannot be cancelled or linked as an approved substitute payment in the UI');
+    passed++;console.log('PASS '+mode+' keeps the cancellation view blocked without any collection');
    }
    assert.deepEqual(errors,[]);await context.close();
   }

@@ -69,7 +69,7 @@ function journeyKnownNoEffects_(m,rows) {
   if(rows.length!==1 || journalFind_(String(rows[0][0]),m))return false;
   let p;try {p=JSON.parse(rows[0][7]);} catch(_){return false;}
   return p && p.status===422 && ['JOURNEY_VALIDATION_NO_EFFECTS','SALE_VALIDATION_REJECTED_NO_EFFECTS','SALE_PHASE_CHANGED_NO_EFFECTS',
-    'TRANSFER_POLICY_REQUIRED_NO_EFFECTS','TRANSFER_REVIEW_INCOMPLETE_NO_EFFECTS','TRANSFER_CANCELLATION_VALIDATION_NO_EFFECTS'].includes(p.code);
+    'TRANSFER_POLICY_REQUIRED_NO_EFFECTS','TRANSFER_REVIEW_INCOMPLETE_NO_EFFECTS','TRANSFER_CANCELLATION_VALIDATION_NO_EFFECTS','EXISTING_PAYMENT_VALIDATION_NO_EFFECTS'].includes(p.code);
 }
 function journeyMoney_(n) {
   return typeof n==='number' && Number.isFinite(n) && n>=0 && Number.isSafeInteger(Math.round(n*100)) && Math.abs(n*100-Math.round(n*100))<0.00001;
@@ -119,7 +119,7 @@ function journeyOpening_(m,id) {
 function journeyAssertSettled_(m,ownId) {
   paymentRequestIndex_(m).forEach((rows,id)=>{
     if(id===ownId)return;
-    if(!rows.some(r=>['turnoAbrir','corteZCerrar','cajaSimpleRegistrar','confirmarTransferencia','cancelarTransferenciaNoRecibida','comandasSimpleAccion'].includes(r[1])))return;
+    if(!rows.some(r=>['turnoAbrir','corteZCerrar','cajaSimpleRegistrar','confirmarTransferencia','cancelarTransferenciaNoRecibida','vincularPagoExistente','comandasSimpleAccion'].includes(r[1])))return;
     if(journeyKnownNoEffects_(m,rows))return;
     if(rows.length!==1 || rows[0][4]!=='COMPLETED')throw journeyError_('Hay intenciones inciertas. Recuperar o conciliar antes de abrir/cortar.');
   });
@@ -210,6 +210,7 @@ function journeyAccountOrigin_(m,ticket,current,addingItems) {
 function journeyCutSnapshot_(m,opening,now) {
   const index=paymentRequestIndex_(m),payments=dataRows_(m.getSheetByName('COBROS'),7,31),commands=dataRows_(m.getSheetByName('COMANDAS'),7,14);
   const cancellations=transferCancellationRecords_(m,index);
+  const links=transferExistingPaymentRecords_(m,index);
   const movements=[],pendingTransfers=[],pendingDeliveries=[],accounts=new Set();
   index.forEach((rows,id)=>{
     if(!rows.some(r=>['cajaSimpleRegistrar','confirmarTransferencia'].includes(r[1])))return;
@@ -234,7 +235,8 @@ function journeyCutSnapshot_(m,opening,now) {
     if(r.paymentStatus==='PENDIENTE_VERIFICACION') {
       const confirmed=transferConfirmedRecords_(m,index).some(c=>c.sourceRequestId===id);
       const cancelled=cancellations.find(c=>c.sourceRequestId===id);
-      if(!confirmed && (!cancelled || cancelled.wasteReview.status!=='NO_WASTE_OBSERVED'))pendingTransfers.push({requestId:id,receipt:r.receipt,amount:r.total,
+      const linked=links.some(p=>p.sourceRequestId===id);
+      if(!confirmed && !linked && (!cancelled || cancelled.wasteReview.status!=='NO_WASTE_OBSERVED'))pendingTransfers.push({requestId:id,receipt:r.receipt,amount:r.total,
         ...(cancelled?{resolutionId:cancelled.cancellationRequestId,reason:'WASTE_REVIEW_REQUIRED'}:{})});
     }
     if(r.paid && r.verified) {
@@ -259,6 +261,8 @@ function journeyCutSnapshot_(m,opening,now) {
     openingFloat:opening.openingFloat,cashFromBoundPOS:posRound_(opening.openingFloat+totals.Efectivo+tips),pendingTransfers:pendingTransfers,pendingDeliveries:pendingDeliveries,
     cancelledTransfers:cancellations.filter(c=>c.journey.journeyId===opening.journeyId).map(c=>({requestId:c.cancellationRequestId,sourceRequestId:c.sourceRequestId,sourceReceipt:c.sourceReceipt,
       cancelledAmount:c.cancelledAmount,amountApplied:0,wasteStatus:c.wasteReview.status})),
+    linkedPayments:links.filter(c=>c.journey.journeyId===opening.journeyId).map(c=>({requestId:c.linkRequestId,sourceRequestId:c.sourceRequestId,sourceReceipt:c.sourceReceipt,
+      existingPaymentRequestId:c.existingPaymentRequestId,existingPaymentReceipt:c.existingPaymentReceipt,linkedAmount:c.linkedAmount,newCharge:0})),
     openAccounts:Array.from(accounts).map(ticket=>({ticket:ticket,due:posBalanceFast_({m:m},ticket).due})).filter(a=>a.due>0.01)};
 }
 

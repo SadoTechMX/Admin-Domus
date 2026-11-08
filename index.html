@@ -697,10 +697,22 @@
         <div class="input-group"><label for="transferPendingSelect">Recibo pendiente de Caja:</label><select id="transferPendingSelect"></select></div>
         <button type="button" class="btn-secondary" id="btnPrepareTransferCancellation" disabled>Revisar cancelación sin ingreso</button>
         <p id="transferCancellationHistory" role="status"></p>
+        <button type="button" class="btn-secondary" id="btnPrepareExistingPayment" disabled>Revisar pago existente · nuevo cobro $0</button>
+        <p id="existingPaymentHistory" role="status"></p>
+        <section id="existingPaymentPanel" hidden>
+          <h4>Usar pago existente · Gerencia</h4>
+          <p id="existingPaymentSummary" role="status" style="white-space: pre-line; overflow-wrap: anywhere;"></p>
+          <p>Este trámite vincula el recibo ya registrado. No solicita otro pago, no imprime un recibo nuevo y no marca el pedido como entregado.</p>
+          <label><input type="checkbox" id="confirmExistingPayment" /> Revisé cuenta, importe y folio. Usar pago existente. Nuevo cobro: $0.</label>
+          <div class="input-group"><label for="existingPaymentReason">Motivo:</label><input id="existingPaymentReason" maxlength="300" /></div>
+          <div class="input-group"><label for="existingPaymentEvidence">Referencia del comprobante revisado:</label><input id="existingPaymentEvidence" maxlength="300" /></div>
+          <button type="button" class="btn-primary-action" id="btnLinkExistingPayment" disabled>Usar pago existente · nuevo cobro $0</button>
+          <button type="button" class="btn-secondary" id="btnCloseExistingPayment">Cerrar revisión de pago existente</button>
+        </section>
         <section id="transferCancellationPanel" hidden>
           <h4>Cancelar pedido no entregado · Gerencia</h4>
           <p id="transferCancellationSummary" role="status"></p>
-          <p>Si existe otro pago, detén este trámite: todavía no está habilitado vincularlo ni cobrar nuevamente. La cancelación conserva el historial y no confirma un ingreso.</p>
+          <p>Si existe otro pago, detén esta cancelación y usa Revisar pago existente. No cobres nuevamente. La cancelación conserva el historial y no confirma un ingreso.</p>
           <div class="input-group"><label for="transferCancellationReason">Motivo de cancelación:</label><input id="transferCancellationReason" maxlength="300" /></div>
           <div class="input-group"><label for="transferCancellationEvidence">Referencia de la revisión de banco y entrega:</label><input id="transferCancellationEvidence" maxlength="300" /></div>
           <label><input type="checkbox" id="transferNoBankReceipt" /> Revisé el banco: este ingreso no aparece al momento de la revisión.</label>
@@ -1401,7 +1413,7 @@
         <div class="toast-container" id="toastContainer" aria-live="polite"></div>
 
         <!-- Script -->
-        <script src="js/app.js?v=20261108-transfer-cancel-16"></script>
+        <script src="js/app.js?v=20261108-existing-payment-17"></script>
 </body>
 
 </html>

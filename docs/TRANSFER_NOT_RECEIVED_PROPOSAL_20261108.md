@@ -1,3 +1,5 @@
+> **Decisión posterior:** Steven aprobó el flujo explícito de pago existente con nuevo cobro $0. Ver [contrato e implementación aislada](EXISTING_PAYMENT_LINK_20261108.md). Se conserva abajo la evidencia histórica de la autorización pendiente.
+
 > **Actualización posterior:** Steven autorizó la cancelación de pedidos no entregados, incluidos preparados. Ver [implementación y límites](TRANSFER_CANCELLATION_20261108.md). La sustitución de pago sigue sin aprobación. Este documento conserva el alcance y evidencia de la entrega de sólo lectura `2178e27`; sus preguntas de cancelación ya quedaron resueltas.
 
 # Preparar la resolución de una transferencia no recibida
