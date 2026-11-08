@@ -132,6 +132,10 @@ function executeDomusActionCore_(action, payload, params) {
     case 'transferenciasPendientes':
       result = transferenciasPendientes();
       break;
+    case 'prepararResolucionTransferencia':
+      // Read-only proposal. Never create REQUESTS, resume a journal or acknowledge a payment.
+      result = prepararResolucionTransferencia(args[0]);
+      break;
     case 'confirmarTransferencia':
       result = idempotentExecute_(requestId, action, args[0], deviceId, () => confirmarTransferencia(args[0]));
       break;
@@ -261,7 +265,7 @@ function dispatchNativeAction(payload) {
 function handleApiGetRequest_(action, params) {
   try {
     let data;
-    if (['cajaSimpleDatos','comandasSimpleDatos','accesoSimpleDatos','cajaSimpleEstado','transferenciasPendientes'].includes(action)) {
+    if (['cajaSimpleDatos','comandasSimpleDatos','accesoSimpleDatos','cajaSimpleEstado','transferenciasPendientes','prepararResolucionTransferencia'].includes(action)) {
       throw new Error('Acceso denegado: consulta privada requiere dispatcher autenticado POST.');
     } else if (action === 'ping' || action === 'health') {
       data = {

@@ -22,6 +22,7 @@ const ACTION_PERMISSIONS = Object.freeze({
   cajaSimpleEstado: ['CAJA', 'GERENCIA', 'ADMIN'],
   cajaSimplePreparar: ['CAJA', 'GERENCIA', 'ADMIN'],
   transferenciasPendientes: ['GERENCIA', 'ADMIN'],
+  prepararResolucionTransferencia: ['GERENCIA', 'ADMIN'],
   confirmarTransferencia: ['GERENCIA', 'ADMIN'],
   turnoAbrir: ['CAJA', 'GERENCIA', 'ADMIN'],
   turnoEstado: ['CAJA', 'GERENCIA', 'ADMIN'],
@@ -139,7 +140,7 @@ function authValidateAction(action, sessionToken, clientClaimedRole, clientDevic
   if (!allowedRoles.includes(serverAssignedRole)) {
     throw new Error(`Acceso denegado: El rol autenticado '${serverAssignedRole}' no tiene autorización para ejecutar '${action}'. Roles autorizados: [${allowedRoles.join(', ')}].`);
   }
-  if(['transferenciasPendientes','confirmarTransferencia','corteZCerrar'].includes(action) && !CONFIG.managers.includes(session.principal)) {
+  if(['transferenciasPendientes','prepararResolucionTransferencia','confirmarTransferencia','corteZCerrar'].includes(action) && !CONFIG.managers.includes(session.principal)) {
     const err=new Error('Sesión inválida para esta operación: renueva la identidad de Gerencia.');
     err.code='AUTH_PRINCIPAL_REQUIRED';err.status=401;throw err;
   }

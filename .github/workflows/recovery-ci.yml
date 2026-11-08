@@ -28,6 +28,7 @@ jobs:
       - run: node tests/external_registration_regressions.js
       - run: node tests/receipt_delivery_regressions.js
       - run: node tests/transfer_review_regressions.js
+      - run: node tests/transfer_resolution_proposal_regressions.js
       - run: node tests/outbox_quarantine_regressions.js
       - run: node tests/outbox_release_regressions.js
       - run: node tests/operating_period_regressions.js
