@@ -16,7 +16,7 @@ function setup(options={}) {
   const ctx = vm.createContext({console, Date, JSON, Map, Set, Promise, Error, crypto,
     localStorage, sessionStorage, sessionRequests:new Map(), isOutboxCoreRunning:false, outboxStoreHeld_:false, paymentInFlight:false, activePaymentMethod:'Efectivo',
     STATE:{mode:'caja',operator:'Fixture',cart:[],operatingPeriod:{allowed:true,message:'Fixture period'},isNativeGas:false,isProductionLocked:false,apiUrl:'https://fixture.invalid'},
-    MUTATION_ACTIONS:new Set(['cajaSimpleRegistrar','confirmarTransferencia','comandasSimpleAccion','accesoCambiarActividad','cambiarFase']),
+    MUTATION_ACTIONS:new Set(['cajaSimpleRegistrar','confirmarTransferencia','cancelarTransferenciaNoRecibida','comandasSimpleAccion','accesoCambiarActividad','cambiarFase']),
     updateSyncPill(){}, updateOutboxUI(){}, notifyOutboxTabs(){}, cacheQuerySnapshot(){},
     toast:(...args)=>notices.push(args), playChime(){}, syncBackendData(){},
     clearCart(){ctx.STATE.cart=[];}, renderActivityDropdown(){}, window:{navigator:{locks}}, getDeviceId:()=> 'fixture-device',
@@ -33,7 +33,7 @@ function setup(options={}) {
   }
   for (const name of ['outboxReviewRequired_','assertOutboxTraffic_','validateReviewSnapshot_','assertOutboxStoreWritable_','withOutboxTraffic_',
     'isSessionExpiredError','getStationRole','getSessionToken','setSessionToken','clearSessionToken',
-    'ensureSessionToken','authenticatedTransport_','validSaleResult_','validTransferResult_','validJourneyContext_','validMovementJourney_','validJourneyResult_','validateBackendResponse_','getOutbox','withOutboxStore_','saveOutbox','enqueueOutbox','isSaleRejectionWithoutEffects_','classifyMutationFailure',
+    'ensureSessionToken','authenticatedTransport_','validSaleResult_','validTransferResult_','validTransferCancellationResult_','validJourneyContext_','validMovementJourney_','validJourneyResult_','validateBackendResponse_','getOutbox','withOutboxStore_','saveOutbox','enqueueOutbox','isSaleRejectionWithoutEffects_','classifyMutationFailure',
     'retainConfirmation_','saleDraftSnapshot_','settleConfirmedBasket_','recoverReceipt_','migrateLegacyOutbox_','sincronizarOutboxCore_','callBackend','recordOutboxFailure_','calculateCartTotal','mixedPaymentInput_','confirmPaymentAndDispatch']) load(name);
   ctx.setSessionToken('old-CAJA','CAJA');ctx.setSessionToken('old-BARRA','BARRA');
   const call = (action,args) => new Promise((resolve,reject)=>ctx.callBackend(action,args,resolve,reject));

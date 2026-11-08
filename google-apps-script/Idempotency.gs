@@ -203,7 +203,9 @@ function idempotentExecute_(requestId, action, payload, deviceId, fn) {
       const err = new Error('IDEMPOTENCY_KEY_REUSED'); err.status = 409; err.code = 'IDEMPOTENCY_KEY_REUSED'; throw err;
     }
     if (prior && prior.status === REQUEST_STATUS.COMPLETED) return prior.response;
+    if(action==='confirmarTransferencia')transferAssertNotCancelled_(m,payload);
     if (prior) {
+      if(action==='cancelarTransferenciaNoRecibida')transferCancellationReplayGuard_(m,cleanReqId);
       // A PREPARED delivery can predate the payment guard. Check before any
       // inventory/status replay; completed acknowledgements do not write again.
       if(action==='comandasSimpleAccion') {
@@ -228,6 +230,9 @@ function idempotentExecute_(requestId, action, payload, deviceId, fn) {
       if(action==='confirmarTransferencia' && prior.response && Number(prior.response.status)===422 &&
           ['TRANSFER_POLICY_REQUIRED_NO_EFFECTS','TRANSFER_REVIEW_INCOMPLETE_NO_EFFECTS'].includes(prior.response.code)) {
         const err=new Error(prior.response.error);err.code=prior.response.code;err.status=422;throw err;
+      }
+      if(action==='cancelarTransferenciaNoRecibida' && prior.response && prior.response.status===422 && prior.response.code==='TRANSFER_CANCELLATION_VALIDATION_NO_EFFECTS') {
+        throw transferCancellationReject_(prior.response.error);
       }
       // Old code may have written effects before FAILED. Never rerun it blindly.
       const err = new Error('IDEMPOTENCY_REQUIRES_REVIEW: intención previa sin plan recuperable.');

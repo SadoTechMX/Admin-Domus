@@ -1,3 +1,5 @@
+> **Actualización posterior:** Steven autorizó la cancelación de pedidos no entregados, incluidos preparados. Ver [implementación y límites](TRANSFER_CANCELLATION_20261108.md). La sustitución de pago sigue sin aprobación. Este documento conserva el alcance y evidencia de la entrega de sólo lectura `2178e27`; sus preguntas de cancelación ya quedaron resueltas.
+
 # Preparar la resolución de una transferencia no recibida
 
 Estado: **propuesta y consulta de sólo lectura implementadas en la rama aislada**, base `9a6f8b6`. No hay acción de anulación/aplicación, botón operativo nuevo, instalación ni modificación de datos Google. Esta entrega no resuelve una cola real ni habilita un corte. Las cuatro reglas provisionales y el cierre hasta resolver pendientes siguen vigentes.

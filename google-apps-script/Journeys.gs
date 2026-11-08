@@ -69,7 +69,7 @@ function journeyKnownNoEffects_(m,rows) {
   if(rows.length!==1 || journalFind_(String(rows[0][0]),m))return false;
   let p;try {p=JSON.parse(rows[0][7]);} catch(_){return false;}
   return p && p.status===422 && ['JOURNEY_VALIDATION_NO_EFFECTS','SALE_VALIDATION_REJECTED_NO_EFFECTS','SALE_PHASE_CHANGED_NO_EFFECTS',
-    'TRANSFER_POLICY_REQUIRED_NO_EFFECTS','TRANSFER_REVIEW_INCOMPLETE_NO_EFFECTS'].includes(p.code);
+    'TRANSFER_POLICY_REQUIRED_NO_EFFECTS','TRANSFER_REVIEW_INCOMPLETE_NO_EFFECTS','TRANSFER_CANCELLATION_VALIDATION_NO_EFFECTS'].includes(p.code);
 }
 function journeyMoney_(n) {
   return typeof n==='number' && Number.isFinite(n) && n>=0 && Number.isSafeInteger(Math.round(n*100)) && Math.abs(n*100-Math.round(n*100))<0.00001;
@@ -119,7 +119,7 @@ function journeyOpening_(m,id) {
 function journeyAssertSettled_(m,ownId) {
   paymentRequestIndex_(m).forEach((rows,id)=>{
     if(id===ownId)return;
-    if(!rows.some(r=>['turnoAbrir','corteZCerrar','cajaSimpleRegistrar','confirmarTransferencia','comandasSimpleAccion'].includes(r[1])))return;
+    if(!rows.some(r=>['turnoAbrir','corteZCerrar','cajaSimpleRegistrar','confirmarTransferencia','cancelarTransferenciaNoRecibida','comandasSimpleAccion'].includes(r[1])))return;
     if(journeyKnownNoEffects_(m,rows))return;
     if(rows.length!==1 || rows[0][4]!=='COMPLETED')throw journeyError_('Hay intenciones inciertas. Recuperar o conciliar antes de abrir/cortar.');
   });
@@ -209,6 +209,7 @@ function journeyAccountOrigin_(m,ticket,current,addingItems) {
 
 function journeyCutSnapshot_(m,opening,now) {
   const index=paymentRequestIndex_(m),payments=dataRows_(m.getSheetByName('COBROS'),7,31),commands=dataRows_(m.getSheetByName('COMANDAS'),7,14);
+  const cancellations=transferCancellationRecords_(m,index);
   const movements=[],pendingTransfers=[],pendingDeliveries=[],accounts=new Set();
   index.forEach((rows,id)=>{
     if(!rows.some(r=>['cajaSimpleRegistrar','confirmarTransferencia'].includes(r[1])))return;
@@ -232,7 +233,9 @@ function journeyCutSnapshot_(m,opening,now) {
     accounts.add(r.ticket);
     if(r.paymentStatus==='PENDIENTE_VERIFICACION') {
       const confirmed=transferConfirmedRecords_(m,index).some(c=>c.sourceRequestId===id);
-      if(!confirmed)pendingTransfers.push({requestId:id,receipt:r.receipt,amount:r.total});
+      const cancelled=cancellations.find(c=>c.sourceRequestId===id);
+      if(!confirmed && (!cancelled || cancelled.wasteReview.status!=='NO_WASTE_OBSERVED'))pendingTransfers.push({requestId:id,receipt:r.receipt,amount:r.total,
+        ...(cancelled?{resolutionId:cancelled.cancellationRequestId,reason:'WASTE_REVIEW_REQUIRED'}:{})});
     }
     if(r.paid && r.verified) {
       const parts=r.payments || [{receipt:r.receipt,method:r.method,amount:r.total}];
@@ -254,6 +257,8 @@ function journeyCutSnapshot_(m,opening,now) {
   movements.forEach(r=>{if(!(r.method in totals) || !journeyMoney_(r.amount) || !journeyMoney_(r.tip))throw journeyError_('Importes o medio incompatibles con el corte.');totals[r.method]=posRound_(totals[r.method]+r.amount);tips=posRound_(tips+r.tip);});
   return {coverage:'JOURNEY_POS_RECEIPTS',financialFinal:false,observedAt:now.toISOString(),movements:movements,totals:totals,tips:tips,
     openingFloat:opening.openingFloat,cashFromBoundPOS:posRound_(opening.openingFloat+totals.Efectivo+tips),pendingTransfers:pendingTransfers,pendingDeliveries:pendingDeliveries,
+    cancelledTransfers:cancellations.filter(c=>c.journey.journeyId===opening.journeyId).map(c=>({requestId:c.cancellationRequestId,sourceRequestId:c.sourceRequestId,sourceReceipt:c.sourceReceipt,
+      cancelledAmount:c.cancelledAmount,amountApplied:0,wasteStatus:c.wasteReview.status})),
     openAccounts:Array.from(accounts).map(ticket=>({ticket:ticket,due:posBalanceFast_({m:m},ticket).due})).filter(a=>a.due>0.01)};
 }
 
@@ -272,8 +277,9 @@ function corteZCerrar(p) {
       // Steven approved this closing rule on 2026-11-08. Only current server
       // evidence resolves a pending item; client overrides cannot waive it.
       if(snapshot.pendingTransfers.length || snapshot.pendingDeliveries.length) {
-        throw journeyReject_('Cierre bloqueado: '+snapshot.pendingTransfers.length+' transferencia(s) sin confirmar y '+
-          snapshot.pendingDeliveries.length+' comanda(s) sin resolver. Confirma los ingresos y resuelve las comandas antes del corte. La jornada sigue abierta.');
+        const waste=snapshot.pendingTransfers.filter(p=>p.reason==='WASTE_REVIEW_REQUIRED').length;
+        throw journeyReject_('Cierre bloqueado: '+(snapshot.pendingTransfers.length-waste)+' transferencia(s) sin confirmar y '+
+          snapshot.pendingDeliveries.length+' comanda(s) sin resolver. '+waste+' cancelación(es) con merma por conciliar. La jornada sigue abierta.');
       }
       return {ok:true,journeyContract:'domus-journey-v1',closingRequestId:id,openingRequestId:p.openingRequestId,journeyId:context.journeyId,shiftId:context.shiftId,
         cutId:'CORTE-JOR-'+id,closedAt:now.toISOString(),closedBy:_authContext.operator,status:'CLOSED',snapshot:snapshot,countedCash:p.countedCash,

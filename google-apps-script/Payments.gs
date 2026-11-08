@@ -113,8 +113,9 @@ function transferSource_(m,index,p) {
 
 function transferenciasPendientes() {
   authRequireContext_('transferenciasPendientes');
-  const policy=transferPolicy_(),m=SpreadsheetApp.openById(CONFIG.mainSheetId),index=paymentRequestIndex_(m);
-  const confirmed=transferConfirmedRecords_(m,index),done=new Set(confirmed.map(p=>p.sourceReceipt)),pending=[];
+  let policy;try {policy=transferPolicy_();}catch(e){if(e.code!=='TRANSFER_POLICY_REQUIRED')throw e;policy={receivers:[]};}
+  const m=SpreadsheetApp.openById(CONFIG.mainSheetId),index=paymentRequestIndex_(m),cancelled=transferCancellationRecords_(m,index);
+  const confirmed=transferConfirmedRecords_(m,index),done=new Set(confirmed.map(p=>p.sourceReceipt).concat(cancelled.map(p=>p.sourceReceipt))),pending=[];
   dataRows_(transferSheet_(m),7,31).forEach(r=>{
     if(r[2]!=='Caja' || r[4]!=='Transferencia' || r[10]!=='Borrador' || done.has(r[0]))return;
     const sourceRequestId=String(r[8]).startsWith('CAJA-RAPIDA:')?String(r[8]).slice('CAJA-RAPIDA:'.length):'';
@@ -122,7 +123,8 @@ function transferenciasPendientes() {
     try { const source=transferSource_(m,index,item);pending.push(Object.assign(item,{customer:source.customer,requiresReview:false})); }
     catch(_) { pending.push(Object.assign(item,{requiresReview:true})); }
   });
-  return {ok:true,currency:'MXN',verificationMode:'MANUAL_BANK_REVIEW',receivers:policy.receivers,pending:pending};
+  return {ok:true,currency:'MXN',verificationMode:'MANUAL_BANK_REVIEW',receivers:policy.receivers,pending:pending,
+    cancelled:cancelled.map(c=>({requestId:c.cancellationRequestId,sourceReceipt:c.sourceReceipt,ticket:c.ticket,wasteStatus:c.wasteReview.status,closureBlocked:c.closureBlocked}))};
 }
 
 function confirmarTransferencia(p) {
@@ -178,8 +180,8 @@ function confirmarTransferencia(p) {
   });
 }
 
-// Read-only preparation for an unreceived transfer. The disposition policy has
-// not been approved: this result can neither settle a payment nor permit a cut.
+// Read-only preparation. Manager cancellation of undelivered orders is approved;
+// payment substitution is not. This query itself cannot apply a resolution.
 // Bank non-receipt is a human review requirement, never inferred from Borrador.
 function prepararResolucionTransferencia(p) {
   authRequireContext_('prepararResolucionTransferencia');
@@ -188,19 +190,7 @@ function prepararResolucionTransferencia(p) {
     throw transferError_('TRANSFER_RESOLUTION_INPUT_REQUIRED','Indica la intención, recibo y cuenta originales.',422);
   }
   return withLock_(CONFIG.lockTimeoutMs,()=>{
-    const m=SpreadsheetApp.openById(CONFIG.mainSheetId),index=paymentRequestIndex_(m);
-    const journal=m.getSheetByName('DOMUS_JOURNAL'),journalRows=journal?dataRows_(journal,2,6):[];
-    if(journalRows.some(r=>r[0] && r[2]!=='COMPLETED'))throw transferError_('TRANSFER_RESOLUTION_REQUIRES_REVIEW','Existe un plan incompleto. Conservar su intención; esta consulta no lo reanuda.');
-    index.forEach(rows=>{
-      if(rows.length!==1 || (rows[0][4]!=='COMPLETED' && !journeyKnownNoEffects_(m,rows))) {
-        throw transferError_('TRANSFER_RESOLUTION_REQUIRES_REVIEW','REQUESTS contiene una intención incierta o duplicada. No inferir ausencia de efectos.');
-      }
-    });
-    const source=transferSource_(m,index,p),confirmed=transferConfirmedRecords_(m,index);
-    if(confirmed.some(r=>r.sourceRequestId===p.sourceRequestId || r.sourceReceipt===p.sourceReceipt)) {
-      throw transferError_('TRANSFER_ALREADY_CONFIRMED','Ya existe ingreso acreditado. No corresponde resolverlo como no recibido.');
-    }
-    const snapshot=transferResolutionSnapshot_(m,index,source,p.sourceRequestId);
+    const m=SpreadsheetApp.openById(CONFIG.mainSheetId),context=transferResolutionContext_(m,p),source=context.source,snapshot=context.snapshot;
     const delivered=snapshot.units.filter(u=>u.deliveryEvidence).length;
     const pending=snapshot.units.filter(u=>!['Entregada','Cancelada'].includes(u.state)).length;
     const cancelled=snapshot.units.filter(u=>u.state==='Cancelada').length;
@@ -213,13 +203,29 @@ function prepararResolucionTransferencia(p) {
       fulfillment:{scope:'WHOLE_ACCOUNT',observation:'RECORDED_EVIDENCE_ONLY',total:snapshot.units.length,deliveryEvidence:delivered,pending:pending,cancelled:cancelled,units:snapshot.units},
       sourceJourney:source.journey || null,originJourney:source.originJourney || null,
       // JSON converts native Sheets Dates to ISO strings before canonical hashing.
-      snapshotHash:computePayloadHash_(JSON.parse(JSON.stringify({version:1,book:m.getId(),environment:CONFIG.environment,sourceRequestId:p.sourceRequestId,
-        snapshot:snapshot,ledger:Array.from(index.values()),journal:journalRows}))),
+      snapshotHash:context.snapshotHash,
       observedAt:new Date().toISOString(),preparedBy:_authContext.operator,preparedRole:_authContext.role,preparedPrincipal:_authContext.principal,
       policyRequired:true,canConfirm:false,canCancel:false,canReplacePayment:false,canDeliver:false,canCloseJourney:false,
+      policy:{managerCancellationApproved:true,preparedOrdersIncluded:true,paymentSubstitutionApproved:false},
       proposedEffects:{paymentApplied:0,refund:0,inventoryMovement:0,writes:0},
       message:'Propuesta de conciliación. Conserva el pendiente y la deuda; no acredita banco, anula, cobra, entrega ni habilita el cierre.'};
   });
+}
+
+function transferResolutionContext_(m,p,ownId) {
+  const index=paymentRequestIndex_(m),journal=m.getSheetByName('DOMUS_JOURNAL'),journalRows=journal?dataRows_(journal,2,6):[];
+  const own=ownId && index.get(ownId);
+  if(own && own.length===1 && own[0][1]==='cancelarTransferenciaNoRecibida' && own[0][4]==='PROCESSING' && !journalFind_(ownId,m))index.delete(ownId);
+  if(journalRows.some(r=>r[0] && r[2]!=='COMPLETED'))throw transferError_('TRANSFER_RESOLUTION_REQUIRES_REVIEW','Existe un plan incompleto. Conservar su intención; esta consulta no lo reanuda.');
+  index.forEach(rows=>{
+    if(rows.length!==1 || (rows[0][4]!=='COMPLETED' && !journeyKnownNoEffects_(m,rows)))throw transferError_('TRANSFER_RESOLUTION_REQUIRES_REVIEW','REQUESTS contiene una intención incierta o duplicada.');
+  });
+  const source=transferSource_(m,index,p),confirmed=transferConfirmedRecords_(m,index);
+  if(confirmed.some(r=>r.sourceRequestId===p.sourceRequestId || r.sourceReceipt===p.sourceReceipt))throw transferError_('TRANSFER_ALREADY_CONFIRMED','Ya existe ingreso acreditado; no cancelar como no recibido.');
+  if(transferCancellationRecords_(m,index).some(r=>r.sourceRequestId===p.sourceRequestId))throw transferError_('TRANSFER_ALREADY_CANCELLED','La cancelación ya tiene resolución; recuperar su ID original.');
+  const snapshot=transferResolutionSnapshot_(m,index,source,p.sourceRequestId);
+  return {index:index,source:source,snapshot:snapshot,snapshotHash:computePayloadHash_(JSON.parse(JSON.stringify({version:1,book:m.getId(),environment:CONFIG.environment,
+    sourceRequestId:p.sourceRequestId,snapshot:snapshot,ledger:Array.from(index.values()),journal:journalRows})))};
 }
 
 function transferResolutionSnapshot_(m,index,source,sourceRequestId) {
@@ -275,4 +281,127 @@ function transferResolutionSnapshot_(m,index,source,sourceRequestId) {
   const balance=posBalanceFast_({m:m},source.ticket);
   if(![balance.total,balance.paid,balance.due].every(n=>typeof n==='number' && Number.isFinite(n)) || balance.due<0)reject();
   return {balance:{total:balance.total,paid:balance.paid,due:balance.due},units:observations,cash:cash,payments:payments,commands:allCommands,records:records};
+}
+
+function transferCancellationReject_(message) {
+  return transferError_('TRANSFER_CANCELLATION_VALIDATION_NO_EFFECTS',message,422);
+}
+function transferCancellationSourceHash_(m,index,p) {
+  const rows=dataRows_(transferSheet_(m),7,31).filter(r=>r[0]===p.sourceReceipt);
+  return computePayloadHash_(JSON.parse(JSON.stringify({request:index.get(p.sourceRequestId),payment:rows})));
+}
+
+function transferCancellationJournal_(m,id) {
+  const s=m.getSheetByName('DOMUS_JOURNAL');
+  if(s && dataRows_(s,2,6).filter(r=>r[0]===id).length>1)throw transferError_('TRANSFER_CANCELLATION_REQUIRES_REVIEW','Journal de cancelación duplicado. Conservar originales sin reanudar ni liberar.');
+  return journalFind_(id,m);
+}
+
+// An administrative cancellation is distinct from a bank confirmation. Readers
+// require its completed journal, original source and current cancelled commands.
+function transferCancellationRecords_(m,index) {
+  const found=[],sources=new Set();index=index || paymentRequestIndex_(m);
+  index.forEach((rows,id)=>{
+    if(!rows.some(r=>r[1]==='cancelarTransferenciaNoRecibida') || journeyKnownNoEffects_(m,rows))return;
+    const record=paymentRequest_(index,id),p=record && record.result,plan=transferCancellationJournal_(m,id);
+    const fail=()=>{throw transferError_('TRANSFER_CANCELLATION_REQUIRES_REVIEW','Cancelación incompleta o incompatible. Recuperar su misma intención; no cobrar ni cerrar.');};
+    if(!record || record.status!=='COMPLETED' || !p || p.ok!==true || p.kind!=='TRANSFER_CANCELLATION' || p.version!==1 ||
+      p.cancellationRequestId!==id || p.status!=='CANCELLED_NO_RECEIPT' || p.amountApplied!==0 || p.refund!==0 || p.inventoryMovement!==0 ||
+      !['GERENCIA','ADMIN'].includes(p.authorizedRole) || !CONFIG.managers.includes(p.authorizedPrincipal) ||
+      !p.journey || !p.review || p.review.noDeliveryConfirmed!==true || p.review.noBankReceiptConfirmed!==true ||
+      !p.wasteReview || !['NO_WASTE_OBSERVED','WASTE_OBSERVED','PENDING_REVIEW'].includes(p.wasteReview.status) || p.wasteReview.inventoryApplied!==false ||
+      !Array.isArray(p.units) || !p.units.length || !plan || plan.data[1]!=='cancelarTransferenciaNoRecibida' || plan.data[2]!=='COMPLETED')fail();
+    let result;try {result=JSON.parse(plan.data[4]);}catch(_){fail();}
+    if(canonicalJsonStringify_(result)!==canonicalJsonStringify_(p) || p.sourceEvidenceHash!==transferCancellationSourceHash_(m,index,p) || sources.has(p.sourceRequestId))fail();
+    const source=transferSource_(m,index,p),units=source.fulfillment && source.fulfillment.units;
+    if(!units || units.length!==p.units.length || new Set(p.units.map(u=>u.id)).size!==units.length || source.total!==p.cancelledAmount || !source.journey || source.journey.journeyId!==p.journey.journeyId)fail();
+    const board=dataRows_(m.getSheetByName('COMANDAS'),7,14),cash=dataRows_(m.getSheetByName('CAJA 2'),7,32);
+    p.units.forEach(u=>{
+      if(!units.some(x=>x.id===u.id && x.row===u.row && x.qty===u.qty))fail();
+      const c=board.filter(r=>r[0]===u.id),a=cash.filter(r=>r[0]===u.id);let item;
+      try {item=c.length===1 && JSON.parse(c[0][12]);}catch(_){fail();}
+      if(!item || item.ticket!==p.ticket || item.batch!==p.sourceRequestId || item.state!=='Cancelada' || item.cancellationRequestId!==id ||
+        item.delivered || item.deliveredBy || c[0][7]!=='Cancelada' || a.length!==1 || a[0][1]!==p.ticket || a[0][15]!=='Cancelado' || Number(a[0][21])>0 || a[0][23]==='Entregada')fail();
+    });
+    sources.add(p.sourceRequestId);found.push(p);
+  });
+  return found;
+}
+
+function transferAssertNotCancelled_(m,p) {
+  const records=transferCancellationRecords_(m);
+  if(p && records.some(r=>r.sourceRequestId===p.sourceRequestId || r.sourceReceipt===p.sourceReceipt)) {
+    throw transferError_('TRANSFER_CANCELLED_REQUIRES_RECONCILIATION','Pendiente cancelado. Un ingreso posterior requiere conciliación; no aplicarlo automáticamente.');
+  }
+}
+
+function transferCancellationReplayGuard_(m,id) {
+  const plan=transferCancellationJournal_(m,id);if(!plan)return;
+  const p=JSON.parse(plan.data[4]),index=paymentRequestIndex_(m);
+  const fail=()=>{throw transferError_('TRANSFER_CANCELLATION_REQUIRES_REVIEW','Cambió la evidencia durante la cancelación. Conservar el plan sin reanudar efectos.');};
+  if(plan.data[1]!=='cancelarTransferenciaNoRecibida' || !p || p.kind!=='TRANSFER_CANCELLATION' || p.cancellationRequestId!==id ||
+    p.sourceEvidenceHash!==transferCancellationSourceHash_(m,index,p))fail();
+  transferSource_(m,index,p);
+  const payments=dataRows_(transferSheet_(m),7,31).filter(r=>r[2]==='Caja' && r[3]===p.ticket);
+  if(payments.length!==1 || payments[0][0]!==p.sourceReceipt || payments[0][13]!==0)fail();
+  const board=dataRows_(m.getSheetByName('COMANDAS'),7,14),cash=dataRows_(m.getSheetByName('CAJA 2'),7,32);
+  p.units.forEach(u=>{
+    const c=board.filter(r=>r[0]===u.id),a=cash.filter(r=>r[0]===u.id);let item;
+    try {item=c.length===1 && JSON.parse(c[0][12]);}catch(_){fail();}
+    if(!item || item.batch!==p.sourceRequestId || item.ticket!==p.ticket || item.state==='Entregada' || item.delivered || item.deliveredBy || c[0][7]==='Entregada' ||
+      a.length!==1 || Number(a[0][21])>0 || a[0][23]==='Entregada')fail();
+  });
+}
+
+function cancelarTransferenciaNoRecibida(p) {
+  authRequireContext_('cancelarTransferenciaNoRecibida');
+  if(!CONFIG.managers.includes(_authContext.principal))throw transferError_('AUTH_PRINCIPAL_REQUIRED','Renueva la identidad de Gerencia.',401);
+  return withLock_(CONFIG.lockTimeoutMs,()=>{
+    const m=SpreadsheetApp.openById(CONFIG.mainSheetId),id=p && p.requestId;
+    transferCancellationReplayGuard_(m,id);
+    const resumed=journalResume_(id,'cancelarTransferenciaNoRecibida',m);if(resumed)return resumed;
+    let context,journey,review,waste;
+    try {
+      const text=v=>typeof v==='string' && !!v.trim() && v.length<=300 && v[0]!=='=';
+      if(!p || !['sourceRequestId','sourceReceipt','ticket','openingRequestId','reason'].every(k=>text(p[k])) || !/^[a-f0-9]{64}$/.test(p.snapshotHash || '') ||
+        !p.review || p.review.noDeliveryConfirmed!==true || p.review.noBankReceiptConfirmed!==true || !text(p.review.evidenceReference) ||
+        !p.wasteReview || !['NO_WASTE_OBSERVED','WASTE_OBSERVED','PENDING_REVIEW'].includes(p.wasteReview.status) || !text(p.wasteReview.note)) {
+        throw transferCancellationReject_('Revisa banco, ausencia de entrega, motivo y estado de merma; ningún campo se presume.');
+      }
+      context=transferResolutionContext_(m,p,id);
+      const s=context.snapshot;
+      if(context.snapshotHash!==p.snapshotHash)throw transferCancellationReject_('La cuenta cambió. Consulta otra propuesta antes de crear una intención nueva.');
+      if(p.expectedAmount!==context.source.total || !Array.isArray(p.expectedUnitIds) ||
+        canonicalJsonStringify_(p.expectedUnitIds.slice().sort())!==canonicalJsonStringify_(s.units.map(u=>u.id).sort()))throw transferCancellationReject_('Importe o unidades diferentes de la propuesta revisada.');
+      if(s.units.some(u=>u.deliveryEvidence))throw transferCancellationReject_('Hay entrega o consumo registrado. No cancelar ni devolver inventario.');
+      if(s.records.length!==1 || s.records[0].id!==p.sourceRequestId || s.payments.length!==1 || s.balance.paid!==0)throw transferCancellationReject_('La cuenta tiene otros movimientos. Sustitución de pago no autorizada; conciliar sin recobrar.');
+      journey=journeyForMovement_(m,p,new Date());
+      if(!journey || !context.source.journey || journey.journeyId!==context.source.journey.journeyId)throw transferCancellationReject_('Se requiere la misma jornada de origen abierta; no adoptar historia ni reasignarla.');
+      review={noDeliveryConfirmed:true,noBankReceiptConfirmed:true,evidenceReference:p.review.evidenceReference.trim()};
+      waste={status:p.wasteReview.status,note:p.wasteReview.note.trim(),inventoryApplied:false};
+    } catch(e) {
+      if(['TRANSFER_RESOLUTION_REQUIRES_REVIEW','TRANSFER_ALREADY_CANCELLED','TRANSFER_ALREADY_CONFIRMED','TRANSFER_SOURCE_REQUIRES_REVIEW','TRANSFER_SCHEMA_REQUIRES_REVIEW','TRANSFER_HISTORY_REQUIRES_REVIEW',
+        'JOURNEY_REQUIRES_REVIEW','JOURNEY_VALIDATION_NO_EFFECTS'].includes(e.code))throw transferCancellationReject_(e.message);
+      throw e;
+    }
+    // All changes are prepared in one existing journal. Original COBROS/REQUESTS,
+    // stock and preparation evidence remain intact; no replacement collection.
+    const now=new Date().toISOString(),writes=[],units=[],s=context.snapshot;
+    s.commands.forEach(c=>{
+      const item=Object.assign({},c.item),u=context.source.fulfillment.units.find(x=>x.id===item.id);
+      units.push({...u,previousState:item.state});
+      item.cancellationRequestId=id;item.cancelled=item.cancelled || now;item.cancelledBy=_authContext.operator;
+      item.cancelledPrincipal=_authContext.principal;item.cancellationReason=p.reason.trim();item.wasteReview=waste;
+      item.state='Cancelada';item.version=String(Number(item.version || 1)+1);
+      writes.push(cellWrite_(m.getSheetByName('CAJA 2'),c.row,16,'Cancelado'),cellWrite_(m.getSheetByName('COMANDAS'),c.row,8,'Cancelada'),
+        cellWrite_(m.getSheetByName('COMANDAS'),c.row,13,JSON.stringify(item)),cellWrite_(m.getSheetByName('COMANDAS'),c.row,14,'Cancelada · '+_authContext.operator));
+    });
+    const result={ok:true,kind:'TRANSFER_CANCELLATION',version:1,status:'CANCELLED_NO_RECEIPT',cancellationRequestId:id,
+      sourceRequestId:p.sourceRequestId,sourceReceipt:p.sourceReceipt,ticket:p.ticket,cancelledAmount:context.source.total,currency:'MXN',
+      amountApplied:0,refund:0,inventoryMovement:0,reason:p.reason.trim(),review:review,wasteReview:waste,units:units,
+      authorizedRole:_authContext.role,authorizedPrincipal:_authContext.principal,authorizedBy:_authContext.operator,cancelledAt:now,
+      snapshotHash:p.snapshotHash,sourceEvidenceHash:transferCancellationSourceHash_(m,context.index,p),journey:journey,
+      closureBlocked:waste.status!=='NO_WASTE_OBSERVED',message:'Pedido y pendiente cancelados sin ingreso ni devolución. Originales conservados; merma '+waste.status+'.'};
+    return journalCommit_(id,'cancelarTransferenciaNoRecibida',m,writes,result);
+  });
 }

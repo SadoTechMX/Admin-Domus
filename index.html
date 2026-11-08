@@ -695,6 +695,22 @@
         <p>Confirma únicamente un ingreso revisado en la cuenta bancaria de DOMUS. Una captura del cliente no acredita el depósito.</p>
         <p id="transferReviewStatus" role="status"></p>
         <div class="input-group"><label for="transferPendingSelect">Recibo pendiente de Caja:</label><select id="transferPendingSelect"></select></div>
+        <button type="button" class="btn-secondary" id="btnPrepareTransferCancellation" disabled>Revisar cancelación sin ingreso</button>
+        <p id="transferCancellationHistory" role="status"></p>
+        <section id="transferCancellationPanel" hidden>
+          <h4>Cancelar pedido no entregado · Gerencia</h4>
+          <p id="transferCancellationSummary" role="status"></p>
+          <p>Si existe otro pago, detén este trámite: todavía no está habilitado vincularlo ni cobrar nuevamente. La cancelación conserva el historial y no confirma un ingreso.</p>
+          <div class="input-group"><label for="transferCancellationReason">Motivo de cancelación:</label><input id="transferCancellationReason" maxlength="300" /></div>
+          <div class="input-group"><label for="transferCancellationEvidence">Referencia de la revisión de banco y entrega:</label><input id="transferCancellationEvidence" maxlength="300" /></div>
+          <label><input type="checkbox" id="transferNoBankReceipt" /> Revisé el banco: este ingreso no aparece al momento de la revisión.</label>
+          <label><input type="checkbox" id="transferNoDelivery" /> Verifiqué con la estación que ninguna unidad fue entregada.</label>
+          <div class="input-group"><label for="transferWasteStatus">Revisión física de merma:</label><select id="transferWasteStatus"><option value="">Selecciona una observación</option><option value="NO_WASTE_OBSERVED">Verifiqué: no hubo merma</option><option value="WASTE_OBSERVED">Hay merma; requiere conciliación</option><option value="PENDING_REVIEW">Merma todavía por revisar</option></select></div>
+          <div class="input-group"><label for="transferWasteNote">Qué se observó o qué falta revisar:</label><input id="transferWasteNote" maxlength="300" /></div>
+          <p>Este trámite no ajusta existencias. Con merma observada o pendiente, el corte seguirá bloqueado hasta conciliarla.</p>
+          <button type="button" class="btn-primary-action" id="btnCancelUnreceivedTransfer" disabled>Cancelar pedido y pendiente · sin ingreso</button>
+          <button type="button" class="btn-secondary" id="btnBackToTransferReview">Cerrar revisión de cancelación</button>
+        </section>
         <div class="input-group"><label for="transferReceiverSelect">Cuenta receptora DOMUS:</label><select id="transferReceiverSelect"></select></div>
         <div class="form-row-2">
           <div class="input-group"><label for="transferReviewAmount">Importe recibido en banco (MXN):</label><input type="number" min="0.01" step="0.01" id="transferReviewAmount" /></div>
@@ -1385,7 +1401,7 @@
         <div class="toast-container" id="toastContainer" aria-live="polite"></div>
 
         <!-- Script -->
-        <script src="js/app.js?v=20261107-recovery-11"></script>
+        <script src="js/app.js?v=20261108-transfer-cancel-16"></script>
 </body>
 
 </html>
