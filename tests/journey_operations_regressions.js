@@ -18,11 +18,22 @@ function prepare(){
  });
 }
 function business(t){return JSON.stringify([...t.main.sheets].filter(([n])=>!['REQUESTS','DOMUS_JOURNAL'].includes(n)).map(([n,s])=>[n,[...s.cells]]));}
-function deliver(t,row=7){
+function deliver(t,row=7,actions=['TOMAR','LISTA','ENTREGAR']){
  const inv=t.main.getSheetByName('INVENTARIO');inv.getRange(7,7).setValue('=SUMIF(example)');inv.getRange(7,8).setValue('=D7-G7');
  const old=inv.value.bind(inv);inv.value=(r,c)=>r===7&&c===8?10:old(r,c); // Explicit mock formula result; not live inventory validation.
  const item=JSON.parse(t.main.getSheetByName('COMANDAS').raw(row,13)),key='DCS-'+row+'-'+item.batch,token=t.login('BARRA');
- for(const action of ['TOMAR','LISTA','ENTREGAR'])t.request('comandasSimpleAccion',[{key,action}],action+'-'+row,'BARRA',token);
+ for(const action of actions)t.request('comandasSimpleAccion',[{key,action}],action+'-'+row,'BARRA',token);
+}
+function bankProof(t,source){
+ t.props.set('DOMUS_TRANSFER_REVIEW_POLICY',JSON.stringify({version:1,approved:true,receivers:['DOMUS_QA']}));
+ return {openingRequestId:source.journey.openingRequestId,sourceRequestId:source.sourceRequestId,sourceReceipt:source.receipt,ticket:source.ticket,
+  receiver:'DOMUS_QA',bankTransactionId:'QA-BANK-CLOSE-001',receivedDate:new Date().toISOString().slice(0,10),evidenceReference:'QA fixture only',amount:source.total,currency:'MXN'};
+}
+function blockedCut(t,id,transfers,commands,extra={}){
+ const before=business(t);
+ assert.throws(()=>t.request('corteZCerrar',[{openingRequestId:'open-A',countedCash:100,...extra}],id,'GERENCIA',t.managerToken),e=>
+  e.code==='JOURNEY_VALIDATION_NO_EFFECTS' && e.status===422 && e.message.includes(transfers+' transferencia(s) sin confirmar y '+commands+' comanda(s) sin resolver'));
+ assert.equal(business(t),before);assert.equal(t.ctx.journalFind_(id,t.main),null);assert.equal(t.request('turnoEstado',[]).active.openingRequestId,'open-A');
 }
 function clock(t,iso){const when=Date.parse(iso);t.ctx.Date=class extends Date{constructor(...args){super(...(args.length?args:[when]));}static now(){return when;}static [Symbol.hasInstance](v){return v instanceof Date;}};}
 test('disabled mapping preserves legacy sale, while opening with no mapping has no business effects',()=>{
@@ -69,8 +80,57 @@ test('cut requires manager identity and counted cash; no automatic use of expect
  for(const value of [null,'100',-1,0.001])assert.throws(()=>t.cut('bad-'+String(value),'open-A',value),/efectivo contado/);
  assert.equal(business(t),before);assert.equal(t.request('turnoEstado',[]).active.openingRequestId,'open-A');
 });
-test('cut with unresolved transfer/delivery is explicitly blocked while pending policy remains undecided',()=>{
- for(const method of ['Efectivo','Transferencia']){const t=prepare();t.open();t.sell({method});const before=business(t);assert.throws(()=>t.cut(),/falta definir la regla/);assert.equal(business(t),before);assert(t.request('turnoEstado',[]).active);}
+test('approved closing rule blocks unresolved transfer/delivery with counts and preserves business data',()=>{
+ for(const method of ['Efectivo','Transferencia']){
+  const t=prepare();t.open();t.sell({method});const before=business(t);
+  assert.throws(()=>t.cut(),e=>e.code==='JOURNEY_VALIDATION_NO_EFFECTS' && e.status===422 && e.message.includes((method==='Transferencia'?1:0)+' transferencia(s) sin confirmar y 1 comanda(s) sin resolver'));
+  assert.equal(business(t),before);assert.equal(t.ctx.journalFind_('cut-A',t.main),null);assert(t.request('turnoEstado',[]).active);
+ }
+});
+test('bank confirmation and each KDS stage keep closure blocked until delivery; client overrides cannot waive the rule',()=>{
+ const t=prepare();t.open();const source=t.sell({method:'Transferencia'}),cob=t.main.getSheetByName('COBROS'),pendingRow=cob.getRange(7,1,1,31).getValues();
+ blockedCut(t,'cut-before',1,1,{allowPending:true,force:true,pendingTransfers:[],pendingDeliveries:[]});
+ const proof=bankProof(t,source),confirm=t.request('confirmarTransferencia',[proof],'bank-confirm','GERENCIA',t.managerToken);
+ assert.equal(confirm.amountApplied,40);assert.deepEqual(cob.getRange(7,1,1,31).getValues(),pendingRow);blockedCut(t,'cut-after-bank',0,1);
+ deliver(t,7,['TOMAR']);blockedCut(t,'cut-preparing',0,1);deliver(t,7,['LISTA']);blockedCut(t,'cut-ready',0,1);
+ deliver(t,7,['ENTREGAR']);const cut=t.cut('cut-resolved');assert.equal(cut.closurePolicy,'RESOLVE_PENDING_TRANSFERS_AND_DELIVERIES');
+ assert.equal(cut.snapshot.pendingTransfers.length,0);assert.equal(cut.snapshot.pendingDeliveries.length,0);assert.equal(cut.snapshot.totals.Transferencia,40);
+ const after=business(t);assert.deepEqual(t.cut('cut-resolved'),cut);assert.equal(business(t),after);assert.equal(cob.getLastRow(),8);
+ assert.throws(()=>t.request('corteZCerrar',[{openingRequestId:'open-A',countedCash:100,allowPending:true,force:true,pendingTransfers:[],pendingDeliveries:[]}],'cut-before','GERENCIA',t.managerToken),/1 transferencia\(s\) sin confirmar y 1 comanda/);
+});
+test('payment-only pending transfer blocks a journey whose credit order was already delivered',()=>{
+ const t=prepare();t.open();const credit=t.sell({paid:false,credit:'Amigo'});deliver(t);
+ const source=t.sell({ticket:credit.ticket,items:[],method:'Transferencia'});assert.equal(source.fulfillment.units.length,0);blockedCut(t,'transfer-only-cut',1,0);
+ const pending=t.main.getSheetByName('COBROS').getRange(7,1,1,31).getValues(),proof=bankProof(t,source);
+ t.request('confirmarTransferencia',[proof],'bank-only-confirm','GERENCIA',t.managerToken);const cut=t.cut('transfer-only-resolved');
+ assert.equal(cut.snapshot.pendingTransfers.length,0);assert.equal(cut.snapshot.pendingDeliveries.length,0);assert.equal(t.main.getSheetByName('COMANDAS').getLastRow(),7);
+ assert.deepEqual(t.main.getSheetByName('COBROS').getRange(7,1,1,31).getValues(),pending);
+});
+test('partial bank confirmation remains uncertain until same-ID recovery and never authorizes an early cut',()=>{
+ const t=prepare();t.open();const source=t.sell({method:'Transferencia'}),proof=bankProof(t,source),cob=t.main.getSheetByName('COBROS');
+ const pending=cob.getRange(7,1,1,31).getValues();cob.failAt='8:11';
+ const confirm=()=>t.request('confirmarTransferencia',[proof],'bank-partial','GERENCIA',t.managerToken);
+ assert.throws(confirm,/INJECTED_WRITE_FAILURE/);const partial=business(t);assert.throws(()=>t.cut('cut-uncertain-bank'),/intenciones inciertas/);
+ assert.equal(business(t),partial);assert.equal(t.ctx.journalFind_('cut-uncertain-bank',t.main),null);
+ const result=confirm();assert.equal(result.amountApplied,40);assert.equal(cob.getLastRow(),8);blockedCut(t,'cut-bank-recovered',0,1);
+ deliver(t);const cut=t.cut('cut-after-delivery');assert.equal(cut.status,'CLOSED');assert.deepEqual(confirm(),result);
+ assert.deepEqual(cob.getRange(7,1,1,31).getValues(),pending);assert.equal(cob.getLastRow(),8);
+});
+test('explicit existing cancellation resolves a command, without resolving or applying a pending transfer',()=>{
+ for(const method of ['credit','Transferencia']){
+  const t=prepare();t.open();t.sell(method==='credit'?{paid:false,credit:'Amigo'}:{method});const cob=t.main.getSheetByName('COBROS'),before=[...cob.cells];
+  deliver(t,7,['CANCELAR']);assert.equal(t.main.getSheetByName('COMANDAS').raw(7,8),'Cancelada');assert.deepEqual([...cob.cells],before);
+  if(method==='Transferencia')blockedCut(t,'cancelled-pending-bank',1,0);
+  else {assert.equal(t.cut().status,'CLOSED');assert.equal(cob.getLastRow(),6);}
+ }
+});
+test('completed pending receipts in another project stay untouched and do not migrate to the closing journey',()=>{
+ const t=prepare();t.open();const token=t.login('CAJA','fixture-device-2');
+ const call=(action,args,id)=>t.ctx.executeDomusAction_(action,{args,requestId:id,deviceId:'fixture-device-2',role:'CAJA',sessionToken:token}).result;
+ const opening=call('turnoAbrir',[{scopeId:'B',openingFloat:0}],'open-B');
+ const p=t.sale({openingRequestId:'open-B',activity:'QA project B',method:'Transferencia'}),source=call('cajaSimpleRegistrar',[p],p.id);
+ const before=business(t),cut=t.cut();assert.equal(cut.journeyId,'JOR-open-A');assert.equal(cut.snapshot.movements.length,0);assert.equal(business(t),before);
+ assert.equal(call('turnoEstado',[],'read-B').active.journeyId,opening.journeyId);assert.equal(source.verified,false);assert.equal(t.main.getSheetByName('COBROS').value(7,14),0);
 });
 test('completed cut blocks new/late-offline sale but original confirmed ACK recovers unchanged',()=>{
  const t=prepare();t.open();const p=t.sale({openingRequestId:'open-A'}),r=t.request('cajaSimpleRegistrar',[p],p.id);deliver(t);const cut=t.cut();

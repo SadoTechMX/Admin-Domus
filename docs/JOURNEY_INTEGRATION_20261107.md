@@ -1,3 +1,5 @@
+> **Regla de cierre confirmada, 8 noviembre 2026 UTC:** Steven eligió impedir el corte hasta resolver transferencias sin confirmar y comandas pendientes. [Aplicación y pruebas](JOURNEY_CLOSE_RULE_20261108.md), UI `20261108-journey-close-15`: conteos de bloqueo, política en el resultado durable y rechazo de ACK de cierre con pendientes; 23 casos de operaciones, 8 de transporte y 6 de Chromium pasan. Se conservan cuentas abiertas, historial e idempotencia. La decisión ya está resuelta; siguen pendientes compatibilidad/configuración reales, fórmulas y staging. Sin producción, impresión ni despliegue. Sustituye las menciones históricas de decisión pendiente que siguen.
+
 # Jornada vinculada a apertura, movimientos y corte
 
 **IMPLEMENTED / LOCAL_TESTED, sin instalación ni configuración Google.** Base `071f4132736f6beb76d5c25be6b0c1b6ebe3a864`; UI `20261107-journey-14`. Fuente backend SHA-256 `ad0223139d1b91c95c0c622c7f677437f75d7677d0e27c09e5d9310ecc49d9cc`. La CI del nuevo commit debe verificarse por su SHA después del push. Las pruebas aisladas no acreditan operación real.
@@ -20,11 +22,11 @@ El adaptador reside en `Journeys.gs` y usa REQUESTS/journal ya existentes. No ag
 - `corteZCerrar`: Gerencia/Admin con principal acreditado; efectivo contado obligatorio. Relee bajo lock, comprueba evidencias de cobros/comandas e intenciones inciertas, conserva snapshot y cierre en el journal. No vuelve a cobrar, entrega, mueve inventario ni cancela saldos. Una venta nueva/offline llegada después del corte se rechaza; un plan ya preparado o un ACK completo recupera su contexto original.
 - UI: apertura, estado, cierre y resumen recuperable tras recarga. ACK vacío, sin contrato o de otra intención/jornada conserva ID y Outbox. Un cambio de jornada cambia también la identidad del borrador para que el ACK anterior no borre el nuevo carrito. Un rechazo explícito de prevalidación conserva el intento rechazado y permite una corrección con otro ID; fallos de servicio o journal permanecen inciertos.
 
-## Alcance del corte y decisión aún pendiente
+## Alcance del corte y regla confirmada
 
 El RPC se adapta al **cierre de jornada**, con `coverage: JOURNEY_POS_RECEIPTS` y `financialFinal: false`. Congela recibos POS vinculados, importes por medio, propina, fondo inicial, efectivo declarado y cuentas abiertas. No es el corte financiero integral del prototipo: **no incluye arqueo de MOVIMIENTOS/DEVOLUCIONES, otras cajas/canales, reparto ni LIQUIDAR**. La UI y el resultado lo declaran. No presentar sus totales como arqueo completo de la gaveta ni conciliación bancaria automática.
 
-Las cuentas abiertas pueden permanecer vivas, según la regla 3 existente. Sigue pendiente la respuesta a la consulta sobre **transferencias todavía sin acreditar y comandas sin entregar al hacer el corte**: conservarlas declaradas al cerrar o exigir resolverlas. En ausencia de respuesta, ese cierre queda bloqueado con causa explícita; sólo se prueba/permite el caso sin esas clases de pendientes. No se asumió una aprobación por el tiempo transcurrido.
+Las cuentas abiertas pueden permanecer vivas, según la regla 3 existente. **Actualización 8 noviembre:** Steven respondió «si hasta resolver»: transferencias todavía sin acreditar y comandas pendientes impiden cerrar hasta resolverse. La guarda previa se conserva como regla aprobada, con conteos explícitos y comprobación adicional del ACK de cierre. [Código y pruebas de esta actualización](JOURNEY_CLOSE_RULE_20261108.md). La evidencia de pruebas del 7 noviembre que sigue corresponde a la versión anterior, no acredita por sí sola el nuevo delta.
 
 ## Configuración y compatibilidad antes de activar
 

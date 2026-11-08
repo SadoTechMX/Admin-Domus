@@ -43,5 +43,12 @@
     "Cut excludes other channels/movements/refunds and financial settlement",
     "Cut payload over 40000 characters blocks without truncation",
     "Prior Gemini/IDE reviews do not validate this delta"
-  ]
+  ],
+  "policyResolution": {
+    "date": "2026-11-08",
+    "rule": "RESOLVE_PENDING_TRANSFERS_AND_DELIVERIES",
+    "source": "Steven: si hasta resolver",
+    "followup": "docs/JOURNEY_CLOSE_RULE_20261108.md",
+    "originalSnapshotRetained": true
+  }
 }

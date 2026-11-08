@@ -269,10 +269,15 @@ function corteZCerrar(p) {
       const context=journeyContext_(m,p.openingRequestId,now,id),opening=journeyOpening_(m,p.openingRequestId);
       if(!context.allowed || opening.stationId!==station.stationId || opening.registerId!==station.registerId)throw journeyReject_('Jornada cerrada o ajena a la estación/gaveta.');
       const snapshot=journeyCutSnapshot_(m,opening,now);
-      // No operational policy has yet authorized closing with these pending items.
-      if(snapshot.pendingTransfers.length || snapshot.pendingDeliveries.length)throw journeyReject_('Corte con transferencias/entregas pendientes: falta definir la regla de cierre. No se liquidaron.');
+      // Steven approved this closing rule on 2026-11-08. Only current server
+      // evidence resolves a pending item; client overrides cannot waive it.
+      if(snapshot.pendingTransfers.length || snapshot.pendingDeliveries.length) {
+        throw journeyReject_('Cierre bloqueado: '+snapshot.pendingTransfers.length+' transferencia(s) sin confirmar y '+
+          snapshot.pendingDeliveries.length+' comanda(s) sin resolver. Confirma los ingresos y resuelve las comandas antes del corte. La jornada sigue abierta.');
+      }
       return {ok:true,journeyContract:'domus-journey-v1',closingRequestId:id,openingRequestId:p.openingRequestId,journeyId:context.journeyId,shiftId:context.shiftId,
         cutId:'CORTE-JOR-'+id,closedAt:now.toISOString(),closedBy:_authContext.operator,status:'CLOSED',snapshot:snapshot,countedCash:p.countedCash,
+        closurePolicy:'RESOLVE_PENDING_TRANSFERS_AND_DELIVERIES',
         coverage:snapshot.coverage,financialFinal:false,message:'Jornada cerrada. Corte limitado a recibos POS vinculados; no es liquidación de reparto ni arqueo de otros movimientos.'};
     });
     if(JSON.stringify(result).length>40000)throw journeyReject_('Corte demasiado grande para el formato durable actual. Preparar paginación antes de cerrar; no se truncó el historial.');

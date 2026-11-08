@@ -49,6 +49,7 @@ async function main(){
   await page.locator('#btnCloseReceipt').click();passed++;console.log('PASS full cashier UI sends one sale bound to current opening and retains matching confirmation');
   await page.locator('#journeyCountedCash').fill('140');await page.locator('#btnJourneyClose').click();
   await page.waitForFunction(()=>JSON.parse(localStorage.getItem('domus_outbox')||'[]').some(q=>q.action==='corteZCerrar' && q.status==='REJECTED'));
+  await page.getByText('Cierre bloqueado: 0 transferencia(s) sin confirmar y 1 comanda(s) sin resolver.',{exact:false}).waitFor();
   assert(b.request('turnoEstado',[]).active);passed++;console.log('PASS unresolved delivery blocks cut without silently closing or discarding its evidence');
   // Exercise real KDS with explicit mock formula outputs, not a real stock test.
   const inv=b.main.getSheetByName('INVENTARIO');inv.getRange(7,7).setValue('=SUMIF(example)');inv.getRange(7,8).setValue('=D7-G7');const read=inv.value.bind(inv);inv.value=(r,c)=>r===7&&c===8?10:read(r,c);
@@ -60,6 +61,28 @@ async function main(){
   await page.reload();await page.waitForFunction(()=>document.getElementById('journeyCutSummary')?.textContent.includes('Último corte'));
   assert.equal(sends.filter(p=>p.action==='cajaSimpleRegistrar').length,1);assert.deepEqual(errors,[]);
   passed++;console.log('PASS manager cut closes only its journey; read-only reload recovers original totals without another sale');
+  // Second isolated journey: prove both independent prerequisites in the UI.
+  await page.locator('#journeyScopeSelect').selectOption('A');await page.locator('#journeyOpeningFloat').fill('100');await page.locator('#btnJourneyOpen').click();
+  await page.waitForFunction(()=>document.getElementById('journeyStatus')?.textContent.startsWith('Jornada abierta'));
+  await page.locator('.product-card').first().click();await page.locator('#activitySelect').selectOption('QA event');await page.locator('#customerNameInput').fill('QA second journey');
+  await page.locator('#btnOpenPaymentModal').click();await page.waitForFunction(()=>document.getElementById('paymentModal')?.classList.contains('open'));
+  await page.locator('[data-method="Transferencia"]').click();await page.locator('#btnConfirmChargeAndSend').click();
+  await page.waitForFunction(()=>document.getElementById('receiptModal')?.classList.contains('open'));await page.locator('#btnCloseReceipt').click();
+  const transferSale=sends.filter(p=>p.action==='cajaSimpleRegistrar').at(-1),source=b.ctx.findRequestRecord_(transferSale.requestId,b.main).response;
+  assert.equal(source.verified,false);const cob=b.main.getSheetByName('COBROS'),pendingRow=cob.getRange(8,1,1,31).getValues();
+  await page.locator('#journeyCountedCash').fill('100');await page.locator('#btnJourneyClose').click();
+  await page.getByText('Cierre bloqueado: 1 transferencia(s) sin confirmar y 1 comanda(s) sin resolver.',{exact:false}).waitFor();assert(b.request('turnoEstado',[]).active);
+  b.props.set('DOMUS_TRANSFER_REVIEW_POLICY',JSON.stringify({version:1,approved:true,receivers:['DOMUS_QA']}));
+  b.request('confirmarTransferencia',[{openingRequestId:source.journey.openingRequestId,sourceRequestId:source.sourceRequestId,sourceReceipt:source.receipt,ticket:source.ticket,
+   receiver:'DOMUS_QA',bankTransactionId:'QA-BROWSER-CLOSE-001',receivedDate:new Date().toISOString().slice(0,10),evidenceReference:'QA mock bank assertion',amount:40,currency:'MXN'}],'bank-journey-2','GERENCIA',manager);
+  await page.locator('#btnJourneyClose').click();await page.getByText('Cierre bloqueado: 0 transferencia(s) sin confirmar y 1 comanda(s) sin resolver.',{exact:false}).last().waitFor();
+  const secondItem=JSON.parse(b.main.getSheetByName('COMANDAS').raw(8,13)),secondKey='DCS-'+secondItem.row+'-'+secondItem.batch;
+  for(const action of ['TOMAR','LISTA','ENTREGAR'])b.request('comandasSimpleAccion',[{key:secondKey,action}],action+'-second','BARRA',token);
+  await page.locator('#btnJourneyClose').click();await page.waitForFunction(()=>document.getElementById('journeyStatus')?.textContent.includes('Sin jornada'));
+  const final=b.request('turnoEstado',[]).lastCut;assert.equal(final.closurePolicy,'RESOLVE_PENDING_TRANSFERS_AND_DELIVERIES');assert.equal(final.snapshot.totals.Transferencia,40);
+  assert.equal(final.snapshot.pendingTransfers.length,0);assert.equal(final.snapshot.pendingDeliveries.length,0);assert.deepEqual(cob.getRange(8,1,1,31).getValues(),pendingRow);
+  assert.equal(cob.getLastRow(),9);assert.equal(sends.filter(p=>p.action==='cajaSimpleRegistrar').length,2);assert.deepEqual(errors,[]);
+  passed++;console.log('PASS UI permits closure only after bank confirmation and delivery, preserving the original pending payment');
   await context.close();console.log(JSON.stringify({suite:'browser-journey-operations',passed,liveSheets:false,liveSales:0,hardware:false}));
  }finally{await browser.close();await new Promise(r=>server.close(r));}
 }

@@ -264,7 +264,7 @@
   window.DOMUS_BUILD = {
     baseCommit: '2b7ba1f4030b1013555b93cb96cfcb594141fdcb',
     buildId: 'repair-reconcile-20261105',
-    ui: '20261107-journey-14',
+    ui: '20261108-journey-close-15',
     environment: isProductionLocked ? 'PRODUCTION' : 'STAGING'
   };
 
@@ -2668,7 +2668,9 @@ const DEFAULT_CATALOG = [
       typeof r.closedAt==='string' && Number.isFinite(Date.parse(r.closedAt)) && r.countedCash===body.countedCash &&
       r.financialFinal===false && r.coverage==='JOURNEY_POS_RECEIPTS' && !!r.snapshot && r.snapshot.financialFinal===false &&
       r.snapshot.coverage===r.coverage && Array.isArray(r.snapshot.movements) && Array.isArray(r.snapshot.openAccounts) &&
-      Array.isArray(r.snapshot.pendingTransfers) && Array.isArray(r.snapshot.pendingDeliveries) && !!r.snapshot.totals &&
+      Array.isArray(r.snapshot.pendingTransfers) && r.snapshot.pendingTransfers.length===0 &&
+      Array.isArray(r.snapshot.pendingDeliveries) && r.snapshot.pendingDeliveries.length===0 &&
+      (r.closurePolicy===undefined || r.closurePolicy==='RESOLVE_PENDING_TRANSFERS_AND_DELIVERIES') && !!r.snapshot.totals &&
       ['Efectivo','Terminal 1','Terminal 2','Transferencia'].every(k=>typeof r.snapshot.totals[k]==='number' && Number.isFinite(r.snapshot.totals[k]) && r.snapshot.totals[k]>=0);
   }
 

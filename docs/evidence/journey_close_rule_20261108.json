@@ -1,0 +1,36 @@
+{
+  "baseCommit": "291e8ee42bf2fc79bd3c152bc04663405bedded8",
+  "mode": "ISOLATED_IMPLEMENTATION",
+  "ui": "20261108-journey-close-15",
+  "decision": {
+    "date": "2026-11-08",
+    "rule": "RESOLVE_PENDING_TRANSFERS_AND_DELIVERIES",
+    "source": "Steven: si hasta resolver"
+  },
+  "tests": {
+    "journeyOperations": 23,
+    "journeyTransport": 8,
+    "browserJourney": 6,
+    "journeyContext": 9,
+    "transferReview": 20,
+    "operatingPeriod": 11
+  },
+  "productionWrites": 0,
+  "googleReads": 0,
+  "googleConfigWrites": 0,
+  "deployment": false,
+  "printingChanged": false,
+  "formulasChanged": false,
+  "semanaGuardRemoved": false,
+  "realBankVerified": false,
+  "liveSheets": false,
+  "notes": [
+    "Existing explicit KDS cancellations remain resolved; no automatic cancellation",
+    "Pending bank transfers are not resolved by cancelling a command",
+    "No rejection/reversal workflow for bank transfers that never arrive",
+    "Historical zero-pending cut ACKs remain recoverable",
+    "Original pending payment row is preserved"
+  ],
+  "backendSourceSha256": "2d1d96b4505647ffee026bf00f06d30dc751555ccb815cd53f798fb8ad182495",
+  "buildParity": "PASS"
+}

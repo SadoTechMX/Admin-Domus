@@ -18,7 +18,12 @@ for(const native of [false,true])for(const action of ['turnoAbrir','corteZCerrar
  const respond=async p=>{
   if(p.action==='health')return b.ctx.dispatchNativeAction(p);
   requests.push(copy(p));const result=b.ctx.dispatchNativeAction(copy(p));assert.equal(result.ok,true,result.error);
-  if(lose){lose=false;return {...result,data:action==='cajaSimpleRegistrar'?{...result.data,journey:{...result.data.journey,openingRequestId:'OTHER'}}:{}};}return result;
+  if(lose){
+   lose=false;
+   const data=action==='cajaSimpleRegistrar'?{...result.data,journey:{...result.data.journey,openingRequestId:'OTHER'}}:
+    action==='corteZCerrar'?{...result.data,snapshot:{...result.data.snapshot,[native?'pendingDeliveries':'pendingTransfers']:[{id:'QA-PENDING'}]}}:{};
+   return {...result,data};
+  }return result;
  };
  attach(t,native,respond);
  if(action==='cajaSimpleRegistrar'){
@@ -37,9 +42,11 @@ await test('wrong intent/scope/amount or empty opening/cut payload cannot satisf
  const openBody={scopeId:'A',openingFloat:100},opened=b.request('turnoAbrir',[openBody],'open'),closeBody={openingRequestId:'open',countedCash:100};
  const closed=b.request('corteZCerrar',[closeBody],'cut','GERENCIA',manager);
  for(const [action,id,body,result,patches] of [['turnoAbrir','open',openBody,opened,[{openingRequestId:'other'},{scopeId:'other'},{openingFloat:99},{scope:{}}]],
- ['corteZCerrar','cut',closeBody,closed,[{closingRequestId:'other'},{openingRequestId:'other'},{countedCash:99},{snapshot:{}},{financialFinal:true}]]]){
+ ['corteZCerrar','cut',closeBody,closed,[{closingRequestId:'other'},{openingRequestId:'other'},{countedCash:99},{snapshot:{}},{financialFinal:true},
+ {closurePolicy:'ALLOW_PENDING'},{snapshot:{...closed.snapshot,pendingTransfers:[{receipt:'pending'}]}},{snapshot:{...closed.snapshot,pendingDeliveries:[{id:'pending'}]}}]]]){
   const payload={action,requestId:id,args:[body]};assert.equal(t.ctx.validJourneyResult_(result,payload),true);
   for(const bad of [{},null,false,[],...patches.map(p=>({...result,...p}))])assert.equal(t.ctx.validJourneyResult_(bad,payload),false);
+  if(action==='corteZCerrar')assert.equal(t.ctx.validJourneyResult_({...result,closurePolicy:undefined},payload),true,'original zero-pending cut ACK from prior version remains recoverable');
  }
 });
 await test('changing journey changes draft ownership; old ACK does not clear the new draft',()=>{
