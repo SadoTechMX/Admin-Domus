@@ -3580,6 +3580,9 @@ html, body {
 (function () {
   const OFFICIAL_PRODUCTION_ENDPOINT = 'https://script.google.com/macros/s/AKfycbzy7wZZ55zPnzZ6h9iRKXNAvitP5EZMCPyjsxPtLIpdtuv4_3Zt9SYqQS65I1WRGJGL/exec';
   const STAGING_ENDPOINT = 'https://script.google.com/macros/s/AKfycbyIHDox7F7DpyS5ag-5vdoffn01qnX99IqkxB9olhQAbePvU9JZCbF6u8HeubS7RVgZ/exec';
+  // Existing V13 doGet already forwards vista through DOMUS_NATIVE_BOOT.
+  // This screen never starts the operational app, even on an invalid target.
+  window.DOMUS_STAGING_PROPOSAL_VIEW=(window.DOMUS_NATIVE_BOOT?.view || new URLSearchParams(window.location.search).get('vista'))==='propuesta-inicio';
   // This gate runs before sessions, migrations, polling, printing or any transport.
   // The original queue/pending/receipts are never rewritten by review mode.
   function outboxReviewRequired_(includeOrphan) {
@@ -3810,7 +3813,7 @@ html, body {
     startInReview=new URLSearchParams(window.location.search).get('revision')==='cola' ||
       window.DOMUS_NATIVE_BOOT?.queueReview===true || outboxReviewRequired_(true);
   } catch(_) {startInReview=true;}
-  if(startInReview){enterOutboxReview_();return;}
+  if(startInReview && !window.DOMUS_STAGING_PROPOSAL_VIEW){enterOutboxReview_();return;}
 
   // --- CONFIGURACIÓN & ESTADO INICIAL ---
   const STAFF_MEMBERS = ['René', 'Miguel', 'Mike', 'Taichi Mike', 'Meaw', 'Wall E', 'Iván', 'Kas', 'Steven', 'Angel'];
@@ -3838,7 +3841,7 @@ html, body {
   window.DOMUS_BUILD = {
     baseCommit: '2b7ba1f4030b1013555b93cb96cfcb594141fdcb',
     buildId: 'repair-reconcile-20261105',
-    ui: '20261110-station-routing-19',
+    ui: '20261110-staging-proposal-20',
     environment: isProductionLocked ? 'PRODUCTION' : 'STAGING'
   };
 
@@ -6315,6 +6318,11 @@ const DEFAULT_CATALOG = [
   }
 
   async function transport_(payload) {
+    if(window.DOMUS_STAGING_PROPOSAL_VIEW) {
+      assertStagingProposalContext_();
+      if(!['health','authCrearSesion','prepararLimiteHistorico'].includes(payload.action) || payload.role!=='GERENCIA' ||
+          (payload.action==='authCrearSesion' && payload.args?.[0]!=='GERENCIA'))throw new Error('Esta pantalla sólo permite autenticar Gerencia y consultar la propuesta.');
+    }
     assertOutboxTraffic_();
     if(MUTATION_ACTIONS.has(payload.action)) {
       const health=await transport_({action:'health',args:[],role:payload.role,deviceId:payload.deviceId});
@@ -6370,7 +6378,10 @@ const DEFAULT_CATALOG = [
         // Explicit Caja unlock may have established this role while login was
         // in flight. A stale rejection must not open a second credential modal.
         const established=getSessionToken(role);if(established)return established;
-        if (res && !res.ok) res = await login(await requestStationSecret_(role));
+        if (res && !res.ok) {
+          if(window.DOMUS_STAGING_PROPOSAL_VIEW)throw new Error('Google no autorizó la sesión de Gerencia. Usa la cuenta autorizada en este proyecto; no se solicitan claves desde esta pantalla.');
+          res = await login(await requestStationSecret_(role));
+        }
         if (!res || !res.ok || !res.data || !res.data.token) throw new Error('Acceso denegado: credencial de estación no válida.');
         setSessionToken(res.data.token, role);
         return res.data.token;
@@ -6767,6 +6778,7 @@ const DEFAULT_CATALOG = [
 
   // Sincronización entre pestañas y reactividad a conexión de red
   window.addEventListener('storage', e => {
+    if(window.DOMUS_STAGING_PROPOSAL_VIEW)return;
     if(e.key==='domus_print_token' && e.newValue===null){clearPrintTokenView_();return;}
     if(e.key==='domus_outbox_review_hold_v1' && e.newValue!==null){enterOutboxReview_();return;}
     if (e.key === 'domus_outbox') {
@@ -6775,6 +6787,7 @@ const DEFAULT_CATALOG = [
   });
 
   window.addEventListener('online', () => {
+    if(window.DOMUS_STAGING_PROPOSAL_VIEW)return;
     console.log('[NETWORK] Conexión recuperada. Procesando Outbox...');
     processOutbox();
   });
@@ -6833,6 +6846,10 @@ const DEFAULT_CATALOG = [
 
   // --- COMUNICACIÓN CON BACKEND (IDEMPOTENTE & CON OUTBOX) ---
   function callBackend(fnName, args, onSuccess, onError) {
+    if(window.DOMUS_STAGING_PROPOSAL_VIEW) {
+      const err=new Error('La consulta administrativa usa su ruta de sólo lectura; la operación solicitada no se envió.');
+      if(onError){onError(err);return;}throw err;
+    }
     let role = (['corteZCerrar','cambiarFase','anularAcceso','sincronizarCartaConCatalogoDOMUS','registrarNuevoProducto','registrarNuevoEvento','transferenciasPendientes','prepararResolucionTransferencia','cancelarTransferenciaNoRecibida','prepararVinculoPagoExistente','vincularPagoExistente','confirmarTransferencia'].includes(fnName) ? 'GERENCIA' : getStationRole()).toUpperCase();
     let deviceId = getDeviceId(), operator = STATE.operator;
     try { args = JSON.parse(JSON.stringify(args || [])); }
@@ -10188,11 +10205,121 @@ const DEFAULT_CATALOG = [
     },err=>toast(err.message,'error'));
   }
 
+  // Temporary staging-only read surface. No operational initialization, query
+  // cache, Outbox, receipt, approval property, activation or printing path.
+  function assertStagingProposalContext_() {
+    if(window.DOMUS_STAGING_PROPOSAL_VIEW!==true || window.DOMUS_NATIVE_BOOT?.environment!=='STAGING' ||
+        STATE.isProductionLocked || !STATE.isNativeGas || !window.google?.script?.run)
+      throw new Error('Disponible sólo en la interfaz nativa de STAGING verificada.');
+    let queue;try{queue=JSON.parse(localStorage.getItem('domus_outbox') || '[]');}catch(_){throw new Error('Cola local ilegible. Conserva el perfil y usa el perfil QA limpio.');}
+    if(!Array.isArray(queue) || queue.length || localStorage.getItem('domus_pending_sale')!==null ||
+        localStorage.getItem('domus_outbox_review_hold_v1')!==null)
+      throw new Error('Este perfil tiene pendientes o revisión de cola. Se conserva intacto; usa el perfil QA limpio.');
+  }
+
+  function stagingProposalInput_() {
+    const text=id=>$(id).value.trim(),valid=v=>typeof v==='string' && v.length>0 && v.length<=200 && v.trim()===v;
+    const reference=text('proposalBackupReference'),sha256=text('proposalBackupHash'),evidenceReference=text('proposalEvidence');
+    const stationDeviceIds=text('proposalStations').split(/\r?\n/).map(v=>v.trim()).filter(Boolean);
+    let queue;try{queue=JSON.parse(text('proposalQueue'));}catch(_){throw new Error('El inventario de cola debe ser un array JSON de requestId y action.');}
+    if(!valid(reference) || !/^[a-f0-9]{64}$/.test(sha256) || !valid(evidenceReference))throw new Error('Completa referencias privadas y SHA-256 real del respaldo verificado.');
+    if(!stationDeviceIds.length || stationDeviceIds.some(v=>!valid(v)) || new Set(stationDeviceIds).size!==stationDeviceIds.length)
+      throw new Error('Indica los dispositivos del mapa e inventario de staging, uno por línea y sin duplicados.');
+    if(!Array.isArray(queue) || queue.length>500 || queue.some(q=>!q || Array.isArray(q) || Object.keys(q).sort().join(',')!=='action,requestId' || !valid(q.requestId) || !valid(q.action)) ||
+        new Set(queue.map(q=>q.requestId)).size!==queue.length)throw new Error('Cada entrada requiere sólo requestId y action originales, sin duplicados. No pegues cuerpos de venta ni credenciales.');
+    if(!$('proposalScopeReviewed').checked)throw new Error('Confirma que cotejaste el destino de las colas. Ausencia en REQUESTS no significa ausencia de efectos.');
+    return {isolationMode:'STAGING_FRESH_START_V1',backup:{reference,sha256},evidenceReference,stationDeviceIds,
+      queue:queue.map(q=>({requestId:q.requestId,action:q.action}))};
+  }
+
+  function canonicalProposalJson_(v) {
+    if(v===null || typeof v!=='object')return JSON.stringify(v);
+    if(Array.isArray(v))return '['+v.map(canonicalProposalJson_).join(',')+']';
+    return '{'+Object.keys(v).sort().map(k=>JSON.stringify(k)+':'+canonicalProposalJson_(v[k])).join(',')+'}';
+  }
+
+  async function checkedStagingProposal_(data,input,backendHash) {
+    const s=data && data.snapshot,f=s && s.freshStart,hex=v=>typeof v==='string' && /^[a-f0-9]{64}$/.test(v);
+    const queue=input.queue.slice().sort((a,b)=>a.requestId.localeCompare(b.requestId));
+    if(!data || data.ok!==true || data.kind!=='STAGING_FRESH_START_PROPOSAL' || data.canActivate!==false || data.resolved!==false || data.financialFinal!==false || !hex(data.snapshotHash) ||
+        !s || s.version!==1 || s.environment!=='STAGING' || s.book!=='114VSwo3bXyn_audh1LHr4qqjW5aSDSTP_bR_-Iz5dkg' ||
+        !f || f.mode!=='STAGING_FRESH_START_V1' || f.projectId!=='1sh5fyAaa0onlNsNZ40EokGumubebYEMisTGZ8rNj75gBiOsYPkA-rV4O' ||
+        f.opsBook!=='1NDpuyx6EfCHcoKW9CZ6pwR0oe2JS0aKpTTMa7RdqmlE' || f.backendSourceSha256!==backendHash || !hex(f.commercialEvidenceHash) ||
+        canonicalProposalJson_(f.backup)!==canonicalProposalJson_(input.backup) || s.evidenceReference!==input.evidenceReference ||
+        canonicalProposalJson_(s.queue)!==canonicalProposalJson_(queue) || canonicalProposalJson_(s.stationDeviceIds)!==canonicalProposalJson_(input.stationDeviceIds.slice().sort()) ||
+        !s.counts || ['historicalIds','uncertainIds','duplicateIds','queueIds','queueAbsent'].some(k=>!Number.isInteger(s.counts[k]) || s.counts[k]<0) ||
+        s.counts.queueIds!==queue.length || !s.requests || !hex(s.requests.hash) || !Number.isInteger(s.requests.lastRow) || s.requests.lastRow<139 ||
+        !s.isolation || s.isolation.entries?.length!==9 || s.isolation.shiftIds?.length!==2)
+      throw new Error('Propuesta incompleta o distinta al inventario/entorno consultado. No se habilitó la descarga.');
+    const digest=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(canonicalProposalJson_(s)));
+    const actual=Array.from(new Uint8Array(digest),b=>b.toString(16).padStart(2,'0')).join('');
+    if(actual!==data.snapshotHash)throw new Error('La huella de la propuesta no coincide con su contenido.');
+    return {ok:true,kind:data.kind,canActivate:false,resolved:false,financialFinal:false,snapshot:s,snapshotHash:data.snapshotHash};
+  }
+
+  async function requestStagingProposal_(input) {
+    assertStagingProposalContext_();
+    // Pin the supported V13 backend; this UI update needs no backend replacement.
+    const backendHash='4e62e02993a8ec7d69cbe8e97aaa32bf90bfdff4cde13de9928463e23230460a';
+    const deviceId=getDeviceId(),health=await transport_({action:'health',args:[],role:'GERENCIA',deviceId}),d=health && health.data;
+    if(!health.ok || !d || d.environment!=='STAGING' || d.mainSheetId!=='114VSwo3bXyn_audh1LHr4qqjW5aSDSTP_bR_-Iz5dkg' ||
+        d.opsSheetId!=='1NDpuyx6EfCHcoKW9CZ6pwR0oe2JS0aKpTTMa7RdqmlE' || d.build?.sourceSha256!==backendHash)
+      throw new Error('Identidad de backend incompatible. Se requiere el backend staging a443af1 verificado.');
+    const response=await authenticatedTransport_({action:'prepararLimiteHistorico',args:[JSON.parse(JSON.stringify(input))],
+      requestId:'PROPOSAL-READ-'+crypto.randomUUID(),deviceId,role:'GERENCIA'});
+    if(!response || response.ok!==true)throw new Error(response && response.error || 'No se pudo consultar la propuesta.');
+    const proposal=await checkedStagingProposal_(response.data,input,backendHash);
+    assertStagingProposalContext_();
+    return {format:'DOMUS_STAGING_FRESH_START_PROPOSAL_V1',exportedAt:new Date().toISOString(),frontend:window.DOMUS_BUILD.ui,input:JSON.parse(JSON.stringify(input)),proposal};
+  }
+
+  function renderStagingProposal_() {
+    document.body.innerHTML='<main style="max-width:800px;margin:24px auto;padding:24px;font:16px system-ui;color:#eee;background:#151820">'+
+      '<h1>Propuesta de inicio · Staging</h1><p>Consulta de Gerencia. Conserva el histórico sin conciliar ni reiniciar saldos. Esta pantalla no activa el límite.</p>'+
+      '<p id="proposalStatus" role="status">Completa el inventario cotejado. La consulta usará tu sesión normal de Gerencia y comprobará el backend.</p>'+
+      '<form id="proposalForm"><label>Referencia privada del respaldo<input id="proposalBackupReference" maxlength="200" required></label><br>'+
+      '<label>SHA-256 del respaldo<input id="proposalBackupHash" maxlength="64" required spellcheck="false"></label><br>'+
+      '<label>Referencia privada del inventario y custodia<input id="proposalEvidence" maxlength="200" required></label><br>'+
+      '<label>Dispositivos del mapa e inventario de staging, uno por línea<textarea id="proposalStations" rows="4" required spellcheck="false"></textarea></label>'+
+      '<p id="proposalDevice"></p><label>Colas con destino staging verificado: array JSON de requestId/action<textarea id="proposalQueue" rows="5" required spellcheck="false" placeholder="Escribe [] sólo si el inventario acredita que no hay colas de staging"></textarea></label>'+
+      '<label><input id="proposalScopeReviewed" type="checkbox">Cotejé el destino de las colas. Las productivas o de origen incierto permanecen retenidas por separado.</label>'+
+      '<p>No pegues tokens, claves ni cuerpos de ventas. Vaciar este formulario no modifica las colas originales.</p>'+
+      '<button id="proposalSubmit" type="submit">Consultar propuesta · Gerencia</button></form>'+
+      '<pre id="proposalSummary" style="white-space:pre-wrap;overflow-wrap:anywhere"></pre><button id="proposalDownload" type="button" disabled>Descargar propuesta privada</button>'+
+      '<p>La aprobación y activación se realizan por separado. Este documento no acredita ingresos, saldos o entregas.</p></main>';
+    const status=$('proposalStatus'),submit=$('proposalSubmit'),download=$('proposalDownload');let artifact=null,busy=false,revision=0;
+    $('proposalDevice').textContent='Dispositivo de este perfil: '+(localStorage.getItem('domus_device_id') || 'Se asignará al autenticar; no sustituye el mapa autorizado.');
+    const invalidate=()=>{revision++;artifact=null;download.disabled=true;$('proposalSummary').textContent='';};
+    $('proposalForm').oninput=invalidate;
+    try{assertStagingProposalContext_();}catch(e){status.textContent=e.message;submit.disabled=true;}
+    $('proposalForm').onsubmit=async event=>{
+      event.preventDefault();if(busy)return;invalidate();const rev=revision;busy=true;submit.disabled=true;
+      try {
+        const input=stagingProposalInput_();status.textContent='Comprobando staging y consultando con Gerencia…';
+        const result=await requestStagingProposal_(input);
+        if(revision!==rev){status.textContent='El formulario cambió durante la consulta. Consulta de nuevo el inventario corregido.';return;}
+        artifact=result;download.disabled=false;status.textContent='Propuesta obtenida y huella comprobada. Límite sin activar.';
+        const p=result.proposal,c=p.snapshot.counts;
+        $('proposalSummary').textContent='SHA-256: '+p.snapshotHash+'\nIDs históricos: '+c.historicalIds+' · Inciertos: '+c.uncertainIds+' · Colas inventariadas: '+c.queueIds+'\nHistórico sin conciliar. Guarda la descarga privada para revisión y autorización.';
+      }catch(e){artifact=null;download.disabled=true;status.textContent=e.message || 'Consulta fallida. No se activó el límite.';}
+      finally{busy=false;submit.disabled=false;}
+    };
+    download.onclick=()=>{
+      try {
+        assertStagingProposalContext_();if(!artifact || busy)throw new Error('Primero consulta una propuesta válida.');
+        const url=URL.createObjectURL(new Blob([JSON.stringify(artifact,null,2)],{type:'application/json'}));
+        const link=document.createElement('a');link.href=url;link.download='DOMUS-propuesta-inicio-'+artifact.proposal.snapshotHash.slice(0,16)+'.json';
+        document.body.appendChild(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
+      }catch(e){status.textContent=e.message;}
+    };
+  }
+
   // --- INICIALIZAR APP ---
   window.DOMUS_PAUSE_FOR_REVIEW=()=>{
     clearInterval(STATE.pollTimer);clearInterval(STATE.printerPollTimer);
   };
   document.addEventListener('DOMContentLoaded', () => {
+    if(window.DOMUS_STAGING_PROPOSAL_VIEW){renderStagingProposal_();return;}
     try {
       loadInitialData();
     } catch (e) {
@@ -10225,7 +10352,7 @@ const DEFAULT_CATALOG = [
   }
 
   // Exportar helpers globales para llamadas inline en HTML
-  window.__domusApp = {
+  window.__domusApp = window.DOMUS_STAGING_PROPOSAL_VIEW ? {} : {
     updateQty: updateCartQty,
     claimOrder: claimOrder,
     markOrderReady: markOrderReady,

@@ -61,6 +61,7 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - run: node tests/browser_local_regressions.js
       - run: node tests/browser_station_routing.js
+      - run: node tests/browser_staging_proposal.js
       - run: node tests/browser_outbox_concurrency.js
       - run: node tests/browser_transfer_review.js
       - run: node tests/browser_transfer_cancellation.js
