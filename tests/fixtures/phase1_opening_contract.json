@@ -1,0 +1,104 @@
+{
+  "sourceCommit": "881a71c9f705ebe8ef4772273c9ed0a7a1b0d8fd",
+  "harnessSha256": "8be0624e97f652d673a2e977bc02625e00c207a36c8bd178f5fa8f445aa547c4",
+  "shiftsSha256": "c0fe2fc999854e870767367a73b9b53629c058aeb364cc219c32de06a3914803",
+  "cases": [
+    {
+      "payload": {
+        "stationId": "CAJA_1",
+        "registerId": "GAVETA_1",
+        "openingFloat": 2000,
+        "phase": "Solar",
+        "openingNotes": "Apertura turno matutino"
+      },
+      "hash": "cbca0dc95003fbd9556e40db5d4ca3de20a59919fec9ba2b6de6b890307f6bc3"
+    },
+    {
+      "payload": {
+        "stationId": "CAJA_1",
+        "registerId": "GAVETA_OTRA",
+        "openingFloat": 1000
+      },
+      "hash": "7c1397b66b1b7def477009b2632863e0d2d43fab2e2860f7e75d7b71d2d785d2"
+    },
+    {
+      "payload": {
+        "stationId": "GUARDARROPA",
+        "registerId": "GAVETA_1",
+        "openingFloat": 500
+      },
+      "hash": "b10d0cccbdc15a247d8e6387c4a275a5365f3afc29e5ea65c01d5450f507fdf5"
+    },
+    {
+      "payload": {
+        "stationId": "ACCESOS",
+        "registerId": "GAVETA_ACCESOS",
+        "openingFloat": 1000,
+        "phase": "Solar"
+      },
+      "hash": "4e4c6bbed262fcaa3a3453802612f36ffae0c18353b395f73b03d69fa533a766"
+    }
+  ],
+  "headers": {
+    "TURNOS": [
+      "shiftId",
+      "operationDayId",
+      "businessDate",
+      "stationId",
+      "registerId",
+      "phase",
+      "openedAt",
+      "openedBy",
+      "openingFloat",
+      "openingFloatBreakdown",
+      "openingNotes",
+      "status",
+      "countingStartedAt",
+      "closedAt",
+      "closedBy",
+      "cutId",
+      "version",
+      "requestId",
+      "createdAt"
+    ],
+    "CORTES_Z": [
+      "cutId",
+      "shiftId",
+      "operationDayId",
+      "businessDate",
+      "registerId",
+      "stationId",
+      "openedAt",
+      "closedAt",
+      "openingFloat",
+      "cashSales",
+      "cashOtherIncome",
+      "cashRefunds",
+      "cashWithdrawals",
+      "cashExpenses",
+      "expectedCash",
+      "countedCash",
+      "difference",
+      "differenceStatus",
+      "terminal1",
+      "terminal2",
+      "transfersConfirmed",
+      "transfersPending",
+      "ticketingExternalValue",
+      "ticketingExternalReceivable",
+      "courtesyCount",
+      "courtesyCommercialValue",
+      "tips",
+      "openAccounts",
+      "openAccountsBalance",
+      "grossSales",
+      "netSales",
+      "snapshotJson",
+      "snapshotHash",
+      "closedBy",
+      "createdAt",
+      "requestId",
+      "version"
+    ]
+  }
+}

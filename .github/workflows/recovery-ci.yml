@@ -41,6 +41,7 @@ jobs:
       - run: node tests/print_token_removal_regressions.js
       - run: node tests/journey_context_regressions.js
       - run: node tests/legacy_journey_activation_regressions.js
+      - run: node tests/staging_opening_isolation_regressions.js
       - run: node tests/journey_operations_regressions.js
       - run: node tests/history_boundary_regressions.js
       - run: node tests/journal_integrity_regressions.js

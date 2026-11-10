@@ -71,7 +71,7 @@ function setup(){
     LockService:{getScriptLock:()=>({waitLock:()=>{if(held)throw new Error('Nested physical lock');held=true;acquires++;},releaseLock:()=>{assert(held);held=false;releases++;}})},
     SpreadsheetApp:{openById:id=>{if(!books.has(id))throw new Error('Non-fixture book '+id);return books.get(id);},flush:()=>{}}
   });
-  for(const f of ['Config','Data','Schema','Auth','Idempotency','Accounts','Payments','History','Journeys','POS','Access','KDS','Inventory','Events','Operations','Api'])vm.runInContext(fs.readFileSync(root+'/google-apps-script/'+f+'.gs','utf8'),ctx,{filename:f+'.gs'});
+  for(const f of ['Config','Data','Schema','Auth','Idempotency','Accounts','Payments','StagingIsolation','History','Journeys','POS','Access','KDS','Inventory','Events','Operations','Api'])vm.runInContext(fs.readFileSync(root+'/google-apps-script/'+f+'.gs','utf8'),ctx,{filename:f+'.gs'});
   const headers=JSON.parse(fs.readFileSync(root+'/tests/fixtures/schema_headers.json','utf8'));
   for(const [name,values] of Object.entries(headers)){main.insertSheet(name).getRange(name==='RECETAS CARTA'?1:6,1,1,values.length).setValues([values]);}
   main.getSheetByName('CAJA 2').getRange('F2').setValue('Solar');
