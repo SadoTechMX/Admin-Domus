@@ -20,6 +20,7 @@ jobs:
       - run: node tests/recovery_regressions.js
       - run: node tests/client_recovery_regressions.js
       - run: node tests/reconciliation_regressions.js
+      - run: node tests/station_routing_regressions.js
       - run: node tests/review_regressions.js
       - run: node tests/reload_rejection_regressions.js
       - run: node tests/master_transport_regressions.js
@@ -55,6 +56,7 @@ jobs:
       - run: npm install --no-save --package-lock=false playwright@1.62.1
       - run: npx playwright install --with-deps chromium
       - run: node tests/browser_local_regressions.js
+      - run: node tests/browser_station_routing.js
       - run: node tests/browser_outbox_concurrency.js
       - run: node tests/browser_transfer_review.js
       - run: node tests/browser_transfer_cancellation.js

@@ -2187,7 +2187,7 @@ html, body {
       <div class="brand-text">
         <h1>
           DOMUS
-          <span class="phase-badge" id="currentPhaseBadge">Fase Solar</span>
+          <span class="phase-badge" id="currentPhaseBadge">Fase sin consultar</span>
         </h1>
         <span class="brand-subtitle">Caja &middot; Barra &middot; Cocina &middot; Accesos</span>
       </div>
@@ -3167,7 +3167,7 @@ html, body {
           <div class="lock-badge-icon">🔒</div>
           <h3 id="cajaLockTitle">Acceso Protegido a Caja</h3>
           <p style="font-size: 0.82rem; color: var(--text-muted); margin-top: 4px;">
-            Introduce el PIN o contraseña de Caja para ingresar.
+            Usa la credencial de estación de Caja. Si tu identidad de Google ya está autorizada por el servidor, puedes dejar el campo vacío y pulsar Desbloquear.
           </p>
         </div>
       </div>
@@ -3838,7 +3838,7 @@ html, body {
   window.DOMUS_BUILD = {
     baseCommit: '2b7ba1f4030b1013555b93cb96cfcb594141fdcb',
     buildId: 'repair-reconcile-20261105',
-    ui: '20261110-history-boundary-18',
+    ui: '20261110-station-routing-19',
     environment: isProductionLocked ? 'PRODUCTION' : 'STAGING'
   };
 
@@ -5986,19 +5986,27 @@ const DEFAULT_CATALOG = [
   }
 
   function closeCajaLockModal() {
+    STATE.cajaUnlockRevision=(STATE.cajaUnlockRevision || 0)+1;
     const modal = $('cajaLockModal');
     if (modal) modal.classList.remove('open');
   }
 
   async function unlockCajaWithPin() {
+    if(STATE.cajaUnlockPending)return;
+    STATE.cajaUnlockPending=true;
+    const revision=STATE.cajaUnlockRevision || 0;
+    const button=$('btnSubmitCajaPin');if(button)button.disabled=true;
     const input=$('cajaPinInput');const secret=input.value;input.value='';
     try {
       const res=await transport_({action:'authCrearSesion',args:['CAJA',STATE.operator || 'Caja',getDeviceId(),secret],role:'CAJA',deviceId:getDeviceId()});
-      if(!res.ok || !res.data || !res.data.token)throw new Error('Credencial no válida en el servidor.');
+      if(!res.ok || !res.data || !res.data.token || res.data.role!=='CAJA')throw new Error('El servidor no autorizó una sesión de Caja. Usa la credencial de estación o una identidad de Google autorizada.');
+      // A response arriving after Cancel must not reopen Caja or change the route.
+      if(revision!==(STATE.cajaUnlockRevision || 0) || !$('cajaLockModal').classList.contains('open'))return;
       setSessionToken(res.data.token,'CAJA');
       sessionStorage.setItem('domus_caja_session','true');
       closeCajaLockModal();setMode('caja');syncBackendData();
     }catch(err){$('cajaPinError').textContent=err.message;}
+    finally{STATE.cajaUnlockPending=false;if(button)button.disabled=false;}
   }
 
   function lockCajaOnDevice() {
@@ -6359,6 +6367,9 @@ const DEFAULT_CATALOG = [
       const login = credential => transport_({action:'authCrearSesion',args:[role,operator,deviceId,credential],role,deviceId});
       sessionRequests.set(role, (async () => {
         let res = await login('');
+        // Explicit Caja unlock may have established this role while login was
+        // in flight. A stale rejection must not open a second credential modal.
+        const established=getSessionToken(role);if(established)return established;
         if (res && !res.ok) res = await login(await requestStationSecret_(role));
         if (!res || !res.ok || !res.data || !res.data.token) throw new Error('Acceso denegado: credencial de estación no válida.');
         setSessionToken(res.data.token, role);
@@ -7117,8 +7128,7 @@ const DEFAULT_CATALOG = [
     if (STATE.mode === 'accesos') {
       renderAccesosView();
     }
-    syncBackendData();
-    startPolling();
+    // Resolve routing before the initial view queries and polling.
   }
 
   function renderJourney_() {
@@ -7158,8 +7168,11 @@ const DEFAULT_CATALOG = [
   }
 
   function syncBackendData() {
-    // 1. Catálogo y cuentas de Caja en modo Caja (y lectura inicial autoritativa de fase de CAJA 2!F2)
-    if (STATE.mode === 'caja' || !STATE.phaseSyncedFromServer) {
+    // Caja's explicit unlock owns authentication while this dialog is open.
+    // Do not start background BARRA/CAJA prompts beneath it.
+    if($('cajaLockModal')?.classList.contains('open'))return;
+    // Phase is read with Caja's catalog, never by borrowing a KDS/access role.
+    if (STATE.mode === 'caja') {
       callBackend('cajaSimpleDatos', [], data => {
         STATE.journey=data.journey || {enabled:false,active:null};
         renderJourney_();
@@ -9639,6 +9652,7 @@ const DEFAULT_CATALOG = [
     bindEvent('btnCancelCajaUnlock', 'click', () => {
       closeCajaLockModal();
       setMode('comandas');
+      syncBackendData();
     });
 
     bindEvent('cajaPinInput', 'keydown', e => {
@@ -10191,6 +10205,8 @@ const DEFAULT_CATALOG = [
     }
     try {
       initRouting();
+      syncBackendData();
+      startPolling();
     } catch (e) {
       console.error('[DOMUS BOOT] Error en initRouting:', e);
     }
