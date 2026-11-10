@@ -150,7 +150,7 @@ function historyGuard_(m,id,action) {
 }
 function historyGuardIntent_(m,id,action,payload,deviceId) {
   if(action==='registrarLimiteHistorico' && payload && payload.isolationMode===stagingIsolationMode_())stagingIsolationRegistrationGuard_(m,id,deviceId);
-  const b=historyGuard_(m,id,action);if(!b)return;
+  const b=historyGuard_(m,id,action);if(!b)return null;
   const p=payload || {},deny=()=>{throw historyError_('La intención apunta a un origen retenido. Conservarlo; no registrarlo de nuevo.');};
   if(b.result.snapshot.isolation) {
     // The approved administrative body can cite its own evidence. Its retry is
@@ -166,6 +166,16 @@ function historyGuardIntent_(m,id,action,payload,deviceId) {
       if(item && 'DCS-'+item.row+'-'+(item.batch || item.id)===p.key && b.ids.has(String(item.batch || item.id)))deny();
     });
   }
+  return b;
+}
+function historyGuardPrepared_(m,id,action,plan,result,boundary) {
+  const b=boundary===undefined?historyGuard_(m,id,action):boundary;
+  if(!b || !b.result.snapshot.isolation)return;
+  // The one administrative record necessarily contains its approved inventory;
+  // historyBoundary_ separately verifies its empty plan and exact durable result.
+  if(action==='registrarLimiteHistorico' && id===b.result.boundaryId && plan.length===0)return;
+  if(stagingIsolationContains_([plan,result],Array.from(b.ids)))
+    throw historyError_('El plan o resultado contiene una referencia retenida. No se preparó esta operación; revisar el origen sin sustituir identidades.');
 }
 function historyOperationalIndex_(m) {
   const index=paymentRequestIndex_(m),b=historyBoundary_(m);

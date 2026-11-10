@@ -2,6 +2,8 @@
 
 Implementado y probado con servicios en memoria; **sin instalar ni activar**. Base `464cbc2eee17d2a04d643e5e708de043d9d46215`; frontend conservado en `20261110-station-routing-19`. No se consultaron datos operativos de Google en este tramo, no se ejecutó el harness histórico ni se reenviaron intenciones. La revisión de Gemini/Antigravity de versiones anteriores no acredita este cambio.
 
+> Actualización posterior: [validación de salidas añadidas por servidor](STAGING_PREPARED_OUTPUT_20261110.md). La auditoría confirmó los tres fixes de 80cfd82 y reprodujo un residual por operador/shiftId generado. No activar 80cfd82; revisar la corrección posterior.
+
 ## Correcciones tras auditoría de cc64e62
 
 La CI de `cc64e62` fue verde (61/61 pasos), pero no cubría tres casos reproducidos posteriormente. **No activar esa versión.** La revisión independiente continúa; estas correcciones no equivalen a su aprobación final.

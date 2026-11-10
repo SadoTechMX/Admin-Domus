@@ -229,14 +229,24 @@ function assertNoUnboundHistory_(requestId, action, m) {
  * 3. Rechazo inmediato con 409 IDEMPOTENCY_KEY_REUSED si un requestId se reutiliza con distinto payload
  * 4. Registro continuo de estados: PROCESSING -> COMPLETED / FAILED / REQUIRES_REVIEW
  */
+// In scoped staging custody, these financial handlers only read/build a plan
+// before journalCommit_. Keep this list explicit; a handler with earlier writes
+// must not enter deferred preparation. Existing bindings never take this path.
+let _deferredRequestBinding = null;
+function requestBindBeforeJournal_(id,action,m) {
+  const binding=_deferredRequestBinding;if(!binding)return;
+  if(binding.id!==id || binding.action!==action || binding.book!==m.getId())throw historyError_('Plan ajeno a la intención en preparación.');
+  binding.bind();
+}
 function idempotentExecute_(requestId, action, payload, deviceId, fn) {
   const cleanReqId = requestRootIdAssert_(requestId);
   const currentPayloadHash = computePayloadHash_({ action: action, payload: payload });
   const devId = String(deviceId || '');
   if (!devId) throw new Error('DEVICE_ID_REQUIRED');
   return withLock_(CONFIG.lockTimeoutMs, () => {
+    if(_deferredRequestBinding)throw historyError_('No se admite otra intención dentro de una preparación pendiente.');
     const m = SpreadsheetApp.openById(CONFIG.mainSheetId);
-    historyGuardIntent_(m,cleanReqId,action,payload,devId); // Before lookup, ACK, binding or any journal replay.
+    const boundary=historyGuardIntent_(m,cleanReqId,action,payload,devId); // Before lookup, ACK, binding or any journal replay.
     const prior = findRequestRecord_(cleanReqId, m);
     if (prior && (prior.payloadHash !== currentPayloadHash || prior.action !== action || prior.deviceId !== devId)) {
       const err = new Error('IDEMPOTENCY_KEY_REUSED'); err.status = 409; err.code = 'IDEMPOTENCY_KEY_REUSED'; throw err;
@@ -284,15 +294,32 @@ function idempotentExecute_(requestId, action, payload, deviceId, fn) {
     if(action==='comandasSimpleAccion')kdsAssertDeliveryRequest_(payload,m,false);
     const record = {requestId: cleanReqId, action: action, payloadHash: currentPayloadHash,
       deviceId: devId, status: REQUEST_STATUS.PROCESSING, createdAt: new Date().toISOString(), response: null};
-    saveRequestRecord_(record, m);
+    const defer=!!(boundary && boundary.result.snapshot.isolation && ['turnoAbrir','corteZCerrar','cajaSimpleRegistrar',
+      'confirmarTransferencia','cancelarTransferenciaNoRecibida','vincularPagoExistente','comandasSimpleAccion'].includes(action));
+    const binding={id:cleanReqId,action:action,book:m.getId(),started:false,bind:()=>{
+      if(binding.started)return;
+      binding.started=true; // A write/flush failure is uncertainty, never a safe unbound rejection.
+      saveRequestRecord_(record,m);
+    }};
+    if(defer)_deferredRequestBinding=binding;else saveRequestRecord_(record, m);
     try {
-      const result = fn();
+      const output = fn(),result=defer?JSON.parse(JSON.stringify(output)):output;
+      if(defer) {
+        // Also cover legitimate read-only early returns without journalCommit_.
+        historyGuardPrepared_(m,cleanReqId,action,[],JSON.stringify(result));
+        binding.bind();
+      }
       record.status = REQUEST_STATUS.COMPLETED; record.response = result;
       record.completedAt = new Date().toISOString(); saveRequestRecord_(record, m); return result;
     } catch (err) {
-      record.status = REQUEST_STATUS.REQUIRES_REVIEW;
-      record.response = {error: String(err.message || err), code: err.code || '', status: err.status || 500};
-      record.completedAt = new Date().toISOString(); saveRequestRecord_(record, m); throw err;
+      if(!defer || binding.started) {
+        record.status = REQUEST_STATUS.REQUIRES_REVIEW;
+        record.response = {error: String(err.message || err), code: err.code || '', status: err.status || 500};
+        record.completedAt = new Date().toISOString(); saveRequestRecord_(record, m);
+      }
+      throw err;
+    } finally {
+      if(defer)_deferredRequestBinding=null;
     }
   });
 }

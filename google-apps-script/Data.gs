@@ -105,13 +105,13 @@ function journalFind_(id, m) {
 
 function journalResume_(id, action, m) {
   requestRootIdAssert_(id); // A caller cannot resume an internal JOURNAL_PART as a root.
-  historyGuard_(m,id,action); // Includes direct readers/recovery paths outside the dispatcher.
+  const boundary=historyGuard_(m,id,action); // Includes direct readers/recovery paths outside the dispatcher.
   requestRecordEntry_(m.getSheetByName('REQUESTS') || m.getSheetByName('TRANSACCIONES_API'),id);
   const record=journalFind_(id,m);
   if(!record)return null;
   if(record.data[1]!==action)throw new Error('IDEMPOTENCY_KEY_REUSED');
   const result=JSON.parse(record.data[4]);
-  if(record.data[2]==='COMPLETED')return result;
+  if(record.data[2]==='COMPLETED' && (!boundary || !boundary.result.snapshot.isolation))return result;
   const descriptor=JSON.parse(record.data[3]);
   let plan;
   if(Array.isArray(descriptor))plan=descriptor;
@@ -123,6 +123,8 @@ function journalResume_(id, action, m) {
       plan.push(...JSON.parse(chunks[0][3]));
     }
   }
+  historyGuardPrepared_(m,id,action,plan,record.data[4],boundary);
+  if(record.data[2]==='COMPLETED')return result;
   activityValidateJournal_(plan,m);
   const comparable=v=>v instanceof Date?v.toISOString():v;
   plan.forEach(w=>{
@@ -143,15 +145,25 @@ function journalResume_(id, action, m) {
   return result;
 }
 
+function journalValidateValues_(write,rules) {
+  write.values[0].forEach((value,i)=>{
+    const rule=rules[i];
+    if(rule && rule.getAllowInvalid()===false && !(typeof value==='string' && value[0]==='=')) {
+      const kind=String(rule.getCriteriaType()),args=rule.getCriteriaValues();
+      if(kind==='VALUE_IN_LIST' && !args[0].map(String).includes(String(value)))throw new Error('SCHEMA_VALIDATION: '+write.sheet+':'+write.row);
+      if(kind==='VALUE_IN_RANGE' && !args[0].getValues().flat().map(String).includes(String(value)))throw new Error('SCHEMA_VALIDATION: '+write.sheet+':'+write.row);
+    }
+  });
+}
+
 function journalCommit_(id, action, m, writes, result) {
   requestRootIdAssert_(id); // Before lookup, journal creation, row growth or preparation.
   const old=journalResume_(id,action,m);if(old)return old;
   activityValidateJournal_(writes,m);
-  const s=journalSheet_(m);
-  if(journalRows_(s).some(r=>journalRowHasContent_(r) && r[2]!=='COMPLETED'))throw new Error('JOURNAL_RECOVERY_REQUIRED: resolver intención previa antes de continuar.');
+  if(journalRows_(m.getSheetByName('DOMUS_JOURNAL')).some(r=>journalRowHasContent_(r) && r[2]!=='COMPLETED'))throw new Error('JOURNAL_RECOVERY_REQUIRED: resolver intención previa antes de continuar.');
   const seen=new Set();
   const sorted=writes.slice().sort((a,b)=>String(a.book+a.sheet).localeCompare(String(b.book+b.sheet)) || a.row-b.row || a.column-b.column);
-  const groups=[];
+  const groups=[],newRows=[];
   sorted.forEach(w=>{
     const key=w.book+':'+w.sheet+':'+w.row+':'+w.column;
     if(seen.has(key))throw new Error('JOURNAL_DUPLICATE_CELL: '+key);seen.add(key);
@@ -161,19 +173,15 @@ function journalCommit_(id, action, m, writes, result) {
   });
   groups.forEach(w=>{
     const target=(w.book && w.book!==m.getId()?SpreadsheetApp.openById(w.book):m).getSheetByName(w.sheet);
-    if(w.row>target.getMaxRows())target.insertRowsAfter(target.getMaxRows(),w.row-target.getMaxRows());
-    const range=target.getRange(w.row,w.column,1,w.raw.length),oldValues=range.getValues()[0],formulas=range.getFormulas()[0],rules=range.getDataValidations()[0];
+    // Rows outside the current grid are blank. Do not grow a sheet before the
+    // complete serialized plan/result has passed the custody guard.
+    const range=w.row<=target.getMaxRows()?target.getRange(w.row,w.column,1,w.raw.length):null;
+    if(!range)newRows.push(w);
+    const oldValues=range?range.getValues()[0]:w.raw.map(()=>''),formulas=range?range.getFormulas()[0]:w.raw.map(()=>''),rules=range?range.getDataValidations()[0]:w.raw.map(()=>null);
     w.beforeValues=[oldValues.map((v,i)=>formulas[i] || (v instanceof Date?v.toISOString():v))];
     w.types=[w.raw.map(v=>v instanceof Date?'date':null)];
     w.values=[w.raw.map(v=>v instanceof Date?v.toISOString():v)];delete w.raw;
-    w.values[0].forEach((value,i)=>{
-      const rule=rules[i];
-      if(rule && rule.getAllowInvalid()===false && !(typeof value==='string' && value[0]==='=')) {
-        const kind=String(rule.getCriteriaType()),args=rule.getCriteriaValues();
-        if(kind==='VALUE_IN_LIST' && !args[0].map(String).includes(String(value)))throw new Error('SCHEMA_VALIDATION: '+w.sheet+':'+w.row);
-        if(kind==='VALUE_IN_RANGE' && !args[0].getValues().flat().map(String).includes(String(value)))throw new Error('SCHEMA_VALIDATION: '+w.sheet+':'+w.row);
-      }
-    });
+    journalValidateValues_(w,rules);
   });
   const chunks=[];let chunk=[];
   groups.forEach(w=>{
@@ -181,9 +189,19 @@ function journalCommit_(id, action, m, writes, result) {
     chunk.push(w);
   });
   if(chunk.length)chunks.push(chunk);
+  const resultJson=JSON.stringify(result),planJson=chunks.map(part=>JSON.stringify(part));
+  historyGuardPrepared_(m,id,action,planJson,resultJson);
+  requestBindBeforeJournal_(id,action,m); // Bind only the accepted financial preparation, still under the same lock.
+  const s=journalSheet_(m);
+  groups.forEach(w=>{
+    const target=(w.book && w.book!==m.getId()?SpreadsheetApp.openById(w.book):m).getSheetByName(w.sheet);
+    if(w.row>target.getMaxRows())target.insertRowsAfter(target.getMaxRows(),w.row-target.getMaxRows());
+    // Newly inserted rows may inherit validation. Never bypass their real rules.
+    if(newRows.includes(w))journalValidateValues_(w,target.getRange(w.row,w.column,1,w.values[0].length).getDataValidations()[0]);
+  });
   const now=new Date().toISOString();
-  const rows=[[id,action,'PREPARED',JSON.stringify({parts:chunks.length}),JSON.stringify(result),now]];
-  chunks.forEach((part,i)=>rows.push([id+'#part:'+i,'JOURNAL_PART','COMPLETED',JSON.stringify(part),'',now]));
+  const rows=[[id,action,'PREPARED',JSON.stringify({parts:chunks.length}),resultJson,now]];
+  planJson.forEach((part,i)=>rows.push([id+'#part:'+i,'JOURNAL_PART','COMPLETED',part,'',now]));
   const start=s.getLastRow()+1;if(start+rows.length-1>s.getMaxRows())s.insertRowsAfter(s.getMaxRows(),start+rows.length-1-s.getMaxRows());
   // One durable preparation batch, including all chunks, before any business effect.
   s.getRange(start,1,rows.length,6).setValues(rows);SpreadsheetApp.flush();
