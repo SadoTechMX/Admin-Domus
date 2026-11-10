@@ -3,6 +3,12 @@
 const {chromium}=require('playwright'),http=require('http'),fs=require('fs'),path=require('path'),assert=require('assert/strict');
 const {fixture}=require('./staging_opening_isolation_regressions'),root=path.resolve(__dirname,'..');
 const copy=v=>JSON.parse(JSON.stringify(v));
+// Synthetic identities only. The real 15 pairs/archives remain on the iMac;
+// this fixture proves exact preservation, not a cotejo of that private evidence.
+const retainedArchive=Array.from({length:15},(_,i)=>({requestId:'SYNTHETIC-held-'+String(i).padStart(2,'0')+(i===14?'_ñ"<>':''),
+ action:i%3===0?'comandasSimpleAccion':'cajaSimpleRegistrar',status:i===14?'CONFIRMED':'REQUIRES_REVIEW',
+ args:[{customer:'PRIVATE_CUSTOMER_DO_NOT_EXPORT',sessionToken:'PRIVATE_ARCHIVE_TOKEN_DO_NOT_EXPORT'}]}));
+const retainedPairs=retainedArchive.map(({requestId,action})=>({requestId,action}));
 const snapshot=b=>JSON.stringify([b.main,b.ops].map(book=>[book.id,[...book.sheets].map(([n,s])=>[n,[...s.cells],[...s.rules]])]));
 const server=http.createServer((req,res)=>{
  const p=new URL(req.url,'http://localhost').pathname,file=path.resolve(root,'.'+(p==='/'?'/index.html':p));
@@ -15,6 +21,7 @@ const server=http.createServer((req,res)=>{
  try{
   async function pageFixture(options={}){
    const b=fixture('STAGING');if(options.denied)b.ctx.Session.getActiveUser=()=>({getEmail:()=> 'unprivileged@example.invalid'});
+   if(options.activeJournal)b.ctx.journalSheet_(b.main).appendRow(['SYNTHETIC-active-journal','cajaSimpleRegistrar','PREPARED','[]','{}','2026-11-10T00:00:00.000Z']);
    const before=snapshot(b),props=new Map(b.props),calls=[],errors=[];let printCalls=0;
    // A query must never enter a financial write, replay, binding or row growth.
    const denied=()=>assert.fail('QUERY_ATTEMPTED_WRITE_OR_REPLAY');
@@ -50,7 +57,8 @@ const server=http.createServer((req,res)=>{
    t.storage=await page.evaluate(()=>JSON.stringify({...localStorage}));
    t.fill=async()=>{
     await page.locator('#proposalBackupReference').fill('PRIVATE MOCK archive');await page.locator('#proposalBackupHash').fill('b'.repeat(64));
-    await page.locator('#proposalEvidence').fill('PRIVATE MOCK inventory');await page.locator('#proposalStations').fill('fixture-device\nTEST-DEV-PHASE1');
+    await page.locator('#proposalEvidence').fill('PRIVATE MOCK inventory');await page.locator('#proposalManifestHash').fill('a'.repeat(64));
+    await page.locator('#proposalRetainedCount').fill('0');await page.locator('#proposalStations').fill('fixture-device\nTEST-DEV-PHASE1');
     await page.locator('#proposalQueue').fill('[]');await page.locator('#proposalScopeReviewed').check();
    };
    t.submit=()=>page.locator('#proposalSubmit').click();
@@ -74,6 +82,10 @@ const server=http.createServer((req,res)=>{
    assert((await p.locator('#proposalSummary').innerText()).includes('IDs históricos: 9'));
    const downloadPromise=p.waitForEvent('download');await p.locator('#proposalDownload').click();const dl=await downloadPromise;
    const raw=fs.readFileSync(await dl.path(),'utf8'),d=JSON.parse(raw);
+   assert.equal(d.format,'DOMUS_STAGING_FRESH_START_PROPOSAL_V2');
+   assert.deepEqual(d.retainedInventory,{kind:'DOMUS_RETAINED_INVENTORY_V1',destination:'UNKNOWN',resolved:false,retainedCount:0,
+    manifest:{reference:'PRIVATE MOCK inventory',sha256:'a'.repeat(64)}});
+   assert.equal(d.input.evidenceReference,'RETAINED_UNKNOWN_V1|'+'a'.repeat(64)+'|0|PRIVATE MOCK inventory');
    assert.equal(d.proposal.kind,'STAGING_FRESH_START_PROPOSAL');assert.equal(d.proposal.canActivate,false);assert.equal(d.proposal.snapshotHash,t.b.ctx.historyHash_(d.proposal.snapshot));
    assert(!/sessionToken|fixture-secret|fixture-cashier-token|DOMUS_STAGING_FRESH_START_APPROVAL_V1/.test(raw));
    const tokens=await p.evaluate(()=>Object.entries(sessionStorage).filter(([k])=>k.includes('token')).map(([,v])=>v));for(const token of tokens)assert(!raw.includes(token));
@@ -86,11 +98,51 @@ const server=http.createServer((req,res)=>{
    assert.equal(t.calls.length,count);assert.equal(await p.locator('#proposalDownload').isDisabled(),true);assert.equal(await p.locator('#proposalBackupHash').inputValue(),'');
    await t.check();passed++;console.log('PASS reload/online do not query, migrate, replay, cache proposal or print');await t.context.close();
   }
+  {
+   const original=JSON.stringify(retainedArchive),t=await pageFixture(),p=t.page;await t.fill();
+   await p.locator('#proposalRetainedCount').fill('15');await p.locator('#proposalQueue').fill(JSON.stringify(retainedPairs));await t.submit();
+   await p.waitForFunction(()=>!document.getElementById('proposalDownload').disabled);
+   assert.deepEqual(t.calls.map(c=>c.action),['health','authCrearSesion','prepararLimiteHistorico']);
+   const sent=t.calls[2].args[0];assert.deepEqual(sent.queue,retainedPairs);
+   assert.equal(sent.evidenceReference,'RETAINED_UNKNOWN_V1|'+'a'.repeat(64)+'|15|PRIVATE MOCK inventory');
+   assert(sent.evidenceReference.length<=200);
+   const download=p.waitForEvent('download');await p.locator('#proposalDownload').click();
+   const raw=fs.readFileSync(await (await download).path(),'utf8'),d=JSON.parse(raw);
+   assert.equal(d.retainedInventory.destination,'UNKNOWN');assert.equal(d.retainedInventory.retainedCount,15);
+   assert.equal(d.retainedInventory.manifest.sha256,'a'.repeat(64));assert.deepEqual(d.input.queue,retainedPairs);
+   assert.deepEqual(d.proposal.snapshot.queue,retainedPairs.slice().sort((a,b)=>a.requestId.localeCompare(b.requestId)));
+   assert.equal(d.proposal.snapshot.counts.queueIds,15);assert.equal(d.proposal.snapshot.counts.queueAbsent,15);
+   assert.equal(d.proposal.snapshot.evidenceReference,sent.evidenceReference);assert.equal(d.proposal.snapshotHash,t.b.ctx.historyHash_(d.proposal.snapshot));
+   assert.equal(d.proposal.canActivate,false);assert.equal(d.proposal.resolved,false);assert.equal(d.proposal.financialFinal,false);
+   assert(!/PRIVATE_CUSTOMER|PRIVATE_ARCHIVE_TOKEN|sessionToken|fixture-cashier-token|confirmStationsHeld|DOMUS_STAGING_FRESH_START_APPROVAL_V1/.test(raw));
+   const tokens=await p.evaluate(()=>Object.entries(sessionStorage).filter(([k])=>k.includes('token')).map(([,v])=>v));for(const token of tokens)assert(!raw.includes(token));
+   assert((await p.locator('#proposalSummary').innerText()).includes('UNKNOWN (sin atribuir a staging)'));
+   assert.equal(JSON.stringify(retainedArchive),original);await t.check();passed++;
+   console.log('PASS 15 exact synthetic pairs (14 review + 1 local confirmation) retained without destination inference, credentials, bodies, replay, ledger or business writes');
+   await p.locator('#proposalManifestHash').fill('c'.repeat(64));assert(await p.locator('#proposalDownload').isDisabled());await t.submit();
+   await p.waitForFunction(()=>!document.getElementById('proposalDownload').disabled);
+   const second=p.waitForEvent('download');await p.locator('#proposalDownload').click();const changed=JSON.parse(fs.readFileSync(await (await second).path(),'utf8'));
+   assert.notEqual(changed.proposal.snapshotHash,d.proposal.snapshotHash);assert.equal(changed.retainedInventory.manifest.sha256,'c'.repeat(64));
+   assert.deepEqual(changed.input.queue,retainedPairs);await t.check();passed++;console.log('PASS manifest fingerprint is bound into server snapshot; edits invalidate download and require a new read');await t.context.close();
+  }
+  {
+   const t=await pageFixture({activeJournal:true});await t.fill();await t.page.locator('#proposalRetainedCount').fill('15');
+   await t.page.locator('#proposalQueue').fill(JSON.stringify(retainedPairs));await t.submit();
+   await t.page.waitForFunction(()=>!document.getElementById('proposalSubmit').disabled);
+   assert((await t.page.locator('#proposalStatus').innerText()).includes('journal incompleto'));
+   assert.equal(await t.page.locator('#proposalDownload').isDisabled(),true);await t.check();passed++;
+   console.log('PASS an active journal still blocks a proposal with 15 unknown retained IDs; no recovery or writes attempted');await t.context.close();
+  }
   for(const options of [{environment:'PRODUCTION'},{native:false},{queue:'[{"clientContract":"domus-outbox-v2","requestId":"prior","status":"RETRY"}]'},{queue:'broken-json'},{pending:true},{hold:true}]){
    const t=await pageFixture(options);assert.equal(await t.page.locator('#proposalSubmit').isDisabled(),true);assert.equal(t.calls.length,0);await t.check();
    passed++;console.log('PASS non-staging/non-native/pending profile blocked with zero traffic and original storage intact');await t.context.close();
   }
-  for(const change of [p=>p.locator('#proposalBackupHash').fill('bad'),p=>p.locator('#proposalQueue').fill('[{"requestId":"x","action":"cajaSimpleRegistrar","sessionToken":"DO_NOT_ACCEPT"}]'),p=>p.locator('#proposalScopeReviewed').uncheck()]){
+  for(const change of [p=>p.locator('#proposalBackupHash').fill('bad'),p=>p.locator('#proposalQueue').fill('[{"requestId":"x","action":"cajaSimpleRegistrar","sessionToken":"DO_NOT_ACCEPT"}]'),p=>p.locator('#proposalScopeReviewed').uncheck(),
+   p=>p.locator('#proposalManifestHash').fill('bad'),p=>p.locator('#proposalEvidence').fill('ambiguous|reference'),
+   p=>p.locator('#proposalRetainedCount').fill('15'),
+   async p=>{await p.locator('#proposalRetainedCount').fill('15');await p.locator('#proposalQueue').fill(JSON.stringify(retainedPairs.slice(0,14)));},
+   async p=>{await p.locator('#proposalRetainedCount').fill('2');await p.locator('#proposalQueue').fill(JSON.stringify([retainedPairs[0],{...retainedPairs[0],action:'cajaSimpleRegistrar'}]));},
+   async p=>{await p.locator('#proposalRetainedCount').fill('15');await p.locator('#proposalQueue').fill(JSON.stringify(retainedPairs.map(q=>({...q,destination:'STAGING'}))));}]){
    const t=await pageFixture();await t.fill();await change(t.page);await t.submit();await t.page.waitForTimeout(75);assert.equal(t.calls.length,0);assert.equal(await t.page.locator('#proposalDownload').isDisabled(),true);await t.check();
    passed++;console.log('PASS incomplete/unsafe input rejected before authentication or query');await t.context.close();
   }
@@ -99,26 +151,30 @@ const server=http.createServer((req,res)=>{
    assert.deepEqual(t.calls.map(c=>c.action),['health','authCrearSesion']);assert.equal(await t.page.locator('input[type=password]').count(),0);assert.equal(await t.page.locator('#proposalDownload').isDisabled(),true);
    await t.check();passed++;console.log('PASS unauthorized principal denied; no credential prompt, role widening, proposal or writes');await t.context.close();
   }
-  for(const kind of ['health-build','health-book','empty','hash','different-backup','activatable']){
+  for(const kind of ['health-build','health-book','empty','hash','different-backup','activatable','different-manifest','omitted-pair']){
    const t=await pageFixture({respond:(p,r)=>{
     if(p.action==='health'&&kind==='health-build')r.data.build.sourceSha256='c'.repeat(64);
     if(p.action==='health'&&kind==='health-book')r.data.mainSheetId='OTHER';
     if(p.action==='prepararLimiteHistorico'){
      if(kind==='empty')r.data={};if(kind==='hash')r.data.snapshotHash='c'.repeat(64);if(kind==='different-backup')r.data.snapshot.freshStart.backup.reference='OTHER';if(kind==='activatable')r.data.canActivate=true;
+     if(kind==='different-manifest'){r.data.snapshot.evidenceReference=r.data.snapshot.evidenceReference.replace('a'.repeat(64),'c'.repeat(64));r.data.snapshotHash=t.b.ctx.historyHash_(r.data.snapshot);}
+     if(kind==='omitted-pair'){r.data.snapshot.queue.pop();r.data.snapshot.counts.queueIds--;r.data.snapshot.counts.queueAbsent--;r.data.snapshotHash=t.b.ctx.historyHash_(r.data.snapshot);}
     }return r;
-   }});await t.fill();await t.submit();await t.page.waitForFunction(()=>!document.getElementById('proposalSubmit').disabled);
+   }});await t.fill();if(kind==='omitted-pair'){await t.page.locator('#proposalRetainedCount').fill('15');await t.page.locator('#proposalQueue').fill(JSON.stringify(retainedPairs));}
+   await t.submit();await t.page.waitForFunction(()=>!document.getElementById('proposalSubmit').disabled);
    assert.equal(await t.page.locator('#proposalDownload').isDisabled(),true);if(kind.startsWith('health')){
     assert.equal(t.calls.length,1);assert((await t.page.locator('#proposalStatus').innerText()).includes('Identidad de backend incompatible'));
    }
    await t.check();passed++;console.log('PASS incompatible health or incomplete/tampered proposal cannot be downloaded: '+kind);await t.context.close();
   }
-  for(const change of ['form','queue','none']){
+  for(const change of ['form','manifest','queue','none']){
    const t=await pageFixture();t.block=new Promise(resolve=>t.release=resolve);await t.fill();await t.submit();
    await t.page.waitForFunction(()=>document.getElementById('proposalSubmit').disabled);
    for(let n=0;n<200&&!t.calls.some(p=>p.action==='prepararLimiteHistorico');n++)await new Promise(r=>setTimeout(r,10));
    assert(t.calls.some(p=>p.action==='prepararLimiteHistorico'),'read must reach the mocked backend');
    await t.page.locator('#proposalForm').evaluate(form=>form.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true})));
    if(change==='form')await t.page.locator('#proposalEvidence').fill('Changed during request');
+   if(change==='manifest')await t.page.locator('#proposalManifestHash').fill('c'.repeat(64));
    if(change==='queue'){
     await t.page.evaluate(()=>{localStorage.setItem('domus_outbox','[{"requestId":"arrived","clientContract":"domus-outbox-v2","status":"RETRY"}]');window.dispatchEvent(new Event('online'));});
     t.storage=await t.page.evaluate(()=>JSON.stringify({...localStorage}));

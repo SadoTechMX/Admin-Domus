@@ -3841,7 +3841,7 @@ html, body {
   window.DOMUS_BUILD = {
     baseCommit: '2b7ba1f4030b1013555b93cb96cfcb594141fdcb',
     buildId: 'repair-reconcile-20261105',
-    ui: '20261110-staging-proposal-20',
+    ui: '20261110-retained-inventory-21',
     environment: isProductionLocked ? 'PRODUCTION' : 'STAGING'
   };
 
@@ -10219,17 +10219,32 @@ const DEFAULT_CATALOG = [
 
   function stagingProposalInput_() {
     const text=id=>$(id).value.trim(),valid=v=>typeof v==='string' && v.length>0 && v.length<=200 && v.trim()===v;
-    const reference=text('proposalBackupReference'),sha256=text('proposalBackupHash'),evidenceReference=text('proposalEvidence');
+    const reference=text('proposalBackupReference'),sha256=text('proposalBackupHash'),manifestReference=text('proposalEvidence'),manifestHash=text('proposalManifestHash');
+    const retainedCount=text('proposalRetainedCount');
     const stationDeviceIds=text('proposalStations').split(/\r?\n/).map(v=>v.trim()).filter(Boolean);
     let queue;try{queue=JSON.parse(text('proposalQueue'));}catch(_){throw new Error('El inventario de cola debe ser un array JSON de requestId y action.');}
-    if(!valid(reference) || !/^[a-f0-9]{64}$/.test(sha256) || !valid(evidenceReference))throw new Error('Completa referencias privadas y SHA-256 real del respaldo verificado.');
+    if(!valid(reference) || !/^[a-f0-9]{64}$/.test(sha256))throw new Error('Completa referencia privada y SHA-256 real del respaldo verificado.');
+    if(!valid(manifestReference) || manifestReference.length>100 || /[|\u0000-\u001f\u007f\u2028\u2029]/.test(manifestReference) || !/^[a-f0-9]{64}$/.test(manifestHash))
+      throw new Error('Completa referencia del manifiesto (hasta 100 caracteres, sin | ni saltos) y su SHA-256 real. No pegues su contenido.');
     if(!stationDeviceIds.length || stationDeviceIds.some(v=>!valid(v)) || new Set(stationDeviceIds).size!==stationDeviceIds.length)
       throw new Error('Indica los dispositivos del mapa e inventario de staging, uno por línea y sin duplicados.');
     if(!Array.isArray(queue) || queue.length>500 || queue.some(q=>!q || Array.isArray(q) || Object.keys(q).sort().join(',')!=='action,requestId' || !valid(q.requestId) || !valid(q.action)) ||
         new Set(queue.map(q=>q.requestId)).size!==queue.length)throw new Error('Cada entrada requiere sólo requestId y action originales, sin duplicados. No pegues cuerpos de venta ni credenciales.');
-    if(!$('proposalScopeReviewed').checked)throw new Error('Confirma que cotejaste el destino de las colas. Ausencia en REQUESTS no significa ausencia de efectos.');
+    if(!/^(0|[1-9]\d{0,2})$/.test(retainedCount) || Number(retainedCount)!==queue.length)
+      throw new Error('La cantidad del manifiesto debe coincidir con todos los pares retenidos. No omitas destinos desconocidos ni confirmaciones locales.');
+    if(!$('proposalScopeReviewed').checked)throw new Error('Confirma el inventario completo contra el manifiesto y la custodia de los originales. No se acredita destino ni ausencia de efectos.');
+    // Existing backend hashes this entire reference with the exact retained IDs.
+    // No new backend field, destination inference or activation authority.
+    const evidenceReference='RETAINED_UNKNOWN_V1|'+manifestHash+'|'+retainedCount+'|'+manifestReference;
     return {isolationMode:'STAGING_FRESH_START_V1',backup:{reference,sha256},evidenceReference,stationDeviceIds,
       queue:queue.map(q=>({requestId:q.requestId,action:q.action}))};
+  }
+
+  function stagingRetainedInventory_(input) {
+    const match=/^RETAINED_UNKNOWN_V1\|([a-f0-9]{64})\|(0|[1-9]\d{0,2})\|([^|\u0000-\u001f\u007f\u2028\u2029]{1,100})$/.exec(input.evidenceReference);
+    if(!match || Number(match[2])!==input.queue.length)throw new Error('Vínculo del manifiesto incompatible con el inventario retenido.');
+    return {kind:'DOMUS_RETAINED_INVENTORY_V1',destination:'UNKNOWN',resolved:false,retainedCount:input.queue.length,
+      manifest:{reference:match[3],sha256:match[1]}};
   }
 
   function canonicalProposalJson_(v) {
@@ -10259,6 +10274,7 @@ const DEFAULT_CATALOG = [
 
   async function requestStagingProposal_(input) {
     assertStagingProposalContext_();
+    const retainedInventory=stagingRetainedInventory_(input);
     // Pin the supported V13 backend; this UI update needs no backend replacement.
     const backendHash='4e62e02993a8ec7d69cbe8e97aaa32bf90bfdff4cde13de9928463e23230460a';
     const deviceId=getDeviceId(),health=await transport_({action:'health',args:[],role:'GERENCIA',deviceId}),d=health && health.data;
@@ -10270,7 +10286,8 @@ const DEFAULT_CATALOG = [
     if(!response || response.ok!==true)throw new Error(response && response.error || 'No se pudo consultar la propuesta.');
     const proposal=await checkedStagingProposal_(response.data,input,backendHash);
     assertStagingProposalContext_();
-    return {format:'DOMUS_STAGING_FRESH_START_PROPOSAL_V1',exportedAt:new Date().toISOString(),frontend:window.DOMUS_BUILD.ui,input:JSON.parse(JSON.stringify(input)),proposal};
+    return {format:'DOMUS_STAGING_FRESH_START_PROPOSAL_V2',exportedAt:new Date().toISOString(),frontend:window.DOMUS_BUILD.ui,
+      retainedInventory,input:JSON.parse(JSON.stringify(input)),proposal};
   }
 
   function renderStagingProposal_() {
@@ -10279,11 +10296,13 @@ const DEFAULT_CATALOG = [
       '<p id="proposalStatus" role="status">Completa el inventario cotejado. La consulta usará tu sesión normal de Gerencia y comprobará el backend.</p>'+
       '<form id="proposalForm"><label>Referencia privada del respaldo<input id="proposalBackupReference" maxlength="200" required></label><br>'+
       '<label>SHA-256 del respaldo<input id="proposalBackupHash" maxlength="64" required spellcheck="false"></label><br>'+
-      '<label>Referencia privada del inventario y custodia<input id="proposalEvidence" maxlength="200" required></label><br>'+
+      '<label>Referencia privada del manifiesto de custodia<input id="proposalEvidence" maxlength="100" required></label><br>'+
+      '<label>SHA-256 del manifiesto<input id="proposalManifestHash" maxlength="64" required spellcheck="false"></label><br>'+
+      '<label>Total de intenciones retenidas según el manifiesto<input id="proposalRetainedCount" type="number" min="0" max="500" step="1" required></label><br>'+
       '<label>Dispositivos del mapa e inventario de staging, uno por línea<textarea id="proposalStations" rows="4" required spellcheck="false"></textarea></label>'+
-      '<p id="proposalDevice"></p><label>Colas con destino staging verificado: array JSON de requestId/action<textarea id="proposalQueue" rows="5" required spellcheck="false" placeholder="Escribe [] sólo si el inventario acredita que no hay colas de staging"></textarea></label>'+
-      '<label><input id="proposalScopeReviewed" type="checkbox">Cotejé el destino de las colas. Las productivas o de origen incierto permanecen retenidas por separado.</label>'+
-      '<p>No pegues tokens, claves ni cuerpos de ventas. Vaciar este formulario no modifica las colas originales.</p>'+
+      '<p id="proposalDevice"></p><label>Intenciones retenidas sin atribuir destino (UNKNOWN): pares originales requestId/action<textarea id="proposalQueue" rows="5" required spellcheck="false" placeholder="Incluye todas las retenidas, aun con destino desconocido o CONFIRMED local. [] sólo con inventario retenido realmente vacío."></textarea></label>'+
+      '<label><input id="proposalScopeReviewed" type="checkbox">Cotejé el inventario completo con el manifiesto y mantengo los originales bajo custodia, sin reenvío. Incluí destinos desconocidos y confirmaciones locales; no afirmo que sean de staging ni que carezcan de efectos.</label>'+
+      '<p>La huella enlaza el manifiesto; esta pantalla no lee ni verifica su archivo. No pegues tokens, claves, manifiestos completos ni cuerpos de ventas. Vaciar el formulario no modifica las colas originales. Consultar no bloquea todavía esos IDs en el servidor.</p>'+
       '<button id="proposalSubmit" type="submit">Consultar propuesta · Gerencia</button></form>'+
       '<pre id="proposalSummary" style="white-space:pre-wrap;overflow-wrap:anywhere"></pre><button id="proposalDownload" type="button" disabled>Descargar propuesta privada</button>'+
       '<p>La aprobación y activación se realizan por separado. Este documento no acredita ingresos, saldos o entregas.</p></main>';
@@ -10300,7 +10319,9 @@ const DEFAULT_CATALOG = [
         if(revision!==rev){status.textContent='El formulario cambió durante la consulta. Consulta de nuevo el inventario corregido.';return;}
         artifact=result;download.disabled=false;status.textContent='Propuesta obtenida y huella comprobada. Límite sin activar.';
         const p=result.proposal,c=p.snapshot.counts;
-        $('proposalSummary').textContent='SHA-256: '+p.snapshotHash+'\nIDs históricos: '+c.historicalIds+' · Inciertos: '+c.uncertainIds+' · Colas inventariadas: '+c.queueIds+'\nHistórico sin conciliar. Guarda la descarga privada para revisión y autorización.';
+        $('proposalSummary').textContent='SHA-256: '+p.snapshotHash+'\nIDs históricos: '+c.historicalIds+' · Inciertos: '+c.uncertainIds+' · Intenciones retenidas: '+c.queueIds+
+          '\nDestino de las retenidas: UNKNOWN (sin atribuir a staging). Manifiesto SHA-256: '+result.retainedInventory.manifest.sha256+
+          '\nHistórico sin conciliar; límite sin activar y originales bajo custodia. Guarda la descarga privada para revisión y autorización.';
       }catch(e){artifact=null;download.disabled=true;status.textContent=e.message || 'Consulta fallida. No se activó el límite.';}
       finally{busy=false;submit.disabled=false;}
     };
