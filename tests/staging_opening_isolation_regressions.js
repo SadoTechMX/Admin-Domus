@@ -45,6 +45,104 @@ function fixture(environment){
  return t;
 }
 
+if(require.main===module){
+test('a native Sheets Date at book-local midnight matches the original literal businessDate without writing',()=>{
+ const t=fixture(),s=t.main.getSheetByName('TURNOS');
+ s.getRange(2,3).setValue(new Date('2020-01-01T06:00:00.000Z'));
+ const before=snapshot(t),date=s.raw(2,3),p=t.propose();
+ assert.equal(p.kind,'STAGING_TEST_OPENING_PROPOSAL');assert.equal(snapshot(t),before);assert.equal(s.raw(2,3),date);
+});
+test('native civil date uses the book zone even when its UTC date is the previous day',()=>{
+ const t=fixture(),s=t.main.getSheetByName('TURNOS');t.main.timeZone='Pacific/Kiritimati';
+ s.getRange(2,3).setValue(new Date('2019-12-31T10:00:00.000Z'));
+ const before=snapshot(t),p=t.propose();assert.equal(p.snapshot.isolation.businessDateTimeZone,'Pacific/Kiritimati');assert.equal(snapshot(t),before);
+});
+test('native dates survive approved mock custody, status and same-ID replay without converting original cells',()=>{
+ const t=fixture(),s=t.main.getSheetByName('TURNOS'),date=new Date('2020-01-01T06:00:00.000Z');
+ s.getRange(2,3,2,1).setValues([[date],[new Date(date)]]);const before=business(t),r=t.activate();
+ assert.equal(r.snapshot.isolation.businessDateTimeZone,'America/Mexico_City');assert.equal(t.state().active,null);
+ assert.deepEqual(t.call('registrarLimiteHistorico',t.body,'fixture-isolation'),r);assert.equal(business(t),before);assert.equal(s.raw(2,3),date);
+});
+for(const [name,value] of [
+ ['date at UTC midnight, not book midnight',new Date('2020-01-01T00:00:00.000Z')],
+ ['another civil day',new Date('2020-01-02T06:00:00.000Z')],['hidden time of day',new Date('2020-01-01T07:00:00.000Z')],
+ ['hidden second',new Date('2020-01-01T06:00:01.000Z')],['hidden millisecond',new Date('2020-01-01T06:00:00.001Z')],
+ ['invalid Date',new Date(NaN)],['numeric serial',43831],['null',null],['boolean',false],
+ ['padded text','2020-01-01 '],['localized text','01/01/2020'],['ISO datetime text','2020-01-01T06:00:00.000Z']
+])test('businessDate rejects '+name+' before proposal or registration',()=>{
+ const t=fixture();t.main.getSheetByName('TURNOS').getRange(2,3).setValue(value);const before=snapshot(t);
+ assert.throws(t.propose,isoError);assert.throws(()=>t.call('registrarLimiteHistorico',t.input,'bad-date'),isoError);assert.equal(snapshot(t),before);
+});
+test('a syntactically plausible impossible date is not accepted even if text and OPDAY agree',()=>{
+ const t=fixture(),s=t.main.getSheetByName('TURNOS'),r=JSON.parse(t.s.raw(131,8));
+ r.businessDate='2020-02-30';r.operationDayId='OPDAY-20200230';t.s.getRange(131,8).setValue(JSON.stringify(r));
+ s.getRange(2,2,1,2).setValues([[r.operationDayId,r.businessDate]]);const before=snapshot(t);assert.throws(t.propose,isoError);assert.equal(snapshot(t),before);
+});
+test('formula displaying a native date remains rejected and other timestamp fields remain literal',()=>{
+ for(const col of [3,7,19]){
+  const t=fixture(),s=t.main.getSheetByName('TURNOS');
+  if(col===3){const value=s.value.bind(s);s.getRange(2,3).setValue('=DATE(2020,1,1)');s.value=(r,c)=>r===2&&c===3?new Date('2020-01-01T06:00:00.000Z'):value(r,c);}
+  else s.getRange(2,col).setValue(new Date('2020-01-01T12:00:00.000Z'));
+  const before=snapshot(t);assert.throws(t.propose,isoError);assert.equal(snapshot(t),before);
+ }
+});
+test('native dates require an available book zone without a script/UTC fallback',()=>{
+ for(const badZone of ['',null,' America/Mexico_City']){
+  const t=fixture();t.main.getSheetByName('TURNOS').getRange(2,3).setValue(new Date('2020-01-01T06:00:00.000Z'));t.main.timeZone=badZone;
+  assert.throws(t.propose,isoError);assert.equal(t.ctx.journalFind_('fixture-isolation',t.main),null);
+ }
+ const t=fixture();t.main.getSheetByName('TURNOS').getRange(2,3).setValue(new Date('2020-01-01T06:00:00.000Z'));
+ t.main.getSpreadsheetTimeZone=()=>{throw Error('ZONE_READ_UNAVAILABLE');};assert.throws(t.propose,isoError);
+});
+for(const when of ['before','after'])test('changed date type or zone, even with same civil day, invalidates evidence '+when+' activation',()=>{
+ for(const alter of [t=>t.main.timeZone='America/Guatemala',t=>t.main.getSheetByName('TURNOS').getRange(2,3).setValue('2020-01-01')]){
+  const t=fixture();t.main.getSheetByName('TURNOS').getRange(2,3).setValue(new Date('2020-01-01T06:00:00.000Z'));
+  const body=t.approve();if(when==='after')t.call('registrarLimiteHistorico',body,'fixture-isolation');alter(t);const before=business(t);
+  assert.throws(when==='after'?t.state:()=>t.call('registrarLimiteHistorico',body,'fixture-isolation'),isoError);assert.equal(business(t),before);
+ }
+});
+for(const [name,encode] of [
+ ['leading space and escaped value',id=>' '+JSON.stringify({shiftId:id}).replace(id[0],'\\u'+id.charCodeAt(0).toString(16).padStart(4,'0'))],
+ ['all JSON whitespace',id=>' \t\r\n'+JSON.stringify({shiftId:id}).replace(id[0],'\\u'+id.charCodeAt(0).toString(16).padStart(4,'0'))+'\r\n'],
+ ['array with escaped value',id=>' \n['+JSON.stringify(id).replace(id[0],'\\u'+id.charCodeAt(0).toString(16).padStart(4,'0'))+']'],
+ ['escaped object key',id=>' '+JSON.stringify({[id]:true}).replace(id[0],'\\u'+id.charCodeAt(0).toString(16).padStart(4,'0'))],
+ ['JSON string envelope',id=>' '+JSON.stringify(id).replace(id[0],'\\u'+id.charCodeAt(0).toString(16).padStart(4,'0'))]
+])test('valid JSON references cannot evade proposal or active custody: '+name,()=>{
+ for(const when of ['before','after'])for(const source of ['COBROS','REQUESTS','DOMUS_JOURNAL']){
+  const t=fixture();if(when==='after')t.activate();const raw=encode(t.shiftIds[0]);assert.doesNotThrow(()=>JSON.parse(raw));
+  if(source==='COBROS')t.main.getSheetByName(source).getRange(7,9).setValue(raw);
+  else {t.s.appendRow(['linked-ref','cajaSimpleRegistrar','x','fixture-device','COMPLETED','','',source==='REQUESTS'?raw:'{}']);
+   if(source==='DOMUS_JOURNAL')t.ctx.journalSheet_(t.main).appendRow(['linked-ref','cajaSimpleRegistrar','COMPLETED','[]',raw,'']);}
+  const before=snapshot(t);assert.throws(when==='after'?t.state:t.propose,isoError);assert.equal(snapshot(t),before);
+ }
+});
+test('ID substrings and JSON-escaped aliases reject before binding and do not poison later reads',()=>{
+ const t=fixture();t.activate();const before=snapshot(t);
+ for(const ref of [t.ids[0],t.shiftIds[0],t.aliases[0]])for(const id of [ref+'-retry','prefix-'+ref+'-suffix',JSON.stringify(ref).replace(ref[0],'\\u'+ref.charCodeAt(0).toString(16).padStart(4,'0'))]){
+  assert.throws(()=>t.call('turnoAbrir',{scopeId:'QA',openingFloat:0,historyBoundaryId:'fixture-isolation'},id,'CAJA'),isoError);
+  assert.equal(t.ctx.paymentRequestIndex_(t.main).has(id),false);assert.equal(t.ctx.journalFind_(id,t.main),null);assert.equal(t.state().active,null);
+ }
+ assert.equal(snapshot(t),before);
+});
+test('substrings in payload values, JSON strings, object keys and device IDs follow the same pre-binding guard',()=>{
+ const t=fixture();t.activate();const before=snapshot(t),ref=t.ids[0],escaped=' '+JSON.stringify({source:ref}).replace('fixture','\\u0066ixture');
+ for(const payload of [{note:ref+'-retry'},{nested:{note:escaped}},{[ref+'-key']:true}])
+  assert.throws(()=>t.call('turnoAbrir',payload,'fresh-substring','CAJA'),isoError);
+ assert.throws(()=>t.ctx.idempotentExecute_('fresh-device','turnoAbrir',{},ref+'-device',()=>{throw Error('MUST NOT RUN');}),isoError);
+ assert.equal(snapshot(t),before);assert.equal(t.state().active,null);
+});
+test('administrative IDs and devices also reject substrings before the first custody record',()=>{
+ const t=fixture(),body=t.approve(),before=snapshot(t);
+ assert.throws(()=>t.call('registrarLimiteHistorico',body,t.ids[0]+'-administrative'),isoError);
+ assert.throws(()=>t.ctx.idempotentExecute_('new-admin','registrarLimiteHistorico',body,t.aliases[0]+'-device',()=>{throw Error('MUST NOT RUN');}),isoError);
+ assert.equal(snapshot(t),before);
+});
+test('the approved administrative evidence reference may cite an original ID and still recover only its own bound request',()=>{
+ const t=fixture();t.input.evidenceReference='Mock evidence for '+t.ids[0];const r=t.activate();
+ assert.deepEqual(t.call('registrarLimiteHistorico',t.body,'fixture-isolation'),r);
+ assert.throws(()=>t.call('registrarLimiteHistorico',{...t.body,evidenceReference:'changed'},'fixture-isolation'),/IDEMPOTENCY_KEY_REUSED/);
+ assert.equal(t.state().active,null);
+});
 test('exact test provenance is a read-only proposal, not a no-effects classification',()=>{
  const t=fixture(),before=snapshot(t);assert.throws(t.state,/Apertura sin vínculo/);const p=t.propose();
  assert.equal(p.kind,'STAGING_TEST_OPENING_PROPOSAL');assert.equal(p.canActivate,false);assert.equal(p.resolved,false);
@@ -182,7 +280,13 @@ for(const environment of ['STAGING','PRODUCTION'])test('generated '+environment+
   assert.throws(t.propose,/canónicos de STAGING/);
   assert.throws(()=>t.call('registrarLimiteHistorico',t.input,'must-not-bind'),/canónicos de STAGING/);
   assert.equal(snapshot(t),before);
- }else{t.activate();assert.equal(t.state().active,null);assert.throws(()=>t.call('cajaSimpleEstado',t.ids[0],'read','CAJA'),isoError);assert.equal(business(t),b);}
+ }else{
+  t.main.getSheetByName('TURNOS').getRange(2,3).setValue(new Date('2020-01-01T06:00:00.000Z'));const nativeBefore=business(t);
+  t.activate();assert.equal(t.state().active,null);assert.throws(()=>t.call('cajaSimpleEstado',t.ids[0],'read','CAJA'),isoError);assert.equal(business(t),nativeBefore);
+  const bound=snapshot(t);assert.throws(()=>t.call('turnoAbrir',{scopeId:'QA',openingFloat:0,historyBoundaryId:'fixture-isolation'},t.ids[0]+'-retry','CAJA'),isoError);assert.equal(snapshot(t),bound);assert.equal(t.state().active,null);
+  t.main.getSheetByName('COBROS').getRange(7,9).setValue(' '+JSON.stringify({shiftId:t.shiftIds[0]}).replace('FIXTURE','\\u0046IXTURE'));assert.throws(t.state,isoError);
+ }
 });
 console.log(JSON.stringify({suite:'staging-opening-isolation-real-source-mocks',passed,liveReads:false,liveWrites:0,realAuthorization:false,realActivation:false}));
+}
 module.exports={fixture};

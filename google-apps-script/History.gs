@@ -145,16 +145,18 @@ function historyBoundary_(m,ownRegistrationId) {
 }
 function historyGuard_(m,id,action) {
   const b=historyBoundary_(m,action==='registrarLimiteHistorico'?id:null);
-  if(b && b.ids.has(String(id)))throw historyError_('ID retenido. No reenviar, sustituir por otro ID ni fabricar un comprobante.');
+  if(b && (b.result.snapshot.isolation?stagingIsolationContains_(id,Array.from(b.ids)):b.ids.has(String(id))))throw historyError_('ID retenido o referencia a él. No reenviar, sustituir por otro ID ni fabricar un comprobante.');
   return b;
 }
-function historyGuardIntent_(m,id,action,payload) {
-  if(action==='registrarLimiteHistorico' && payload && payload.isolationMode===stagingIsolationMode_())stagingIsolationRegistrationGuard_(m,id);
+function historyGuardIntent_(m,id,action,payload,deviceId) {
+  if(action==='registrarLimiteHistorico' && payload && payload.isolationMode===stagingIsolationMode_())stagingIsolationRegistrationGuard_(m,id,deviceId);
   const b=historyGuard_(m,id,action);if(!b)return;
   const p=payload || {},deny=()=>{throw historyError_('La intención apunta a un origen retenido. Conservarlo; no registrarlo de nuevo.');};
   if(b.result.snapshot.isolation) {
-    const contains=v=>typeof v==='string'?b.ids.has(v):!!v && typeof v==='object' && Object.keys(v).some(k=>contains(v[k]));
-    if(contains(p))deny(); // Includes openingRequestId/shiftId and nested references, before binding.
+    // The approved administrative body can cite its own evidence. Its retry is
+    // still bound to the original action/payload hash/device by idempotency.
+    const ownRegistration=action==='registrarLimiteHistorico' && id===b.result.boundaryId;
+    if(stagingIsolationContains_([action,deviceId,ownRegistration?null:p],Array.from(b.ids)))deny();
   }
   if(['confirmarTransferencia','cancelarTransferenciaNoRecibida','vincularPagoExistente'].includes(action) &&
       [p.sourceRequestId,p.existingPaymentRequestId].some(ref=>ref && b.ids.has(String(ref))))deny();

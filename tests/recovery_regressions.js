@@ -63,7 +63,8 @@ function setup(){
   const ctx=vm.createContext({console,Date,Math,Map,Set,JSON,Object,Array,Number,String,Boolean,Error,RegExp,
     Session:{getActiveUser:()=>({getEmail:()=>email})},
     Utilities:{getUuid:()=>crypto.randomUUID(),formatDate:(date,zone,format)=>{
-      const parts=Object.fromEntries(new Intl.DateTimeFormat('en-CA',{timeZone:zone,year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).formatToParts(date).map(p=>[p.type,p.value]));
+      const parts=Object.fromEntries(new Intl.DateTimeFormat('en-CA',{timeZone:zone,year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hourCycle:'h23'}).formatToParts(date).map(p=>[p.type,p.value]));
+      if(format==='yyyy-MM-dd HH:mm:ss.SSS')return parts.year+'-'+parts.month+'-'+parts.day+' '+parts.hour+':'+parts.minute+':'+parts.second+'.'+String(date.getUTCMilliseconds()).padStart(3,'0');
       return parts.year+'-'+parts.month+'-'+parts.day+(format.includes('HH:mm')?' '+parts.hour+':'+parts.minute:'');
     },DigestAlgorithm:{SHA_256:'sha256'},Charset:{UTF_8:'utf8'},computeDigest:(_,s)=>[...crypto.createHash('sha256').update(s).digest()]},
     PropertiesService:{getScriptProperties:()=>({getProperty:k=>props.get(k)||null,setProperty:(k,v)=>props.set(k,v)})},
