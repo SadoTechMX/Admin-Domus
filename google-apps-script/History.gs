@@ -131,6 +131,18 @@ function historyGuard_(m,id,action) {
   if(b && b.ids.has(String(id)))throw historyError_('ID retenido. No reenviar, sustituir por otro ID ni fabricar un comprobante.');
   return b;
 }
+function historyGuardIntent_(m,id,action,payload) {
+  const b=historyGuard_(m,id,action);if(!b)return;
+  const p=payload || {},deny=()=>{throw historyError_('La intención apunta a un origen retenido. Conservarlo; no registrarlo de nuevo.');};
+  if(['confirmarTransferencia','cancelarTransferenciaNoRecibida','vincularPagoExistente'].includes(action) &&
+      [p.sourceRequestId,p.existingPaymentRequestId].some(ref=>ref && b.ids.has(String(ref))))deny();
+  if(action==='comandasSimpleAccion') {
+    dataRows_(m.getSheetByName('COMANDAS'),7,1,13).forEach(r=>{
+      let item;try{item=JSON.parse(r[0]);}catch(_){return;}
+      if(item && 'DCS-'+item.row+'-'+(item.batch || item.id)===p.key && b.ids.has(String(item.batch || item.id)))deny();
+    });
+  }
+}
 function historyOperationalIndex_(m) {
   const index=paymentRequestIndex_(m),b=historyBoundary_(m);
   if(b)b.ids.forEach(id=>index.delete(id));return index;

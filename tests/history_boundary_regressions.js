@@ -156,6 +156,11 @@ test('a historical command cannot be changed under a fresh request ID or treated
  const t=fixture();t.activate();const s=t.main.getSheetByName('COMANDAS');
  s.getRange(7,13).setValue(JSON.stringify({row:7,id:'old-unit',batch:'legacy-0',ticket:'old-account',destination:'Barra',state:'Pendiente'}));
  const before=business(t),token=t.login('BARRA');assert.throws(()=>t.request('comandasSimpleAccion',[{key:'DCS-7-legacy-0',action:'TOMAR'}],'fresh-kds','BARRA',token),e=>e.code==='HISTORY_REQUIRES_REVIEW');assert.equal(business(t),before);
+ assert.equal(t.ctx.paymentRequestIndex_(t.main).has('fresh-kds'),false);assert.equal(t.ctx.journalFind_('fresh-kds',t.main),null);
+ for(const action of ['confirmarTransferencia','cancelarTransferenciaNoRecibida','vincularPagoExistente']) {
+  assert.throws(()=>t.req(action,{sourceRequestId:'legacy-complete'},'fresh-'+action),e=>e.code==='HISTORY_REQUIRES_REVIEW');
+  assert.equal(t.ctx.paymentRequestIndex_(t.main).has('fresh-'+action),false);
+ }
  assert.equal(t.ctx.kdsDeliveryDecision_(t.main,{batch:'legacy-0'}).allowed,false);
 });
 test('an old client cannot open/cut a new journey without naming its boundary',()=>{

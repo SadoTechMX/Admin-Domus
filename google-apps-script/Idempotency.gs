@@ -198,7 +198,7 @@ function idempotentExecute_(requestId, action, payload, deviceId, fn) {
   if (!devId) throw new Error('DEVICE_ID_REQUIRED');
   return withLock_(CONFIG.lockTimeoutMs, () => {
     const m = SpreadsheetApp.openById(CONFIG.mainSheetId);
-    historyGuard_(m,cleanReqId,action); // Before lookup, ACK, binding or any journal replay.
+    historyGuardIntent_(m,cleanReqId,action,payload); // Before lookup, ACK, binding or any journal replay.
     const prior = findRequestRecord_(cleanReqId, m);
     if (prior && (prior.payloadHash !== currentPayloadHash || prior.action !== action || prior.deviceId !== devId)) {
       const err = new Error('IDEMPOTENCY_KEY_REUSED'); err.status = 409; err.code = 'IDEMPOTENCY_KEY_REUSED'; throw err;
