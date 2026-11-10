@@ -71,10 +71,10 @@ function journalRows_(sheet) {
     try{entry.plan=JSON.parse(r[3]);}catch(_){fail(row,'Plan ilegible.');}
     if(entry.action==='JOURNAL_PART') {
       const match=entry.id.match(/^(.+)#part:(0|[1-9]\d*)$/);
-      if(!match || !Number.isSafeInteger(Number(match[2])) || entry.status!=='COMPLETED' || !Array.isArray(entry.plan))fail(row,'Fragmento sin identidad/estado/plan válido.');
+      if(!match || !requestRootIdValid_(match[1]) || !Number.isSafeInteger(Number(match[2])) || entry.status!=='COMPLETED' || !Array.isArray(entry.plan))fail(row,'Fragmento sin identidad/estado/plan válido.');
       entry.parentId=match[1];entry.part=Number(match[2]);chunks.push(entry);
     } else {
-      if(entry.id.includes('#part:'))fail(row,'Identidad reservada para fragmentos.');
+      if(!requestRootIdValid_(entry.id))fail(row,'Identidad raíz inválida o reservada para fragmentos.');
       if(!Array.isArray(entry.plan) && (!entry.plan || typeof entry.plan!=='object' || Object.keys(entry.plan).length!==1 ||
         !Number.isSafeInteger(entry.plan.parts) || entry.plan.parts<0 || entry.plan.parts>rows.length))fail(row,'Descriptor de plan incompatible.');
       roots.push(entry);
@@ -104,6 +104,7 @@ function journalFind_(id, m) {
 }
 
 function journalResume_(id, action, m) {
+  requestRootIdAssert_(id); // A caller cannot resume an internal JOURNAL_PART as a root.
   historyGuard_(m,id,action); // Includes direct readers/recovery paths outside the dispatcher.
   const record=journalFind_(id,m);
   if(!record)return null;
@@ -142,7 +143,7 @@ function journalResume_(id, action, m) {
 }
 
 function journalCommit_(id, action, m, writes, result) {
-  if(!id)throw new Error('REQUEST_ID_REQUIRED');
+  requestRootIdAssert_(id); // Before lookup, journal creation, row growth or preparation.
   const old=journalResume_(id,action,m);if(old)return old;
   activityValidateJournal_(writes,m);
   const s=journalSheet_(m);

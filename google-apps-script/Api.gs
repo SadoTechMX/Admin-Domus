@@ -85,6 +85,8 @@ function executeDomusActionCore_(action, payload, params) {
 
   // 1. Validación de Roles y Seguridad del Servidor (RBAC)
   const authContext = authValidateAction(action, sessionToken, role, deviceId);
+  // Actions using context must receive the same resolved ID that the wrapper binds.
+  _authContext.requestId = requestId;
 
   // 2. Enrutamiento con Idempotencia y Candado para Operaciones Mutativas
   let result;

@@ -18,6 +18,20 @@ const REQUEST_STATUS = Object.freeze({
   REQUIRES_REVIEW: 'REQUIRES_REVIEW'
 });
 
+// Root IDs and journal fragment IDs are different namespaces. Do not trim or
+// coerce a caller's identity: the exact value is part of the durable binding.
+function requestRootIdValid_(id) {
+  return typeof id==='string' && !!id && id===id.trim() && id[0]!=='=' &&
+    !id.includes('#part:') && !/[\u0000-\u001f\u007f\u2028\u2029]/.test(id);
+}
+function requestRootIdAssert_(id) {
+  if(!requestRootIdValid_(id)) {
+    const e=new Error('REQUEST_ID_INVALID: identidad de intención inválida o reservada. Conservar la referencia original para revisión; no sustituirla automáticamente.');
+    e.code='REQUEST_ID_INVALID';e.status=422;throw e;
+  }
+  return id;
+}
+
 let _scriptLockDepth = 0;
 
 /**
@@ -128,6 +142,7 @@ function getOrCreateRequestsSheet_(spreadsheet) {
  * Cache/Properties antiguos sólo sirven para detectar incertidumbre, nunca como ACK.
  */
 function findRequestRecord_(cleanReqId, spreadsheet) {
+  requestRootIdAssert_(cleanReqId);
   const sheet = getOrCreateRequestsSheet_(spreadsheet);
   if (!sheet) throw new Error('LEDGER_UNAVAILABLE');
   const rows = dataRows_(sheet, 2, 8);
@@ -147,6 +162,7 @@ function findRequestRecord_(cleanReqId, spreadsheet) {
  * Guarda o actualiza un registro en el ledger (Cache, Properties y Hoja REQUESTS)
  */
 function saveRequestRecord_(record, spreadsheet) {
+  requestRootIdAssert_(record && record.requestId); // Before sheet creation or any write.
   const sheet = getOrCreateRequestsSheet_(spreadsheet);
   if (!sheet) throw new Error('LEDGER_UNAVAILABLE');
   // The durable ledger is authoritative. No cache can publish completion before Sheets.
@@ -191,8 +207,7 @@ function assertNoUnboundHistory_(requestId, action, m) {
  * 4. Registro continuo de estados: PROCESSING -> COMPLETED / FAILED / REQUIRES_REVIEW
  */
 function idempotentExecute_(requestId, action, payload, deviceId, fn) {
-  if (!requestId || typeof requestId !== 'string' || !requestId.trim()) throw new Error('REQUEST_ID_REQUIRED');
-  const cleanReqId = requestId.trim();
+  const cleanReqId = requestRootIdAssert_(requestId);
   const currentPayloadHash = computePayloadHash_({ action: action, payload: payload });
   const devId = String(deviceId || '');
   if (!devId) throw new Error('DEVICE_ID_REQUIRED');

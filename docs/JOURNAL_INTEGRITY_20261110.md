@@ -1,3 +1,5 @@
+> **Corrección posterior de entrada:** la auditoría de `cd0c266` detectó que un ID cliente con `#part:` podía persistirse antes de ser rechazado por estas guardas. [Validación antes de persistencia y pruebas](REQUEST_ID_VALIDATION_20261110.md).
+
 # Journal sin identidad y fragmentos huérfanos — corrección aislada
 
 Base reproducida: `26d847a4eda4e639f84313fb07fafccdcff8d125`. Sin Google, datos reales, despliegues ni cambios a políticas operativas. Se mantiene deshabilitada la activación del límite histórico sin aprobación específica.
