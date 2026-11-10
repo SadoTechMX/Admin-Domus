@@ -266,7 +266,7 @@
   window.DOMUS_BUILD = {
     baseCommit: '2b7ba1f4030b1013555b93cb96cfcb594141fdcb',
     buildId: 'repair-reconcile-20261105',
-    ui: '20261108-existing-payment-17',
+    ui: '20261110-history-boundary-18',
     environment: isProductionLocked ? 'PRODUCTION' : 'STAGING'
   };
 
@@ -2695,7 +2695,7 @@ const DEFAULT_CATALOG = [
 
   function validJourneyResult_(r,payload) {
     const body=payload.args?.[0] || {},id=payload.requestId;
-    if(!r || typeof r!=='object' || Array.isArray(r) || r.ok!==true || r.journeyContract!=='domus-journey-v1' || !id)return false;
+    if(!r || typeof r!=='object' || Array.isArray(r) || r.ok!==true || r.journeyContract!=='domus-journey-v1' || !id || (r.historyBoundaryId || null)!==(body.historyBoundaryId || null))return false;
     if(payload.action==='turnoAbrir')return r.openingRequestId===id && r.journeyId==='JOR-'+id && r.shiftId==='TURNO-'+id && r.status==='OPEN' &&
       r.scopeId===body.scopeId && typeof r.openingFloat==='number' && r.openingFloat===body.openingFloat &&
       ['stationId','registerId','openedAt','activity'].every(k=>typeof r[k]==='string' && !!r[k]) && Number.isFinite(Date.parse(r.openedAt)) &&
@@ -3557,6 +3557,7 @@ const DEFAULT_CATALOG = [
     scope.innerHTML='<option value="">Selecciona evento / proyecto</option>'+(state.scopes || []).map(s=>`<option value="${escapeHtml(s.id)}">${escapeHtml(s.eventName || s.projectName)} · ${escapeHtml(s.projectName)}</option>`).join('');
     scope.value=active?.scopeId || previous;scope.disabled=!!active || !!STATE.journeySending;
     $('journeyStatus').textContent=active?`Jornada abierta · ${active.scope.eventName || active.scope.projectName} · ${active.openedAt}`:'Sin jornada abierta en esta estación.';
+    if(state.historyReview)$('journeyStatus').textContent+=` · Histórico en revisión: ${state.historyReview.counts.uncertainIds} ID(s) inciertos y ${state.historyReview.counts.queueIds} en inventario de colas. No reenviar. Corte limitado a esta jornada.`;
     $('btnJourneyOpen').disabled=!!active || !!STATE.journeySending;
     $('btnJourneyClose').disabled=!active || !!STATE.journeySending;
     const cut=state.lastCut;
@@ -3574,6 +3575,7 @@ const DEFAULT_CATALOG = [
       if(closing && !STATE.journey.active?.openingRequestId)throw new Error('No hay jornada abierta.');
       const body=closing?{openingRequestId:STATE.journey.active.openingRequestId,countedCash:amount}:{scopeId:$('journeyScopeSelect').value,openingFloat:amount};
       if(!closing && !body.scopeId)throw new Error('Selecciona evento / proyecto para abrir.');
+      if(STATE.journey.historyReview)body.historyBoundaryId=STATE.journey.historyReview.boundaryId;
       body.requestId='JOR-REQ-'+crypto.randomUUID();STATE.journeySending=true;renderJourney_();
       callBackend(closing?'corteZCerrar':'turnoAbrir',[body],res=>{
         STATE.journeySending=false;renderJourney_();

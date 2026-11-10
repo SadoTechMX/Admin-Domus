@@ -25,7 +25,7 @@ function journeyContext_(m,openingRequestId,observedAt,ownCutId) {
   if(typeof openingRequestId!=='string' || !openingRequestId.trim() || !(observedAt instanceof Date) || !Number.isFinite(observedAt.getTime())) {
     throw journeyError_('Se requiere apertura identificada e instante del servidor.');
   }
-  const index=paymentRequestIndex_(m),record=paymentRequest_(index,openingRequestId),p=record && record.result;
+  const index=historyOperationalIndex_(m),record=paymentRequest_(index,openingRequestId),p=record && record.result;
   if(!record || record.action!=='turnoAbrir' || record.status!=='COMPLETED' || !p || p.ok!==true ||
       p.journeyContract!=='domus-journey-v1' || p.openingRequestId!==openingRequestId ||
       p.journeyId!=='JOR-'+openingRequestId || typeof p.shiftId!=='string' || !p.shiftId.trim() ||
@@ -33,6 +33,8 @@ function journeyContext_(m,openingRequestId,observedAt,ownCutId) {
     throw journeyError_('Apertura sin vínculo durable de evento/proyecto/jornada. No importar el prototipo por fecha.');
   }
   if(observedAt.getTime()<journeyTimestamp_(p.openedAt))throw journeyError_('El instante precede la apertura.');
+  const history=historyNotice_(m);
+  if((p.historyBoundaryId || null)!==(history && history.boundaryId))throw journeyError_('La apertura no corresponde al límite histórico vigente.');
   const cuts=[];
   // REQUESTS lacks the body for unknown/failed cuts: never guess their scope.
   // A partial/ambiguous cut therefore prevents resolving a new active context.
@@ -58,7 +60,7 @@ function journeyContext_(m,openingRequestId,observedAt,ownCutId) {
   const closed=cuts.length===1;
   return {version:1,journeyId:p.journeyId,openingRequestId:openingRequestId,shiftId:p.shiftId,
     scope:{projectId:p.scope.projectId,projectName:p.scope.projectName,eventId:p.scope.eventId,eventName:p.scope.eventName},
-    openedAt:p.openedAt,occurredAt:observedAt.toISOString(),status:closed?'CLOSED':'OPEN',allowed:!closed,
+    historyBoundaryId:p.historyBoundaryId || null,openedAt:p.openedAt,occurredAt:observedAt.toISOString(),status:closed?'CLOSED':'OPEN',allowed:!closed,
     cutId:closed?cuts[0].cutId:null,closedAt:closed?cuts[0].closedAt:null};
 }
 
@@ -66,6 +68,7 @@ function journeyReject_(message) {
   const e=new Error(message);e.code='JOURNEY_VALIDATION_NO_EFFECTS';e.status=422;return e;
 }
 function journeyKnownNoEffects_(m,rows) {
+  if(historyNoEffects_(m,rows))return true;
   if(rows.length!==1 || journalFind_(String(rows[0][0]),m))return false;
   let p;try {p=JSON.parse(rows[0][7]);} catch(_){return false;}
   return p && p.status===422 && ['JOURNEY_VALIDATION_NO_EFFECTS','SALE_VALIDATION_REJECTED_NO_EFFECTS','SALE_PHASE_CHANGED_NO_EFFECTS',
@@ -114,10 +117,10 @@ function journeyStation_(policy) {
   if(!s)throw journeyReject_('Dispositivo sin estación/gaveta autorizada para jornadas.');return s;
 }
 function journeyOpening_(m,id) {
-  const r=paymentRequest_(paymentRequestIndex_(m),id);return r && r.result;
+  const r=paymentRequest_(historyOperationalIndex_(m),id);return r && r.result;
 }
 function journeyAssertSettled_(m,ownId) {
-  paymentRequestIndex_(m).forEach((rows,id)=>{
+  historyOperationalIndex_(m).forEach((rows,id)=>{
     if(id===ownId)return;
     if(!rows.some(r=>['turnoAbrir','corteZCerrar','cajaSimpleRegistrar','confirmarTransferencia','cancelarTransferenciaNoRecibida','vincularPagoExistente','comandasSimpleAccion'].includes(r[1])))return;
     if(journeyKnownNoEffects_(m,rows))return;
@@ -126,7 +129,7 @@ function journeyAssertSettled_(m,ownId) {
 }
 function journeyOpenings_(m,now,ownId) {
   const result=[];
-  paymentRequestIndex_(m).forEach((rows,id)=>{
+  historyOperationalIndex_(m).forEach((rows,id)=>{
     if(id===ownId || !rows.some(r=>r[1]==='turnoAbrir') || journeyKnownNoEffects_(m,rows))return;
     const context=journeyContext_(m,id,now,ownId);
     if(context.allowed)result.push(journeyOpening_(m,id));
@@ -144,6 +147,8 @@ function turnoAbrir(p) {
       const policy=journeyPolicy_(m),station=journeyStation_(policy);
       const scope=policy.scopes.find(s=>s.id===p.scopeId && station.scopeIds.includes(s.id));
       if(!scope || !journeyMoney_(p.openingFloat))throw journeyReject_('Selecciona evento/proyecto autorizado y fondo inicial explícito.');
+      const history=historyNotice_(m);
+      if((p.historyBoundaryId || null)!==(history && history.boundaryId))throw journeyReject_('Actualiza la caja y revisa el límite histórico antes de abrir/cortar.');
       journeyAssertSettled_(m,id);
       const now=new Date();
       if(journeyOpenings_(m,now,id).some(o=>o.stationId===station.stationId || o.registerId===station.registerId ||
@@ -151,7 +156,7 @@ function turnoAbrir(p) {
       return {ok:true,journeyContract:'domus-journey-v1',openingRequestId:id,journeyId:'JOR-'+id,shiftId:'TURNO-'+id,
         scopeId:scope.id,scope:{projectId:scope.projectId,projectName:scope.projectName,eventId:scope.eventId,eventName:scope.eventName},activity:scope.activity,
         stationId:station.stationId,registerId:station.registerId,deviceId:_authContext.deviceId,openingFloat:p.openingFloat,
-        openedAt:now.toISOString(),openedBy:_authContext.operator,status:'OPEN'};
+        historyBoundaryId:history && history.boundaryId,historyReview:history,openedAt:now.toISOString(),openedBy:_authContext.operator,status:'OPEN'};
     });
     // Opening float is custody metadata, never a sale/payment/stock mutation.
     return journalCommit_(id,'turnoAbrir',m,[],result);
@@ -166,7 +171,7 @@ function journeyState_(m) {
   const policy=journeyPolicy_(m);if(!policy)return {enabled:false,active:null};
   const station=journeyStation_(policy),active=journeyOpenings_(m,new Date()).filter(o=>o.stationId===station.stationId || o.registerId===station.registerId);
   if(active.length>1)throw journeyError_('Estación/gaveta con aperturas duplicadas.');
-  const cuts=[],index=paymentRequestIndex_(m);
+  const cuts=[],index=historyOperationalIndex_(m);
   index.forEach((rows,id)=>{
     if(rows.length!==1 || rows[0][1]!=='corteZCerrar' || rows[0][4]!=='COMPLETED')return;
     const c=paymentRequest_(index,id).result,o=c && journeyOpening_(m,c.openingRequestId);
@@ -174,7 +179,7 @@ function journeyState_(m) {
     if(o && o.stationId===station.stationId && o.registerId===station.registerId)cuts.push(c);
   });
   cuts.sort((a,b)=>b.closedAt.localeCompare(a.closedAt));
-  return {enabled:true,active:active[0] || null,lastCut:cuts[0] || null,scopes:policy.scopes.filter(s=>station.scopeIds.includes(s.id)),stationId:station.stationId,registerId:station.registerId};
+  return {enabled:true,historyReview:historyNotice_(m),active:active[0] || null,lastCut:cuts[0] || null,scopes:policy.scopes.filter(s=>station.scopeIds.includes(s.id)),stationId:station.stationId,registerId:station.registerId};
 }
 
 function journeyForMovement_(m,p,now) {
@@ -192,7 +197,7 @@ function journeyForMovement_(m,p,now) {
 }
 
 function journeyAccountOrigin_(m,ticket,current,addingItems) {
-  const records=[],index=paymentRequestIndex_(m);
+  const records=[],index=historyOperationalIndex_(m);
   index.forEach((rows,id)=>{
     if(!rows.some(r=>r[1]==='cajaSimpleRegistrar'))return;
     const r=paymentRequest_(index,id);
@@ -208,7 +213,7 @@ function journeyAccountOrigin_(m,ticket,current,addingItems) {
 }
 
 function journeyCutSnapshot_(m,opening,now) {
-  const index=paymentRequestIndex_(m),payments=dataRows_(m.getSheetByName('COBROS'),7,31),commands=dataRows_(m.getSheetByName('COMANDAS'),7,14);
+  const index=historyOperationalIndex_(m),payments=dataRows_(m.getSheetByName('COBROS'),7,31),commands=dataRows_(m.getSheetByName('COMANDAS'),7,14);
   const cancellations=transferCancellationRecords_(m,index);
   const links=transferExistingPaymentRecords_(m,index);
   const movements=[],pendingTransfers=[],pendingDeliveries=[],accounts=new Set();
@@ -257,7 +262,7 @@ function journeyCutSnapshot_(m,opening,now) {
   });
   const totals={Efectivo:0,'Terminal 1':0,'Terminal 2':0,Transferencia:0};let tips=0;
   movements.forEach(r=>{if(!(r.method in totals) || !journeyMoney_(r.amount) || !journeyMoney_(r.tip))throw journeyError_('Importes o medio incompatibles con el corte.');totals[r.method]=posRound_(totals[r.method]+r.amount);tips=posRound_(tips+r.tip);});
-  return {coverage:'JOURNEY_POS_RECEIPTS',financialFinal:false,observedAt:now.toISOString(),movements:movements,totals:totals,tips:tips,
+  return {coverage:'JOURNEY_POS_RECEIPTS',financialFinal:false,historyReview:historyNotice_(m),observedAt:now.toISOString(),movements:movements,totals:totals,tips:tips,
     openingFloat:opening.openingFloat,cashFromBoundPOS:posRound_(opening.openingFloat+totals.Efectivo+tips),pendingTransfers:pendingTransfers,pendingDeliveries:pendingDeliveries,
     cancelledTransfers:cancellations.filter(c=>c.journey.journeyId===opening.journeyId).map(c=>({requestId:c.cancellationRequestId,sourceRequestId:c.sourceRequestId,sourceReceipt:c.sourceReceipt,
       cancelledAmount:c.cancelledAmount,amountApplied:0,wasteStatus:c.wasteReview.status})),
@@ -274,6 +279,8 @@ function corteZCerrar(p) {
     const result=journeyPreflight_(()=>{
       if(!p || !journeyMoney_(p.countedCash))throw journeyReject_('Indica el efectivo contado; no se sustituye por el esperado.');
       const policy=journeyPolicy_(m),station=journeyStation_(policy),now=new Date();
+      const history=historyNotice_(m);
+      if((p.historyBoundaryId || null)!==(history && history.boundaryId))throw journeyReject_('Actualiza la caja y revisa el límite histórico antes de abrir/cortar.');
       journeyAssertSettled_(m,id);
       const context=journeyContext_(m,p.openingRequestId,now,id),opening=journeyOpening_(m,p.openingRequestId);
       if(!context.allowed || opening.stationId!==station.stationId || opening.registerId!==station.registerId)throw journeyReject_('Jornada cerrada o ajena a la estación/gaveta.');
@@ -286,7 +293,7 @@ function corteZCerrar(p) {
           snapshot.pendingDeliveries.length+' comanda(s) sin resolver. '+waste+' cancelación(es) con merma por conciliar. La jornada sigue abierta.');
       }
       return {ok:true,journeyContract:'domus-journey-v1',closingRequestId:id,openingRequestId:p.openingRequestId,journeyId:context.journeyId,shiftId:context.shiftId,
-        cutId:'CORTE-JOR-'+id,closedAt:now.toISOString(),closedBy:_authContext.operator,status:'CLOSED',snapshot:snapshot,countedCash:p.countedCash,
+        historyBoundaryId:context.historyBoundaryId,cutId:'CORTE-JOR-'+id,closedAt:now.toISOString(),closedBy:_authContext.operator,status:'CLOSED',snapshot:snapshot,countedCash:p.countedCash,
         closurePolicy:'RESOLVE_PENDING_TRANSFERS_AND_DELIVERIES',
         coverage:snapshot.coverage,financialFinal:false,message:'Jornada cerrada. Corte limitado a recibos POS vinculados; no es liquidación de reparto ni arqueo de otros movimientos.'};
     });

@@ -211,6 +211,7 @@ function cajaSimpleRegistrarCore_(p) {
 function cajaSimpleEstado(id) {
   authRequireContext_('cajaSimpleEstado');
   if (!id) throw new Error('Referencia de operación requerida.');
+  historyGuard_(SpreadsheetApp.openById(CONFIG.mainSheetId),String(id),'cajaSimpleEstado');
   const prior = findRequestRecord_(String(id));
   if(prior && prior.action!=='cajaSimpleRegistrar')throw new Error('Acceso denegado: la consulta de Caja sólo devuelve ventas de Caja.');
   if (prior && prior.status === REQUEST_STATUS.COMPLETED) return {done:true,result:prior.response};

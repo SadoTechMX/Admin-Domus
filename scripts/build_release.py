@@ -7,7 +7,7 @@ import re
 import sys
 
 ROOT=pathlib.Path(__file__).resolve().parents[1]
-MODULES=['Config','Data','Schema','Auth','Idempotency','Accounts','Payments','Journeys','POS','Access','KDS','Inventory','Events','Operations','Api']
+MODULES=['Config','Data','Schema','Auth','Idempotency','Accounts','Payments','History','Journeys','POS','Access','KDS','Inventory','Events','Operations','Api']
 def build(check=False):
     source={name:(ROOT/f'google-apps-script/{name}.gs').read_text() for name in MODULES}
     digest=hashlib.sha256(''.join(source.values()).encode()).hexdigest()

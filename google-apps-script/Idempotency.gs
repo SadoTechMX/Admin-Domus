@@ -198,6 +198,7 @@ function idempotentExecute_(requestId, action, payload, deviceId, fn) {
   if (!devId) throw new Error('DEVICE_ID_REQUIRED');
   return withLock_(CONFIG.lockTimeoutMs, () => {
     const m = SpreadsheetApp.openById(CONFIG.mainSheetId);
+    historyGuard_(m,cleanReqId,action); // Before lookup, ACK, binding or any journal replay.
     const prior = findRequestRecord_(cleanReqId, m);
     if (prior && (prior.payloadHash !== currentPayloadHash || prior.action !== action || prior.deviceId !== devId)) {
       const err = new Error('IDEMPOTENCY_KEY_REUSED'); err.status = 409; err.code = 'IDEMPOTENCY_KEY_REUSED'; throw err;
@@ -205,6 +206,7 @@ function idempotentExecute_(requestId, action, payload, deviceId, fn) {
     if (prior && prior.status === REQUEST_STATUS.COMPLETED) return prior.response;
     if(action==='confirmarTransferencia')transferAssertNotCancelled_(m,payload);
     if (prior) {
+      if(action==='registrarLimiteHistorico' && historyNoEffects_(m,[[cleanReqId,action,prior.payloadHash,prior.deviceId,prior.status,prior.createdAt,prior.completedAt,JSON.stringify(prior.response)]]))throw historyError_(prior.response.error,true);
       if(action==='cancelarTransferenciaNoRecibida')transferCancellationReplayGuard_(m,cleanReqId);
       if(action==='vincularPagoExistente')existingPaymentReplayGuard_(m,cleanReqId);
       // A PREPARED delivery can predate the payment guard. Check before any

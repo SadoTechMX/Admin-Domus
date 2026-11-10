@@ -10,7 +10,7 @@
 // A browser's credit/paid flag is not a delivery authorization. Bind the unit to
 // its original completed sale and inspect durable payment/credit evidence.
 function kdsPaymentContext_(m) {
-  return {index:paymentRequestIndex_(m),cashRows:null,transfers:null};
+  return {index:historyOperationalIndex_(m),cashRows:null,transfers:null};
 }
 
 function kdsDeliveryDecision_(m,item,context) {
@@ -199,6 +199,7 @@ function comandasSimpleAccion(tokenOrBody, maybeBody) {
     rows.forEach((r,i)=>{if(r[0]){let it;try{it=JSON.parse(r[0]);}catch(e){return;} entries.push({row:i+7,item:it});}});
     const target=entries.find(e=>'DCS-'+e.item.row+'-'+(e.item.batch||e.item.id)===body.key);
     if(!target)throw new Error('Comanda no encontrada.');
+    historyGuard_(m,target.item.batch,'comandasSimpleAccion');
     const item=target.item, action=String(body.action).toUpperCase(), who=_authContext.operator;
     if(_authContext.role==='COCINA' && item.destination!=='Cocina')throw new Error('Acceso denegado a otra estación.');
     if(_authContext.role==='BARRA' && item.destination!=='Barra')throw new Error('Acceso denegado a otra estación.');

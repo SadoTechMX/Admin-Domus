@@ -110,6 +110,12 @@ function executeDomusActionCore_(action, payload, params) {
       break;
 
     // --- CAJA / POS ---
+    case 'prepararLimiteHistorico':
+      result = prepararLimiteHistorico(args[0]);
+      break;
+    case 'registrarLimiteHistorico':
+      result = idempotentExecute_(requestId, action, args[0], deviceId, () => registrarLimiteHistorico(args[0]));
+      break;
     case 'turnoAbrir':
     case 'corteZCerrar':
       result = idempotentExecute_(requestId, action, args[0], deviceId, () => action==='turnoAbrir'?turnoAbrir(args[0]):corteZCerrar(args[0]));

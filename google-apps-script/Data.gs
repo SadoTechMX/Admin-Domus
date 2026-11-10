@@ -54,6 +54,7 @@ function journalFind_(id, m) {
 }
 
 function journalResume_(id, action, m) {
+  historyGuard_(m,id,action); // Includes direct readers/recovery paths outside the dispatcher.
   const record=journalFind_(id,m);
   if(!record)return null;
   if(record.data[1]!==action)throw new Error('IDEMPOTENCY_KEY_REUSED');

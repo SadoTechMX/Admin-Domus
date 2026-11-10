@@ -40,6 +40,7 @@ jobs:
       - run: node tests/print_token_removal_regressions.js
       - run: node tests/journey_context_regressions.js
       - run: node tests/journey_operations_regressions.js
+      - run: node tests/history_boundary_regressions.js
       - run: node tests/journey_transport_regressions.js
       - run: node tests/test_event_selection.mjs
       - run: node tests/test_access_channel.mjs
@@ -58,5 +59,6 @@ jobs:
       - run: node tests/browser_outbox_review.js
       - run: node tests/browser_operating_recovery.js
       - run: node tests/browser_journey_operations.js
+      - run: DOMUS_TEST_HISTORY=1 node tests/browser_journey_operations.js
       - run: node tests/browser_mixed_payment.js
       - run: node tests/browser_print_token_removal.js

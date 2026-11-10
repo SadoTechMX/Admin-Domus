@@ -54,5 +54,26 @@ await test('changing journey changes draft ownership; old ACK does not clear the
  t.ctx.STATE.pendingSaleId='sale-old';t.ctx.STATE.pendingSaleDraft=t.ctx.saleDraftSnapshot_();t.ctx.STATE.journey.active.openingRequestId='NEW';
  t.localStorage.setItem('domus_confirmation_sale-old',JSON.stringify({data:{ok:true}}));t.ctx.settleConfirmedBasket_('sale-old');assert.equal(t.ctx.STATE.cart.length,1);
 });
+for(const native of [false,true])await test((native?'native':'REST')+' fenced absent ID keeps its queue/cart/evidence across reload without automatic retry or ACK',async()=>{
+ const b=require('./history_boundary_regressions').fixture();b.activate();const t=setup(),sends=[];
+ t.ctx.setSessionToken(b.login(),'CAJA');t.ctx.STATE.cart=[{sku:'QA-01',name:'QA drink',qty:1,price:40}];
+ const body=b.sale({id:'absent-0'}),respond=p=>{if(p.action!=='health')sends.push(copy(p));return b.ctx.dispatchNativeAction(copy(p));};
+ attach(t,native,respond);const rows=b.main.getSheetByName('REQUESTS').getLastRow();
+ await assert.rejects(t.call('cajaSimpleRegistrar',[body]),e=>e.code==='HISTORY_REQUIRES_REVIEW');
+ const q=t.ctx.getOutbox()[0];assert.equal(q.requestId,'absent-0');assert.equal(q.status,'REQUIRES_REVIEW');assert.equal(q.errorStatus,409);
+ assert.equal(t.ctx.STATE.cart.length,1);assert.equal(t.localStorage.getItem('domus_confirmation_absent-0'),null);
+ const reload=setup({storage:t.localStorage});reload.ctx.setSessionToken(b.login(),'CAJA');attach(reload,native,respond);
+ await reload.ctx.migrateLegacyOutbox_();await reload.ctx.sincronizarOutboxCore_();assert.equal(sends.length,1);
+ assert.equal(reload.ctx.getOutbox()[0].requestId,'absent-0');assert.equal(reload.ctx.getOutbox()[0].status,'REQUIRES_REVIEW');
+ assert.equal(b.main.getSheetByName('REQUESTS').getLastRow(),rows);assert.equal(b.main.getSheetByName('COBROS').getLastRow(),6);
+});
+await test('journey ACK must name the same explicit history boundary as the requested opening/cut',()=>{
+ const b=require('./history_boundary_regressions').fixture();b.activate();const t=setup(),o=b.open(),c=b.cut();
+ for(const [action,result,body,id] of [['turnoAbrir',o,{scopeId:'A',openingFloat:0,historyBoundaryId:'boundary'},'new-open'],
+ ['corteZCerrar',c,{openingRequestId:'new-open',countedCash:0,historyBoundaryId:'boundary'},'new-cut']]){
+  const payload={action,requestId:id,args:[body]};assert.equal(t.ctx.validJourneyResult_(result,payload),true);
+  for(const historyBoundaryId of [null,undefined,'OTHER'])assert.equal(t.ctx.validJourneyResult_({...result,historyBoundaryId},payload),false);
+ }
+});
 console.log(JSON.stringify({suite:'journey-transport-real-source-mocks',passed,liveSheets:false,network:false}));
 })().catch(e=>{console.error(e);process.exitCode=1;});

@@ -8,9 +8,11 @@ const server=http.createServer((req,res)=>{
  try{res.setHeader('Content-Type',file.endsWith('.js')?'text/javascript':file.endsWith('.css')?'text/css':'text/html');res.end(fs.readFileSync(file));}catch{res.writeHead(404).end();}
 });
 async function main(){
- const b=setup();b.manager();const manager=b.login('GERENCIA');
+ const withHistory=process.env.DOMUS_TEST_HISTORY==='1';
+ const b=withHistory?require('./history_boundary_regressions').fixture():setup();b.manager();const manager=b.login('GERENCIA');
  b.props.set('DOMUS_JOURNEY_POLICY_V1',JSON.stringify({version:1,scopes:[{id:'A',projectId:'P-A',projectName:'QA project',eventId:'E-A',eventName:'QA event',activity:'QA event'}],
  stations:[{deviceId:'fixture-device',stationId:'CAJA_1',registerId:'GAVETA_1',scopeIds:['A']}]}));
+ if(withHistory)b.activate();
  await new Promise(r=>server.listen(0,'127.0.0.1',r));const origin='http://127.0.0.1:'+server.address().port;
  const browser=await chromium.launch({headless:true,...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE?{executablePath:process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE}:{})});
  const sends=[],errors=[];let passed=0,loseOpening=true;
@@ -30,6 +32,7 @@ async function main(){
    return route.fulfill({json:result});
   });
   await page.goto(origin+'/?env=staging&vista=caja');await page.waitForFunction(()=>document.getElementById('journeyStatus')?.textContent.includes('Sin jornada'));
+  if(withHistory)assert((await page.locator('#journeyStatus').innerText()).includes('149 ID(s) inciertos'));
   await page.locator('.product-card').first().click();await page.locator('#activitySelect').selectOption('QA event');await page.locator('#customerNameInput').fill('QA');
   await page.locator('#btnOpenPaymentModal').click();await page.locator('#cashReceivedInput').fill('100');await page.locator('#btnConfirmChargeAndSend').click();
   assert.equal(sends.filter(p=>p.action==='cajaSimpleRegistrar').length,0);assert.equal(b.main.getSheetByName('COBROS').getLastRow(),6);await page.locator('#btnCancelPayment').click();
@@ -83,7 +86,13 @@ async function main(){
   assert.equal(final.snapshot.pendingTransfers.length,0);assert.equal(final.snapshot.pendingDeliveries.length,0);assert.deepEqual(cob.getRange(8,1,1,31).getValues(),pendingRow);
   assert.equal(cob.getLastRow(),9);assert.equal(sends.filter(p=>p.action==='cajaSimpleRegistrar').length,2);assert.deepEqual(errors,[]);
   passed++;console.log('PASS UI permits closure only after bank confirmation and delivery, preserving the original pending payment');
-  await context.close();console.log(JSON.stringify({suite:'browser-journey-operations',passed,liveSheets:false,liveSales:0,hardware:false}));
+  if(withHistory){
+   assert.equal(final.historyBoundaryId,'boundary');assert.equal(final.snapshot.historyReview.counts.uncertainIds,149);
+   assert(!sends.some(p=>b.input.queue.some(q=>q.requestId===p.requestId)));
+   assert.equal(b.ctx.paymentRequestIndex_(b.main).get('legacy-0')[0][4],'FAILED');
+   passed++;console.log('PASS UI keeps historical warning and explicit boundary after reload; no historical ID was sent');
+  }
+  await context.close();console.log(JSON.stringify({suite:withHistory?'browser-journey-history-boundary':'browser-journey-operations',passed,liveSheets:false,liveSales:0,hardware:false}));
  }finally{await browser.close();await new Promise(r=>server.close(r));}
 }
 main().catch(e=>{console.error(e);server.close();process.exitCode=1;});

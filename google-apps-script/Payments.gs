@@ -99,6 +99,7 @@ function transferConfirmedRecords_(m,index) {
 }
 
 function transferSource_(m,index,p) {
+  historyGuard_(m,p.sourceRequestId,'transferSource');
   const record=paymentRequest_(index,p.sourceRequestId),source=record && record.result;
   if(!record || record.action!=='cajaSimpleRegistrar' || record.status!=='COMPLETED' || !source || source.ok!==true ||
       source.receipt!==p.sourceReceipt || source.ticket!==p.ticket || source.method!=='Transferencia' || source.paymentStatus!=='PENDIENTE_VERIFICACION' || source.paid!==false || source.verified!==false ||
@@ -214,7 +215,7 @@ function prepararResolucionTransferencia(p) {
 }
 
 function transferResolutionContext_(m,p,ownId) {
-  const index=paymentRequestIndex_(m),journal=m.getSheetByName('DOMUS_JOURNAL'),journalRows=journal?dataRows_(journal,2,6):[];
+  const index=historyOperationalIndex_(m),journal=m.getSheetByName('DOMUS_JOURNAL'),journalRows=journal?dataRows_(journal,2,6):[];
   const own=ownId && index.get(ownId);
   if(own && own.length===1 && ['cancelarTransferenciaNoRecibida','vincularPagoExistente'].includes(own[0][1]) && own[0][4]==='PROCESSING' && !journalFind_(ownId,m))index.delete(ownId);
   if(journalRows.some(r=>r[0] && r[2]!=='COMPLETED'))throw transferError_('TRANSFER_RESOLUTION_REQUIRES_REVIEW','Existe un plan incompleto. Conservar su intención; esta consulta no lo reanuda.');
@@ -527,7 +528,7 @@ function prepararVinculoPagoExistente(p) {
 
 function existingPaymentReplayGuard_(m,id) {
   const plan=journalFind_(id,m);if(!plan)return;
-  const index=paymentRequestIndex_(m),j=existingPaymentJournal_(m,id,'vincularPagoExistente',false);
+  const index=historyOperationalIndex_(m),j=existingPaymentJournal_(m,id,'vincularPagoExistente',false);
   let p;try {p=JSON.parse(j[4]);}catch(_){throw existingPaymentError_('Vínculo ilegible.');}
   existingPaymentLinkResult_(m,index,id,p,j);
   const source=transferSource_(m,index,p),snapshot=transferResolutionSnapshot_(m,index,source,p.sourceRequestId);
