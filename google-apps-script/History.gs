@@ -38,7 +38,7 @@ function historySnapshot_(m,p,ownId) {
   if(!s)fail('Falta REQUESTS; no inferir historial vacío.');
   if(JSON.stringify(s.getRange(1,1,1,8).getValues()[0])!==JSON.stringify(['REQUEST_ID','ACTION','PAYLOAD_HASH','DEVICE_ID','STATUS','CREATED_AT','COMPLETED_AT','RESPONSE']))fail('Encabezados REQUESTS incompatibles; no interpretar columnas por inferencia.');
   if(ownId && p.queue.some(q=>q.requestId===ownId))fail('El registro administrativo necesita un ID distinto a los retenidos.');
-  let last=s.getLastRow();const all=dataRows_(s,2,8),own=all.filter(r=>r[0]===ownId);
+  let last=s.getLastRow();const all=requestRows_(s),own=all.filter(r=>r[0]===ownId);
   if(ownId) {
     if(own.length!==1 || own[0][1]!=='registrarLimiteHistorico' || own[0][4]!=='PROCESSING' || all[all.length-1]!==own[0])fail('El inventario cambió antes del registro.');
     last--;
@@ -46,7 +46,7 @@ function historySnapshot_(m,p,ownId) {
   const rows=all.slice(0,Math.max(0,last-1)),index=new Map();
   rows.forEach(r=>{
     if(!r[0]){if(r.some(v=>v!=='' && v!==null))fail('Fila sin ID con evidencia: revisión manual requerida.');return;}
-    const id=String(r[0]);if(id.trim()!==id)fail('ID histórico no canónico.');
+    const id=r[0];
     const list=index.get(id)||[];list.push(r);index.set(id,list);
   });
   let uncertain=0,duplicates=0;
@@ -93,15 +93,16 @@ function historyValidateBoundary_(m,b) {
   if(!authoritative || authoritative.getName()!==s.requests.sheet || historyHash_(journeyPolicy_(m))!==s.journeyPolicyHash)throw historyError_('Cambió el libro autoritativo o el mapa aprobado de estaciones/jornadas.');
   if(s.requests.hash!==historyPrefix_(m.getSheetByName(s.requests.sheet),s.requests.lastRow,8) ||
       (s.journal.lastRow && s.journal.hash!==historyPrefix_(j,s.journal.lastRow,6)))throw historyError_('La evidencia histórica cambió. Conservar copias y revisar; no recalcular el límite.');
-  const ids=new Set(s.requests.lastRow>1?m.getSheetByName(s.requests.sheet).getRange(2,1,s.requests.lastRow-1,1).getValues().map(r=>String(r[0])).filter(Boolean):[]);
+  const ledger=requestRows_(authoritative);
+  const ids=new Set(ledger.slice(0,s.requests.lastRow-1).map(r=>r[0]).filter(Boolean));
   s.queue.forEach(q=>ids.add(q.requestId));
   // Frozen prefix only. Appending a duplicate of any fenced ID is also a change,
   // including a previously absent station ID. Never treat it as newly completed.
-  const after=dataRows_(m.getSheetByName(s.requests.sheet),s.requests.lastRow+1,8);
+  const after=ledger.slice(s.requests.lastRow-1);
   if(after.some(r=>r.some(v=>v!=='' && v!==null) && (!r[0] || !r[1] || !['PROCESSING','COMPLETED','FAILED','REQUIRES_REVIEW'].includes(r[4]))))throw historyError_('Nueva evidencia sin ID, acción o estado reconocible. No excluirla por falta de jornada.');
-  const afterIds=after.filter(r=>r[0]).map(r=>String(r[0]));
+  const afterIds=after.filter(r=>r[0]).map(r=>r[0]);
   if(new Set(afterIds).size!==afterIds.length)throw historyError_('ID nuevo duplicado después del límite.');
-  if(after.some(r=>ids.has(String(r[0]))))throw historyError_('Un ID retenido reapareció fuera del inventario original.');
+  if(after.some(r=>ids.has(r[0])))throw historyError_('Un ID retenido reapareció fuera del inventario original.');
   if(j) {
     const plans=journalRows_(j).slice(Math.max(0,s.journal.lastRow-1)),planIds=plans.filter(journalRowHasContent_).map(r=>String(r[0]));
     if(new Set(planIds).size!==planIds.length || plans.some(r=>journalRowHasContent_(r) &&

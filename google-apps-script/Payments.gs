@@ -59,7 +59,7 @@ function transferSheet_(m) {
 // Read-only index: querying delivery permissions must not create a ledger/sheet.
 function paymentRequestIndex_(m) {
   const s=m.getSheetByName('REQUESTS') || m.getSheetByName('TRANSACCIONES_API'),index=new Map();
-  if(s)dataRows_(s,2,8).forEach(r=>{const id=String(r[0]);if(!id)return;const list=index.get(id)||[];list.push(r);index.set(id,list);});
+  requestRows_(s).forEach(r=>{const id=r[0];if(!id)return;const list=index.get(id)||[];list.push(r);index.set(id,list);});
   return index;
 }
 
@@ -69,7 +69,7 @@ function paymentRequest_(index,id) {
   if(!rows.length)return null;
   const row=rows[0];let result;
   try { result=row[7]?JSON.parse(row[7]):null; } catch(_) { throw transferError_('PAYMENT_EVIDENCE_REQUIRES_REVIEW','Resultado financiero ilegible.'); }
-  return {id:String(row[0]),action:String(row[1]),status:String(row[4]),result:result};
+  return {id:row[0],action:String(row[1]),status:String(row[4]),result:result};
 }
 
 function transferBankKey_(receiver,reference) {

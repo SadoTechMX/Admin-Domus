@@ -106,6 +106,7 @@ function journalFind_(id, m) {
 function journalResume_(id, action, m) {
   requestRootIdAssert_(id); // A caller cannot resume an internal JOURNAL_PART as a root.
   historyGuard_(m,id,action); // Includes direct readers/recovery paths outside the dispatcher.
+  requestRecordEntry_(m.getSheetByName('REQUESTS') || m.getSheetByName('TRANSACCIONES_API'),id);
   const record=journalFind_(id,m);
   if(!record)return null;
   if(record.data[1]!==action)throw new Error('IDEMPOTENCY_KEY_REUSED');

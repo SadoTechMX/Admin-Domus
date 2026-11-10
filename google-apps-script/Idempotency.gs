@@ -32,6 +32,32 @@ function requestRootIdAssert_(id) {
   return id;
 }
 
+function requestLedgerError_(message,duplicate) {
+  const code=duplicate?'LEDGER_DUPLICATE_REQUIRES_REVIEW':'LEDGER_IDENTITY_REQUIRES_REVIEW';
+  const e=new Error(code+': '+message+' Conservar la evidencia original, sin normalizar IDs.');
+  e.code=code;e.status=409;return e;
+}
+
+// Preserve physical rows and native values. Never cast or trim persisted IDs.
+// A malformed identity cannot safely be classified as an unrelated/missing intent.
+function requestRows_(sheet) {
+  if(!sheet || sheet.getLastRow()<2)return [];
+  const range=sheet.getRange(2,1,sheet.getLastRow()-1,8),rows=range.getValues(),formulas=range.getFormulas();
+  rows.forEach((row,i)=>{
+    if(!row.some(v=>v!=='' && v!==null) && !formulas[i].some(Boolean))return;
+    if(formulas[i][0] || !requestRootIdValid_(row[0]))throw requestLedgerError_('Identidad persistida inválida en fila '+(i+2)+'.');
+  });
+  return rows;
+}
+
+function requestRecordEntry_(sheet,id) {
+  requestRootIdAssert_(id);
+  const found=[];
+  requestRows_(sheet).forEach((row,i)=>{if(row[0]===id)found.push({values:row,row:i+2});});
+  if(found.length>1)throw requestLedgerError_('Más de una fila para la misma intención.',true);
+  return found[0] || null;
+}
+
 let _scriptLockDepth = 0;
 
 /**
@@ -145,17 +171,10 @@ function findRequestRecord_(cleanReqId, spreadsheet) {
   requestRootIdAssert_(cleanReqId);
   const sheet = getOrCreateRequestsSheet_(spreadsheet);
   if (!sheet) throw new Error('LEDGER_UNAVAILABLE');
-  const rows = dataRows_(sheet, 2, 8);
-  const found = [];
-  rows.forEach((r, i) => {
-    if (String(r[0]).trim() === cleanReqId) found.push({
-      requestId: cleanReqId, action: String(r[1]), payloadHash: String(r[2]),
-      deviceId: String(r[3]), status: String(r[4]), createdAt: r[5], completedAt: r[6],
-      response: r[7] ? JSON.parse(r[7]) : null, sheetRowIndex: i + 2
-    });
-  });
-  if (found.length > 1) throw new Error('LEDGER_DUPLICATE_REQUIRES_REVIEW');
-  return found[0] || null;
+  const entry=requestRecordEntry_(sheet,cleanReqId);if(!entry)return null;
+  const r=entry.values;
+  return {requestId:r[0],action:r[1],payloadHash:r[2],deviceId:r[3],status:r[4],createdAt:r[5],completedAt:r[6],
+    response:r[7]?JSON.parse(r[7]):null,sheetRowIndex:entry.row};
 }
 
 /**
@@ -165,6 +184,10 @@ function saveRequestRecord_(record, spreadsheet) {
   requestRootIdAssert_(record && record.requestId); // Before sheet creation or any write.
   const sheet = getOrCreateRequestsSheet_(spreadsheet);
   if (!sheet) throw new Error('LEDGER_UNAVAILABLE');
+  const entry=requestRecordEntry_(sheet,record.requestId);
+  if(record.sheetRowIndex!=null) {
+    if(!Number.isInteger(record.sheetRowIndex) || !entry || entry.row!==record.sheetRowIndex)throw requestLedgerError_('La fila original cambió de identidad o posición.');
+  } else if(entry)throw requestLedgerError_('No anexar otra fila para una intención existente.',true);
   // The durable ledger is authoritative. No cache can publish completion before Sheets.
   if (!record.sheetRowIndex) record.sheetRowIndex = Math.max(2, sheet.getLastRow() + 1);
   sheet.getRange(record.sheetRowIndex, 1, 1, 8).setValues([[

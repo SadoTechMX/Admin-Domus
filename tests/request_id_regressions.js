@@ -83,7 +83,7 @@ test('already poisoned historical rows are preserved, not renamed, deleted or tr
  s.appendRow(['old#part:0','cajaSimpleRegistrar','a'.repeat(64),'fixture-device','REQUIRES_REVIEW','','','{}']);
  j.appendRow(['old#part:0','cajaSimpleRegistrar','PREPARED','[]','{}','']);const before=snapshot(t);
  assert.throws(()=>t.request('cajaSimpleRegistrar',[t.sale({id:'old#part:0'})],'old#part:0'),invalid);assert.equal(snapshot(t),before);
- const p=t.sale();assert.throws(()=>t.request('cajaSimpleRegistrar',[p],p.id),e=>e.code==='JOURNAL_INTEGRITY_REQUIRES_REVIEW');assert.equal(snapshot(t),before);
+ const p=t.sale();assert.throws(()=>t.request('cajaSimpleRegistrar',[p],p.id),e=>e.code==='LEDGER_IDENTITY_REQUIRES_REVIEW');assert.equal(snapshot(t),before);
 });
 for(const environment of ['STAGING','PRODUCTION'])test(environment+' generated bundle enforces the same root guard using mock books only',()=>{
  const t=setup();t.props.set('DOMUS_ENV',environment);

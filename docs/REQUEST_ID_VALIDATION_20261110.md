@@ -1,5 +1,7 @@
 # Validación de ID antes de persistencia — corrección aislada
 
+> Seguimiento: la auditoría de `91ff27b` encontró normalización indebida de IDs ya persistidos. [Corrección y límites de lectura/guardado del ledger](LEDGER_IDENTITY_20261110.md). La validación entrante descrita aquí se conserva; por sí sola no protegía las identidades históricas.
+
 Base reproducida: `cd0c266f76d6cde6d77ebcb94453affde9852440`. La auditoría detectó que `client#part:0` podía entrar como ID de cliente: se guardaba REQUESTS y se preparaba un journal, pero el lector lo rechazaba por invadir el espacio reservado a fragmentos. La siguiente venta quedaba bloqueada. La reproducción local confirmó REQUESTS en REQUIRES_REVIEW, raíz PREPARED y fragmento `client#part:0#part:0`, con COBROS todavía sólo con encabezados.
 
 ## Cambio

@@ -102,5 +102,21 @@ for(const native of [false,true])await test((native?'native':'REST')+': invalid 
  assert.equal(JSON.stringify([...b.main.sheets].map(([name,s])=>[name,[...s.cells]])),before);
  const p=b.sale({id:'independent-valid'});assert.equal(b.request('cajaSimpleRegistrar',[p],p.id).paid,true);
 });
+for(const native of [false,true])for(const partial of [false,true])await test((native?'native':'REST')+' '+(partial?'partial':'completed')+': malformed persisted ID preserves queue and basket across reload without ACK or replay',async()=>{
+ const b=backend.setup(),body=b.sale({id:'123'});
+ if(partial){b.main.getSheetByName('COBROS').failAt='7:11';assert.throws(()=>b.request('cajaSimpleRegistrar',[body],body.id),/INJECTED_WRITE_FAILURE/);}
+ else b.request('cajaSimpleRegistrar',[body],body.id);
+ b.main.getSheetByName('REQUESTS').put(2,1,partial?123:' 123 ');
+ const t=setup(),sends=[];t.ctx.setSessionToken(b.login(),'CAJA');t.ctx.STATE.cart=[{sku:'QA-01',name:'QA drink',qty:1,price:40}];
+ const respond=p=>{if(p.action!=='health')sends.push(copy(p));return b.ctx.dispatchNativeAction(copy(p));};attach(t,native,respond);
+ const before=JSON.stringify([b.main,b.ops].map(book=>[...book.sheets].map(([name,s])=>[name,[...s.cells]])));
+ await assert.rejects(t.call('cajaSimpleRegistrar',[body]),e=>e.code==='LEDGER_IDENTITY_REQUIRES_REVIEW' && e.status===409);
+ const q=copy(t.ctx.getOutbox()[0]);assert.equal(q.requestId,body.id);assert.equal(q.status,'REQUIRES_REVIEW');assert.equal(q.errorStatus,409);assert.equal(t.ctx.STATE.cart.length,1);
+ assert.equal(t.localStorage.getItem('domus_confirmation_'+body.id),null);
+ const reload=setup({storage:t.localStorage});reload.ctx.setSessionToken(b.login(),'CAJA');attach(reload,native,respond);
+ await reload.ctx.migrateLegacyOutbox_();await reload.ctx.sincronizarOutboxCore_();assert.equal(sends.length,1);assert.deepEqual(copy(reload.ctx.getOutbox()[0].args),q.args);
+ assert.equal(reload.ctx.getOutbox()[0].requestId,q.requestId);assert.equal(reload.ctx.getOutbox()[0].status,'REQUIRES_REVIEW');assert.equal(reload.localStorage.getItem('domus_confirmation_'+q.requestId),null);
+ assert.equal(JSON.stringify([b.main,b.ops].map(book=>[...book.sheets].map(([name,s])=>[name,[...s.cells]]))),before);
+});
 console.log(JSON.stringify({suite:'journey-transport-real-source-mocks',passed,liveSheets:false,network:false}));
 })().catch(e=>{console.error(e);process.exitCode=1;});

@@ -83,7 +83,7 @@ test('any changed prefix/formula or appended duplicate stops new operations rath
 test('unknown statuses, missing IDs, modern journey history and unlisted station are not quarantined by inference',()=>{
  for(const alter of [t=>t.s.getRange(2,5).setValue('UNKNOWN'),t=>t.s.getRange(2,5).setValue(''),t=>t.s.getRange(2,1).setValue(''),
   t=>t.s.getRange(2,8).setValue('{"journey":{"openingRequestId":"old"}}'),t=>t.input.stationDeviceIds=[]]){
-  const t=fixture();alter(t);const before=JSON.stringify([...t.s.cells]);assert.throws(t.propose,e=>e.code==='HISTORY_BOUNDARY_NO_EFFECTS');assert.equal(JSON.stringify([...t.s.cells]),before);
+  const t=fixture();alter(t);const before=JSON.stringify([...t.s.cells]);assert.throws(t.propose,e=>e.code===(t.s.raw(2,1)===''?'LEDGER_IDENTITY_REQUIRES_REVIEW':'HISTORY_BOUNDARY_NO_EFFECTS'));assert.equal(JSON.stringify([...t.s.cells]),before);
  }
 });
 test('prepared legacy journal is not hidden by an administrative boundary',()=>{
@@ -110,7 +110,7 @@ test('new NULL/UNKNOWN or missing-identity evidence and orphan journals cannot b
   const t=fixture();t.activate();
   if(mode==='journal')t.ctx.journalSheet_(t.main).appendRow(['new-orphan','cajaSimpleRegistrar','COMPLETED','[]','{}',new Date().toISOString()]);
   else t.s.appendRow([mode==='id'?'':'new-unknown',mode==='action'?'':'cajaSimpleRegistrar','','',mode==='null'?'':mode==='unknown'?'UNKNOWN':'FAILED','','','{}']);
-  const before=business(t);assert.throws(t.open,e=>e.code==='HISTORY_REQUIRES_REVIEW');assert.equal(business(t),before);
+  const before=business(t);assert.throws(t.open,e=>e.code===(mode==='id'?'LEDGER_IDENTITY_REQUIRES_REVIEW':'HISTORY_REQUIRES_REVIEW'));assert.equal(business(t),before);
  }
 });
 test('partial administrative preparation blocks other requests; same ID resumes zero commercial writes',()=>{
