@@ -109,7 +109,10 @@ test('changed durable resolution or command state cannot remove the pending from
 test('duplicate cancellation journal prevents partial replay before further business effects',()=>{
  const t=fixture(),p=t.body();t.main.getSheetByName('COMANDAS').failAt='7:13';assert.throws(()=>t.cancel(p));
  const r=t.ctx.journalFind_('cancel',t.main);r.sheet.appendRow(r.data);const before=business(t);
- assert.throws(()=>t.cancel(p),e=>e.code==='TRANSFER_CANCELLATION_REQUIRES_REVIEW');assert.equal(business(t),before);
+ const requests=JSON.stringify([...t.main.getSheetByName('REQUESTS').cells]),journal=JSON.stringify([...r.sheet.cells]);
+ // The shared journal guard now rejects this before the action-specific reader.
+ assert.throws(()=>t.cancel(p),e=>e.code==='JOURNAL_INTEGRITY_REQUIRES_REVIEW' && e.status===409);assert.equal(business(t),before);
+ assert.equal(JSON.stringify([...t.main.getSheetByName('REQUESTS').cells]),requests);assert.equal(JSON.stringify([...r.sheet.cells]),journal);
 });
 test('cannot move cancellation to another opening or revive cancelled account with a new payment',()=>{
  const t=fixture(),p=t.body(),b=business(t);assert.throws(()=>t.cancel({...p,openingRequestId:'other'}));assert.equal(business(t),b);

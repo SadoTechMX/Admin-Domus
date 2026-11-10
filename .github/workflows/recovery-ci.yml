@@ -41,6 +41,7 @@ jobs:
       - run: node tests/journey_context_regressions.js
       - run: node tests/journey_operations_regressions.js
       - run: node tests/history_boundary_regressions.js
+      - run: node tests/journal_integrity_regressions.js
       - run: node tests/journey_transport_regressions.js
       - run: node tests/test_event_selection.mjs
       - run: node tests/test_access_channel.mjs

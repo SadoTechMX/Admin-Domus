@@ -75,5 +75,20 @@ await test('journey ACK must name the same explicit history boundary as the requ
   for(const historyBoundaryId of [null,undefined,'OTHER'])assert.equal(t.ctx.validJourneyResult_({...result,historyBoundaryId},payload),false);
  }
 });
+for(const native of [false,true])for(const kind of ['missing-id','orphan-part'])await test((native?'native':'REST')+' '+kind+': journal integrity rejection preserves intent and prevents retry after reload',async()=>{
+ const b=require('./history_boundary_regressions').fixture();b.activate();b.open();
+ b.ctx.journalSheet_(b.main).appendRow(kind==='missing-id'?['','cajaSimpleRegistrar','PREPARED','[]','{}','']:['unknown#part:0','JOURNAL_PART','COMPLETED','[]','','']);
+ const t=setup(),sends=[];t.ctx.setSessionToken(b.login(),'CAJA');t.ctx.STATE.cart=[{sku:'QA-01',name:'QA drink',qty:1,price:40}];
+ const body=b.sale({openingRequestId:'new-open'}),respond=p=>{if(p.action!=='health')sends.push(copy(p));return b.ctx.dispatchNativeAction(copy(p));};
+ attach(t,native,respond);const original=JSON.stringify([...b.main.sheets].map(([name,s])=>[name,[...s.cells]]));
+ await assert.rejects(t.call('cajaSimpleRegistrar',[body]),e=>e.code==='JOURNAL_INTEGRITY_REQUIRES_REVIEW' && e.status===409);
+ const q=copy(t.ctx.getOutbox()[0]);assert.equal(q.status,'REQUIRES_REVIEW');assert.equal(q.requestId,body.id);assert.equal(t.ctx.STATE.cart.length,1);
+ assert.equal(t.localStorage.getItem('domus_confirmation_'+body.id),null);
+ const reload=setup({storage:t.localStorage});reload.ctx.setSessionToken(b.login(),'CAJA');attach(reload,native,respond);
+ await reload.ctx.migrateLegacyOutbox_();await reload.ctx.sincronizarOutboxCore_();assert.equal(sends.length,1);
+ assert.equal(reload.ctx.getOutbox()[0].requestId,q.requestId);assert.deepEqual(copy(reload.ctx.getOutbox()[0].args),q.args);
+ assert.equal(reload.ctx.getOutbox()[0].status,'REQUIRES_REVIEW');assert.equal(reload.localStorage.getItem('domus_confirmation_'+body.id),null);
+ assert.equal(JSON.stringify([...b.main.sheets].map(([name,s])=>[name,[...s.cells]])),original);
+});
 console.log(JSON.stringify({suite:'journey-transport-real-source-mocks',passed,liveSheets:false,network:false}));
 })().catch(e=>{console.error(e);process.exitCode=1;});

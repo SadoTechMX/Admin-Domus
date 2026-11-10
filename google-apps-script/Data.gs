@@ -43,10 +43,60 @@ function journalSheet_(m) {
   return s;
 }
 
+function journalRowHasContent_(row) {
+  return row.some(v=>v!=='' && v!==null);
+}
+
+// Validate every populated row, including formulas whose displayed value is empty.
+// Return physical rows unchanged: filtering blank rows would shift replay addresses.
+// A fragment is evidence only with one parent and the exact complete part set.
+function journalRows_(sheet) {
+  const fail=(row,message)=>{
+    const e=new Error('JOURNAL_INTEGRITY_REQUIRES_REVIEW: fila '+row+'. '+message+' Conservar el original; no reanudar ni reconstruir.');
+    e.code='JOURNAL_INTEGRITY_REQUIRES_REVIEW';e.status=409;throw e;
+  };
+  if(!sheet)return [];
+  const header=sheet.getRange(1,1,1,6);
+  if(journalRowHasContent_(header.getFormulas()[0]) || JSON.stringify(header.getValues()[0])!==JSON.stringify(['REQUEST_ID','ACTION','STATUS','PLAN','RESULT','CREATED_AT']))fail(1,'Encabezados incompatibles.');
+  if(sheet.getLastRow()<2)return [];
+  const range=sheet.getRange(2,1,sheet.getLastRow()-1,6),rows=range.getValues(),formulas=range.getFormulas();
+  const index=new Map(),roots=[],chunks=[];
+  const identity=v=>typeof v==='string' && !!v && v.trim()===v;
+  rows.forEach((r,i)=>{
+    const row=i+2;
+    if(!journalRowHasContent_(r) && !journalRowHasContent_(formulas[i]))return;
+    if(journalRowHasContent_(formulas[i]) || !identity(r[0]) || !identity(r[1]) || !['PREPARED','COMPLETED'].includes(r[2]))fail(row,'Identidad, estado o fórmula incompatible.');
+    if(index.has(r[0]))fail(row,'ID de journal duplicado.');
+    const entry={id:r[0],action:r[1],status:r[2],row:row};index.set(entry.id,entry);
+    try{entry.plan=JSON.parse(r[3]);}catch(_){fail(row,'Plan ilegible.');}
+    if(entry.action==='JOURNAL_PART') {
+      const match=entry.id.match(/^(.+)#part:(0|[1-9]\d*)$/);
+      if(!match || !Number.isSafeInteger(Number(match[2])) || entry.status!=='COMPLETED' || !Array.isArray(entry.plan))fail(row,'Fragmento sin identidad/estado/plan válido.');
+      entry.parentId=match[1];entry.part=Number(match[2]);chunks.push(entry);
+    } else {
+      if(entry.id.includes('#part:'))fail(row,'Identidad reservada para fragmentos.');
+      if(!Array.isArray(entry.plan) && (!entry.plan || typeof entry.plan!=='object' || Object.keys(entry.plan).length!==1 ||
+        !Number.isSafeInteger(entry.plan.parts) || entry.plan.parts<0 || entry.plan.parts>rows.length))fail(row,'Descriptor de plan incompatible.');
+      roots.push(entry);
+    }
+  });
+  const children=new Map();
+  chunks.forEach(c=>{
+    const parent=index.get(c.parentId);
+    if(!parent || parent.action==='JOURNAL_PART' || Array.isArray(parent.plan) || c.part>=parent.plan.parts)fail(c.row,'Fragmento huérfano o fuera del descriptor de su padre.');
+    const list=children.get(parent.id)||[];list.push(c);children.set(parent.id,list);
+  });
+  roots.forEach(parent=>{
+    const parts=children.get(parent.id)||[],expected=Array.isArray(parent.plan)?0:parent.plan.parts;
+    if(parts.length!==expected || parts.some(c=>index.get(parent.id+'#part:'+c.part)!==c))fail(parent.row,'Conjunto de fragmentos incompleto.');
+  });
+  return rows;
+}
+
 function journalFind_(id, m) {
   const s = m.getSheetByName('DOMUS_JOURNAL');
   if (!s) return null;
-  const rows = dataRows_(s, 2, 6);
+  const rows = journalRows_(s);
   for (let i = 0; i < rows.length; i++) {
     if (String(rows[i][0]) === String(id)) return { sheet: s, row: i + 2, data: rows[i] };
   }
@@ -64,7 +114,7 @@ function journalResume_(id, action, m) {
   let plan;
   if(Array.isArray(descriptor))plan=descriptor;
   else {
-    const all=dataRows_(record.sheet,2,6);plan=[];
+    const all=journalRows_(record.sheet);plan=[];
     for(let part=0;part<descriptor.parts;part++) {
       const chunks=all.filter(r=>r[0]===id+'#part:'+part && r[1]==='JOURNAL_PART');
       if(chunks.length!==1)throw new Error('JOURNAL_INCOMPLETE_PLAN_REQUIRES_REVIEW');
@@ -96,7 +146,7 @@ function journalCommit_(id, action, m, writes, result) {
   const old=journalResume_(id,action,m);if(old)return old;
   activityValidateJournal_(writes,m);
   const s=journalSheet_(m);
-  if(dataRows_(s,2,6).some(r=>r[0] && r[2]!=='COMPLETED'))throw new Error('JOURNAL_RECOVERY_REQUIRED: resolver intención previa antes de continuar.');
+  if(journalRows_(s).some(r=>journalRowHasContent_(r) && r[2]!=='COMPLETED'))throw new Error('JOURNAL_RECOVERY_REQUIRED: resolver intención previa antes de continuar.');
   const seen=new Set();
   const sorted=writes.slice().sort((a,b)=>String(a.book+a.sheet).localeCompare(String(b.book+b.sheet)) || a.row-b.row || a.column-b.column);
   const groups=[];

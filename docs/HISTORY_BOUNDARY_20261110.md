@@ -1,3 +1,5 @@
+> **Corrección posterior:** la auditoría de `26d847a` reprodujo dos omisiones de integridad en journal. [Reproducción, guardas comunes y regresiones](JOURNAL_INTEGRITY_20261110.md). La CI anterior no cubría estas variantes.
+
 # Históricos inciertos y nuevas jornadas — propuesta implementada, no activada
 
 Base: `029acb9c2001bb187db795b21020a0cc9c4ab20a`. UI `20261110-history-boundary-18`.

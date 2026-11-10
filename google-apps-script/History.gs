@@ -62,11 +62,11 @@ function historySnapshot_(m,p,ownId) {
       uncertain++;if(rs.length>1)duplicates++;
     }
   });
-  const journal=m.getSheetByName('DOMUS_JOURNAL'),jr=journal?dataRows_(journal,2,6):[];
+  const journal=m.getSheetByName('DOMUS_JOURNAL'),jr=journalRows_(journal);
   if(journal && JSON.stringify(journal.getRange(1,1,1,6).getValues()[0])!==JSON.stringify(['REQUEST_ID','ACTION','STATUS','PLAN','RESULT','CREATED_AT']))fail('Encabezados del journal incompatibles.');
-  if(jr.some(r=>r[0] && r[2]!=='COMPLETED'))fail('Hay un journal incompleto; recuperar su mismo ID antes de proponer un límite.');
-  const journalIds=jr.filter(r=>r[0]).map(r=>String(r[0]));
-  if(new Set(journalIds).size!==journalIds.length || jr.some(r=>r[0] && !index.has(r[1]==='JOURNAL_PART'?String(r[0]).replace(/#part:\d+$/,''):String(r[0]))))fail('Journal duplicado o sin REQUESTS original; revisión requerida.');
+  if(jr.some(r=>journalRowHasContent_(r) && r[2]!=='COMPLETED'))fail('Hay un journal incompleto; recuperar su mismo ID antes de proponer un límite.');
+  const journalIds=jr.filter(journalRowHasContent_).map(r=>String(r[0]));
+  if(new Set(journalIds).size!==journalIds.length || jr.some(r=>journalRowHasContent_(r) && !index.has(r[1]==='JOURNAL_PART'?String(r[0]).replace(/#part:\d+$/,''):String(r[0]))))fail('Journal duplicado o sin REQUESTS original; revisión requerida.');
   const queue=p.queue.map(v=>({requestId:v.requestId,action:v.action})).sort((a,b)=>a.requestId.localeCompare(b.requestId));
   if(queue.some(q=>index.has(q.requestId) && index.get(q.requestId).some(r=>r[1]!==q.action)))fail('La acción de la cola no coincide con REQUESTS.');
   const snapshot={version:1,book:m.getId(),environment:CONFIG.environment,
@@ -103,15 +103,15 @@ function historyValidateBoundary_(m,b) {
   if(new Set(afterIds).size!==afterIds.length)throw historyError_('ID nuevo duplicado después del límite.');
   if(after.some(r=>ids.has(String(r[0]))))throw historyError_('Un ID retenido reapareció fuera del inventario original.');
   if(j) {
-    const plans=dataRows_(j,Math.max(2,s.journal.lastRow+1),6),planIds=plans.filter(r=>r[0]).map(r=>String(r[0]));
-    if(new Set(planIds).size!==planIds.length || plans.some(r=>r[0] &&
+    const plans=journalRows_(j).slice(Math.max(0,s.journal.lastRow-1)),planIds=plans.filter(journalRowHasContent_).map(r=>String(r[0]));
+    if(new Set(planIds).size!==planIds.length || plans.some(r=>journalRowHasContent_(r) &&
       !afterIds.includes(r[1]==='JOURNAL_PART'?String(r[0]).replace(/#part:\d+$/,''):String(r[0]))))throw historyError_('Nuevo journal duplicado, sin REQUESTS o para un ID retenido.');
   }
   return {result:b,ids:ids};
 }
 
 function historyBoundary_(m,ownRegistrationId) {
-  const index=paymentRequestIndex_(m),j=m.getSheetByName('DOMUS_JOURNAL'),plans=j?dataRows_(j,2,6):[],candidates=[];
+  const index=paymentRequestIndex_(m),j=m.getSheetByName('DOMUS_JOURNAL'),plans=journalRows_(j),candidates=[];
   index.forEach((rows,id)=>{
     if(!rows.some(r=>r[1]==='registrarLimiteHistorico') || historyNoEffects_(m,rows))return;
     const entries=plans.filter(r=>r[0]===id);
