@@ -3,6 +3,8 @@
 // A narrowly scoped custody record for the phase-1 harness. Never a settlement,
 // migration of TURNOS, proof of no effects, or production activation mechanism.
 function stagingIsolationMode_() {return 'STAGING_PHASE1_OPENINGS_881A71C_V1';}
+function stagingFreshStartMode_() {return 'STAGING_FRESH_START_V1';}
+function stagingIsolationRequested_(p) {return p && [stagingIsolationMode_(),stagingFreshStartMode_()].includes(p.isolationMode);}
 function stagingIsolationSource_() {return '881a71c9f705ebe8ef4772273c9ed0a7a1b0d8fd';}
 function stagingIsolationProject_() {return '1sh5fyAaa0onlNsNZ40EokGumubebYEMisTGZ8rNj75gBiOsYPkA-rV4O';}
 function stagingIsolationEnvironment_(m) {
@@ -10,6 +12,35 @@ function stagingIsolationEnvironment_(m) {
       CONFIG.opsSheetId!==ENVIRONMENTS.STAGING.opsSheetId || m.getId()!==ENVIRONMENTS.STAGING.mainSheetId ||
       typeof ScriptApp==='undefined' || typeof ScriptApp.getScriptId!=='function' || ScriptApp.getScriptId()!==stagingIsolationProject_())
     throw historyError_('El aislamiento de pruebas sólo admite el proyecto y libros canónicos de STAGING.');
+}
+function stagingFreshStartEvidence_(m,p) {
+  stagingIsolationEnvironment_(m);
+  const backup=p.backup,text=v=>typeof v==='string' && v.length>0 && v.length<=200 && v.trim()===v;
+  if(!backup || !text(backup.reference) || typeof backup.sha256!=='string' || !/^[a-f0-9]{64}$/.test(backup.sha256) ||
+      typeof BACKEND_BUILD==='undefined' || !/^[a-f0-9]{64}$/.test(BACKEND_BUILD.sourceSha256))
+    throw historyError_('Se requiere referencia y SHA-256 del respaldo privado verificado y un build identificable.',true);
+  // Bind the proposal to the current commercial evidence as well as the ledger.
+  // This is an activation-time fingerprint, NOT a backup or a live balance freeze.
+  // The external backup must also preserve notes, validations and formats.
+  const ops=SpreadsheetApp.openById(CONFIG.opsSheetId),tables=[];
+  if(ops.getId()!==CONFIG.opsSheetId)throw historyError_('Libro de operaciones distinto al aprobado.',true);
+  [[m,['COBROS','CAJA 2','COMANDAS','ACCESO','INVENTARIO','RECETAS CARTA','INSUMOS','MOVIMIENTOS','DEVOLUCIONES','AJUSTES_Z']],
+    [ops,['RESURTIDO']]].forEach(([book,names])=>names.forEach(name=>{
+      const s=book.getSheetByName(name),last=s?s.getLastRow():0,width=s?s.getLastColumn():0;
+      tables.push({book:book.getId(),sheet:name,present:!!s,lastRow:last,width:width,hash:last?historyPrefix_(s,last,width):null});
+    }));
+  return {mode:stagingFreshStartMode_(),projectId:stagingIsolationProject_(),opsBook:ops.getId(),backendSourceSha256:BACKEND_BUILD.sourceSha256,
+    backup:{reference:backup.reference,sha256:backup.sha256},commercialEvidenceHash:historyHash_(tables)};
+}
+function stagingFreshStartValidate_(m,b) {
+  const f=b.snapshot.freshStart;
+  if(b.kind!=='STAGING_FRESH_START_BOUNDARY' || b.confirmBackupVerified!==true || !f || f.mode!==stagingFreshStartMode_() ||
+      f.projectId!==stagingIsolationProject_() || f.opsBook!==CONFIG.opsSheetId || !f.backup ||
+      typeof f.backup.reference!=='string' || !f.backup.reference || f.backup.reference!==f.backup.reference.trim() ||
+      [f.backendSourceSha256,f.backup.sha256,f.commercialEvidenceHash].some(v=>typeof v!=='string' || !/^[a-f0-9]{64}$/.test(v)))
+    throw historyError_('Límite de inicio nuevo sin respaldo/identidad acreditados.');
+  // Original hashes remain evidence; later legitimate sales change commercial
+  // cells. Do not rehash them as a new approval or require a zero financial state.
 }
 function stagingIsolationCases_() {
   // Exact bodies from tests/test_phase1_shifts_cuts.py at the immutable source.
@@ -118,20 +149,31 @@ function stagingIsolationReferences_(m,isolation,rows,ownId) {
 function stagingIsolationValidate_(m,b,ledger) {
   const s=b.snapshot,isolation=s.isolation;
   stagingIsolationEnvironment_(m);
-  if(b.kind!=='STAGING_TEST_OPENING_ISOLATION' || b.confirmLegacyTestWriterDisabled!==true || b.acceptUnattributedEffectsUnresolved!==true ||
-      !isolation || isolation.mode!==stagingIsolationMode_() || isolation.sourceCommit!==stagingIsolationSource_() || s.queue.length)
+  const fresh=b.kind==='STAGING_FRESH_START_BOUNDARY';
+  if((!fresh && b.kind!=='STAGING_TEST_OPENING_ISOLATION') || b.confirmLegacyTestWriterDisabled!==true || b.acceptUnattributedEffectsUnresolved!==true ||
+      !isolation || isolation.mode!==stagingIsolationMode_() || isolation.sourceCommit!==stagingIsolationSource_() || (!fresh && (s.queue.length || s.freshStart)))
     throw historyError_('Custodia de pruebas incompleta; no aplicar el límite general.');
+  if(fresh)stagingFreshStartValidate_(m,b);
   const current=stagingIsolationEvidence_(m,ledger.slice(0,s.requests.lastRow-1));
   if(historyHash_(current)!==historyHash_(isolation))throw historyError_('Cambió la evidencia de TURNOS/CORTES_Z o de las solicitudes retenidas.');
   stagingIsolationReferences_(m,isolation,ledger,b.boundaryId);
   return new Set(isolation.entries.map(e=>e.requestId).concat(isolation.aliases,isolation.shiftIds));
 }
-function stagingIsolationRegistrationGuard_(m,id,deviceId) {
+function stagingIsolationRegistrationGuard_(m,id,deviceId,p) {
   // Called by the idempotent wrapper before even a PROCESSING row is appended.
   // An isolation request must not write to another environment or consume one
   // of the original TURNOS aliases as its new administrative identity.
   stagingIsolationEnvironment_(m);
-  const isolation=stagingIsolationEvidence_(m,requestRows_(m.getSheetByName('REQUESTS')));
-  if(stagingIsolationContains_([id,deviceId],isolation.entries.map(e=>e.requestId).concat(isolation.aliases,isolation.shiftIds)))
+  const rows=requestRows_(m.getSheetByName('REQUESTS')),isolation=stagingIsolationEvidence_(m,rows);
+  let refs=isolation.entries.map(e=>e.requestId).concat(isolation.aliases,isolation.shiftIds);
+  if(p && p.isolationMode===stagingFreshStartMode_()) {
+    // A completed/partial administrative retry is validated by historyBoundary_
+    // and payload binding; never include its own new ID as historical evidence.
+    const existing=rows.filter(r=>r[0]===id);
+    const own=existing.length===1 && existing[0][1]==='registrarLimiteHistorico';
+    const prefix=own?rows.slice(0,rows.indexOf(existing[0])):rows;
+    refs=refs.concat(prefix.filter(r=>r[0]).map(r=>r[0]),Array.isArray(p.queue)?p.queue.map(q=>q && q.requestId).filter(v=>typeof v==='string' && v):[]);
+  }
+  if(stagingIsolationContains_([id,deviceId],refs))
     throw historyError_('El registro administrativo necesita una identidad nueva, distinta de las pruebas y sus alias.');
 }

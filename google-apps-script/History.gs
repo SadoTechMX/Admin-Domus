@@ -27,7 +27,8 @@ function historyHasJourney_(raw) {
 }
 function historySnapshot_(m,p,ownId) {
   const fail=message=>{throw historyError_(message,true);};
-  if(p && p.isolationMode && p.isolationMode!==stagingIsolationMode_())fail('Modo de aislamiento desconocido.');
+  if(p && p.isolationMode && !stagingIsolationRequested_(p))fail('Modo de aislamiento desconocido.');
+  const fresh=p && p.isolationMode===stagingFreshStartMode_();
   const policy=journeyPolicy_(m);
   if(!policy)fail('Se requiere el mapa explícito de jornadas.');
   const text=v=>typeof v==='string' && v.trim()===v && v.length>0 && v.length<=200;
@@ -51,8 +52,9 @@ function historySnapshot_(m,p,ownId) {
     const list=index.get(id)||[];list.push(r);index.set(id,list);
   });
   let isolation=null;
-  if(p.isolationMode===stagingIsolationMode_()) {
-    if(p.queue.length)fail('El aislamiento acotado requiere estaciones QA sin cola; no aparta pendientes de caja.');
+  if(stagingIsolationRequested_(p)) {
+    if(!fresh && p.queue.length)fail('El aislamiento acotado requiere estaciones QA sin cola; no aparta pendientes de caja.');
+    if(fresh && p.queue.some(q=>!requestRootIdValid_(q.requestId)))fail('La cola contiene una identidad no canónica; conservarla y revisar.');
     try {
       isolation=stagingIsolationEvidence_(m,rows);
       stagingIsolationReferences_(m,isolation,rows,ownId);
@@ -89,11 +91,12 @@ function historySnapshot_(m,p,ownId) {
     snapshot.isolation=isolation;
     snapshot.counts.isolatedIds=9;snapshot.counts.isolatedOpenings=2;snapshot.counts.remainingUncertainIds=uncertain-7;
   }
+  if(fresh)snapshot.freshStart=stagingFreshStartEvidence_(m,p);
   return {snapshot:snapshot,snapshotHash:historyHash_(snapshot)};
 }
 
 function historyValidateBoundary_(m,b) {
-  if(!b || b.ok!==true || !['LEGACY_HISTORY_BOUNDARY','STAGING_TEST_OPENING_ISOLATION'].includes(b.kind) || b.version!==1 || b.financialFinal!==false || b.resolved!==false ||
+  if(!b || b.ok!==true || !['LEGACY_HISTORY_BOUNDARY','STAGING_TEST_OPENING_ISOLATION','STAGING_FRESH_START_BOUNDARY'].includes(b.kind) || b.version!==1 || b.financialFinal!==false || b.resolved!==false ||
       b.acknowledgeUnresolvedHistory!==true || b.confirmStationsHeld!==true || b.newCharge!==0 || b.inventoryMovement!==0 || !b.approvalReference ||
       !b.boundaryId || !b.snapshot || b.snapshot.book!==m.getId() || b.snapshot.environment!==CONFIG.environment ||
       !CONFIG.managers.includes(b.authorizedPrincipal) || !['ADMIN','GERENCIA'].includes(b.authorizedRole) ||
@@ -110,8 +113,10 @@ function historyValidateBoundary_(m,b) {
   const ledger=requestRows_(authoritative);
   const frozenIds=new Set(ledger.slice(0,s.requests.lastRow-1).map(r=>r[0]).filter(Boolean));
   s.queue.forEach(q=>frozenIds.add(q.requestId));
-  if((b.kind==='STAGING_TEST_OPENING_ISOLATION')!==!!s.isolation)throw historyError_('Modo del inventario incompatible.');
+  if(['STAGING_TEST_OPENING_ISOLATION','STAGING_FRESH_START_BOUNDARY'].includes(b.kind)!==!!s.isolation ||
+      (b.kind==='STAGING_FRESH_START_BOUNDARY')!==!!s.freshStart)throw historyError_('Modo del inventario incompatible.');
   const ids=s.isolation?stagingIsolationValidate_(m,b,ledger):frozenIds;
+  if(s.freshStart)frozenIds.forEach(id=>ids.add(id));
   // Frozen prefix only. Appending a duplicate of any fenced ID is also a change,
   // including a previously absent station ID. Never treat it as newly completed.
   const after=ledger.slice(s.requests.lastRow-1);
@@ -149,7 +154,7 @@ function historyGuard_(m,id,action) {
   return b;
 }
 function historyGuardIntent_(m,id,action,payload,deviceId) {
-  if(action==='registrarLimiteHistorico' && payload && payload.isolationMode===stagingIsolationMode_())stagingIsolationRegistrationGuard_(m,id,deviceId);
+  if(action==='registrarLimiteHistorico' && stagingIsolationRequested_(payload))stagingIsolationRegistrationGuard_(m,id,deviceId,payload);
   const b=historyGuard_(m,id,action);if(!b)return null;
   const p=payload || {},deny=()=>{throw historyError_('La intención apunta a un origen retenido. Conservarlo; no registrarlo de nuevo.');};
   if(b.result.snapshot.isolation) {
@@ -184,8 +189,9 @@ function historyOperationalIndex_(m) {
 function historyNotice_(m) {
   const b=historyBoundary_(m);return b?{boundaryId:b.result.boundaryId,snapshotHash:b.result.snapshotHash,
     counts:b.result.snapshot.counts,resolved:false,financialFinal:false,
-    mode:b.result.snapshot.isolation?stagingIsolationMode_():'LEGACY_HISTORY_BOUNDARY',
-    message:b.result.snapshot.isolation?'STAGING: nueve solicitudes de pruebas retenidas; dos turnos originales siguen OPEN. Efectos no etiquetados sin descartar. Los demás pendientes conservan sus bloqueos.':
+    mode:b.result.snapshot.freshStart?stagingFreshStartMode_():b.result.snapshot.isolation?stagingIsolationMode_():'LEGACY_HISTORY_BOUNDARY',
+    message:b.result.snapshot.freshStart?'STAGING: inicio nuevo separado del histórico y de las colas retenidas, sin conciliar ni reiniciar saldos. Turnos originales OPEN; efectos no etiquetados pendientes. Corte sólo de la jornada nueva.':
+      b.result.snapshot.isolation?'STAGING: nueve solicitudes de pruebas retenidas; dos turnos originales siguen OPEN. Efectos no etiquetados sin descartar. Los demás pendientes conservan sus bloqueos.':
       'Histórico retenido sin conciliar. El corte sólo cubre la nueva jornada; no acredita saldos, existencias ni ingresos anteriores.'}:null;
 }
 function prepararLimiteHistorico(p) {
@@ -195,7 +201,7 @@ function prepararLimiteHistorico(p) {
     const m=SpreadsheetApp.openById(CONFIG.mainSheetId);
     if(historyBoundary_(m))throw historyError_('Ya existe un límite; no reemplazarlo.');
     const candidate=historySnapshot_(m,p);
-    return Object.assign({ok:true,kind:candidate.snapshot.isolation?'STAGING_TEST_OPENING_PROPOSAL':'LEGACY_HISTORY_PROPOSAL',canActivate:false,resolved:false,financialFinal:false},candidate);
+    return Object.assign({ok:true,kind:candidate.snapshot.freshStart?'STAGING_FRESH_START_PROPOSAL':candidate.snapshot.isolation?'STAGING_TEST_OPENING_PROPOSAL':'LEGACY_HISTORY_PROPOSAL',canActivate:false,resolved:false,financialFinal:false},candidate);
   });
 }
 function registrarLimiteHistorico(p) {
@@ -205,19 +211,22 @@ function registrarLimiteHistorico(p) {
     const m=SpreadsheetApp.openById(CONFIG.mainSheetId),id=p && p.requestId;
     const resumed=journalResume_(id,'registrarLimiteHistorico',m);if(resumed)return resumed;
     if(historyBoundary_(m,id))throw historyError_('Ya existe un límite.',true);
-    const candidate=historySnapshot_(m,p,id),isolated=!!candidate.snapshot.isolation;let approval;
-    try{approval=JSON.parse(PropertiesService.getScriptProperties().getProperty(isolated?'DOMUS_STAGING_TEST_ISOLATION_APPROVAL_V1':'DOMUS_HISTORY_BOUNDARY_APPROVAL_V1'));}catch(_){}
+    const candidate=historySnapshot_(m,p,id),isolated=!!candidate.snapshot.isolation,fresh=!!candidate.snapshot.freshStart;let approval;
+    try{approval=JSON.parse(PropertiesService.getScriptProperties().getProperty(fresh?'DOMUS_STAGING_FRESH_START_APPROVAL_V1':isolated?'DOMUS_STAGING_TEST_ISOLATION_APPROVAL_V1':'DOMUS_HISTORY_BOUNDARY_APPROVAL_V1'));}catch(_){}
     if(!approval || approval.version!==1 || approval.approved!==true || approval.snapshotHash!==candidate.snapshotHash ||
         typeof approval.approvalReference!=='string' || !approval.approvalReference.trim() || p.snapshotHash!==candidate.snapshotHash ||
         p.acknowledgeUnresolvedHistory!==true || p.confirmStationsHeld!==true)throw historyError_('Falta aprobación explícita para esta huella y confirmación de estaciones retenidas. No habilitar por antigüedad.',true);
-    if(isolated && (approval.mode!==stagingIsolationMode_() || approval.confirmLegacyTestWriterDisabled!==true ||
+    if(isolated && (approval.mode!==(fresh?stagingFreshStartMode_():stagingIsolationMode_()) || approval.confirmLegacyTestWriterDisabled!==true ||
         approval.acceptUnattributedEffectsUnresolved!==true || p.confirmLegacyTestWriterDisabled!==true || p.acceptUnattributedEffectsUnresolved!==true))
       throw historyError_('Falta autorización específica de custodia de pruebas, bloqueo del escritor antiguo y aceptación de efectos no etiquetados pendientes.',true);
-    const result={ok:true,version:1,kind:isolated?'STAGING_TEST_OPENING_ISOLATION':'LEGACY_HISTORY_BOUNDARY',boundaryId:id,snapshot:candidate.snapshot,snapshotHash:candidate.snapshotHash,
+    if(fresh && (approval.confirmBackupVerified!==true || p.confirmBackupVerified!==true ||
+        approval.backupSha256!==candidate.snapshot.freshStart.backup.sha256))throw historyError_('Falta verificación y autorización específica del respaldo privado exacto.',true);
+    const result={ok:true,version:1,kind:fresh?'STAGING_FRESH_START_BOUNDARY':isolated?'STAGING_TEST_OPENING_ISOLATION':'LEGACY_HISTORY_BOUNDARY',boundaryId:id,snapshot:candidate.snapshot,snapshotHash:candidate.snapshotHash,
       approvalReference:approval.approvalReference,acknowledgeUnresolvedHistory:true,confirmStationsHeld:true,
       recordedAt:new Date().toISOString(),authorizedPrincipal:_authContext.principal,authorizedRole:_authContext.role,authorizedBy:_authContext.operator,
       resolved:false,financialFinal:false,newCharge:0,inventoryMovement:0};
     if(isolated) {result.confirmLegacyTestWriterDisabled=true;result.acceptUnattributedEffectsUnresolved=true;}
+    if(fresh)result.confirmBackupVerified=true;
     if(JSON.stringify(result).length>40000)throw historyError_('Inventario demasiado grande; no truncar IDs.',true);
     return journalCommit_(id,'registrarLimiteHistorico',m,[],result);
   });

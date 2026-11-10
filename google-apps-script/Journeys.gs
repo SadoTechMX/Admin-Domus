@@ -120,6 +120,10 @@ function journeyOpening_(m,id) {
   const r=paymentRequest_(historyOperationalIndex_(m),id);return r && r.result;
 }
 function journeyAssertSettled_(m,ownId) {
+  const boundary=historyBoundary_(m);
+  if(boundary && boundary.result.snapshot.freshStart && journalRows_(m.getSheetByName('DOMUS_JOURNAL')).some(r=>
+      journalRowHasContent_(r) && r[2]!=='COMPLETED' && (r[1]==='JOURNAL_PART'?r[0].replace(/#part:\d+$/,''):r[0])!==ownId))
+    throw journeyError_('Hay un journal incompleto después del límite. Recuperar su mismo ID antes de abrir/cortar; no apartarlo como histórico.');
   historyOperationalIndex_(m).forEach((rows,id)=>{
     if(id===ownId)return;
     if(!rows.some(r=>['turnoAbrir','corteZCerrar','cajaSimpleRegistrar','confirmarTransferencia','cancelarTransferenciaNoRecibida','vincularPagoExistente','comandasSimpleAccion'].includes(r[1])))return;
