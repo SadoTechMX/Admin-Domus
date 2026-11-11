@@ -3,6 +3,7 @@
 const assert=require('assert/strict'),fs=require('fs'),vm=require('vm'),path=require('path');
 const {fixture:base}=require('./staging_uncertain_retention_regressions');
 const source=fs.readFileSync(path.resolve(__dirname,'../scripts/apps-script-admin/StagingRetentionApproval.gs'),'utf8');
+const menuSource=fs.readFileSync(path.resolve(__dirname,'../scripts/apps-script-admin/StagingRetentionMenu.gs'),'utf8');
 const key='DOMUS_STAGING_UNCERTAIN_RETENTION_APPROVAL_V1',approvedHash='708c295c42adbbb7adb215de78f46e6c0f24a14508a4b2eb734024d839dbb94b';
 const copy=v=>JSON.parse(JSON.stringify(v));
 const snapshot=t=>JSON.stringify([t.main,t.ops].map(b=>[...b.sheets].map(([n,s])=>[n,[...s.cells],[...s.rules]])));
@@ -124,5 +125,55 @@ test('no public function, dispatcher action, bulk property operation, UI depende
   const result=t.ctx.dispatchNativeAction({action:name,args:[],role:'GERENCIA',requestId:'SYNTHETIC-admin',deviceId:'fixture-device'});assert.equal(result.ok,false);
  }
  assert.equal(t.writes.length,0);
+});
+function menuFixture(env){
+ const t=fixture(env);t.menuItems=[];t.menuAdded=0;
+ t.ctx.SpreadsheetApp.getActiveSpreadsheet=()=>t.main;
+ const menu={addItem:(label,name)=>{t.menuItems.push({label,name});return menu;},addSeparator:()=>menu,addToUi:()=>{t.menuAdded++;}};
+ t.ctx.SpreadsheetApp.getUi=()=>({createMenu:()=>menu});
+ vm.runInContext(menuSource,t.ctx,{filename:'StagingRetentionMenu.gs'});return t;
+}
+for(const env of [undefined,'STAGING'])test((env||'modules')+': selectable launcher only adds native private callbacks, even with client-supplied write arguments',()=>{
+ const t=menuFixture(env);t.syntheticApproval();t.ctx.domusRetencionAdminEntrada_=()=>t.inputAdmin;
+ const before=snapshot(t),props=JSON.stringify([...t.props]);
+ t.ctx.domusRetencionAdminCrear_=()=>assert.fail('launcher must never invoke setter');
+ t.ctx.domusRegistrarAprobacionRetencion_=()=>assert.fail('launcher must never invoke write callback');
+ t.ctx.SpreadsheetApp.openById=()=>assert.fail('launcher must not read books');
+ const r=t.ctx.domusPrepararMenuRetencion({action:'domusRegistrarAprobacionRetencion_',mode:'CREATE',confirm:true,artifact:t.inputAdmin.artifact});
+ assert.equal(r.status,'PRIVATE_MENU_READY');assert.equal(r.propertyWrites,0);assert.equal(r.canActivate,false);assert.equal(t.menuAdded,1);
+ assert.deepEqual(t.menuItems.map(x=>x.name),['domusInspeccionarAprobacionRetencion_','domusRegistrarAprobacionRetencion_']);
+ assert.equal(t.writes.length,0);assert.equal(t.reads.length,0);assert.equal(snapshot(t),before);assert.equal(JSON.stringify([...t.props]),props);
+});
+for(const mode of ['web-null','web-throws','no-ui','standalone','wrong-container','unauthorized'])test('launcher rejects unavailable/foreign UI or identity with no menu/property effects: '+mode,()=>{
+ const t=menuFixture();
+ if(['web-null','standalone'].includes(mode))t.ctx.SpreadsheetApp.getActiveSpreadsheet=()=>null;
+ if(mode==='web-throws')t.ctx.SpreadsheetApp.getActiveSpreadsheet=()=>{throw Error('not available');};
+ if(mode==='no-ui')t.ctx.SpreadsheetApp.getUi=()=>{throw Error('not available');};
+ if(mode==='wrong-container')t.ctx.SpreadsheetApp.getActiveSpreadsheet=()=>({getId:()=> 'OTHER'});
+ if(mode==='unauthorized')t.ctx.Session.getEffectiveUser=()=>({getEmail:()=> 'other@example.test'});
+ const r=t.ctx.domusPrepararMenuRetencion();assert.equal(r.ok,false);assert.equal(r.canActivate,false);assert.equal(t.menuAdded,0);assert.equal(t.writes.length,0);assert.equal(t.reads.length,0);
+});
+test('canonical OPS container can host the same private menu without data reads or writes',()=>{
+ const t=menuFixture();t.ctx.SpreadsheetApp.getActiveSpreadsheet=()=>t.ops;
+ assert.equal(t.ctx.domusPrepararMenuRetencion().status,'PRIVATE_MENU_READY');assert.equal(t.menuAdded,1);assert.equal(t.writes.length,0);assert.equal(t.reads.length,0);
+});
+test('native menu selection uses existing private callbacks and preserves create-only guards',()=>{
+ const t=menuFixture('STAGING');t.syntheticApproval();t.ctx.domusRetencionAdminEntrada_=()=>t.inputAdmin;
+ const before=snapshot(t);assert.equal(t.ctx.domusPrepararMenuRetencion().status,'PRIVATE_MENU_READY');assert.equal(t.writes.length,0);
+ assert.equal(t.ctx[t.menuItems[0].name]().status,'READ_ONLY');assert.equal(t.writes.length,0);
+ assert.equal(t.ctx[t.menuItems[1].name]().status,'CREATED');assert.equal(t.writes.length,1);
+ const raw=t.props.get(key);assert.equal(t.ctx[t.menuItems[1].name]().status,'EXISTING_PRESERVED');assert.equal(t.props.get(key),raw);assert.equal(t.writes.length,1);
+ assert.equal(snapshot(t),before);assert(!t.ctx.historyBoundary_(t.main));
+});
+test('menu callback rechecks Gerencia identity instead of trusting the menu creator',()=>{
+ const t=menuFixture();t.syntheticApproval();t.ctx.domusRetencionAdminEntrada_=()=>t.inputAdmin;t.ctx.domusPrepararMenuRetencion();
+ t.ctx.Session.getActiveUser=()=>({getEmail:()=> 'other@example.test'});
+ const r=t.ctx[t.menuItems[1].name]();assert.equal(r.ok,false);assert.equal(t.writes.length,0);assert.equal(t.reads.length,0);
+});
+test('only public entry is menu construction; no trigger, dispatcher action or dynamic callback supplied by a caller',()=>{
+ assert.deepEqual([...menuSource.matchAll(/^function ([A-Za-z0-9_]+)\(/gm)].map(m=>m[1]),['domusPrepararMenuRetencion']);
+ assert(!/function onOpen|newTrigger|\.setProperty\s*\(|domusRetencionAdminCrear_\s*\(|domusRegistrarAprobacionRetencion_\s*\(/.test(menuSource));
+ const t=menuFixture();const r=t.ctx.dispatchNativeAction({action:'domusPrepararMenuRetencion',args:[],role:'GERENCIA',requestId:'SYNTHETIC-menu',deviceId:'fixture-device'});
+ assert.equal(r.ok,false);assert.equal(t.menuAdded,0);assert.equal(t.writes.length,0);
 });
 console.log(JSON.stringify({suite:'retention-property-admin',passed,syntheticOnly:true,liveGoogle:false,realPropertyWrites:0,deployments:0,activation:false}));

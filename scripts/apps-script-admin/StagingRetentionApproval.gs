@@ -100,6 +100,7 @@ function domusRetencionAdminEjecutar_(fn) {
   try {result=fn();}catch(e){result={ok:false,status:/^RETENTION_ADMIN_[A-Z_]+$/.test(e.retentionAdminCode||'')?e.retentionAdminCode:'RETENTION_ADMIN_STOPPED',canActivate:false};}
   console.log(JSON.stringify(result));return result;
 }
-// Select these private functions in the Apps Script editor; do not publish.
+// Private native-menu callbacks. Use the companion StagingRetentionMenu.gs
+// launcher in the editor; these names are not selectable there. Do not publish.
 function domusInspeccionarAprobacionRetencion_() {return domusRetencionAdminEjecutar_(domusRetencionAdminLeer_);}
 function domusRegistrarAprobacionRetencion_() {return domusRetencionAdminEjecutar_(()=>domusRetencionAdminCrear_(domusRetencionAdminEntrada_()));}
