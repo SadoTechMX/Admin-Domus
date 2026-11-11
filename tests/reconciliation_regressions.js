@@ -13,7 +13,7 @@ function storage() {
 function setup(options={}) {
   const localStorage = options.storage || storage(), sessionStorage = storage(), calls = [], notices = [], cells={};
   const locks = options.locks || require('./mock_web_locks')();
-  const ctx = vm.createContext({console, Date, JSON, Map, Set, Promise, Error, crypto, performance, Intl, setTimeout, clearTimeout,
+  const ctx = vm.createContext({console, Date, JSON, Map, Set, Promise, Error, crypto, performance, Intl, setTimeout, clearTimeout, clearInterval,
     localStorage, sessionStorage, sessionRequests:new Map(), isOutboxCoreRunning:false, outboxStoreHeld_:false, paymentInFlight:false, activePaymentMethod:'Efectivo',
     STATE:{mode:'caja',operator:'Fixture',cart:[],operatingPeriod:{allowed:true,message:'Fixture period'},isNativeGas:false,isProductionLocked:false,apiUrl:'https://fixture.invalid'},
     MUTATION_ACTIONS:new Set(['cajaSimpleRegistrar','confirmarTransferencia','cancelarTransferenciaNoRecibida','vincularPagoExistente','comandasSimpleAccion','accesoCambiarActividad','cambiarFase']),
@@ -31,7 +31,7 @@ function setup(options={}) {
     const end = source.indexOf('\n  }',start)+4;
     vm.runInContext(source.slice(start,end),ctx);
   }
-  for (const name of ['setCashPeriod_','cashPeriodAllowed_','scheduleBackendPoll_','outboxReviewRequired_','assertOutboxTraffic_','validateReviewSnapshot_','assertOutboxStoreWritable_','withOutboxTraffic_',
+  for (const name of ['withOperationalWrite_','pauseForReview_','outboxIntentIdentity_','retryOutboxFromUi_','sincronizarOutbox','processOutbox','setCashPeriod_','cashPeriodAllowed_','scheduleBackendPoll_','outboxReviewRequired_','assertOutboxTraffic_','validateReviewSnapshot_','assertOutboxStoreWritable_','withOutboxTraffic_',
     'isSessionExpiredError','getStationRole','getSessionToken','setSessionToken','clearSessionToken',
     'ensureSessionToken','authenticatedTransport_','validSaleResult_','validTransferResult_','validTransferCancellationResult_','validExistingPaymentResult_','validJourneyContext_','validMovementJourney_','validJourneyResult_','validateBackendResponse_','getOutbox','withOutboxStore_','saveOutbox','enqueueOutbox','isSaleRejectionWithoutEffects_','classifyMutationFailure',
     'retainConfirmation_','saleDraftSnapshot_','settleConfirmedBasket_','recoverReceipt_','migrateLegacyOutbox_','sincronizarOutboxCore_','callBackend','recordOutboxFailure_','calculateCartTotal','mixedPaymentInput_','confirmPaymentAndDispatch']) load(name);

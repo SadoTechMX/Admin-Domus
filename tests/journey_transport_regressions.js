@@ -32,7 +32,9 @@ for(const native of [false,true])for(const action of ['turnoAbrir','corteZCerrar
  }else await t.call(action,[action==='turnoAbrir'?{id:'open-request',scopeId:'A',openingFloat:100}:{id:'cut-request',openingRequestId:'opening-A',countedCash:100}]);
  const queued=t.ctx.getOutbox()[0];assert.equal(queued.status,'RETRY');assert.equal(queued.errorCode,'TRANSPORT_INVALID_RESPONSE');assert.equal(t.localStorage.getItem('domus_confirmation_'+queued.requestId),null);
  const reload=setup({storage:t.localStorage});reload.ctx.setSessionToken(b.login(),'CAJA');reload.ctx.setSessionToken(manager,'GERENCIA');attach(reload,native,respond);
- await reload.ctx.migrateLegacyOutbox_();await reload.ctx.sincronizarOutboxCore_();assert.equal(reload.ctx.getOutbox().length,0);
+ await reload.ctx.migrateLegacyOutbox_();await reload.ctx.sincronizarOutboxCore_();
+ if(action!=='cajaSimpleRegistrar'){assert.equal(requests.length,1);assert.equal(reload.ctx.getOutbox()[0].requestId,queued.requestId);await reload.ctx.sincronizarOutboxCore_(queued.requestId);}
+ assert.equal(reload.ctx.getOutbox().length,0);
  assert.equal(requests.length,2);assert.equal(requests[0].requestId,requests[1].requestId);assert.deepEqual(requests[0].args,requests[1].args);
  assert.equal(b.main.getSheetByName('COBROS').getLastRow(),action==='cajaSimpleRegistrar'?7:6);
  const confirmed=JSON.parse(reload.localStorage.getItem('domus_confirmation_'+queued.requestId));assert.deepEqual(confirmed.data,copy(b.ctx.findRequestRecord_(queued.requestId,b.main).response));

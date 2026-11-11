@@ -41,6 +41,7 @@ async function main(){
   await page.waitForFunction(()=>JSON.parse(localStorage.getItem('domus_outbox')||'[]').some(q=>q.action==='turnoAbrir' && q.status==='RETRY'));
   const pending=await page.evaluate(()=>JSON.parse(localStorage.getItem('domus_outbox')).find(q=>q.action==='turnoAbrir'));
   assert.equal(await page.evaluate(id=>localStorage.getItem('domus_confirmation_'+id),pending.requestId),null);assert.equal(b.main.getSheetByName('COBROS').getLastRow(),6);
+  page.once('dialog',async d=>{assert(d.message().includes(pending.requestId));assert(d.message().includes('$100.00'));await d.accept();});
   await page.locator('#btnOutboxRetry').click();await page.waitForFunction(()=>!JSON.parse(localStorage.getItem('domus_outbox')||'[]').length);
   await page.locator('#btnSyncNow').click();await page.waitForFunction(()=>document.getElementById('journeyStatus')?.textContent.startsWith('Jornada abierta'));
   const opens=sends.filter(p=>p.action==='turnoAbrir');assert.equal(opens.length,2);assert.equal(opens[0].requestId,opens[1].requestId);assert.deepEqual(opens[0].args,opens[1].args);

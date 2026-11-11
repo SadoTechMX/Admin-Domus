@@ -25,7 +25,7 @@
   }
 
   function assertOutboxTraffic_() {
-    if(outboxReviewRequired_(false)) {
+    if(window.DOMUS_TRAFFIC_PAUSED_FOR_REVIEW || outboxReviewRequired_(false)) {
       const err=new Error('OUTBOX_REVIEW_REQUIRED: cola conservada; revisar sin reenviar.');
       err.code='OUTBOX_REVIEW_REQUIRED';err.status=409;throw err;
     }
@@ -269,7 +269,7 @@
   window.DOMUS_BUILD = {
     baseCommit: '2b7ba1f4030b1013555b93cb96cfcb594141fdcb',
     buildId: 'repair-reconcile-20261105',
-    ui: '20261111-operational-reads-25',
+    ui: '20261111-write-priority-26',
     environment: isProductionLocked ? 'PRODUCTION' : 'STAGING'
   };
 
@@ -3132,19 +3132,23 @@ const DEFAULT_CATALOG = [
   }
 
   // Background senders serialize; foreground claims and every store update use a short lock.
-  async function sincronizarOutbox() {
+  async function sincronizarOutbox(explicitRequestId=null,expectedIntent=null) {
     if (!window.navigator || !window.navigator.locks || typeof window.navigator.locks.request !== 'function') {
       updateSyncPill('error'); return;
     }
     await window.navigator.locks.request('domus-outbox-sync', { ifAvailable: true }, async lock => {
-      if (lock) await sincronizarOutboxCore_();
+      if (lock) await sincronizarOutboxCore_(explicitRequestId,expectedIntent);
     });
   }
 
   let isOutboxCoreRunning = false;
-  async function sincronizarOutboxCore_() {
+  async function sincronizarOutboxCore_(explicitRequestId=null,expectedIntent=null) {
     return withOutboxTraffic_(async()=>{
     if (isOutboxCoreRunning) return;
+    const eligible=it=>['LOCAL_PENDING','RETRY'].includes(it.status) && (explicitRequestId?
+      it.requestId===explicitRequestId:!['turnoAbrir','corteZCerrar'].includes(it.action));
+    if(!getOutbox().some(eligible))return;
+    return withOperationalWrite_(async()=>{
     isOutboxCoreRunning = true;
 
     try {
@@ -3152,8 +3156,9 @@ const DEFAULT_CATALOG = [
         assertOutboxTraffic_();
         const item = await withOutboxStore_(() => {
           const queue = getOutbox();
-          const selected = queue.find(it => it.status === 'LOCAL_PENDING' || it.status === 'RETRY');
+          const selected = queue.find(eligible);
           if (!selected) return null;
+          if(expectedIntent!==null && outboxIntentIdentity_(selected)!==expectedIntent)throw new Error('La intención cambió desde la confirmación. No se envió; revisar el original.');
           const body=selected.args && selected.args[0];
           if (selected.action==='cajaSimpleRegistrar' && (!body || ((!body.items || !body.items.length) && !(body.ticket && body.paid)))) {
             selected.status='REQUIRES_REVIEW'; selected.lastError='Operación de caja sin productos en el pedido.';
@@ -3187,6 +3192,7 @@ const DEFAULT_CATALOG = [
             toast('Operación sincronizada. Comprobante conservado en este equipo.', 'ok');
             playChime('success'); updateSyncPill('ok'); syncBackendData();
           } catch (err) { console.error('Operación confirmada; error de presentación.', err); }
+          if(explicitRequestId)break;
         } catch (err) {
           await recordOutboxFailure_(item,err);
           updateSyncPill('error');
@@ -3198,10 +3204,11 @@ const DEFAULT_CATALOG = [
       updateOutboxUI();
     }
     });
+    });
   }
 
-  function processOutbox() {
-    sincronizarOutbox().catch(err=>{updateSyncPill('error');console.warn('[OUTBOX]',err.message);});
+  function processOutbox(explicitRequestId=null,expectedIntent=null) {
+    return sincronizarOutbox(explicitRequestId,expectedIntent).catch(err=>{updateSyncPill('error');console.warn('[OUTBOX]',err.message);});
   }
 
   // Sincronización entre pestañas y reactividad a conexión de red
@@ -3236,6 +3243,7 @@ const DEFAULT_CATALOG = [
       const messages = [];
       if (pending.length > 0) {
         messages.push(`⚠️ MODO LOCAL · ${pending.length} operación(es) pendiente(s) de sincronizar`);
+        if(pending.some(q=>['turnoAbrir','corteZCerrar'].includes(q.action)))messages.push('Jornada sin confirmar: recuperación manual del mismo ID; no abrir otra.');
       }
       if (inReview.length > 0) {
         messages.push(`🛑 ${inReview.length} operación(es) en revisión manual / cuarentena`);
@@ -3273,6 +3281,45 @@ const DEFAULT_CATALOG = [
   }
 
   // --- COMUNICACIÓN CON BACKEND (IDEMPOTENTE & CON OUTBOX) ---
+  async function withOperationalWrite_(fn) {
+    STATE.backendWriteClaims=(STATE.backendWriteClaims || 0)+1;
+    if(STATE.pollTimer)clearTimeout(STATE.pollTimer);STATE.pollTimer=null;
+    const read=STATE.backendReadPromise,previous=STATE.backendWriteTail || Promise.resolve();
+    const task=previous.catch(()=>{}).then(async()=>{
+      if(read)await read;
+      assertOutboxTraffic_();
+      if(STATE.backendReviewPaused)throw new Error('Operación detenida por la pausa de revisión. No se envió.');
+      if(read && STATE.pollFailed)throw new Error('La consulta previa falló. Sincroniza y revisa antes de enviar; intención conservada.');
+      return fn();
+    });
+    STATE.backendWriteTail=task;
+    try{return await task;}finally{
+      STATE.backendWriteClaims--;
+      if(!STATE.backendWriteClaims) {
+        STATE.backendWriteTail=null;
+        try {
+          if(STATE.backendRefreshWanted && !STATE.backendReviewPaused && !STATE.pollFailed){STATE.backendRefreshWanted=false;syncBackendData();}
+          else scheduleBackendPoll_();
+        }catch(e){console.warn('No se pudo programar la consulta posterior; resultado de la operación conservado.',e);}
+      }
+    }
+  }
+
+  function outboxIntentIdentity_(q) {
+    return JSON.stringify([q.requestId,q.action,q.args,q.role,q.deviceId,q.operatorId]);
+  }
+
+  function retryOutboxFromUi_() {
+    const pending=getOutbox().filter(q=>['LOCAL_PENDING','RETRY'].includes(q.status) && ['turnoAbrir','corteZCerrar'].includes(q.action));
+    if(pending.length>1){toast('Hay varias jornadas pendientes. Revisa sus IDs individualmente; no se enviaron.','warn');return;}
+    if(pending.length===1) {
+      const q=pending[0],body=q.args?.[0] || {},closing=q.action==='corteZCerrar';
+      if(!confirm(`Recuperar ${closing?'corte':'apertura'} pendiente\nID: ${q.requestId}\nEfectivo declarado: ${money(closing?body.countedCash:body.openingFloat)}\nSe consultará o completará la misma intención. No se creará otra jornada. ¿Continuar?`))return;
+      return processOutbox(q.requestId,outboxIntentIdentity_(q));
+    }
+    return processOutbox();
+  }
+
   function callBackend(fnName, args, onSuccess, onError) {
     if(window.DOMUS_STAGING_PROPOSAL_VIEW) {
       const err=new Error('La consulta administrativa usa su ruta de sólo lectura; la operación solicitada no se envió.');
@@ -3318,7 +3365,7 @@ const DEFAULT_CATALOG = [
       try {if (onError) onError(err); else toast(err.message,'error');}
       catch(renderError) {console.error('Error de presentación; evidencia conservada.',renderError);}
     };
-    withOutboxTraffic_(()=>run().catch(failed)).catch(failed);
+    withOutboxTraffic_(()=>(isMutation?withOperationalWrite_(run):run()).catch(failed)).catch(failed);
   }
 
   async function recordOutboxFailure_(item, err) {
@@ -3615,14 +3662,16 @@ const DEFAULT_CATALOG = [
   function syncBackendData() {
     // Caja's explicit unlock owns authentication while this dialog is open.
     // Do not start background BARRA/CAJA prompts beneath it.
+    if(STATE.backendReviewPaused)return Promise.resolve();
+    if(STATE.backendWriteClaims){STATE.backendRefreshWanted=true;return Promise.resolve();}
     if(STATE.backendReadPromise)return STATE.backendReadPromise;
     if($('cajaLockModal')?.classList.contains('open')){scheduleBackendPoll_();return Promise.resolve();}
     if(STATE.pollTimer)clearTimeout(STATE.pollTimer);
     const mode=STATE.mode,role=getStationRole();
-    const current=()=>STATE.mode===mode && getStationRole()===role && !$('cajaLockModal')?.classList.contains('open');
+    const current=()=>!STATE.backendReviewPaused && STATE.mode===mode && getStationRole()===role && !$('cajaLockModal')?.classList.contains('open');
     STATE.pollFailed=false;
     const read=(action,success,failure)=>new Promise((resolve,reject)=>{
-      if(!current()){resolve();return;}
+      if(!current() || STATE.backendWriteClaims){resolve();return;}
       callBackend(action,[],data=>{
         try{if(current())success(data);resolve();}catch(e){reject(e);}
       },err=>{try{if(current())failure(err);}finally{reject(err);}});
@@ -3796,7 +3845,7 @@ const DEFAULT_CATALOG = [
   function scheduleBackendPoll_() {
     if(STATE.pollTimer)clearTimeout(STATE.pollTimer);
     STATE.pollTimer=null;
-    if(!STATE.pollEnabled || STATE.pollFailed || STATE.backendReadPromise)return;
+    if(!STATE.pollEnabled || STATE.pollFailed || STATE.backendReadPromise || STATE.backendWriteClaims || STATE.backendReviewPaused)return;
     STATE.pollTimer=setTimeout(()=>{
       if(document.hidden){scheduleBackendPoll_();return;}
       syncBackendData();
@@ -6224,8 +6273,7 @@ const DEFAULT_CATALOG = [
     // Botón Reintentar Outbox
     bindEvent('btnOutboxReview', 'click', enterOutboxReview_);
     bindEvent('btnOutboxRetry', 'click', () => {
-      toast('Recuperando operaciones pendientes con sus IDs originales…', 'info');
-      processOutbox();
+      retryOutboxFromUi_();
     });
 
     bindEvent('btnOutboxClear', 'click', () => {
@@ -6864,9 +6912,13 @@ const DEFAULT_CATALOG = [
   }
 
   // --- INICIALIZAR APP ---
-  window.DOMUS_PAUSE_FOR_REVIEW=()=>{
-    clearInterval(STATE.pollTimer);clearInterval(STATE.printerPollTimer);
-  };
+  function pauseForReview_() {
+    window.DOMUS_TRAFFIC_PAUSED_FOR_REVIEW=true;
+    STATE.backendReviewPaused=true;STATE.pollEnabled=false;STATE.backendRefreshWanted=false;
+    clearTimeout(STATE.pollTimer);STATE.pollTimer=null;clearInterval(STATE.printerPollTimer);
+    return {paused:true,readInFlight:!!STATE.backendReadPromise,writeClaims:STATE.backendWriteClaims || 0,cancelledServerExecutions:false};
+  }
+  window.DOMUS_PAUSE_FOR_REVIEW=pauseForReview_;
   document.addEventListener('DOMContentLoaded', () => {
     if(window.DOMUS_STAGING_PROPOSAL_VIEW){renderStagingProposal_();return;}
     try {
