@@ -12,7 +12,7 @@ const server=http.createServer((req,res)=>{const p=new URL(req.url,'http://local
   if(variant==='existing')b.request('turnoAbrir',item.args,item.requestId);
   await context.exposeBinding('__fixtureDispatch',async(_,p)=>{
    calls.push(p);assert(['health','authCrearSesion','turnoAbrir'].includes(p.action));const r=b.ctx.dispatchNativeAction(p);
-   if(p.action==='health'){r.data.build={sourceSha256:'b07de85635e3e297ddc7decf45a195094619beb42bf7a1f9bbac0e71728a8e61'};if(variant==='wrong-target')r.data.environment='PRODUCTION';}
+   if(p.action==='health'){r.data.build={sourceSha256:'f24d94ffa387680b000b26c79e262c31fabda499231ddae7880fb6af200a31b1'};if(variant==='wrong-target')r.data.environment='PRODUCTION';}
    if(p.action==='authCrearSesion'&&variant==='auth-denied')return {ok:false,error:'Denied'};
    if(p.action==='turnoAbrir'&&variant==='malformed')return {ok:true,requestId:p.requestId,data:{}};
    if(p.action==='turnoAbrir'&&variant==='lost')throw Error('Synthetic lost reply');return r;

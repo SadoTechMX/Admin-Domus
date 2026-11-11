@@ -146,7 +146,9 @@ function turnoAbrir(p) {
   return withLock_(CONFIG.lockTimeoutMs,()=>{
     const m=SpreadsheetApp.openById(CONFIG.mainSheetId),id=p && p.requestId;
     const resumed=journalResume_(id,'turnoAbrir',m);if(resumed)return resumed;
+    const read=historyReadView_(m);
     const result=journeyPreflight_(()=>{
+      const m=read.book;
       if(!p)throw journeyReject_('Datos de apertura requeridos.');
       const policy=journeyPolicy_(m),station=journeyStation_(policy);
       const scope=policy.scopes.find(s=>s.id===p.scopeId && station.scopeIds.includes(s.id));
@@ -162,6 +164,7 @@ function turnoAbrir(p) {
         stationId:station.stationId,registerId:station.registerId,deviceId:_authContext.deviceId,openingFloat:p.openingFloat,
         historyBoundaryId:history && history.boundaryId,historyReview:history,openedAt:now.toISOString(),openedBy:_authContext.operator,status:'OPEN'};
     });
+    read.assertDimensions();
     // Opening float is custody metadata, never a sale/payment/stock mutation.
     return journalCommit_(id,'turnoAbrir',m,[],result);
   });

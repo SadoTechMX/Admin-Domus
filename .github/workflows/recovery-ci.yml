@@ -22,6 +22,7 @@ jobs:
       - run: node tests/reconciliation_regressions.js
       - run: node tests/station_routing_regressions.js
       - run: node tests/operational_reads_regressions.js
+      - run: node tests/opening_read_scopes_regressions.js
       - run: node tests/polling_regressions.js
       - run: node tests/write_priority_regressions.js
       - run: node tests/held_opening_regressions.js

@@ -258,6 +258,13 @@ function historyValidateBoundary_(m,b) {
 }
 
 function historyBoundary_(m,ownRegistrationId) {
+  // A fresh, read-only scope for this validation; never retained across writes.
+  const read=historyReadView_(m);
+  const boundary=historyBoundaryRead_(read.book,ownRegistrationId);
+  read.assertDimensions();
+  return boundary;
+}
+function historyBoundaryRead_(m,ownRegistrationId) {
   const index=paymentRequestIndex_(m),j=m.getSheetByName('DOMUS_JOURNAL'),plans=journalRows_(j),candidates=[];
   index.forEach((rows,id)=>{
     if(!rows.some(r=>r[1]==='registrarLimiteHistorico') || historyNoEffects_(m,rows))return;

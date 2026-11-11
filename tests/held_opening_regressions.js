@@ -3,7 +3,7 @@
 const assert=require('assert/strict'),{setup,copy}=require('./reconciliation_regressions');
 const {fixture}=require('./history_boundary_regressions');
 const HOLD='domus_outbox_review_hold_v1',INITIAL='domus_outbox_review_initial_v1',SETTLED='domus_outbox_review_settled_v1',RECOVERY='domus_outbox_review_journey_v1';
-const HASH='b07de85635e3e297ddc7decf45a195094619beb42bf7a1f9bbac0e71728a8e61';
+const HASH='f24d94ffa387680b000b26c79e262c31fabda499231ddae7880fb6af200a31b1';
 let passed=0;async function test(n,f){await f();passed++;console.log('PASS',n);}
 function client(options={}){
  const t=setup(options);t.ctx.window.location={origin:'https://fixture.invalid'};t.ctx.window.DOMUS_NATIVE_BOOT={environment:'STAGING'};
@@ -66,9 +66,9 @@ const archive=t=>[...t.localStorage.data.keys()].filter(k=>k.startsWith('domus_o
   }
  });
  await test('health identity/build mismatch or Google CAJA rejection sends no opening and persists no credentials',async()=>{
-  for(const kind of ['environment','main','ops','build','auth','auth-role','auth-device']){
+  for(const kind of ['environment','main','ops','build','previous-build','auth','auth-role','auth-device']){
    const {t,calls,respond,attach,consent}=await held();attach(t,p=>{const r=respond(p);if(p.action==='health'){
-    if(kind==='environment')r.data.environment='PRODUCTION';if(kind==='main')r.data.mainSheetId='other';if(kind==='ops')r.data.opsSheetId='other';if(kind==='build')r.data.build.sourceSha256='other';
+    if(kind==='environment')r.data.environment='PRODUCTION';if(kind==='main')r.data.mainSheetId='other';if(kind==='ops')r.data.opsSheetId='other';if(kind==='build')r.data.build.sourceSha256='other';if(kind==='previous-build')r.data.build.sourceSha256='b07de85635e3e297ddc7decf45a195094619beb42bf7a1f9bbac0e71728a8e61';
    }if(p.action==='authCrearSesion'&&kind==='auth-role')r.data.role='BARRA';if(p.action==='authCrearSesion'&&kind==='auth-device')r.data.deviceId='other';return p.action==='authCrearSesion'&&kind==='auth'?{ok:false,error:'denied'}:r;});
    await assert.rejects(t.ctx.recoverReviewedJourney_(consent()));assert(!calls.some(p=>p.action==='turnoAbrir'));assert.equal(t.localStorage.getItem(RECOVERY),null);assert(t.localStorage.getItem(HOLD));
   }
@@ -116,6 +116,14 @@ const archive=t=>[...t.localStorage.data.keys()].filter(k=>k.startsWith('domus_o
    await assert.rejects(t.ctx.releaseReviewedOutbox_(),/INTERRUPTED/);assert(t.localStorage.getItem(HOLD));t.localStorage.setItem=set;t.localStorage.removeItem=remove;
    const reload=client({storage:t.localStorage});attach(reload,respond);await reload.ctx.preserveOutboxForReview_();assert.equal(reload.ctx.reviewReleaseDecision_().allowed,true,JSON.stringify(reload.ctx.reviewReleaseDecision_()));await reload.ctx.releaseReviewedOutbox_();
    assert.equal(t.localStorage.getItem(HOLD),null);assert.equal(t.localStorage.getItem('domus_outbox'),'[]');assert.equal(calls.length,3);assert(archive(t).some(k=>JSON.parse(t.localStorage.getItem(k)).initialRaw===initial));
+  }
+ });
+ await test('preexisting SENT or UNCONFIRMED from the prior UI stays byte-identical and cannot send any network request',async()=>{
+  for(const state of ['SENT','UNCONFIRMED']){
+   const {t,consent,calls}=await held();const c=consent();
+   t.localStorage.setItem(RECOVERY,JSON.stringify({version:1,state,requestId:'SYNTHETIC-held-opening',binding:c.binding,legacyBuild:'b07de85635e3e297ddc7decf45a195094619beb42bf7a1f9bbac0e71728a8e61'}));
+   const before=JSON.stringify([...t.localStorage.data]);await assert.rejects(t.ctx.recoverReviewedJourney_(c),/Ya existe/);
+   assert.equal(calls.length,0);assert.equal(JSON.stringify([...t.localStorage.data]),before);assert.equal(t.ctx.reviewReleaseDecision_().allowed,false);
   }
  });
  await test('changed queue after partial archive cannot be cleared during resume',async()=>{

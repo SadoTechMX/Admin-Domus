@@ -3839,8 +3839,8 @@ html, body {
       const d=health?.data;
       if(health?.ok!==true || d?.environment!=='STAGING' || d.mainSheetId!=='114VSwo3bXyn_audh1LHr4qqjW5aSDSTP_bR_-Iz5dkg' ||
           d.opsSheetId!=='1NDpuyx6EfCHcoKW9CZ6pwR0oe2JS0aKpTTMa7RdqmlE' ||
-          d.build?.sourceSha256!=='b07de85635e3e297ddc7decf45a195094619beb42bf7a1f9bbac0e71728a8e61')
-        throw new Error('Entorno, libros o build V17 no coinciden; no se envió la apertura.');
+          d.build?.sourceSha256!=='f24d94ffa387680b000b26c79e262c31fabda499231ddae7880fb6af200a31b1')
+        throw new Error('Entorno, libros o build revisado no coinciden; no se envió la apertura.');
       // Google-authorized CAJA only. No credential prompt, cached token, role
       // escalation, second login after rejection, or persisted session secret.
       const login=await dispatch({action:'authCrearSesion',args:[item.role,item.operatorId,item.deviceId,''],role:item.role,deviceId:item.deviceId});recheck();
@@ -3928,7 +3928,7 @@ html, body {
         const decision=reviewReleaseDecision_();document.getElementById('queueReviewDecision').textContent=decision.message;release.disabled=!decision.allowed;
         try {
           const c=reviewJourneyCandidate_(),section=document.getElementById('queueJourneyRecovery');section.hidden=false;
-          document.getElementById('queueJourneyIdentity').textContent='ID: '+c.item.requestId+' · ámbito: '+c.item.args[0].scopeId+' · fondo: $0 · destino: STAGING V17.';
+          document.getElementById('queueJourneyIdentity').textContent='ID: '+c.item.requestId+' · ámbito: '+c.item.args[0].scopeId+' · fondo: $0 · destino: STAGING · build revisado.';
           document.getElementById('queueJourneyRecover').disabled=localStorage.getItem('domus_outbox_review_journey_v1')!==null;
         } catch(_) {document.getElementById('queueJourneyRecovery').hidden=true;}
       };
@@ -3997,7 +3997,7 @@ html, body {
   window.DOMUS_BUILD = {
     baseCommit: '2b7ba1f4030b1013555b93cb96cfcb594141fdcb',
     buildId: 'repair-reconcile-20261105',
-    ui: '20261111-held-opening-27',
+    ui: '20261111-opening-read-scopes-28',
     environment: isProductionLocked ? 'PRODUCTION' : 'STAGING'
   };
 
@@ -10562,7 +10562,7 @@ const DEFAULT_CATALOG = [
     assertStagingProposalContext_();
     const retainedInventory=stagingRetainedInventory_(input);
     // Pin the exact backend supporting the reviewed retention contract.
-    const backendHash='b07de85635e3e297ddc7decf45a195094619beb42bf7a1f9bbac0e71728a8e61';
+    const backendHash='f24d94ffa387680b000b26c79e262c31fabda499231ddae7880fb6af200a31b1';
     const deviceId=getDeviceId(),health=await transport_({action:'health',args:[],role:'GERENCIA',deviceId}),d=health && health.data;
     if(!health.ok || !d || d.environment!=='STAGING' || d.mainSheetId!=='114VSwo3bXyn_audh1LHr4qqjW5aSDSTP_bR_-Iz5dkg' ||
         d.opsSheetId!=='1NDpuyx6EfCHcoKW9CZ6pwR0oe2JS0aKpTTMa7RdqmlE' || d.build?.sourceSha256!==backendHash)

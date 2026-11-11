@@ -16,9 +16,10 @@ function meter(t){
 }
 const normalize=data=>{const c=JSON.parse(JSON.stringify(data));if(c.operatingPeriod)delete c.operatingPeriod.checkedAt;delete c.at;return c;};
 for(const env of [undefined,'STAGING'])for(const action of ['cajaSimpleDatos','turnoEstado','comandasSimpleDatos'])test((env||'modules')+' '+action+': activated boundary and retained evidence unchanged, bounded consistent reads',()=>{
- const t=setup(env),before=snapshot(t),m=meter(t),original=t.ctx.operationalRead_;
+ const t=setup(env),before=snapshot(t),m=meter(t),original=t.ctx.operationalRead_,originalBoundary=t.ctx.historyBoundary_;
+ t.ctx.historyBoundary_=t.ctx.historyBoundaryRead_; // Compare against the pre-optimization implementation.
  t.ctx.operationalRead_=(read,ops,finish)=>{const d=read(t.main,ops?t.ops:null);return finish?finish(d,t.main):d;};
- const baseline=t.call(action),old=m.get();m.reset();t.ctx.operationalRead_=original;
+ const baseline=t.call(action),old=m.get();m.reset();t.ctx.operationalRead_=original;t.ctx.historyBoundary_=originalBoundary;
  const result=t.call(action),count=m.get();assert.deepEqual(normalize(result),normalize(baseline));assert.equal(snapshot(t),before);
  assert(count<=64,'bounded read count '+count);assert(count<old/2,JSON.stringify({old,count}));
  if(result.journey)assert.equal(result.journey.historyReview.snapshotHash,t.boundary.snapshotHash);

@@ -88,8 +88,12 @@ const envs=[undefined,'STAGING'];if(process.env.DOMUS_TEST_LEGACY_BUNDLE)envs.pu
 for(const env of envs){
  test((env||'modules')+': companion preserves original build and diagnostic hash, and writes only one approved property',()=>{
   const t=admin(env),before=snapshot(t),build=vm.runInContext('BACKEND_BUILD.sourceSha256',t.ctx);
-  t.ctx.historyReadView_=()=>assert.fail('must use reviewed companion');
-  const r=t.create();assert.equal(r.status,'CREATED');assert.equal(snapshot(t),before);assert.equal(t.writes.length,1);
+  // The admin must capture the physical book with its reviewed companion.
+  // Newer runtime guards may wrap that already immutable book in a nested scope.
+  const nativeView=t.ctx.historyReadView_,companionView=t.ctx.domusRetencionReadView_;let companionCalls=0;
+  t.ctx.domusRetencionReadView_=source=>{companionCalls++;assert.equal(source,t.main);return companionView(source);};
+  t.ctx.historyReadView_=source=>{assert.notEqual(source,t.main,'physical reads must use reviewed companion');return nativeView(source);};
+  const r=t.create();assert.equal(companionCalls,1);assert.equal(r.status,'CREATED');assert.equal(snapshot(t),before);assert.equal(t.writes.length,1);
   const stored=JSON.parse(t.props.get(key));assert.equal(stored.evidenceHash,t.inputAdmin.artifact.diagnostic.evidenceHash);assert.equal(stored.backendSourceSha256,build);
   assert.equal(t.create().status,'EXISTING_PRESERVED');assert.equal(t.writes.length,1);
  });
