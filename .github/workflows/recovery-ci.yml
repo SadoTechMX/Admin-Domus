@@ -1,6 +1,7 @@
 name: Recovery regressions (isolated fixtures)
 on:
   pull_request:
+  workflow_dispatch:
   push:
     branches: ['repair/qa-20261030', 'repair/reconcile-pr18-main-20261105']
 permissions:
@@ -26,6 +27,11 @@ jobs:
       - run: node tests/polling_regressions.js
       - run: node tests/write_priority_regressions.js
       - run: node tests/held_opening_regressions.js
+      - run: node tests/unconfirmed_observation_regressions.js
+      - run: node tests/absent_recovery_regressions.js
+      - run: node tests/absent_recovery_client_regressions.js
+      - run: node tests/audited_release_regressions.js
+      - run: node tests/audited_release_client_regressions.js
       - run: node tests/review_regressions.js
       - run: node tests/reload_rejection_regressions.js
       - run: node tests/master_transport_regressions.js
@@ -75,6 +81,7 @@ jobs:
       - run: node tests/browser_polling.js
       - run: node tests/browser_write_priority.js
       - run: node tests/browser_held_opening.js
+      - run: node tests/browser_absent_recovery.js
       - run: node tests/browser_staging_proposal.js
       - run: node tests/browser_outbox_concurrency.js
       - run: node tests/browser_transfer_review.js
@@ -86,3 +93,4 @@ jobs:
       - run: DOMUS_TEST_HISTORY=1 node tests/browser_journey_operations.js
       - run: node tests/browser_mixed_payment.js
       - run: node tests/browser_print_token_removal.js
+

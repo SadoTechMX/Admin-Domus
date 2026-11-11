@@ -12,7 +12,7 @@ const server=http.createServer((req,res)=>{const p=new URL(req.url,'http://local
   if(variant==='existing')b.request('turnoAbrir',item.args,item.requestId);
   await context.exposeBinding('__fixtureDispatch',async(_,p)=>{
    calls.push(p);assert(['health','authCrearSesion','turnoAbrir'].includes(p.action));const r=b.ctx.dispatchNativeAction(p);
-   if(p.action==='health'){r.data.build={sourceSha256:'f24d94ffa387680b000b26c79e262c31fabda499231ddae7880fb6af200a31b1'};if(variant==='wrong-target')r.data.environment='PRODUCTION';}
+   if(p.action==='health'){r.data.build={sourceSha256:require('../release-manifest.json').build.sourceSha256};if(variant==='wrong-target')r.data.environment='PRODUCTION';}
    if(p.action==='authCrearSesion'&&variant==='auth-denied')return {ok:false,error:'Denied'};
    if(p.action==='turnoAbrir'&&variant==='malformed')return {ok:true,requestId:p.requestId,data:{}};
    if(p.action==='turnoAbrir'&&variant==='lost')throw Error('Synthetic lost reply');return r;
@@ -53,3 +53,4 @@ const server=http.createServer((req,res)=>{const p=new URL(req.url,'http://local
  console.log(JSON.stringify({suite:'browser-held-opening',passed,liveGoogle:false,realIds:false,productionWrites:0}));
  }finally{await browser.close();await new Promise(r=>server.close(r));}
 })().catch(e=>{console.error(e);server.close();process.exitCode=1;});
+

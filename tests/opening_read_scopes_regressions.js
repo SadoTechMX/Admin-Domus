@@ -6,7 +6,8 @@ const {setup}=new Function('require',setupSource+';return {setup};')(req);
 const small=req('./staging_uncertain_retention_regressions').fixture;
 const currentJourneys=fs.readFileSync(root+'/google-apps-script/Journeys.gs','utf8');
 const from=currentJourneys.indexOf('function turnoAbrir(p) {'),to=currentJourneys.indexOf('\nfunction turnoEstado()',from);
-const legacyOpening=currentJourneys.slice(from,to).replace('    const read=historyReadView_(m);\n','').replace('      const m=read.book;\n','').replace('    read.assertDimensions();\n','');
+const legacyOpening=currentJourneys.slice(from,to).replace('    const read=historyReadView_(m);\n','').replace('      const m=read.book;\n','').replace('    read.assertDimensions();\n','').replace('journeyPrepareOpening_(read.book,p,new Date())','journeyPrepareOpening_(m,p,new Date())');
+assert(!legacyOpening.includes('read.'),'baseline fixture must use uncached physical book');
 const freeze=t=>JSON.stringify([t.main,t.ops].map(b=>[...b.sheets].map(([n,s])=>[n,[...s.cells],[...s.rules]])));
 const business=t=>JSON.stringify([t.main,t.ops].map(b=>[...b.sheets].filter(([n])=>!['REQUESTS','DOMUS_JOURNAL'].includes(n)).map(([n,s])=>[n,[...s.cells],[...s.rules]])));
 let environment;
@@ -65,3 +66,4 @@ if(process.env.DOMUS_TEST_PREVIOUS_BUNDLE)test('immutable previous b07 boundary 
  assert.equal(t.call('turnoEstado').historyReview.snapshotHash,boundary.snapshotHash);assert.equal(t.locks().acquires,t.locks().releases);
 });
 console.log(JSON.stringify({suite:'isolated-opening-read-scopes',passed,syntheticOnly:true,liveGoogle:false,realIdUsed:false}));
+

@@ -3,7 +3,7 @@
 const assert=require('assert/strict'),{setup,copy}=require('./reconciliation_regressions');
 const {fixture}=require('./history_boundary_regressions');
 const HOLD='domus_outbox_review_hold_v1',INITIAL='domus_outbox_review_initial_v1',SETTLED='domus_outbox_review_settled_v1',RECOVERY='domus_outbox_review_journey_v1';
-const HASH='f24d94ffa387680b000b26c79e262c31fabda499231ddae7880fb6af200a31b1';
+const HASH=require('../release-manifest.json').build.sourceSha256;
 let passed=0;async function test(n,f){await f();passed++;console.log('PASS',n);}
 function client(options={}){
  const t=setup(options);t.ctx.window.location={origin:'https://fixture.invalid'};t.ctx.window.DOMUS_NATIVE_BOOT={environment:'STAGING'};

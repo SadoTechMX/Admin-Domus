@@ -315,7 +315,10 @@ function historyGuardPrepared_(m,id,action,plan,result,boundary) {
     throw historyError_('El plan o resultado contiene una referencia retenida. No se preparó esta operación; revisar el origen sin sustituir identidades.');
 }
 function historyOperationalIndex_(m) {
+  qaRecoveryOperationalGuard_();
   const index=paymentRequestIndex_(m),b=historyBoundary_(m);
+  // A durable fence remains recognizable even if an administrator removes its property.
+  index.forEach(rows=>{if(rows.some(r=>typeof r[2]==='string' && r[2].startsWith('QA_RECOVERY_FENCE_V1:')))qaRecoveryError_('QA_RECOVERY_DURABLE_FENCE_HELD');});
   if(b)b.ids.forEach(id=>index.delete(id));return index;
 }
 function historyNotice_(m) {

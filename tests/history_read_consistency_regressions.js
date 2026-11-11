@@ -76,7 +76,7 @@ function admin(env){
  }
  journal(t);const diagnostic=t.propose();
  t.ctx.Session.getEffectiveUser=()=>({getEmail:()=>t.ctx.Session.getActiveUser().getEmail()});
- vm.runInContext(helper,t.ctx);vm.runInContext(companion,t.ctx);
+ require('./admin_fixture_build_pin')(t.ctx,helper);vm.runInContext(companion,t.ctx);
  assert.equal(t.ctx.domusRetencionAdminHashAutorizado_(),'708c295c42adbbb7adb215de78f46e6c0f24a14508a4b2eb734024d839dbb94b');
  t.ctx.domusRetencionAdminHashAutorizado_=()=>diagnostic.evidenceHash; // Only synthetic authorization in memory.
  t.inputAdmin={artifact:{format:'DOMUS_STAGING_UNCERTAIN_RETENTION_DIAGNOSTIC_V1',input:copy(t.input),diagnostic},approvalReference:'SYNTHETIC approval',expectedPropertyState:'ABSENT',confirmStationsHeld:true,confirmBackupVerified:true,acknowledgeUnresolvedHistory:true,confirmOnlyPrepareProposal:true,confirmPropertyWritersStopped:true};
@@ -115,3 +115,4 @@ for(const fallback of ['missing','v1-cache','wrong-companion-version'])test('adm
  assert.throws(t.create,/CONSISTENT_READ_REQUIRED/);assert.equal(t.writes.length,0);
 });
 console.log(JSON.stringify({suite:'history-read-consistency',passed,syntheticOnly:true,liveGoogle:false,legacyBundle:process.env.DOMUS_TEST_LEGACY_BUNDLE?crypto.createHash('sha256').update(fs.readFileSync(process.env.DOMUS_TEST_LEGACY_BUNDLE)).digest('hex'):null}));
+

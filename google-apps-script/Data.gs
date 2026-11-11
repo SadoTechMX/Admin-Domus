@@ -104,6 +104,7 @@ function journalFind_(id, m) {
 }
 
 function journalResume_(id, action, m) {
+  qaRecoveryOperationalGuard_(true);
   requestRootIdAssert_(id); // A caller cannot resume an internal JOURNAL_PART as a root.
   const boundary=historyGuard_(m,id,action); // Includes direct readers/recovery paths outside the dispatcher.
   requestRecordEntry_(m.getSheetByName('REQUESTS') || m.getSheetByName('TRANSACCIONES_API'),id);

@@ -15,7 +15,7 @@ function fixture(env){
  class Clock extends Date {constructor(...args){super(...(args.length?args:[now]));}static now(){return now;}}
  t.advance=ms=>now+=ms;t.ctx.Date=Clock;
  t.logs=[];t.ctx.console={log:s=>t.logs.push(s),error:()=>{}};
- vm.runInContext(helper,t.ctx);vm.runInContext(reader,t.ctx);vm.runInContext(bridge,t.ctx);
+ require('./admin_fixture_build_pin')(t.ctx,helper);vm.runInContext(reader,t.ctx);vm.runInContext(bridge,t.ctx);
  assert.equal(t.ctx.domusRetencionAdminHashAutorizado_(),hash);assert.equal(t.ctx.domusRetencionPuenteHuella_(),hash);
  t.config={principal:'direccion@domusccc.net',issuedAt:'2030-01-01T00:00:00.000Z',expiresAt:'2030-01-01T00:10:00.000Z'};
  t.ctx.domusRetencionPuenteConfig_=()=>t.config;
@@ -120,3 +120,4 @@ test('independent reader still denies an unauthenticated identity',()=>{
  const t=fixture();t.ctx.Session.getEffectiveUser=()=>({getEmail:()=> 'other@example.test'});assert.equal(t.read().ok,false);assert.equal(t.reads.length,0);assert.equal(t.writes.length,0);
 });
 console.log(JSON.stringify({suite:'retention-temporary-bridge',passed,syntheticOnly:true,liveGoogle:false,realPropertyWrites:0,devAccessible:true,editorOnly:false,operatorRemovalRequired:true}));
+

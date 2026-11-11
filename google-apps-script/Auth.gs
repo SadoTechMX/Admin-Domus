@@ -31,6 +31,13 @@ const ACTION_PERMISSIONS = Object.freeze({
   registrarLimiteHistorico: ['GERENCIA', 'ADMIN'],
   turnoAbrir: ['CAJA', 'GERENCIA', 'ADMIN'],
   turnoEstado: ['CAJA', 'GERENCIA', 'ADMIN'],
+  consultarAperturaQa: ['CAJA'],
+  prepararLiberacionQa: ['CAJA'],
+  reservarLiberacionQa: ['CAJA'],
+  consultarLiberacionQa: ['CAJA'],
+  confirmarLiberacionQa: ['CAJA'],
+  prepararRecuperacionQaAusente: ['CAJA'],
+  recuperarAperturaQaAusente: ['CAJA'],
   corteZCerrar: ['GERENCIA', 'ADMIN'],
 
   // Comandas y KDS

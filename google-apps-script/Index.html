@@ -3587,6 +3587,7 @@ html, body {
   // Review preserves originals; explicit verified archival is the only cleanup path.
   function outboxReviewRequired_(includeOrphan) {
     if (window.DOMUS_OUTBOX_REVIEW_REQUESTED || localStorage.getItem('domus_outbox_review_hold_v1') !== null) return true;
+    if(localStorage.getItem('domus_outbox_qa_release_intent_v1')!==null && JSON.parse(localStorage.getItem('domus_outbox_qa_release_resolution_v1'))?.state!=='FINALIZED')return true;
     const raw=localStorage.getItem('domus_outbox'),queue=raw===null?[]:JSON.parse(raw);
     if(!Array.isArray(queue) || queue.some(q=>!q || q.clientContract!=='domus-outbox-v2' || !q.requestId))return true;
     if(includeOrphan && localStorage.getItem('domus_pending_sale')!==null) {
@@ -3655,6 +3656,9 @@ html, body {
 
   function reviewReleaseDecision_() {
     try {
+      for(let n=0;n<localStorage.length;n++) {
+        const key=localStorage.key(n);if(key && (key.startsWith('domus_outbox_qa_release_') || key==='domus_outbox_qa_absent_recovery_v1'))throw new Error('La liberación auditada requiere su propio ticket, archivo y cierre explícito.');
+      }
       const evidence=reviewEvidence_();
       if(localStorage.getItem('domus_outbox_review_journey_v1')!==null ||
           (evidence.archiveKey && JSON.parse(localStorage.getItem(evidence.archiveKey)).recoveryRaw))
@@ -3737,6 +3741,7 @@ html, body {
   async function preserveOutboxForReview_() {
     window.DOMUS_OUTBOX_REVIEW_REQUESTED=true;
     if(!window.navigator?.locks?.request)throw new Error('Faltan Web Locks. No se inició la app; conserva el almacenamiento.');
+    if(localStorage.getItem('domus_outbox_qa_release_intent_v1')!==null)return JSON.parse(localStorage.getItem('domus_outbox_review_hold_v1'));
     // Persist a small stop marker first. If the snapshot hits quota, the original
     // remains untouched and every subsequent store writer fails closed.
     await window.navigator.locks.request('domus-outbox-store',()=>{
@@ -3772,10 +3777,11 @@ html, body {
       holdRaw:localStorage.getItem('domus_outbox_review_hold_v1'),
       initialRaw:localStorage.getItem('domus_outbox_review_initial_v1'),
       settledRaw:localStorage.getItem('domus_outbox_review_settled_v1'),
+      observationRaw:localStorage.getItem('domus_outbox_review_journey_observation_v1'),
       recoveryRaw:localStorage.getItem('domus_outbox_review_journey_v1'),observed:captureOutboxEvidence_()};
     evidence.archives={};
     for(let i=0;i<localStorage.length;i++){
-      const key=localStorage.key(i);if(key && key.startsWith('domus_outbox_review_archive_'))evidence.archives[key]=localStorage.getItem(key);
+      const key=localStorage.key(i);if(key && (key.startsWith('domus_outbox_review_archive_') || key.startsWith('domus_outbox_qa_release_') || key==='domus_outbox_qa_absent_recovery_v1'))evidence.archives[key]=localStorage.getItem(key);
     }
     const url=URL.createObjectURL(new Blob([JSON.stringify(evidence,null,2)],{type:'application/json'}));
     const link=document.createElement('a');link.href=url;link.download='DOMUS-cola-revision-'+Date.now()+'.json';
@@ -3839,7 +3845,7 @@ html, body {
       const d=health?.data;
       if(health?.ok!==true || d?.environment!=='STAGING' || d.mainSheetId!=='114VSwo3bXyn_audh1LHr4qqjW5aSDSTP_bR_-Iz5dkg' ||
           d.opsSheetId!=='1NDpuyx6EfCHcoKW9CZ6pwR0oe2JS0aKpTTMa7RdqmlE' ||
-          d.build?.sourceSha256!=='f24d94ffa387680b000b26c79e262c31fabda499231ddae7880fb6af200a31b1')
+          d.build?.sourceSha256!=='76563229067fb0f49ce66a7d7a2db478a68cbaa76a8d761df41b0ed948c32334')
         throw new Error('Entorno, libros o build revisado no coinciden; no se envió la apertura.');
       // Google-authorized CAJA only. No credential prompt, cached token, role
       // escalation, second login after rejection, or persisted session secret.
@@ -3867,6 +3873,495 @@ html, body {
         throw new Error('Apertura sin confirmar. Cola y retención conservadas; no hay reintento automático. Descargar evidencia y revisar antes de otra acción.');
       }
     }));
+  }
+
+  function qaCanonical_(v) {
+    if(v===null || typeof v!=='object')return JSON.stringify(v);
+    if(Array.isArray(v))return '['+v.map(qaCanonical_).join(',')+']';
+    return '{'+Object.keys(v).sort().map(k=>JSON.stringify(k)+':'+qaCanonical_(v[k])).join(',')+'}';
+  }
+  async function qaDigest_(value) {
+    const bytes=new TextEncoder().encode(qaCanonical_(value));
+    return Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',bytes)),b=>b.toString(16).padStart(2,'0')).join('');
+  }
+  function qaClientKeys_(v,keys) {return !!v && typeof v==='object' && !Array.isArray(v) && JSON.stringify(Object.keys(v).sort())===JSON.stringify(keys.slice().sort());}
+  function qaUnconfirmedCapture_() {
+    const candidate=reviewJourneyCandidate_(),key='domus_outbox_review_journey_v1';
+    const attemptRaw=localStorage.getItem(key),attempt=JSON.parse(attemptRaw);
+    if(!qaClientKeys_(attempt,['format','state','binding','identity','destination','destinationAttested','reference','sentAt'].concat(attempt?.state==='UNCONFIRMED'?['finishedAt']:[])) || !attempt || attempt.format!=='DOMUS_REVIEW_JOURNEY_V1' || !['SENT','UNCONFIRMED'].includes(attempt.state) ||
+        attempt.binding!==candidate.binding || attempt.identity!==outboxIntentIdentity_(candidate.item) ||
+        attempt.destination!=='STAGING' || attempt.destinationAttested!==true ||
+        typeof attempt.reference!=='string' || !attempt.reference.trim() ||
+        typeof attempt.sentAt!=='string' || !Number.isFinite(Date.parse(attempt.sentAt)) ||
+        (attempt.state==='UNCONFIRMED' && (!Number.isFinite(Date.parse(attempt.finishedAt)) || Date.parse(attempt.finishedAt)<Date.parse(attempt.sentAt))) ||
+        Object.prototype.hasOwnProperty.call(attempt,'response'))throw new Error('QA_OBSERVATION_ATTEMPT_INVALID');
+    return {candidate,attemptRaw,seal:JSON.stringify([window.location.origin,candidate.binding,attemptRaw,captureOutboxEvidence_().values])};
+  }
+  async function qaObserveUnconfirmedClient_(consent) {
+    if(!window.navigator?.locks?.request)throw new Error('QA_OBSERVATION_ADAPTER_REQUIRED');
+    return window.navigator.locks.request('domus-outbox-traffic',()=>window.navigator.locks.request('domus-outbox-store',async()=>{
+      const initial=qaUnconfirmedCapture_(),item=initial.candidate.item,key='domus_outbox_review_journey_observation_v1';
+      const previous=localStorage.getItem(key);
+      if(previous!==null)throw new Error('QA_OBSERVATION_EXISTS_PRESERVED');
+      if(consent?.requestId!==item.requestId || consent.binding!==initial.candidate.binding ||
+          consent.attemptRaw!==initial.attemptRaw || consent.destinationAttested!==true)throw new Error('QA_OBSERVATION_CONSENT_CHANGED');
+      const recheck=()=>{if(qaUnconfirmedCapture_().seal!==initial.seal || localStorage.getItem(key)!==previous)
+        throw new Error('QA_OBSERVATION_LOCAL_EVIDENCE_CHANGED');};
+      const localEvidenceHash=await qaDigest_(initial.seal);recheck();
+      const input={action:'turnoAbrir',requestId:item.requestId,body:JSON.parse(JSON.stringify(item.args[0])),
+        deviceId:item.deviceId,operator:item.operatorId,localEvidenceHash,expectedSourceSha256:qaObservationExpectedSource_()};
+      // Never share the objects whose hashes and validation we rely on with the adapter.
+      const payloadHash=await qaDigest_({action:'turnoAbrir',payload:input.body});recheck();
+      const report=JSON.parse(JSON.stringify(await qaObservationTransport_(JSON.parse(JSON.stringify(input)))));recheck();
+      const reportKeys=['format','prototype','readOnly','canRelease','canRetry','resolved','financialFinal','status','reason','requestId','deviceId','payloadHash','localEvidenceHash','environment','mainSheetId','opsSheetId','projectId','backendSourceSha256','observedAt','evidence','ack','observationHash'];
+      if(!qaClientKeys_(report,reportKeys) || !report || report.format!=='DOMUS_QA_OPENING_OBSERVATION_V1' || report.prototype!==true || report.readOnly!==true ||
+          report.canRelease!==false || report.canRetry!==false || report.resolved!==false || report.financialFinal!==false ||
+          report.environment!=='STAGING' || report.mainSheetId!=='114VSwo3bXyn_audh1LHr4qqjW5aSDSTP_bR_-Iz5dkg' ||
+          report.opsSheetId!=='1NDpuyx6EfCHcoKW9CZ6pwR0oe2JS0aKpTTMa7RdqmlE' ||
+          report.projectId!=='1sh5fyAaa0onlNsNZ40EokGumubebYEMisTGZ8rNj75gBiOsYPkA-rV4O' ||
+          report.backendSourceSha256!==qaObservationExpectedSource_() ||
+          report.requestId!==item.requestId || report.deviceId!==item.deviceId || report.payloadHash!==payloadHash ||
+          report.localEvidenceHash!==localEvidenceHash || !Number.isFinite(Date.parse(report.observedAt)) ||
+          !['OBSERVED_CONFIRMED','OBSERVED_ABSENT','UNRESOLVED'].includes(report.status))throw new Error('QA_OBSERVATION_REPORT_INVALID');
+      const hash=v=>typeof v==='string' && /^[a-f0-9]{64}$/.test(v),ev=report.evidence;
+      if(!qaClientKeys_(ev,['ledgerHash','journalHash','boundarySnapshotHash','policyHash','legacyEvidence','cacheEvidence']) ||
+          !hash(ev.boundarySnapshotHash) || !hash(ev.policyHash) || ![ev.ledgerHash,ev.journalHash,ev.cacheEvidence].every(v=>v===null || hash(v)) ||
+          !Array.isArray(ev.legacyEvidence) || ev.legacyEvidence.length!==2 || !ev.legacyEvidence.every(v=>v===null || hash(v)) ||
+          JSON.stringify(report).length>30000 || new Date(report.observedAt).toISOString()!==report.observedAt)
+        throw new Error('QA_OBSERVATION_EVIDENCE_INVALID');
+      const unsigned=JSON.parse(JSON.stringify(report));delete unsigned.observationHash;
+      if(await qaDigest_(unsigned)!==report.observationHash)throw new Error('QA_OBSERVATION_HASH_INVALID');recheck();
+      if(report.status==='OBSERVED_CONFIRMED') {
+        // Reuse only the existing structural ACK validator, not its storage format.
+        const temporary={format:'DOMUS_REVIEW_JOURNEY_V1',state:'CONFIRMED',destination:'STAGING',destinationAttested:true,
+          reference:'isolated observation',identity:outboxIntentIdentity_(item),response:report.ack,confirmedAt:report.observedAt};
+        const data=report.ack?.data;
+        if(report.reason!=='MATCHING_DURABLE_ACK' || !hash(ev.ledgerHash) || !hash(ev.journalHash) || ev.cacheEvidence!==null || ev.legacyEvidence.some(v=>v!==null) ||
+            !qaClientKeys_(report.ack,['ok','requestId','data']) || !qaClientKeys_(data,['ok','journeyContract','openingRequestId','journeyId','shiftId','scopeId','scope','activity','stationId','registerId','deviceId','openingFloat','historyBoundaryId','historyReview','openedAt','openedBy','status']) ||
+            !qaClientKeys_(data.scope,['projectId','projectName','eventId','eventName']) ||
+            !qaClientKeys_(data.historyReview,['boundaryId','snapshotHash','counts','resolved','financialFinal','mode','message']) ||
+            !data.historyReview.counts || Array.isArray(data.historyReview.counts) || Object.values(data.historyReview.counts).some(v=>!Number.isSafeInteger(v) || v<0) ||
+            data.openedBy!==item.operatorId || data.historyReview.snapshotHash!==ev.boundarySnapshotHash || !validReviewJourneyAck_(temporary,item))throw new Error('QA_OBSERVATION_ACK_INVALID');
+      } else if(report.ack!==null || !['NO_DURABLE_RECORD_OBSERVED','NONFINAL_DURABLE_RECORD','LEGACY_EVIDENCE_PRESENT'].includes(report.reason) ||
+          (report.status==='OBSERVED_ABSENT' && (report.reason!=='NO_DURABLE_RECORD_OBSERVED' || ev.ledgerHash!==null || ev.journalHash!==null || ev.cacheEvidence!==null || ev.legacyEvidence.some(v=>v!==null))))throw new Error('QA_OBSERVATION_UNCERTAIN_ACK');
+      // This key is deliberately not consumed by any release/retry path.
+      const originalAttemptHash=await qaDigest_(initial.attemptRaw);recheck();
+      const observation={format:'DOMUS_QA_LOCAL_OBSERVATION_V1',prototype:true,canRelease:false,canRetry:false,
+        originalAttemptHash,localEvidenceHash,report};
+      const raw=JSON.stringify(observation);recheck();
+      try {localStorage.setItem(key,raw);if(localStorage.getItem(key)!==raw)throw new Error('READBACK');}
+      catch(_){throw new Error('QA_OBSERVATION_WRITE_UNCERTAIN_PRESERVE_HOLD');}
+      return observation;
+    }));
+  }
+
+  // Explicit absent-only mutation. The UI requires a fresh read-only proposal;
+  // exact private server approval and the absence fence remain mandatory.
+  async function qaRecoverAbsentClient_(consent) {
+    if(!window.navigator?.locks?.request)throw new Error('QA_RECOVERY_LOCK_REQUIRED');
+    consent=JSON.parse(JSON.stringify(consent));
+    return window.navigator.locks.request('domus-outbox-traffic',()=>window.navigator.locks.request('domus-outbox-store',async()=>{
+      const capture=qaUnconfirmedCapture_(),item=capture.candidate.item,key='domus_outbox_qa_absent_recovery_v1';
+      const observationRaw=localStorage.getItem('domus_outbox_review_journey_observation_v1'),observation=JSON.parse(observationRaw);
+      if(localStorage.getItem(key)!==null || localStorage.getItem('domus_outbox_qa_release_intent_v1')!==null)throw new Error('QA_RECOVERY_ATTEMPT_EXISTS_PRESERVED');
+      if(consent?.requestId!==item.requestId || consent.binding!==capture.candidate.binding || consent.attemptRaw!==capture.attemptRaw ||
+          consent.destinationAttested!==true || consent.confirmPotentialOpening!==true || consent.confirmSameId!==true ||
+          typeof consent.approvalId!=='string' || !consent.approvalId.trim() || !/^[a-f0-9]{64}$/.test(consent.confirmEvidenceHash || ''))
+        throw new Error('QA_RECOVERY_EXPLICIT_CONSENT_REQUIRED');
+      const recheck=raw=>{if(qaUnconfirmedCapture_().seal!==capture.seal || localStorage.getItem('domus_outbox_review_journey_observation_v1')!==observationRaw || localStorage.getItem(key)!==raw)throw new Error('QA_RECOVERY_LOCAL_EVIDENCE_CHANGED');};
+      const localEvidenceHash=await qaDigest_(capture.seal);recheck(null);
+      const originalAttemptHash=await qaDigest_(capture.attemptRaw);recheck(null);
+      const payloadHash=await qaDigest_({action:'turnoAbrir',payload:item.args[0]});recheck(null);
+      const report=observation?.report,unsigned=report && JSON.parse(JSON.stringify(report));if(unsigned)delete unsigned.observationHash;
+      if(!observation || observation.format!=='DOMUS_QA_LOCAL_OBSERVATION_V1' || observation.canRelease!==false || observation.canRetry!==false ||
+          observation.originalAttemptHash!==originalAttemptHash || observation.localEvidenceHash!==localEvidenceHash ||
+          report?.status!=='OBSERVED_ABSENT' || report.canRetry!==false || report.canRelease!==false || report.ack!==null ||
+          report.requestId!==item.requestId || report.deviceId!==item.deviceId || report.payloadHash!==payloadHash ||
+          report.localEvidenceHash!==localEvidenceHash || consent.confirmPayloadHash!==payloadHash || await qaDigest_(unsigned)!==report.observationHash)
+        throw new Error('QA_RECOVERY_ABSENCE_OBSERVATION_REQUIRED');recheck(null);
+      const token=sessionStorage.getItem('domus_session_token_CAJA');
+      if(!token || window.DOMUS_NATIVE_BOOT?.environment!=='STAGING' || !window.google?.script?.run)throw new Error('QA_RECOVERY_EXISTING_NATIVE_SESSION_REQUIRED');
+      const input={action:'turnoAbrir',requestId:item.requestId,body:JSON.parse(JSON.stringify(item.args[0])),deviceId:item.deviceId,operator:item.operatorId,
+        localEvidenceHash,originalAttemptHash,expectedSourceSha256:qaObservationExpectedSource_(),approvalId:consent.approvalId,
+        confirmEvidenceHash:consent.confirmEvidenceHash,confirmPayloadHash:payloadHash,confirmPotentialOpening:true,confirmSameId:true};
+      if(consent.fresh) {
+        const f=consent.fresh;
+        if(f.mode!=='ABSENT' || f.captureSeal!==capture.seal || f.observationRaw!==observationRaw || f.recoveryRaw!==null || f.proposal.evidenceHash!==consent.confirmEvidenceHash)throw new Error('QA_RECOVERY_FRESH_PROPOSAL_REQUIRED');
+        await qaReleaseProposal_(f.proposal,{...input},item,'ABSENT');recheck(null);
+      }
+      const record={format:'DOMUS_QA_ABSENT_RECOVERY_ATTEMPT_V1',state:'SENT',requestId:item.requestId,payloadHash,approvalId:consent.approvalId,
+        evidenceHash:consent.confirmEvidenceHash,localEvidenceHash,originalAttemptHash,sentAt:new Date().toISOString(),canRelease:false,canRetry:false};
+      const sentRaw=JSON.stringify(record);recheck(null);
+      try {localStorage.setItem(key,sentRaw);if(localStorage.getItem(key)!==sentRaw)throw new Error('READBACK');}
+      catch(_){throw new Error('QA_RECOVERY_LOCAL_WRITE_UNCERTAIN_NO_AUTOMATIC_RETRY');}
+      let timer;
+      try {
+        const response=JSON.parse(JSON.stringify(await new Promise((resolve,reject)=>{
+          timer=setTimeout(()=>reject(new Error('QA_RECOVERY_TRANSPORT_UNCONFIRMED')),30000);
+          window.google.script.run.withSuccessHandler(resolve).withFailureHandler(()=>reject(new Error('QA_RECOVERY_TRANSPORT_UNCONFIRMED')))
+            .dispatchNativeAction({action:'recuperarAperturaQaAusente',args:[input],requestId:item.requestId,role:'CAJA',deviceId:item.deviceId,sessionToken:token});
+        })));recheck(sentRaw);
+        if(sessionStorage.getItem('domus_session_token_CAJA')!==token)throw new Error('QA_RECOVERY_SESSION_CHANGED');
+        const r=response?.data,temporary={format:'DOMUS_REVIEW_JOURNEY_V1',state:'CONFIRMED',destination:'STAGING',destinationAttested:true,
+          reference:'Explicit absent-only QA recovery',identity:outboxIntentIdentity_(item),response:r?.ack,confirmedAt:new Date().toISOString()};
+        if(response?.ok!==true || response.requestId!==item.requestId || response.role!=='CAJA' ||
+            !qaClientKeys_(r,['ok','kind','requestId','payloadHash','approvalId','gateHash','backendSourceSha256','ack','canRelease','canRetry','resolved','financialFinal','operationalGate']) ||
+            r.ok!==true || r.kind!=='QA_ABSENT_RECOVERY_RESULT_V1' || r.requestId!==item.requestId || r.payloadHash!==payloadHash ||
+            r.approvalId!==consent.approvalId || !/^[a-f0-9]{64}$/.test(r.gateHash || '') || r.backendSourceSha256!==qaObservationExpectedSource_() ||
+            r.canRelease!==false || r.canRetry!==false || r.resolved!==false || r.financialFinal!==false || r.operationalGate!=='HELD' ||
+            !qaClientKeys_(r.ack,['ok','requestId','data']) ||
+            !qaClientKeys_(r.ack.data,['ok','journeyContract','openingRequestId','journeyId','shiftId','scopeId','scope','activity','stationId','registerId','deviceId','openingFloat','historyBoundaryId','historyReview','openedAt','openedBy','status']) ||
+            !qaClientKeys_(r.ack.data.scope,['projectId','projectName','eventId','eventName']) ||
+            !qaClientKeys_(r.ack.data.historyReview,['boundaryId','snapshotHash','counts','resolved','financialFinal','mode','message']) ||
+            !r.ack.data.historyReview.counts || Array.isArray(r.ack.data.historyReview.counts) || Object.values(r.ack.data.historyReview.counts).some(v=>!Number.isSafeInteger(v) || v<0) ||
+            JSON.stringify(r).length>30000 || r.ack.data.openedBy!==item.operatorId || !validReviewJourneyAck_(temporary,item))throw new Error('QA_RECOVERY_ACK_UNCONFIRMED');
+        const done={...record,state:'CONFIRMED_HELD',finishedAt:new Date().toISOString(),result:r},raw=JSON.stringify(done);recheck(sentRaw);
+        localStorage.setItem(key,raw);if(localStorage.getItem(key)!==raw)throw new Error('READBACK');return done;
+      } catch(_) {
+        if(localStorage.getItem(key)===sentRaw) {
+          try {localStorage.setItem(key,JSON.stringify({...record,state:'UNCONFIRMED',finishedAt:new Date().toISOString()}));}catch(_){}
+        }
+        throw new Error('QA_RECOVERY_UNCONFIRMED_PRESERVE_ALL_EVIDENCE');
+      } finally {clearTimeout(timer);}
+    }));
+  }
+
+  // Audited v4 release is separate from the original uncertain attempt. Every
+  // durable record is append-only; a sent mutation is never replayed by this UI.
+  function qaReleaseKeys_() {
+    return {intent:'domus_outbox_qa_release_intent_v1',prepared:'domus_outbox_qa_release_prepared_v1',
+      commit:'domus_outbox_qa_release_commit_v1',receipt:'domus_outbox_qa_release_receipt_v1',resolution:'domus_outbox_qa_release_resolution_v1',
+      attempt:'domus_outbox_review_journey_v1',observation:'domus_outbox_review_journey_observation_v1',recovery:'domus_outbox_qa_absent_recovery_v1',
+      hold:'domus_outbox_review_hold_v1',initial:'domus_outbox_review_initial_v1',settled:'domus_outbox_review_settled_v1'};
+  }
+  function qaReleaseStorageSeal_() {
+    const keys=new Set(Object.values(qaReleaseKeys_()));
+    for(let n=0;n<localStorage.length;n++) {const key=localStorage.key(n);if(key && key.startsWith('domus_outbox_qa_release_'))keys.add(key);}
+    return JSON.stringify([window.location.origin,captureOutboxEvidence_().values,Array.from(keys).sort().map(key=>[key,localStorage.getItem(key)])]);
+  }
+  async function qaReleaseLocked_(fn) {
+    if(!window.navigator?.locks?.request)throw new Error('QA_RELEASE_LOCK_REQUIRED');
+    return window.navigator.locks.request('domus-outbox-traffic',()=>window.navigator.locks.request('domus-outbox-store',fn));
+  }
+  function qaReleaseAppend_(key,raw) {
+    const old=localStorage.getItem(key);
+    if(old!==null && old!==raw)throw new Error('QA_RELEASE_APPEND_ONLY_CONFLICT');
+    if(old===null)localStorage.setItem(key,raw);
+    if(localStorage.getItem(key)!==raw)throw new Error('QA_RELEASE_WRITE_UNCERTAIN_PRESERVE_HOLD');
+  }
+  async function qaReleaseRpc_(action,input) {
+    if(!['prepararRecuperacionQaAusente','prepararLiberacionQa','reservarLiberacionQa','consultarLiberacionQa','confirmarLiberacionQa'].includes(action) ||
+        window.DOMUS_NATIVE_BOOT?.environment!=='STAGING' || !window.google?.script?.run)throw new Error('QA_RELEASE_NATIVE_STAGING_REQUIRED');
+    const token=sessionStorage.getItem('domus_session_token_CAJA');
+    if(typeof token!=='string' || !token)throw new Error('QA_RELEASE_EXISTING_SESSION_REQUIRED');
+    let timer,response;
+    try {response=await new Promise((resolve,reject)=>{
+      timer=setTimeout(()=>reject(new Error('QA_RELEASE_RESPONSE_UNCONFIRMED_QUERY_ONLY')),30000);
+      window.google.script.run.withSuccessHandler(resolve).withFailureHandler(()=>reject(new Error('QA_RELEASE_RESPONSE_UNCONFIRMED_QUERY_ONLY')))
+        .dispatchNativeAction({action,args:[JSON.parse(JSON.stringify(input))],requestId:input.requestId,role:'CAJA',deviceId:input.deviceId,sessionToken:token});
+    });} finally {clearTimeout(timer);}
+    if(sessionStorage.getItem('domus_session_token_CAJA')!==token)throw new Error('QA_RELEASE_SESSION_CHANGED');
+    if(response?.ok!==true || response.requestId!==input.requestId || response.role!=='CAJA')throw new Error('QA_RELEASE_RESPONSE_REJECTED_QUERY_ONLY');
+    return JSON.parse(JSON.stringify(response.data));
+  }
+  async function qaReleaseInput_(capture) {
+    const item=capture.candidate.item;
+    return {action:'turnoAbrir',requestId:item.requestId,body:JSON.parse(JSON.stringify(item.args[0])),deviceId:item.deviceId,operator:item.operatorId,
+      localEvidenceHash:await qaDigest_(capture.seal),originalAttemptHash:await qaDigest_(capture.attemptRaw),expectedSourceSha256:qaObservationExpectedSource_()};
+  }
+  function qaReleaseAck_(ack,item) {
+    const data=ack?.data,history=data?.historyReview;
+    const text=v=>typeof v==='string' && v.length<=1000,iso=v=>typeof v==='string' && Number.isFinite(Date.parse(v)) && new Date(v).toISOString()===v;
+    const temporary={format:'DOMUS_REVIEW_JOURNEY_V1',state:'CONFIRMED',destination:'STAGING',destinationAttested:true,
+      reference:'Separate audited release',identity:outboxIntentIdentity_(item),response:ack,confirmedAt:data?.openedAt};
+    if(!qaClientKeys_(ack,['ok','requestId','data']) ||
+        !qaClientKeys_(data,['ok','journeyContract','openingRequestId','journeyId','shiftId','scopeId','scope','activity','stationId','registerId','deviceId','openingFloat','historyBoundaryId','historyReview','openedAt','openedBy','status']) ||
+        !qaClientKeys_(data.scope,['projectId','projectName','eventId','eventName']) || !text(data.scope.projectId) || !text(data.scope.projectName) || !(data.scope.eventId===null || text(data.scope.eventId)) || !text(data.scope.eventName) ||
+        !qaClientKeys_(history,['boundaryId','snapshotHash','counts','resolved','financialFinal','mode','message']) ||
+        (!history.counts || Array.isArray(history.counts) || ['historicalIds','uncertainIds','duplicateIds','queueIds','queueAbsent'].some(k=>!Object.prototype.hasOwnProperty.call(history.counts,k)) || Object.keys(history.counts).some(k=>!['historicalIds','uncertainIds','duplicateIds','queueIds','queueAbsent','isolatedIds','isolatedOpenings','remainingUncertainIds','retainedUncertainIds'].includes(k))) ||
+        Object.values(history.counts).some(v=>!Number.isSafeInteger(v) || v<0) || !iso(data.openedAt) ||
+        data.openedBy!==item.operatorId || JSON.stringify(ack).length>24000 || !validReviewJourneyAck_(temporary,item))throw new Error('QA_RELEASE_ACK_INVALID');
+    return ack;
+  }
+  async function qaReleaseProposal_(proposal,input,item,mode) {
+    const p=JSON.parse(JSON.stringify(proposal)),e=p?.evidence,absent=mode==='ABSENT',hash=v=>typeof v==='string' && /^[a-f0-9]{64}$/.test(v);
+    const keys=['version','protocol','requestId','payloadHash','deviceId','operator','localEvidenceHash','originalAttemptHash','backendSourceSha256','projectId','mainSheetId','opsSheetId','boundarySnapshotHash','policyHash','inventoryHash'];
+    if(!absent)keys.push('mode','principal','ackHash','ledgerHash','journalHash','recoveryGateHash');
+    if(!qaClientKeys_(p,absent?['ok','kind','evidence','evidenceHash','canRecover','canRelease','canRetry','resolved','financialFinal']:['ok','kind','evidence','evidenceHash','ack','canRelease','canRetry','financialFinal']) ||
+        p.ok!==true || p.kind!==(absent?'QA_ABSENT_RECOVERY_PROPOSAL_V1':'QA_RELEASE_PROPOSAL_V1') ||
+        p.canRelease!==false || p.canRetry!==false || p.financialFinal!==false ||
+        (absent && (p.canRecover!==false || p.resolved!==false)) || !qaClientKeys_(e,keys) || e.version!==1 ||
+        e.protocol!==(absent?'QA_ABSENT_RECOVERY_FENCE_V1':'QA_AUDITED_RELEASE_V1') || e.requestId!==input.requestId ||
+        e.payloadHash!==await qaDigest_({action:'turnoAbrir',payload:input.body}) || e.deviceId!==input.deviceId || e.operator!==input.operator ||
+        e.localEvidenceHash!==input.localEvidenceHash || e.originalAttemptHash!==input.originalAttemptHash ||
+        e.backendSourceSha256!==input.expectedSourceSha256 || e.backendSourceSha256!==qaObservationExpectedSource_() ||
+        e.projectId!=='1sh5fyAaa0onlNsNZ40EokGumubebYEMisTGZ8rNj75gBiOsYPkA-rV4O' ||
+        e.mainSheetId!=='114VSwo3bXyn_audh1LHr4qqjW5aSDSTP_bR_-Iz5dkg' || e.opsSheetId!=='1NDpuyx6EfCHcoKW9CZ6pwR0oe2JS0aKpTTMa7RdqmlE' ||
+        ![e.boundarySnapshotHash,e.policyHash,e.inventoryHash,p.evidenceHash].every(hash) || await qaDigest_(e)!==p.evidenceHash || JSON.stringify(p).length>30000)
+      throw new Error('QA_RELEASE_PROPOSAL_INVALID');
+    if(!absent) {
+      if(!['EXISTING_ACK','RECOVERED_ACK'].includes(e.mode) || typeof e.principal!=='string' || !e.principal || e.principal.length>300 ||
+          ![e.ackHash,e.ledgerHash,e.journalHash].every(hash) || (e.mode==='EXISTING_ACK'?e.recoveryGateHash!==null:!hash(e.recoveryGateHash)) ||
+          await qaDigest_(qaReleaseAck_(p.ack,item))!==e.ackHash || p.ack.data.historyReview.snapshotHash!==e.boundarySnapshotHash)
+        throw new Error('QA_RELEASE_PROPOSAL_ACK_INVALID');
+    }
+    return p;
+  }
+  async function qaPrepareReleaseClient_(mode,consent) {
+    return qaReleaseLocked_(async()=>{
+      if(!['ABSENT','ACK'].includes(mode))throw new Error('QA_RELEASE_MODE_INVALID');
+      const k=qaReleaseKeys_(),capture=qaUnconfirmedCapture_(),input=await qaReleaseInput_(capture);
+      if(consent?.destinationAttested!==true || consent.requestId!==input.requestId || consent.attemptRaw!==capture.attemptRaw || consent.binding!==capture.candidate.binding)
+        throw new Error('QA_RELEASE_EXPLICIT_CONSENT_REQUIRED');
+      if(localStorage.getItem(k.intent)!==null)throw new Error('QA_RELEASE_ALREADY_RESERVED_QUERY_ONLY');
+      const observationRaw=localStorage.getItem(k.observation),recoveryRaw=localStorage.getItem(k.recovery);
+      if(mode==='ABSENT' && (recoveryRaw!==null || JSON.parse(observationRaw || 'null')?.report?.ack))throw new Error('QA_RELEASE_ACK_EXISTS_NO_RECOVERY');
+      const check=()=>{if(qaUnconfirmedCapture_().seal!==capture.seal || localStorage.getItem(k.observation)!==observationRaw ||
+        localStorage.getItem(k.recovery)!==recoveryRaw || localStorage.getItem(k.intent)!==null)throw new Error('QA_RELEASE_EVIDENCE_CHANGED');};
+      check();const p=await qaReleaseRpc_(mode==='ABSENT'?'prepararRecuperacionQaAusente':'prepararLiberacionQa',input);check();
+      const proposal=await qaReleaseProposal_(p,input,capture.candidate.item,mode);check();
+      // Read-only preparation remains ephemeral. A reload requires a fresh read.
+      return {mode,input,proposal,captureSeal:capture.seal,observationRaw,recoveryRaw};
+    });
+  }
+  async function qaReleaseTicket_(ticket,intent,state) {
+    const t=JSON.parse(JSON.stringify(ticket)),p=intent.proposal,e=p.evidence,hash=v=>typeof v==='string' && /^[a-f0-9]{64}$/.test(v);
+    const iso=v=>typeof v==='string' && Number.isFinite(Date.parse(v)) && new Date(v).toISOString()===v;
+    if(!qaClientKeys_(t,['ok','kind','state','ticketId','evidenceHash','approvalId','requestId','payloadHash','deviceId','backendSourceSha256','originalAttemptHash','localEvidenceHash','ack','ackHash','recoveryGateHash','preparedAt','expiresAt','archiveHash','committedAt','receiptHash','canOperate','financialFinal']) ||
+        t.ok!==true || t.kind!=='QA_AUDITED_RELEASE_TICKET_V1' || !['PREPARED','RELEASED_AUDITED'].includes(t.state) || (state && t.state!==state) ||
+        t.evidenceHash!==p.evidenceHash || t.approvalId!==intent.approvalId || t.requestId!==e.requestId || t.payloadHash!==e.payloadHash || t.deviceId!==e.deviceId ||
+        t.backendSourceSha256!==e.backendSourceSha256 || t.originalAttemptHash!==e.originalAttemptHash || t.localEvidenceHash!==e.localEvidenceHash ||
+        t.ackHash!==e.ackHash || t.recoveryGateHash!==e.recoveryGateHash || t.financialFinal!==false ||
+        !iso(t.preparedAt) || !Number.isSafeInteger(t.expiresAt) || t.expiresAt<=Date.parse(t.preparedAt) || t.expiresAt-Date.parse(t.preparedAt)>600000 ||
+        !hash(t.receiptHash) || JSON.stringify(t).length>30000 || qaCanonical_(t.ack)!==qaCanonical_(p.ack) ||
+        await qaDigest_(t.ack)!==t.ackHash || t.ticketId!==await qaDigest_({protocol:'QA_AUDITED_RELEASE_V1',evidenceHash:t.evidenceHash,approvalId:t.approvalId,requestId:t.requestId}))
+      throw new Error('QA_RELEASE_TICKET_INVALID');
+    if(t.state==='PREPARED'?(t.archiveHash!==null || t.committedAt!==null || t.canOperate!==false):
+        (!hash(t.archiveHash) || !iso(t.committedAt) || Date.parse(t.committedAt)<Date.parse(t.preparedAt) || Date.parse(t.committedAt)>=t.expiresAt || t.canOperate!==true))throw new Error('QA_RELEASE_TICKET_STATE_INVALID');
+    const unsigned=JSON.parse(JSON.stringify(t));delete unsigned.receiptHash;
+    if(await qaDigest_(unsigned)!==t.receiptHash)throw new Error('QA_RELEASE_RECEIPT_HASH_INVALID');
+    return t;
+  }
+  function qaReleaseEvidenceExact_(intent) {
+    const k=qaReleaseKeys_();
+    for(const [name,value] of Object.entries(intent.original))if(localStorage.getItem(k[name])!==value)throw new Error('QA_RELEASE_ORIGINAL_CHANGED');
+    if(qaCanonical_(captureOutboxEvidence_().values)!==qaCanonical_(intent.values) || window.location.origin!==intent.origin)throw new Error('QA_RELEASE_EVIDENCE_CHANGED');
+  }
+  async function qaReleaseIntent_() {
+    const k=qaReleaseKeys_(),raw=localStorage.getItem(k.intent),i=JSON.parse(raw);
+    if(!qaClientKeys_(i,['format','origin','approvalId','input','proposal','original','values']) || i.format!=='DOMUS_QA_RELEASE_INTENT_V1' ||
+        i.origin!==window.location.origin || typeof i.approvalId!=='string' || !i.approvalId || i.approvalId.length>160 ||
+        !qaClientKeys_(i.original,['hold','initial','settled','attempt','observation','recovery']) ||
+        !qaClientKeys_(i.input,['action','requestId','body','deviceId','operator','localEvidenceHash','originalAttemptHash','expectedSourceSha256']))throw new Error('QA_RELEASE_INTENT_INVALID');
+    const initial=validateReviewSnapshot_(i.original.initial),settled=validateReviewSnapshot_(i.original.settled),q=JSON.parse(settled.values.domus_outbox),item=q?.[0],a=JSON.parse(i.original.attempt),binding=JSON.stringify([i.original.hold,i.original.initial,i.original.settled]);
+    if(!Array.isArray(q) || q.length!==1 || !item || item.action!=='turnoAbrir' || item.role!=='CAJA' || item.requestId!==i.input.requestId ||
+        item.deviceId!==i.input.deviceId || item.operatorId!==i.input.operator || qaCanonical_(item.args[0])!==qaCanonical_(i.input.body) ||
+        i.input.body.openingFloat!==0 || settled.values.domus_pending_sale!==null ||
+        qaCanonical_(initial.values)!==qaCanonical_(settled.values) || qaCanonical_(i.values)!==qaCanonical_(settled.values) ||
+        initial.origin!==i.origin || settled.origin!==i.origin || !['SENT','UNCONFIRMED'].includes(a?.state) || a.binding!==binding ||
+        a.identity!==outboxIntentIdentity_(item) || a.response!==undefined || i.input.originalAttemptHash!==await qaDigest_(i.original.attempt) ||
+        i.input.localEvidenceHash!==await qaDigest_(JSON.stringify([i.origin,binding,i.original.attempt,i.values])))throw new Error('QA_RELEASE_ARCHIVED_ORIGINAL_INVALID');
+    await qaReleaseProposal_(i.proposal,i.input,item,'ACK');
+    if(localStorage.getItem(k.intent)!==raw)throw new Error('QA_RELEASE_INTENT_CHANGED');
+    return i;
+  }
+  async function qaReserveReleaseClient_(fresh,consent) {
+    fresh=JSON.parse(JSON.stringify(fresh));consent=JSON.parse(JSON.stringify(consent));
+    return qaReleaseLocked_(async()=>{
+      const k=qaReleaseKeys_();if(localStorage.getItem(k.intent)!==null)throw new Error('QA_RELEASE_RESERVE_ALREADY_SENT_QUERY_ONLY');
+      const capture=qaUnconfirmedCapture_(),input=await qaReleaseInput_(capture),item=capture.candidate.item;
+      if(fresh.mode!=='ACK' || fresh.captureSeal!==capture.seal || qaCanonical_(fresh.input)!==qaCanonical_(input) ||
+          fresh.observationRaw!==localStorage.getItem(k.observation) || fresh.recoveryRaw!==localStorage.getItem(k.recovery) ||
+          consent?.confirmReserve!==true || consent.confirmEvidenceHash!==fresh.proposal.evidenceHash || typeof consent.approvalId!=='string' ||
+          !consent.approvalId || consent.approvalId.trim()!==consent.approvalId || consent.approvalId.length>160 || /[\u0000-\u001f\u007f]/.test(consent.approvalId))throw new Error('QA_RELEASE_RESERVE_CONSENT_INVALID');
+      const proposal=await qaReleaseProposal_(fresh.proposal,input,item,'ACK');
+      const intent={format:'DOMUS_QA_RELEASE_INTENT_V1',origin:window.location.origin,approvalId:consent.approvalId,input,proposal,
+        original:{hold:capture.candidate.e.holdRaw,initial:capture.candidate.e.initialRaw,settled:capture.candidate.e.settledRaw,attempt:capture.attemptRaw,
+          observation:fresh.observationRaw,recovery:fresh.recoveryRaw},values:validateReviewSnapshot_(capture.candidate.e.settledRaw).values};
+      if(!sessionStorage.getItem('domus_session_token_CAJA') || window.DOMUS_NATIVE_BOOT?.environment!=='STAGING' || !window.google?.script?.run)throw new Error('QA_RELEASE_EXISTING_SESSION_REQUIRED');
+      if(qaUnconfirmedCapture_().seal!==capture.seal)throw new Error('QA_RELEASE_EVIDENCE_CHANGED');
+      qaReleaseEvidenceExact_(intent);qaReleaseAppend_(k.intent,JSON.stringify(intent));
+      const seal=qaReleaseStorageSeal_();
+      const response=await qaReleaseRpc_('reservarLiberacionQa',{...input,approvalId:intent.approvalId,confirmEvidenceHash:proposal.evidenceHash,confirmReserve:true});
+      qaReleaseEvidenceExact_(intent);const ticket=await qaReleaseTicket_(response,intent,'PREPARED');qaReleaseEvidenceExact_(intent);
+      if(qaReleaseStorageSeal_()!==seal)throw new Error('QA_RELEASE_EVIDENCE_CHANGED');
+      qaReleaseAppend_(k.prepared,JSON.stringify(ticket));return ticket;
+    });
+  }
+  async function qaQueryReleaseClient_() {
+    return qaReleaseLocked_(async()=>{
+      const seal=qaReleaseStorageSeal_(),k=qaReleaseKeys_(),i=await qaReleaseIntent_();
+      const response=await qaReleaseRpc_('consultarLiberacionQa',{...i.input,approvalId:i.approvalId,confirmEvidenceHash:i.proposal.evidenceHash});
+      const ticket=await qaReleaseTicket_(response,i);
+      if(qaReleaseStorageSeal_()!==seal)throw new Error('QA_RELEASE_QUERY_LOCAL_CHANGED');
+      if(ticket.state==='PREPARED') {qaReleaseEvidenceExact_(i);qaReleaseAppend_(k.prepared,JSON.stringify(ticket));}
+      else {
+        const archive=await qaReleaseArchive_(i,false);
+        if(archive.hash!==ticket.archiveHash || localStorage.getItem(k.commit)!==JSON.stringify({format:'DOMUS_QA_RELEASE_COMMIT_V1',ticketId:ticket.ticketId,archiveHash:archive.hash}))throw new Error('QA_RELEASE_RECEIPT_ARCHIVE_MISMATCH');
+        if(qaReleaseStorageSeal_()!==seal)throw new Error('QA_RELEASE_QUERY_LOCAL_CHANGED');
+        qaReleaseAppend_(k.receipt,JSON.stringify(ticket));
+      }
+      return ticket;
+    });
+  }
+  async function qaReleaseArchive_(intent,create) {
+    const k=qaReleaseKeys_(),intentRaw=localStorage.getItem(k.intent),preparedRaw=localStorage.getItem(k.prepared),prepared=await qaReleaseTicket_(JSON.parse(preparedRaw),intent,'PREPARED');
+    if(localStorage.getItem(k.intent)!==intentRaw || localStorage.getItem(k.prepared)!==preparedRaw)throw new Error('QA_RELEASE_ARCHIVE_CONTEXT_CHANGED');
+    const key='domus_outbox_qa_release_archive_'+prepared.ticketId,raw=JSON.stringify({format:'DOMUS_QA_RELEASE_ARCHIVE_V1',intentRaw,preparedRaw});
+    if(create) {qaReleaseEvidenceExact_(intent);qaReleaseAppend_(key,raw);}
+    if(localStorage.getItem(key)!==raw)throw new Error('QA_RELEASE_ARCHIVE_MISSING_OR_CHANGED');
+    const hash=await qaDigest_(raw);if(localStorage.getItem(key)!==raw || localStorage.getItem(k.intent)!==intentRaw || localStorage.getItem(k.prepared)!==preparedRaw)throw new Error('QA_RELEASE_ARCHIVE_CHANGED');
+    return {key,raw,hash,prepared,seal:qaReleaseStorageSeal_()};
+  }
+  async function qaCommitReleaseClient_(consent) {
+    return qaReleaseLocked_(async()=>{
+      const k=qaReleaseKeys_(),i=await qaReleaseIntent_();qaReleaseEvidenceExact_(i);
+      if(localStorage.getItem(k.commit)!==null || localStorage.getItem(k.receipt)!==null)throw new Error('QA_RELEASE_COMMIT_ALREADY_SENT_QUERY_ONLY');
+      if(consent?.confirmArchive!==true || consent.confirmRelease!==true || consent.confirmEvidenceHash!==i.proposal.evidenceHash || consent.approvalId!==i.approvalId)
+        throw new Error('QA_RELEASE_COMMIT_CONSENT_INVALID');
+      const archive=await qaReleaseArchive_(i,true);
+      if(qaReleaseStorageSeal_()!==archive.seal)throw new Error('QA_RELEASE_ARCHIVE_CONTEXT_CHANGED');
+      if(archive.prepared.expiresAt<=Date.now())throw new Error('QA_RELEASE_PREPARED_EXPIRED_PRESERVE_HOLD');
+      qaReleaseEvidenceExact_(i);
+      qaReleaseAppend_(k.commit,JSON.stringify({format:'DOMUS_QA_RELEASE_COMMIT_V1',ticketId:archive.prepared.ticketId,archiveHash:archive.hash}));
+      const seal=qaReleaseStorageSeal_();
+      const result=await qaReleaseRpc_('confirmarLiberacionQa',{...i.input,approvalId:i.approvalId,confirmEvidenceHash:i.proposal.evidenceHash,
+        ticketId:archive.prepared.ticketId,archiveHash:archive.hash,confirmArchive:true,confirmRelease:true});
+      qaReleaseEvidenceExact_(i);const ticket=await qaReleaseTicket_(result,i,'RELEASED_AUDITED');
+      if(ticket.archiveHash!==archive.hash)throw new Error('QA_RELEASE_RECEIPT_ARCHIVE_MISMATCH');
+      qaReleaseEvidenceExact_(i);if(qaReleaseStorageSeal_()!==seal)throw new Error('QA_RELEASE_EVIDENCE_CHANGED');
+      qaReleaseAppend_(k.receipt,JSON.stringify(ticket));return ticket;
+    });
+  }
+  async function qaReleaseFinalState_() {
+    const seal=qaReleaseStorageSeal_(),k=qaReleaseKeys_(),i=await qaReleaseIntent_(),archive=await qaReleaseArchive_(i,false),receiptRaw=localStorage.getItem(k.receipt),receipt=await qaReleaseTicket_(JSON.parse(receiptRaw),i,'RELEASED_AUDITED');
+    if(qaReleaseStorageSeal_()!==seal)throw new Error('QA_RELEASE_FINAL_CONTEXT_CHANGED');
+    if(receipt.preparedAt!==archive.prepared.preparedAt || receipt.expiresAt!==archive.prepared.expiresAt || receipt.archiveHash!==archive.hash || localStorage.getItem(k.commit)!==JSON.stringify({format:'DOMUS_QA_RELEASE_COMMIT_V1',ticketId:receipt.ticketId,archiveHash:archive.hash}))throw new Error('QA_RELEASE_FINAL_ARCHIVE_MISMATCH');
+    const resolutionRaw=JSON.stringify({format:'DOMUS_QA_RELEASE_RESOLUTION_V1',state:'FINALIZED',ticketId:receipt.ticketId,archiveKey:archive.key,
+      archiveHash:archive.hash,receiptHash:receipt.receiptHash,origin:i.origin,deviceId:i.input.deviceId,operator:i.input.operator,backendSourceSha256:i.input.expectedSourceSha256});
+    const steps=[[k.resolution,null,resolutionRaw],['domus_outbox',i.values.domus_outbox,'[]'],[k.initial,i.original.initial,null],[k.settled,i.original.settled,null],[k.hold,i.original.hold,null]];
+    let prefix=0;while(prefix<steps.length && localStorage.getItem(steps[prefix][0])===steps[prefix][2])prefix++;
+    for(let n=prefix;n<steps.length;n++)if(localStorage.getItem(steps[n][0])!==steps[n][1])throw new Error('QA_RELEASE_CLEANUP_NOT_EXACT_PREFIX');
+    for(const name of ['attempt','observation','recovery'])if(localStorage.getItem(k[name])!==i.original[name])throw new Error('QA_RELEASE_ORIGINAL_CHANGED');
+    const expected={...i.values};if(prefix>=2)expected.domus_outbox='[]';
+    if(qaCanonical_(captureOutboxEvidence_().values)!==qaCanonical_(expected) || localStorage.getItem(k.receipt)!==receiptRaw)throw new Error('QA_RELEASE_CLEANUP_EVIDENCE_CHANGED');
+    return {i,archive,receipt,resolutionRaw,steps,prefix,seal};
+  }
+  async function qaFinalizeReleaseClient_(consent) {
+    return qaReleaseLocked_(async()=>{
+      if(consent?.confirmFinalize!==true)throw new Error('QA_RELEASE_FINALIZE_CONSENT_REQUIRED');
+      let s=await qaReleaseFinalState_();
+      if(qaReleaseStorageSeal_()!==s.seal)throw new Error('QA_RELEASE_CLEANUP_CHANGED');
+      for(let n=s.prefix;n<s.steps.length;n++) {
+        // Every asynchronous digest/read is followed by a complete prefix check.
+        s=await qaReleaseFinalState_();if(qaReleaseStorageSeal_()!==s.seal || s.prefix!==n)throw new Error('QA_RELEASE_CLEANUP_CHANGED');
+        const [key,,value]=s.steps[n];if(value===null)localStorage.removeItem(key);else if(key===qaReleaseKeys_().resolution)qaReleaseAppend_(key,value);else localStorage.setItem(key,value);
+        if(localStorage.getItem(key)!==value)throw new Error('QA_RELEASE_FINALIZE_WRITE_UNCERTAIN');
+        const expected=JSON.parse(s.seal);if(key==='domus_outbox')expected[1].domus_outbox=value;
+        const record=expected[2].find(r=>r[0]===key);if(record)record[1]=value;
+        if(qaReleaseStorageSeal_()!==JSON.stringify(expected))throw new Error('QA_RELEASE_CLEANUP_CHANGED');
+      }
+      // No asynchronous gap follows the final hold removal. All proof reads and
+      // digests completed while held; only this exact synchronous prefix changed.
+      return s.receipt;
+    });
+  }
+  async function qaActiveReleaseTicket_(payload,proof) {
+    const k=qaReleaseKeys_();if(localStorage.getItem(k.intent)===null && localStorage.getItem(k.resolution)===null)return null;
+    const seal=qaReleaseStorageSeal_(),i=await qaReleaseIntent_(),archive=await qaReleaseArchive_(i,false),receipt=await qaReleaseTicket_(JSON.parse(localStorage.getItem(k.receipt)),i,'RELEASED_AUDITED');
+    if(qaReleaseStorageSeal_()!==seal)throw new Error('QA_RELEASE_ACTIVE_CONTEXT_CHANGED');
+    const expected=JSON.stringify({format:'DOMUS_QA_RELEASE_RESOLUTION_V1',state:'FINALIZED',ticketId:receipt.ticketId,archiveKey:archive.key,
+      archiveHash:archive.hash,receiptHash:receipt.receiptHash,origin:i.origin,deviceId:i.input.deviceId,operator:i.input.operator,backendSourceSha256:i.input.expectedSourceSha256});
+    if(receipt.preparedAt!==archive.prepared.preparedAt || receipt.expiresAt!==archive.prepared.expiresAt || receipt.archiveHash!==archive.hash || localStorage.getItem(k.commit)!==JSON.stringify({format:'DOMUS_QA_RELEASE_COMMIT_V1',ticketId:receipt.ticketId,archiveHash:archive.hash}) || localStorage.getItem(k.resolution)!==expected || localStorage.getItem(k.hold)!==null ||
+        localStorage.getItem(k.initial)!==null || localStorage.getItem(k.settled)!==null || localStorage.getItem(k.attempt)!==i.original.attempt ||
+        localStorage.getItem(k.observation)!==i.original.observation || localStorage.getItem(k.recovery)!==i.original.recovery ||
+        localStorage.getItem('domus_device_id')!==i.input.deviceId || payload.deviceId!==i.input.deviceId || payload.role!=='CAJA' ||
+        (payload.operator!==undefined && payload.operator!==i.input.operator) || (typeof STATE!=='undefined' && STATE.operator!==i.input.operator) ||
+        window.DOMUS_NATIVE_BOOT?.environment!=='STAGING')throw new Error('QA_RELEASE_ACTIVE_RESOLUTION_INVALID');
+    const queue=JSON.parse(localStorage.getItem('domus_outbox') || '[]');
+    if(!Array.isArray(queue) || queue.some(q=>q.requestId===i.input.requestId))throw new Error('QA_RELEASE_ORIGINAL_REQUEUED');
+    if(proof)proof.seal=seal;return receipt.ticketId;
+  }
+
+  function qaMountReleaseUi_(status) {
+    const section=document.createElement('section');section.id='queueAuditedRelease';
+    section.innerHTML='<h2>Conciliación y liberación auditada QA</h2><p>Preparar sólo consulta. Antes de recuperar ausencia, usa Consultar apertura sin reenviar para conservar una observación de ausencia. Ausencia no demuestra que no hubo efectos. La recuperación puede crear la apertura original de $0; requiere aprobación exacta de Gerencia. No habilita otras estaciones.</p>'+
+      '<label><input id="qaReleaseAttested" type="checkbox"> Cotejé el ID y destino staging.</label><p><button id="qaPrepareAbsent" type="button">Preparar ausencia, sólo lectura</button> <button id="qaPrepareAck" type="button">Preparar liberación de ACK, sólo lectura</button></p>'+
+      '<pre id="qaReleaseProof" style="white-space:pre-wrap;overflow-wrap:anywhere"></pre>'+
+      '<label>ID de aprobación exacta de Gerencia <input id="qaReleaseApproval" maxlength="160" autocomplete="off"></label><p><label>SHA-256 exacto de la propuesta <input id="qaReleaseEvidence" maxlength="64" autocomplete="off"></label></p>'+
+      '<p><button id="qaRecoverAbsent" type="button" disabled>Recuperar ausencia una sola vez</button> <button id="qaReserveRelease" type="button" disabled>Reservar liberación auditada</button></p>'+
+      '<p><button id="qaQueryRelease" type="button" disabled>Consultar ticket, sólo lectura</button> <button id="qaCommitRelease" type="button" disabled>Archivar y confirmar liberación</button> <button id="qaFinalizeRelease" type="button" disabled>Finalizar cierre local</button></p>'+
+      '<p>Si se pierde una respuesta, consulta el ticket. No se repite reserva ni commit. Cerrar o recargar conserva la retención; una operación ya enviada puede terminar. El archivo local no sustituye una copia externa inmutable ni acredita que clientes antiguos estén detenidos.</p>';
+    document.getElementById('queueOpeningObservation').after(section);
+    const el=id=>document.getElementById(id),k=qaReleaseKeys_();let busy=false,fresh=null;
+    const refresh=()=>{
+      const reserved=localStorage.getItem(k.intent)!==null,committed=localStorage.getItem(k.commit)!==null,prepared=localStorage.getItem(k.prepared)!==null,receipt=localStorage.getItem(k.receipt)!==null;
+      let eligible=false,ack=false,absent=false;try{qaUnconfirmedCapture_();eligible=true;const report=JSON.parse(localStorage.getItem(k.observation) || 'null')?.report;ack=!!report?.ack;absent=report?.status==='OBSERVED_ABSENT' && report.ack===null;}catch(_){}
+      el('qaPrepareAbsent').disabled=busy || !eligible || reserved || ack || localStorage.getItem(k.recovery)!==null;
+      el('qaPrepareAck').disabled=busy || !eligible || reserved;
+      el('qaRecoverAbsent').disabled=busy || !eligible || reserved || !fresh || fresh.mode!=='ABSENT' || localStorage.getItem(k.recovery)!==null || ack || !absent;
+      el('qaReserveRelease').disabled=busy || !eligible || reserved || !fresh || fresh.mode!=='ACK';
+      el('qaQueryRelease').disabled=busy || !reserved;el('qaCommitRelease').disabled=busy || !reserved || !prepared || committed || receipt;
+      el('qaFinalizeRelease').disabled=busy || !receipt;
+    };
+    const consent=()=>{const c=qaUnconfirmedCapture_();return {requestId:c.candidate.item.requestId,binding:c.candidate.binding,attemptRaw:c.attemptRaw,destinationAttested:el('qaReleaseAttested').checked};};
+    const approval=()=>{
+      const a=el('qaReleaseApproval').value.trim(),h=el('qaReleaseEvidence').value.trim();
+      if(!a || !/^[a-f0-9]{64}$/.test(h))throw new Error('Escribe el ID de aprobación y el hash exacto de la propuesta.');return {approvalId:a,confirmEvidenceHash:h};
+    };
+    const run=async fn=>{if(busy)return;busy=true;refresh();try{await fn();}catch(_){status.textContent='No se completó el paso auditado. Conserva toda la evidencia y la retención. Si existe una reserva o commit, usa Consultar ticket; no se reintenta ninguna apertura ni se renueva la sesión.';}finally{busy=false;refresh();}};
+    for(const [id,mode] of [['qaPrepareAbsent','ABSENT'],['qaPrepareAck','ACK']])el(id).onclick=()=>run(async()=>{
+      const c=consent();if(!c.destinationAttested)throw new Error('Cotejo requerido');
+      fresh=null;const result=await qaPrepareReleaseClient_(mode,c);fresh=result;
+      el('qaReleaseProof').textContent='ID: '+result.input.requestId+'\nDispositivo: '+result.input.deviceId+'\nTipo: '+result.proposal.kind+'\nSHA-256: '+result.proposal.evidenceHash+'\nCuerpo: '+result.proposal.evidence.payloadHash;
+      status.textContent='Propuesta fresca consultada sin mutaciones. Coteja su hash y la aprobación exacta de Gerencia antes de continuar. La retención permanece.';
+    });
+    el('qaRecoverAbsent').onclick=()=>run(async()=>{
+      const c=consent(),a=approval(),f=fresh;
+      if(!f || f.mode!=='ABSENT' || a.confirmEvidenceHash!==f.proposal.evidenceHash || !c.destinationAttested)throw new Error('Propuesta/cotejo requerido');
+      if(!confirm('Recuperar una vez '+c.requestId+' en STAGING con el mismo cuerpo y fondo $0. Puede crear la apertura. Aprobación '+a.approvalId+'; evidencia '+a.confirmEvidenceHash+'. La retención continúa. ¿Confirmas?'))return;
+      fresh=null;await qaRecoverAbsentClient_({...c,...a,fresh:f,confirmPotentialOpening:true,confirmSameId:true,confirmPayloadHash:f.proposal.evidence.payloadHash});
+      status.textContent='ACK de recuperación guardado por separado. UNCONFIRMED y retención originales intactos. Prepara ahora la liberación del ACK con su aprobación específica.';
+    });
+    el('qaReserveRelease').onclick=()=>run(async()=>{
+      const a=approval(),f=fresh;if(!f || f.mode!=='ACK' || a.confirmEvidenceHash!==f.proposal.evidenceHash || !el('qaReleaseAttested').checked)throw new Error('Propuesta requerida');
+      if(!confirm('Reservar liberación auditada de '+f.input.requestId+' con aprobación '+a.approvalId+' y evidencia '+a.confirmEvidenceHash+'. Mantiene el bloqueo hasta archivo, commit y cierre local. ¿Confirmas?'))return;
+      fresh=null;const t=await qaReserveReleaseClient_(f,{...a,confirmReserve:true});
+      status.textContent='Ticket PREPARED: '+t.ticketId+'. Retención activa. Puedes archivar y confirmar explícitamente, o consultar el ticket.';
+    });
+    el('qaQueryRelease').onclick=()=>run(async()=>{const t=await qaQueryReleaseClient_();status.textContent='Consulta sin reenviar: '+t.state+'. '+(t.state==='RELEASED_AUDITED'?'Recibo verificado; falta finalizar el cierre local.':'Retención activa.');});
+    el('qaCommitRelease').onclick=()=>run(async()=>{
+      const i=await qaReleaseIntent_(),a=approval();if(a.approvalId!==i.approvalId || a.confirmEvidenceHash!==i.proposal.evidenceHash)throw new Error('Aprobación cambiada');
+      if(!confirm('Archivar exactamente la evidencia y confirmar la liberación del ticket para '+i.input.requestId+'. Sólo este dispositivo/operador podrá operar después del cierre local; no se resuelve el histórico financiero. ¿Confirmas?'))return;
+      await qaCommitReleaseClient_({...a,confirmArchive:true,confirmRelease:true});status.textContent='Liberación del servidor verificada y archivada. La retención local continúa hasta Finalizar cierre local.';
+    });
+    el('qaFinalizeRelease').onclick=()=>run(async()=>{
+      if(!confirm('Finalizar sólo el cierre local del ticket verificado. Conserva el intento UNCONFIRMED y el archivo; no abre, vende ni imprime. ¿Continuar?'))return;
+      const result=await qaFinalizeReleaseClient_({confirmFinalize:true});
+      status.textContent='Cierre auditado completado: '+result.ticketId+'. Evidencia original conservada; no se enviaron aperturas, ventas ni impresión durante el cierre.';
+      const link=document.createElement('a');link.href=reviewReturnUrl_();link.target='_top';link.textContent='Abrir la app de esta estación';el('queueReviewContinue').replaceChildren(link);
+    });
+    window.addEventListener?.('storage',()=>{fresh=null;refresh();});refresh();return {refresh};
+  }
+
+  function qaObservationExpectedSource_() {return '76563229067fb0f49ce66a7d7a2db478a68cbaa76a8d761df41b0ed948c32334';}
+  async function qaObservationTransport_(input) {
+    if(window.DOMUS_NATIVE_BOOT?.environment!=='STAGING' || !window.google?.script?.run)
+      throw new Error('QA_OBSERVATION_NATIVE_STAGING_REQUIRED');
+    const token=sessionStorage.getItem('domus_session_token_CAJA');
+    if(typeof token!=='string' || !token)throw new Error('QA_OBSERVATION_EXISTING_CAJA_SESSION_REQUIRED');
+    const p={action:'consultarAperturaQa',requestId:input.requestId,args:[input],role:'CAJA',deviceId:input.deviceId,sessionToken:token};
+    // One native authenticated read. No login, renewal, fallback, retry or mutation.
+    let timer,response;
+    try {response=await new Promise((resolve,reject)=>{
+      timer=setTimeout(()=>reject(new Error('QA_OBSERVATION_QUERY_TIMEOUT_PRESERVE_HOLD')),30000);
+      window.google.script.run.withSuccessHandler(resolve)
+        .withFailureHandler(()=>reject(new Error('QA_OBSERVATION_TRANSPORT_UNCONFIRMED'))).dispatchNativeAction(p);
+    });} finally {clearTimeout(timer);} // Late responses cannot update evidence or trigger another call.
+    if(sessionStorage.getItem('domus_session_token_CAJA')!==token)throw new Error('QA_OBSERVATION_SESSION_CHANGED');
+    if(response?.ok!==true || response.requestId!==input.requestId || response.role!=='CAJA')
+      throw new Error('QA_OBSERVATION_READ_REJECTED_PRESERVE_HOLD');
+    return response.data;
   }
 
   function reviewJourneyReleaseDecision_(e) {
@@ -3916,6 +4411,10 @@ html, body {
         '<label>Referencia privada del cotejo de destino (sin datos ni claves) <input id="queueJourneyReference" maxlength="160"></label><p>'+
         '<label><input type="checkbox" id="queueJourneyAttested"> Cotejé que este ID y dispositivo pertenecen a esta prueba de staging; las otras estaciones están detenidas.</label></p>'+
         '<button id="queueJourneyRecover" type="button">Recuperar una vez el mismo ID</button></section>'+
+        '<section id="queueOpeningObservation" hidden><h2>Consultar apertura sin reenviar</h2>'+
+        '<p>Consulta autenticada de sólo lectura. Mantiene UNCONFIRMED y la retención, aunque observe un ACK.</p>'+
+        '<label><input type="checkbox" id="queueObservationAttested"> Cotejé el ID original y el destino staging.</label>'+
+        '<button id="queueObserveOpening" type="button">Consultar una vez, sin reenviar</button></section>'+
         '<p>Guarda el archivo de forma privada. Incluye los cuerpos originales y recibos disponibles, sin verificar cobros contra el servidor.</p>'+
         '<p>Cierra clientes de versiones anteriores: no conocen este bloqueo. Una solicitud ya enviada puede haber tenido efectos.</p>'+
         '<p>Las intenciones inciertas permanecen bloqueadas. Cerrar una revisión resuelta conserva su archivo y no reenvía operaciones.</p></main>';
@@ -3924,13 +4423,32 @@ html, body {
         try{downloadOutboxEvidence_();}catch(err){status.textContent='No se pudo descargar: '+err.message+'. Conserva este perfil; no borres la cola.';}
       };
       const release=document.getElementById('queueReviewRelease');
+      let audited=null;
+      if(typeof qaMountReleaseUi_==='function')audited=qaMountReleaseUi_(status);
+      let observationBusy=false;
       const refresh=()=>{
+        if(audited)audited.refresh();
         const decision=reviewReleaseDecision_();document.getElementById('queueReviewDecision').textContent=decision.message;release.disabled=!decision.allowed;
         try {
           const c=reviewJourneyCandidate_(),section=document.getElementById('queueJourneyRecovery');section.hidden=false;
           document.getElementById('queueJourneyIdentity').textContent='ID: '+c.item.requestId+' · ámbito: '+c.item.args[0].scopeId+' · fondo: $0 · destino: STAGING · build revisado.';
           document.getElementById('queueJourneyRecover').disabled=localStorage.getItem('domus_outbox_review_journey_v1')!==null;
         } catch(_) {document.getElementById('queueJourneyRecovery').hidden=true;}
+        try {
+          qaUnconfirmedCapture_();document.getElementById('queueOpeningObservation').hidden=false;
+          document.getElementById('queueObserveOpening').disabled=observationBusy || localStorage.getItem('domus_outbox_review_journey_observation_v1')!==null;
+        } catch(_) {document.getElementById('queueOpeningObservation').hidden=true;}
+      };
+      document.getElementById('queueObserveOpening').onclick=async()=>{
+        if(observationBusy)return;observationBusy=true;refresh();
+        try {
+          const capture=qaUnconfirmedCapture_(),destinationAttested=document.getElementById('queueObservationAttested').checked;
+          if(!destinationAttested)throw new Error('Coteja el ID y destino staging antes de consultar.');
+          if(!confirm('Consultar la apertura '+capture.candidate.item.requestId+' sin reenviar ni liberar la retención. ¿Continuar?'))return;
+          const result=await qaObserveUnconfirmedClient_({requestId:capture.candidate.item.requestId,binding:capture.candidate.binding,attemptRaw:capture.attemptRaw,destinationAttested});
+          status.textContent=(result.report.status==='OBSERVED_CONFIRMED'?'ACK durable concordante observado.':result.report.status==='OBSERVED_ABSENT'?'No se observaron registros durables; esto no demuestra ausencia de efectos.':'Evidencia sin resolución.')+' UNCONFIRMED y retención conservados. No se habilitan reintentos.';
+        } catch(_) {status.textContent='No se completó la consulta. Se requieren sesión CAJA vigente y evidencia intacta. Conserva el intento y la retención; no se reenviaron operaciones.';}
+        finally {observationBusy=false;refresh();}
       };
       document.getElementById('queueJourneyRecover').onclick=async()=>{
         const button=document.getElementById('queueJourneyRecover');button.disabled=true;
@@ -3995,9 +4513,9 @@ html, body {
 
   // Metadatos canónicos del build de frontend
   window.DOMUS_BUILD = {
-    baseCommit: '2b7ba1f4030b1013555b93cb96cfcb594141fdcb',
+    baseCommit: 'db6805886538cd5f59506b17dd04747f4ca57695',
     buildId: 'repair-reconcile-20261105',
-    ui: '20261111-opening-read-scopes-28',
+    ui: '20261111-audited-release-29',
     environment: isProductionLocked ? 'PRODUCTION' : 'STAGING'
   };
 
@@ -6491,6 +7009,10 @@ const DEFAULT_CATALOG = [
       }
     }
     assertOutboxTraffic_();
+    if(localStorage.getItem('domus_outbox_qa_release_intent_v1')!==null || localStorage.getItem('domus_outbox_qa_release_resolution_v1')!==null) {
+      const proof={},ticketId=await qaActiveReleaseTicket_(payload,proof);
+      if(qaReleaseStorageSeal_()!==proof.seal)throw new Error('QA_RELEASE_ACTIVE_CONTEXT_CHANGED');payload={...payload,qaReleaseTicketId:ticketId};
+    } else if(Object.prototype.hasOwnProperty.call(payload,'qaReleaseTicketId'))throw new Error('QA_RELEASE_UNVERIFIED_ENVELOPE');
     if (STATE.isNativeGas && window.google && google.script && google.script.run) {
       const result = await new Promise((resolve, reject) => google.script.run.withSuccessHandler(resolve).withFailureHandler(reject).dispatchNativeAction(payload));
       return validateBackendResponse_(result, payload);
@@ -10562,7 +11084,7 @@ const DEFAULT_CATALOG = [
     assertStagingProposalContext_();
     const retainedInventory=stagingRetainedInventory_(input);
     // Pin the exact backend supporting the reviewed retention contract.
-    const backendHash='f24d94ffa387680b000b26c79e262c31fabda499231ddae7880fb6af200a31b1';
+    const backendHash='76563229067fb0f49ce66a7d7a2db478a68cbaa76a8d761df41b0ed948c32334';
     const deviceId=getDeviceId(),health=await transport_({action:'health',args:[],role:'GERENCIA',deviceId}),d=health && health.data;
     if(!health.ok || !d || d.environment!=='STAGING' || d.mainSheetId!=='114VSwo3bXyn_audh1LHr4qqjW5aSDSTP_bR_-Iz5dkg' ||
         d.opsSheetId!=='1NDpuyx6EfCHcoKW9CZ6pwR0oe2JS0aKpTTMa7RdqmlE' || d.build?.sourceSha256!==backendHash)

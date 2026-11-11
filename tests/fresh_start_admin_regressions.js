@@ -19,7 +19,7 @@ function fixture(env){
  t.ctx.Session.getEffectiveUser=()=>({getEmail:()=>t.ctx.Session.getActiveUser().getEmail()});
  let now=Date.now();class Clock extends Date{constructor(...args){super(...(args.length?args:[now]));}static now(){return now;}}
  t.advance=ms=>now+=ms;t.ctx.Date=Clock;t.logs=[];t.ctx.console={log:s=>t.logs.push(s),error:()=>{},warn:()=>{}};
- for(const s of Object.values(sources))vm.runInContext(s,t.ctx);
+ for(const [name,s] of Object.entries(sources)){if(name==='StagingRetentionApproval')require('./admin_fixture_build_pin')(t.ctx,s);else vm.runInContext(s,t.ctx);}
  assert.equal(t.ctx.domusInicioHuella_(),pin);t.authorize=()=>t.ctx.domusInicioHuella_=()=>proposal.snapshotHash;t.authorize();
  t.window={principal:'direccion@domusccc.net',issuedAt:new Date(now-1000).toISOString(),expiresAt:new Date(now+300000).toISOString()};
  t.ctx.domusInicioVentana_=()=>t.window;
@@ -141,3 +141,4 @@ test('no generic property writer, supplied session token, business operation or 
  assert(!/domusInicioActivar_|domusInicioAprobar_|setProperty/.test(sources.StagingFreshStartRead));
 });
 console.log(JSON.stringify({suite:'fresh-start-admin',passed,syntheticOnly:true,liveGoogle:false,realActivation:false,legacyBundle:!!process.env.DOMUS_TEST_LEGACY_BUNDLE}));
+

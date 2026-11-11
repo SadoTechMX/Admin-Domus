@@ -87,6 +87,9 @@ function executeDomusActionCore_(action, payload, params) {
   const authContext = authValidateAction(action, sessionToken, role, deviceId);
   // Actions using context must receive the same resolved ID that the wrapper binds.
   _authContext.requestId = requestId;
+  _authContext.qaReleaseTicketId = typeof p.qaReleaseTicketId==='string'?p.qaReleaseTicketId:null;
+
+  if(!['health','ping','authCrearSesion','consultarAperturaQa','prepararLiberacionQa','reservarLiberacionQa','consultarLiberacionQa','confirmarLiberacionQa','prepararRecuperacionQaAusente','recuperarAperturaQaAusente'].includes(action))qaRecoveryOperationalGuard_();
 
   // 2. Enrutamiento con Idempotencia y Candado para Operaciones Mutativas
   let result;
@@ -121,6 +124,25 @@ function executeDomusActionCore_(action, payload, params) {
     case 'turnoAbrir':
     case 'corteZCerrar':
       result = idempotentExecute_(requestId, action, args[0], deviceId, () => action==='turnoAbrir'?turnoAbrir(args[0]):corteZCerrar(args[0]));
+      break;
+    case 'prepararLiberacionQa':
+    case 'reservarLiberacionQa':
+    case 'consultarLiberacionQa':
+    case 'confirmarLiberacionQa': {
+      const actions={prepararLiberacionQa:qaPrepareRelease_,reservarLiberacionQa:qaReserveRelease_,consultarLiberacionQa:qaQueryRelease_,confirmarLiberacionQa:qaCommitRelease_};
+      result=actions[action](args[0],()=>qaObservationSession_(sessionToken,role,deviceId));
+      break;
+    }
+    case 'prepararRecuperacionQaAusente':
+      result = qaPrepareAbsentRecovery_(args[0], () => qaObservationSession_(sessionToken, role, deviceId));
+      break;
+    case 'recuperarAperturaQaAusente':
+      // Dedicated explicit mutation. Never call generic idempotency or journal resume.
+      result = qaRecoverAbsentOpening_(args[0], () => qaObservationSession_(sessionToken, role, deviceId));
+      break;
+    case 'consultarAperturaQa':
+      // Dedicated read-only route: no idempotency wrapper, journal resume or outbox.
+      result = qaObserveOpeningServer_(args[0], () => qaObservationSession_(sessionToken, role, deviceId));
       break;
     case 'turnoEstado':
       result = turnoEstado();
@@ -282,7 +304,7 @@ function dispatchNativeAction(payload) {
 function handleApiGetRequest_(action, params) {
   try {
     let data;
-    if (['cajaSimpleDatos','comandasSimpleDatos','accesoSimpleDatos','cajaSimpleEstado','transferenciasPendientes','prepararResolucionTransferencia','cancelarTransferenciaNoRecibida','prepararVinculoPagoExistente','vincularPagoExistente'].includes(action)) {
+    if (['consultarAperturaQa','prepararLiberacionQa','reservarLiberacionQa','consultarLiberacionQa','confirmarLiberacionQa','prepararRecuperacionQaAusente','recuperarAperturaQaAusente','cajaSimpleDatos','comandasSimpleDatos','accesoSimpleDatos','cajaSimpleEstado','transferenciasPendientes','prepararResolucionTransferencia','cancelarTransferenciaNoRecibida','prepararVinculoPagoExistente','vincularPagoExistente'].includes(action)) {
       throw new Error('Acceso denegado: consulta privada requiere dispatcher autenticado POST.');
     } else if (action === 'ping' || action === 'health') {
       data = {

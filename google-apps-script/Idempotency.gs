@@ -244,6 +244,7 @@ function idempotentExecute_(requestId, action, payload, deviceId, fn) {
   const devId = String(deviceId || '');
   if (!devId) throw new Error('DEVICE_ID_REQUIRED');
   return withLock_(CONFIG.lockTimeoutMs, () => {
+    qaRecoveryOperationalGuard_(true);
     if(_deferredRequestBinding)throw historyError_('No se admite otra intención dentro de una preparación pendiente.');
     const m = SpreadsheetApp.openById(CONFIG.mainSheetId);
     const boundary=historyGuardIntent_(m,cleanReqId,action,payload,devId); // Before lookup, ACK, binding or any journal replay.

@@ -14,7 +14,7 @@ function fixture(env){
    acknowledgeUnresolvedHistory:true,confirmOnlyPrepareProposal:true,confirmPropertyWritersStopped:true};
  t.ctx.Session.getEffectiveUser=()=>({getEmail:()=>t.ctx.Session.getActiveUser().getEmail()});
  t.logs=[];t.ctx.console={log:s=>t.logs.push(s),error:()=>{}};
- vm.runInContext(source,t.ctx,{filename:'StagingRetentionApproval.gs'});
+ require('./admin_fixture_build_pin')(t.ctx,source);
  assert.equal(t.ctx.domusRetencionAdminHashAutorizado_(),approvedHash);
  // Positive tests need an independently generated synthetic approval. Only this
  // authorization provider is replaced in memory; the checked-in pin stays exact.
@@ -178,3 +178,4 @@ test('only public entry is menu construction; no trigger, dispatcher action or d
  assert.equal(r.ok,false);assert.equal(t.menuAdded,0);assert.equal(t.writes.length,0);
 });
 console.log(JSON.stringify({suite:'retention-property-admin',passed,syntheticOnly:true,liveGoogle:false,realPropertyWrites:0,deployments:0,activation:false}));
+
