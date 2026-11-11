@@ -24,6 +24,7 @@ jobs:
       - run: node tests/operational_reads_regressions.js
       - run: node tests/polling_regressions.js
       - run: node tests/write_priority_regressions.js
+      - run: node tests/held_opening_regressions.js
       - run: node tests/review_regressions.js
       - run: node tests/reload_rejection_regressions.js
       - run: node tests/master_transport_regressions.js
@@ -72,6 +73,7 @@ jobs:
       - run: node tests/browser_station_routing.js
       - run: node tests/browser_polling.js
       - run: node tests/browser_write_priority.js
+      - run: node tests/browser_held_opening.js
       - run: node tests/browser_staging_proposal.js
       - run: node tests/browser_outbox_concurrency.js
       - run: node tests/browser_transfer_review.js

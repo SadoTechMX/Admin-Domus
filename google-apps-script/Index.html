@@ -3584,7 +3584,7 @@ html, body {
   // This screen never starts the operational app, even on an invalid target.
   window.DOMUS_STAGING_PROPOSAL_VIEW=(window.DOMUS_NATIVE_BOOT?.view || new URLSearchParams(window.location.search).get('vista'))==='propuesta-inicio';
   // This gate runs before sessions, migrations, polling, printing or any transport.
-  // The original queue/pending/receipts are never rewritten by review mode.
+  // Review preserves originals; explicit verified archival is the only cleanup path.
   function outboxReviewRequired_(includeOrphan) {
     if (window.DOMUS_OUTBOX_REVIEW_REQUESTED || localStorage.getItem('domus_outbox_review_hold_v1') !== null) return true;
     const raw=localStorage.getItem('domus_outbox'),queue=raw===null?[]:JSON.parse(raw);
@@ -3656,6 +3656,9 @@ html, body {
   function reviewReleaseDecision_() {
     try {
       const evidence=reviewEvidence_();
+      if(localStorage.getItem('domus_outbox_review_journey_v1')!==null ||
+          (evidence.archiveKey && JSON.parse(localStorage.getItem(evidence.archiveKey)).recoveryRaw))
+        return reviewJourneyReleaseDecision_(evidence);
       if(!['REQUIRES_REVIEW','RELEASE_READY'].includes(evidence.hold.state))throw new Error('La preservación aún no termina.');
       const initial=validateReviewSnapshot_(evidence.initialRaw).values,settled=validateReviewSnapshot_(evidence.settledRaw).values;
       const observed=captureOutboxEvidence_().values;
@@ -3698,13 +3701,23 @@ html, body {
       if(e.hold.state!=='RELEASE_READY') {
         const key='domus_outbox_review_archive_'+crypto.randomUUID();
         const raw=JSON.stringify({format:'DOMUS_OUTBOX_REVIEW_RELEASE_V1',closedAt:new Date().toISOString(),reason:decision.reason,
-          holdRaw:e.holdRaw,initialRaw:e.initialRaw,settledRaw:e.settledRaw,observed:captureOutboxEvidence_()});
+          holdRaw:e.holdRaw,initialRaw:e.initialRaw,settledRaw:e.settledRaw,observed:captureOutboxEvidence_(),
+          ...(decision.recoveryRaw?{recoveryRaw:decision.recoveryRaw}: {})});
         localStorage.setItem(key,raw);
         if(localStorage.getItem(key)!==raw)throw new Error('No se pudo conservar el archivo de revisión.');
         localStorage.setItem('domus_outbox_review_hold_v1',JSON.stringify({version:1,state:'RELEASE_READY',archiveKey:key}));
       }
-      // Remove only the active review keys, after a durable archive. Original
-      // Outbox/pending/receipts remain untouched. A failed cleanup stays held.
+      if(decision.recoveryRaw) {
+        // The immutable archive contains the original pending queue AND the ACK.
+        // Cleanup is resumable after quota/interruptions, never after changed evidence.
+        localStorage.setItem(decision.confirmationKey,decision.confirmationRaw);
+        if(localStorage.getItem(decision.confirmationKey)!==decision.confirmationRaw)throw new Error('No se conservó el comprobante.');
+        localStorage.setItem('domus_outbox','[]');
+        if(localStorage.getItem('domus_outbox')!=='[]')throw new Error('No se completó el archivo de la cola.');
+        localStorage.removeItem('domus_outbox_review_journey_v1');
+      }
+      // Remove active review keys only after durable archival. Existing receipts
+      // and pending sales remain untouched. A failed cleanup stays held.
       localStorage.removeItem('domus_outbox_review_initial_v1');
       localStorage.removeItem('domus_outbox_review_settled_v1');
       localStorage.removeItem('domus_outbox_review_hold_v1');
@@ -3758,7 +3771,8 @@ html, body {
     const evidence={format:'DOMUS_OUTBOX_REVIEW_V1',exportedAt:new Date().toISOString(),
       holdRaw:localStorage.getItem('domus_outbox_review_hold_v1'),
       initialRaw:localStorage.getItem('domus_outbox_review_initial_v1'),
-      settledRaw:localStorage.getItem('domus_outbox_review_settled_v1'),observed:captureOutboxEvidence_()};
+      settledRaw:localStorage.getItem('domus_outbox_review_settled_v1'),
+      recoveryRaw:localStorage.getItem('domus_outbox_review_journey_v1'),observed:captureOutboxEvidence_()};
     evidence.archives={};
     for(let i=0;i<localStorage.length;i++){
       const key=localStorage.key(i);if(key && key.startsWith('domus_outbox_review_archive_'))evidence.archives[key]=localStorage.getItem(key);
@@ -3766,6 +3780,123 @@ html, body {
     const url=URL.createObjectURL(new Blob([JSON.stringify(evidence,null,2)],{type:'application/json'}));
     const link=document.createElement('a');link.href=url;link.download='DOMUS-cola-revision-'+Date.now()+'.json';
     document.body.appendChild(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
+  }
+
+  // Deliberately separate from operational transport: review boot returns before
+  // STATE/session/polling initialization. No general traffic/store bypass exists.
+  function reviewJourneyCandidate_() {
+    if(window.DOMUS_NATIVE_BOOT?.environment!=='STAGING' || !window.google?.script?.run)
+      throw new Error('Recuperación disponible sólo en la app nativa de staging.');
+    const e=reviewEvidence_();
+    if(e.hold.state!=='REQUIRES_REVIEW')throw new Error('Espera a que termine la preservación.');
+    const a=validateReviewSnapshot_(e.initialRaw),b=validateReviewSnapshot_(e.settledRaw),current=captureOutboxEvidence_();
+    if(a.origin!==window.location.origin || b.origin!==a.origin || JSON.stringify(a.values)!==JSON.stringify(b.values) ||
+        JSON.stringify(b.values)!==JSON.stringify(current.values))throw new Error('La evidencia cambió; conservar y revisar.');
+    const queue=JSON.parse(b.values.domus_outbox);
+    if(!Array.isArray(queue) || queue.length!==1 || b.values.domus_pending_sale!==null)
+      throw new Error('Esta vía exige una sola apertura QA y ninguna venta pendiente.');
+    const item=queue[0],body=item?.args?.[0],text=v=>typeof v==='string' && !!v && v.trim()===v;
+    if(!item || item.clientContract!=='domus-outbox-v2' || item.action!=='turnoAbrir' || item.status!=='RETRY' ||
+        item.role!=='CAJA' || !text(item.requestId) || item.requestId.includes('#part:') ||
+        !text(item.deviceId) || item.deviceId!==b.values.domus_device_id || !text(item.operatorId) ||
+        !Array.isArray(item.args) || item.args.length!==1 || !body || body.requestId!==item.requestId ||
+        (body.id!==undefined && body.id!==item.requestId) || body.openingFloat!==0 || !text(body.scopeId) || !text(body.historyBoundaryId) ||
+        classifyMutationFailure({message:item.lastError || '',code:item.errorCode,status:item.errorStatus})!=='RETRY' ||
+        b.values['domus_confirmation_'+item.requestId]!==undefined)
+      throw new Error('Apertura no elegible: se conservan estado, identidad y evidencia.');
+    return {e,item,binding:JSON.stringify([e.holdRaw,e.initialRaw,e.settledRaw])};
+  }
+
+  function reviewJourneyPayload_(item) {
+    return {action:item.action,args:item.args,requestId:item.requestId,deviceId:item.deviceId,operator:item.operatorId,role:item.role};
+  }
+
+  function validReviewJourneyAck_(record,item) {
+    const r=record?.response;
+    return record?.format==='DOMUS_REVIEW_JOURNEY_V1' && record.state==='CONFIRMED' &&
+      record.destination==='STAGING' && record.destinationAttested===true && typeof record.reference==='string' && !!record.reference &&
+      record.identity===outboxIntentIdentity_(item) && r?.ok===true && r.requestId===item.requestId &&
+      validJourneyResult_(r.data,reviewJourneyPayload_(item)) && r.data.deviceId===item.deviceId &&
+      typeof record.confirmedAt==='string' && Number.isFinite(Date.parse(record.confirmedAt));
+  }
+
+  async function recoverReviewedJourney_(consent) {
+    if(!window.navigator?.locks?.request)throw new Error('OUTBOX_LOCK_REQUIRED');
+    // Both locks exclude another recovery/close and cooperating old in-flight writes.
+    return window.navigator.locks.request('domus-outbox-traffic',()=>window.navigator.locks.request('domus-outbox-store',async()=>{
+      const candidate=reviewJourneyCandidate_(),item=candidate.item;
+      if(consent?.binding!==candidate.binding || consent.requestId!==item.requestId || consent.destinationAttested!==true ||
+          typeof consent.reference!=='string' || !consent.reference.trim() || consent.reference.length>160 || /[\u0000-\u001f\u007f]/.test(consent.reference))
+        throw new Error('Confirma ID, destino staging y referencia privada del cotejo; no se envió.');
+      const key='domus_outbox_review_journey_v1';
+      if(localStorage.getItem(key)!==null)throw new Error('Ya existe un intento documentado. No se repite desde esta pantalla.');
+      const recheck=()=>{
+        if(reviewJourneyCandidate_().binding!==candidate.binding || localStorage.getItem(key)!==null)
+          throw new Error('La evidencia cambió durante la comprobación; no se envió.');
+      };
+      const dispatch=p=>new Promise((resolve,reject)=>window.google.script.run.withSuccessHandler(resolve).withFailureHandler(reject).dispatchNativeAction(p));
+      const health=await dispatch({action:'health',args:[],role:item.role,deviceId:item.deviceId});recheck();
+      const d=health?.data;
+      if(health?.ok!==true || d?.environment!=='STAGING' || d.mainSheetId!=='114VSwo3bXyn_audh1LHr4qqjW5aSDSTP_bR_-Iz5dkg' ||
+          d.opsSheetId!=='1NDpuyx6EfCHcoKW9CZ6pwR0oe2JS0aKpTTMa7RdqmlE' ||
+          d.build?.sourceSha256!=='b07de85635e3e297ddc7decf45a195094619beb42bf7a1f9bbac0e71728a8e61')
+        throw new Error('Entorno, libros o build V17 no coinciden; no se envió la apertura.');
+      // Google-authorized CAJA only. No credential prompt, cached token, role
+      // escalation, second login after rejection, or persisted session secret.
+      const login=await dispatch({action:'authCrearSesion',args:[item.role,item.operatorId,item.deviceId,''],role:item.role,deviceId:item.deviceId});recheck();
+      if(login?.ok!==true || typeof login.data?.token!=='string' || !login.data.token || login.data.role!==item.role || login.data.deviceId!==item.deviceId)
+        throw new Error('Google no autorizó CAJA. No se envió la apertura.');
+      const record={format:'DOMUS_REVIEW_JOURNEY_V1',state:'SENT',binding:candidate.binding,identity:outboxIntentIdentity_(item),
+        destination:'STAGING',destinationAttested:true,reference:consent.reference.trim(),sentAt:new Date().toISOString()};
+      const sentRaw=JSON.stringify(record);localStorage.setItem(key,sentRaw);
+      if(localStorage.getItem(key)!==sentRaw)throw new Error('No se pudo preservar el intento; no se envió.');
+      try {
+        const response=await dispatch({...reviewJourneyPayload_(item),sessionToken:login.data.token});
+        // No ACK is accepted against a changed queue/hold or overwritten audit.
+        if(reviewJourneyCandidate_().binding!==candidate.binding || localStorage.getItem(key)!==sentRaw)
+          throw new Error('Evidencia cambiada después del envío.');
+        const confirmed={...record,state:'CONFIRMED',confirmedAt:new Date().toISOString(),response};
+        if(!validReviewJourneyAck_(confirmed,item))throw new Error('Respuesta sin confirmación completa de la misma apertura.');
+        const raw=JSON.stringify(confirmed);localStorage.setItem(key,raw);
+        if(localStorage.getItem(key)!==raw)throw new Error('No se pudo preservar la respuesta.');
+        return confirmed;
+      } catch(err) {
+        // Never overwrite evidence changed by another writer, never store tokens
+        // or arbitrary error contents, and never classify uncertainty as no effects.
+        if(localStorage.getItem(key)===sentRaw)localStorage.setItem(key,JSON.stringify({...record,state:'UNCONFIRMED',finishedAt:new Date().toISOString()}));
+        throw new Error('Apertura sin confirmar. Cola y retención conservadas; no hay reintento automático. Descargar evidencia y revisar antes de otra acción.');
+      }
+    }));
+  }
+
+  function reviewJourneyReleaseDecision_(e) {
+    // A release after an interrupted archive resumes only its exact cleanup.
+    const archived=e.archiveKey?JSON.parse(localStorage.getItem(e.archiveKey)):null;
+    const recoveryRaw=archived?.recoveryRaw || localStorage.getItem('domus_outbox_review_journey_v1');
+    const record=JSON.parse(recoveryRaw),initial=validateReviewSnapshot_(e.initialRaw),settled=validateReviewSnapshot_(e.settledRaw);
+    const originalHold=archived?.holdRaw || e.holdRaw;
+    if(!['REQUIRES_REVIEW','RELEASE_READY'].includes(e.hold.state) || initial.origin!==window.location.origin || settled.origin!==initial.origin ||
+        record?.binding!==JSON.stringify([originalHold,e.initialRaw,e.settledRaw]) || JSON.stringify(initial.values)!==JSON.stringify(settled.values))
+      throw new Error('Recuperación sin vínculo exacto a las copias originales.');
+    const queue=JSON.parse(settled.values.domus_outbox),item=Array.isArray(queue) && queue.length===1?queue[0]:null;
+    if(!item || item.clientContract!=='domus-outbox-v2' || item.action!=='turnoAbrir' || item.status!=='RETRY' || item.role!=='CAJA' ||
+        item.deviceId!==settled.values.domus_device_id || item.args?.[0]?.openingFloat!==0 || settled.values.domus_pending_sale!==null || !validReviewJourneyAck_(record,item))
+      throw new Error('El intento sigue sin confirmación completa; conservar revisión.');
+    const confirmationKey='domus_confirmation_'+item.requestId;
+    if(Object.prototype.hasOwnProperty.call(settled.values,confirmationKey))throw new Error('Comprobante anterior en conflicto.');
+    const confirmationRaw=JSON.stringify({requestId:item.requestId,action:item.action,args:item.args,operator:item.operatorId,confirmedAt:record.confirmedAt,data:record.response.data});
+    const current=captureOutboxEvidence_().values,expected={...settled.values};
+    if(archived) {
+      if(localStorage.getItem('domus_outbox_review_journey_v1')!==null && localStorage.getItem('domus_outbox_review_journey_v1')!==recoveryRaw)
+        throw new Error('Intento de recuperación cambiado tras archivar.');
+      if(current.domus_outbox==='[]')expected.domus_outbox='[]';
+      if(current[confirmationKey]===confirmationRaw)expected[confirmationKey]=confirmationRaw;
+      if(current.domus_outbox==='[]' && current[confirmationKey]!==confirmationRaw)throw new Error('Cola archivada sin comprobante persistido.');
+    }
+    const canonical=v=>JSON.stringify(Object.keys(v).sort().map(k=>[k,v[k]]));
+    if(canonical(current)!==canonical(expected))throw new Error('Evidencia cambiada; no cerrar revisión.');
+    return {allowed:true,reason:'EXPLICIT_STAGING_OPENING_RECOVERED',evidence:e,recoveryRaw,confirmationKey,confirmationRaw,
+      message:'Apertura confirmada con el mismo ID. Cerrar archivará la cola original y el resultado; no enviará otra operación.'};
   }
 
   function enterOutboxReview_() {
@@ -3776,10 +3907,15 @@ html, body {
     // Works before normal app initialization and from an already-open new client.
     const render=()=>{
       document.body.innerHTML='<main style="max-width:760px;margin:40px auto;padding:24px;color:#eee;background:#151820;font:16px system-ui">'+
-        '<h1>Cola en revisión</h1><p>La app operativa está detenida. No se reenvía, descarta ni confirma ningún ID desde esta pantalla.</p>'+
+        '<h1>Cola en revisión</h1><p>La app operativa está detenida. No hay reenvíos automáticos.</p>'+
         '<p id="queueReviewStatus" role="status">Preservando evidencia y esperando solicitudes que ya estaban en curso…</p>'+
         '<button id="queueReviewDownload" type="button">Descargar evidencia privada</button>'+
         '<p id="queueReviewDecision"></p><button id="queueReviewRelease" type="button" disabled>Cerrar revisión sin pendientes</button><p id="queueReviewContinue"></p>'+
+        '<section id="queueJourneyRecovery" hidden><h2>Recuperar apertura QA en staging</h2><p id="queueJourneyIdentity"></p>'+
+        '<p>Esta acción consulta o completa la apertura original; puede crearla si todavía no existe. No registra una venta. La retención continúa.</p>'+
+        '<label>Referencia privada del cotejo de destino (sin datos ni claves) <input id="queueJourneyReference" maxlength="160"></label><p>'+
+        '<label><input type="checkbox" id="queueJourneyAttested"> Cotejé que este ID y dispositivo pertenecen a esta prueba de staging; las otras estaciones están detenidas.</label></p>'+
+        '<button id="queueJourneyRecover" type="button">Recuperar una vez el mismo ID</button></section>'+
         '<p>Guarda el archivo de forma privada. Incluye los cuerpos originales y recibos disponibles, sin verificar cobros contra el servidor.</p>'+
         '<p>Cierra clientes de versiones anteriores: no conocen este bloqueo. Una solicitud ya enviada puede haber tenido efectos.</p>'+
         '<p>Las intenciones inciertas permanecen bloqueadas. Cerrar una revisión resuelta conserva su archivo y no reenvía operaciones.</p></main>';
@@ -3788,19 +3924,39 @@ html, body {
         try{downloadOutboxEvidence_();}catch(err){status.textContent='No se pudo descargar: '+err.message+'. Conserva este perfil; no borres la cola.';}
       };
       const release=document.getElementById('queueReviewRelease');
+      const refresh=()=>{
+        const decision=reviewReleaseDecision_();document.getElementById('queueReviewDecision').textContent=decision.message;release.disabled=!decision.allowed;
+        try {
+          const c=reviewJourneyCandidate_(),section=document.getElementById('queueJourneyRecovery');section.hidden=false;
+          document.getElementById('queueJourneyIdentity').textContent='ID: '+c.item.requestId+' · ámbito: '+c.item.args[0].scopeId+' · fondo: $0 · destino: STAGING V17.';
+          document.getElementById('queueJourneyRecover').disabled=localStorage.getItem('domus_outbox_review_journey_v1')!==null;
+        } catch(_) {document.getElementById('queueJourneyRecovery').hidden=true;}
+      };
+      document.getElementById('queueJourneyRecover').onclick=async()=>{
+        const button=document.getElementById('queueJourneyRecover');button.disabled=true;
+        try {
+          const c=reviewJourneyCandidate_(),reference=document.getElementById('queueJourneyReference').value;
+          const destinationAttested=document.getElementById('queueJourneyAttested').checked;
+          if(!destinationAttested || !reference.trim())throw new Error('Completa el cotejo de destino y su referencia privada.');
+          if(!confirm('Recuperar la apertura '+c.item.requestId+' en STAGING, fondo $0. Puede completarse si aún no existe. Se conservarán el mismo ID, cuerpo y dispositivo. ¿Continuar una sola vez?'))return;
+          status.textContent='Recuperación explícita en curso. No cierres esta pestaña; la app y las demás operaciones siguen detenidas.';
+          await recoverReviewedJourney_({binding:c.binding,requestId:c.item.requestId,reference,destinationAttested});
+          status.textContent='Apertura confirmada y evidencia guardada. La retención sigue activa hasta el cierre explícito de revisión.';
+        } catch(err) {status.textContent=err.message;} finally {refresh();}
+      };
       release.onclick=async()=>{
         release.disabled=true;
         try {
           const returnUrl=reviewReturnUrl_();
           await releaseReviewedOutbox_();
-          status.textContent='Revisión cerrada y archivada. No se envió ninguna operación.';
+          status.textContent='Revisión cerrada y archivada. El cierre no envió ninguna operación.';
           const link=document.createElement('a');link.href=returnUrl;link.target='_top';link.textContent='Abrir la app';
           document.getElementById('queueReviewContinue').appendChild(link);
         } catch(err) {status.textContent='No se cerró la revisión: '+err.message;release.disabled=!reviewReleaseDecision_().allowed;}
       };
       preserveOutboxForReview_().then(()=>{
-        status.textContent='Revisión persistida. Cola original y copias conservadas. Esta versión no iniciará nuevos envíos; revisa los efectos de solicitudes anteriores.';
-        const decision=reviewReleaseDecision_();document.getElementById('queueReviewDecision').textContent=decision.message;release.disabled=!decision.allowed;
+        status.textContent='Revisión persistida. Cola original y copias conservadas. No hay envíos automáticos; revisa los efectos de solicitudes anteriores.';
+        refresh();
       },err=>{
         status.textContent='Bloqueo local sin completar: '+err.message+'. No operar ni cerrar sin preservar la evidencia. Descargar no libera la cola.';
       });
@@ -3841,7 +3997,7 @@ html, body {
   window.DOMUS_BUILD = {
     baseCommit: '2b7ba1f4030b1013555b93cb96cfcb594141fdcb',
     buildId: 'repair-reconcile-20261105',
-    ui: '20261111-write-priority-26',
+    ui: '20261111-held-opening-27',
     environment: isProductionLocked ? 'PRODUCTION' : 'STAGING'
   };
 
