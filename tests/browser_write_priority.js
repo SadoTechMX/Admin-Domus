@@ -2,7 +2,7 @@
 // Real UI + actual backend modules, controlled asynchronous mocks; no Google.
 const {chromium}=require('playwright'),http=require('http'),fs=require('fs'),path=require('path'),assert=require('assert/strict');
 const {setup}=require('./recovery_regressions'),root=path.resolve(__dirname,'..');
-const server=http.createServer((req,res)=>{const p=new URL(req.url,'http://localhost').pathname,file=path.resolve(root,'.'+(p==='/'?'/index.html':p));if(!file.startsWith(root+path.sep))return res.writeHead(403).end();try{res.setHeader('Content-Type',file.endsWith('.js')?'text/javascript':file.endsWith('.css')?'text/css':'text/html');res.end(fs.readFileSync(file));}catch{res.writeHead(404).end();}});
+const server=http.createServer((req,res)=>{const p=new URL(req.url,'http://localhost').pathname,file=path.resolve(root,'.'+(p==='/'?'/index.html':p));if(!file.startsWith(root+path.sep))return res.writeHead(403).end();try{res.setHeader('Content-Type',file.endsWith('.js')?'text/javascript':file.endsWith('.css')?'text/css':'text/html');const bytes=fs.readFileSync(file);res.end(/\.(?:js|html)$/.test(file)?bytes.toString('utf8').replace('window.DOMUS_PAUSE_FOR_REVIEW=pauseForReview_;', 'window.__priorityDebug=()=>({read:!!STATE.backendReadPromise,claims:STATE.backendWriteClaims||0,paused:!!STATE.backendReviewPaused,failed:!!STATE.pollFailed,core:isOutboxCoreRunning});window.DOMUS_PAUSE_FOR_REVIEW=pauseForReview_;'):bytes);}catch{res.writeHead(404).end();}});
 const wait=async fn=>{for(let i=0;i<150&&!fn();i++)await new Promise(r=>setTimeout(r,20));assert(fn(),'fixture dispatch absent');};
 const policy={version:1,scopes:[{id:'A',projectId:'P',projectName:'QA project',eventId:'E',eventName:'QA event',activity:'QA event'}],stations:[{deviceId:'fixture-device',stationId:'S',registerId:'R',scopeIds:['A']}]};
 (async()=>{
@@ -30,8 +30,13 @@ const policy={version:1,scopes:[{id:'A',projectId:'P',projectName:'QA project',e
   }else{
    await page.locator('#journeyScopeSelect').selectOption('A');await page.locator('#journeyOpeningFloat').fill('0');await page.locator('#btnJourneyOpen').click();await page.locator('#btnJourneyOpen').evaluate(el=>el.click());
   }
+  // Browser click/dialog completion precedes asynchronous Web Lock acquisition.
+  // Hold the response until the real client has actually claimed write priority.
+  await page.waitForFunction(()=>window.__priorityDebug().claims>0);
   await page.clock.fastForward(95000);assert.equal(calls.filter(p=>p.action==='turnoAbrir').length,0);assert.equal(pending.length,1);
-  pending[0].finish();await wait(()=>calls.filter(p=>p.action==='turnoAbrir').length===1);
+  pending[0].finish();await wait(()=>calls.filter(p=>p.action==='turnoAbrir').length===1).catch(async e=>{
+   console.error('SYNTHETIC_RECOVERY_DIAGNOSTIC',JSON.stringify({native,recovery,actions:calls.map(p=>p.action),client:await page.evaluate(async()=>({state:window.__priorityDebug(),locks:await navigator.locks.query(),queue:JSON.parse(localStorage.getItem('domus_outbox')||'[]').map(q=>({id:q.requestId,status:q.status,error:q.lastError})),message:document.getElementById('cashPeriodStatus').textContent}))}));throw e;
+  });
   const sent=calls.find(p=>p.action==='turnoAbrir');await page.waitForFunction(id=>!!localStorage.getItem('domus_confirmation_'+id),sent.requestId);
   assert.equal(sent.args[0].openingFloat,0);if(recovery){assert.equal(sent.requestId,original.requestId);assert.deepEqual(sent.args,original.args);assert.equal(sent.deviceId,original.deviceId);assert.equal(sent.role,original.role);}
   // Pause with the automatic post-ACK refresh still in flight; its finally cannot re-arm it.
