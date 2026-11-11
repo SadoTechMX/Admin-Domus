@@ -3136,7 +3136,7 @@ const DEFAULT_CATALOG = [
     if (!window.navigator || !window.navigator.locks || typeof window.navigator.locks.request !== 'function') {
       updateSyncPill('error'); return;
     }
-    await window.navigator.locks.request('domus-outbox-sync', { ifAvailable: true }, async lock => {
+    await window.navigator.locks.request('domus-outbox-sync', explicitRequestId?{}:{ifAvailable:true}, async lock => {
       if (lock) await sincronizarOutboxCore_(explicitRequestId,expectedIntent);
     });
   }

@@ -86,6 +86,12 @@ await test('manual and automatic recovery cannot send or rewrite CONFIRMED, REQU
   await t.ctx.sincronizarOutboxCore_();await t.ctx.sincronizarOutboxCore_(q.requestId,t.ctx.outboxIntentIdentity_(q));assert.equal(t.localStorage.getItem('domus_outbox'),before);assert.equal(t.calls.length,0);
  }
 });
+await test('explicit recovery waits for the background Outbox lock instead of silently dropping the user request',async()=>{
+ const t=ui();let release,finished=false;const sent=[];t.ctx.sincronizarOutboxCore_=async id=>sent.push(id);
+ const held=t.ctx.window.navigator.locks.request('domus-outbox-sync',()=>new Promise(r=>release=r));await tick();
+ const manual=t.ctx.sincronizarOutbox('SYNTHETIC-explicit-lock').then(()=>finished=true);await tick();assert.equal(finished,false);assert.deepEqual(sent,[]);
+ await t.ctx.sincronizarOutbox();assert.deepEqual(sent,[]);release();await held;await manual;assert.deepEqual(sent,['SYNTHETIC-explicit-lock']);
+});
 await test('UI manual recovery names original ID and amount; cancellation sends nothing; ambiguous multiple journeys stay held',async()=>{
  const t=ui(),q={...t.item('SYNTHETIC-manual'),action:'turnoAbrir',args:[{requestId:'SYNTHETIC-manual',scopeId:'A',openingFloat:0}]};await t.seed([q]);let prompt,sent=[];t.ctx.confirm=text=>{prompt=text;return false;};t.ctx.processOutbox=id=>sent.push(id);
  t.ctx.retryOutboxFromUi_();assert(prompt.includes(q.requestId));assert(prompt.includes('$0'));assert.deepEqual(sent,[]);t.ctx.confirm=()=>true;t.ctx.retryOutboxFromUi_();assert.deepEqual(sent,[q.requestId]);
