@@ -39,6 +39,9 @@ async function main(){
   const receiptKey=await page.evaluate(()=>localStorage.getItem('domus_last_sale_confirmation'));
   const receiptRaw=await page.evaluate(k=>localStorage.getItem('domus_confirmation_'+k),receiptKey);assert.equal(JSON.parse(receiptRaw).data.total,200);
   passed++;console.log('PASS explicit fixture period correction preserves cart and permits one confirmed $200 sale with original receipt');
+  // The receipt is visible before its post-sale Caja/KDS refresh completes.
+  // Drain that old document before measuring the review screen's zero traffic.
+  await page.waitForFunction(()=>{const p=window.DOMUS_PAUSE_FOR_REVIEW();return !p.readInFlight&&!p.writeClaims;});
   const count=sends.length;await page.goto(origin+'/?env=staging&vista=caja&revision=cola');
   await page.waitForFunction(()=>document.getElementById('queueReviewStatus')?.textContent.startsWith('Revisión persistida'));
   assert.equal(sends.length,count);assert.equal(await page.locator('#queueReviewRelease').isDisabled(),false);await page.locator('#queueReviewRelease').click();
