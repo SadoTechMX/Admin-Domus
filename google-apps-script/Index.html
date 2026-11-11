@@ -3841,7 +3841,7 @@ html, body {
   window.DOMUS_BUILD = {
     baseCommit: '2b7ba1f4030b1013555b93cb96cfcb594141fdcb',
     buildId: 'repair-reconcile-20261105',
-    ui: '20261110-retained-inventory-21',
+    ui: '20261111-uncertain-retention-22',
     environment: isProductionLocked ? 'PRODUCTION' : 'STAGING'
   };
 
@@ -10253,6 +10253,28 @@ const DEFAULT_CATALOG = [
     return '{'+Object.keys(v).sort().map(k=>JSON.stringify(k)+':'+canonicalProposalJson_(v[k])).join(',')+'}';
   }
 
+  async function checkedRetentionEvidence_(e,hash,input,backendHash) {
+    const hex=v=>typeof v==='string' && /^[a-f0-9]{64}$/.test(v),keys=(v,w)=>v && Object.keys(v).sort().join(',')===w.split(',').sort().join(',');
+    if(!keys(e,'version,mode,environment,projectId,book,opsBook,requests,journal,journeyPolicyHash,queueHash,evidenceReference,backup,backendSourceSha256,commercialEvidenceHash,groups,counts,resolved,financialFinal') ||
+        e.version!==1 || e.mode!=='STAGING_ACCESS_WARDROBE_17_V1' || e.environment!=='STAGING' || e.resolved!==false || e.financialFinal!==false ||
+        e.projectId!=='1sh5fyAaa0onlNsNZ40EokGumubebYEMisTGZ8rNj75gBiOsYPkA-rV4O' || e.book!=='114VSwo3bXyn_audh1LHr4qqjW5aSDSTP_bR_-Iz5dkg' ||
+        e.opsBook!=='1NDpuyx6EfCHcoKW9CZ6pwR0oe2JS0aKpTTMa7RdqmlE' || e.backendSourceSha256!==backendHash ||
+        e.evidenceReference!==input.evidenceReference || canonicalProposalJson_(e.backup)!==canonicalProposalJson_(input.backup) ||
+        !keys(e.requests,'sheet,lastRow,hash') || !['REQUESTS','TRANSACCIONES_API'].includes(e.requests.sheet) || !Number.isInteger(e.requests.lastRow) || e.requests.lastRow<139 || !hex(e.requests.hash) ||
+        !keys(e.journal,'lastRow,hash') || !Number.isInteger(e.journal.lastRow) || e.journal.lastRow<0 || (e.journal.lastRow?!hex(e.journal.hash):e.journal.hash!==null) ||
+        !hex(e.journeyPolicyHash) || !hex(e.commercialEvidenceHash) || !hex(e.queueHash) || !hex(hash) ||
+        canonicalProposalJson_(e.counts)!==canonicalProposalJson_({groups:17,access:15,wardrobe:2}) || !Array.isArray(e.groups) || e.groups.length!==17 ||
+        e.groups.some(g=>!keys(g,'requestId,action,rows,evidenceHash') || typeof g.requestId!=='string' || !g.requestId || g.requestId!==g.requestId.trim() ||
+          !['accesoSimpleRegistrar','guardarropaDevolver'].includes(g.action) || !hex(g.evidenceHash) || !Array.isArray(g.rows) || !g.rows.length ||
+          g.rows.some((r,i)=>!Number.isInteger(r) || r<2 || r>e.requests.lastRow || (i>0 && r<=g.rows[i-1]))) ||
+        new Set(e.groups.map(g=>g.requestId)).size!==17 || e.groups.filter(g=>g.action==='accesoSimpleRegistrar').length!==15 ||
+        new Set(e.groups.flatMap(g=>g.rows)).size!==e.groups.reduce((n,g)=>n+g.rows.length,0))
+      throw new Error('Diagnóstico de retención incompatible. No se obtuvo una propuesta.');
+    const digest=async v=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(canonicalProposalJson_(v)))),b=>b.toString(16).padStart(2,'0')).join('');
+    if(await digest(e)!==hash || await digest(input.queue.slice().sort((a,b)=>a.requestId.localeCompare(b.requestId)))!==e.queueHash)
+      throw new Error('La huella del diagnóstico o de las colas no coincide.');
+  }
+
   async function checkedStagingProposal_(data,input,backendHash) {
     const s=data && data.snapshot,f=s && s.freshStart,hex=v=>typeof v==='string' && /^[a-f0-9]{64}$/.test(v);
     const queue=input.queue.slice().sort((a,b)=>a.requestId.localeCompare(b.requestId));
@@ -10269,21 +10291,37 @@ const DEFAULT_CATALOG = [
     const digest=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(canonicalProposalJson_(s)));
     const actual=Array.from(new Uint8Array(digest),b=>b.toString(16).padStart(2,'0')).join('');
     if(actual!==data.snapshotHash)throw new Error('La huella de la propuesta no coincide con su contenido.');
+    if(s.retainedUncertain) {
+      const r=s.retainedUncertain;await checkedRetentionEvidence_(r.evidence,r.evidenceHash,input,backendHash);
+      if(typeof r.approvalReference!=='string' || !r.approvalReference.trim() || s.counts.retainedUncertainIds!==17 ||
+          canonicalProposalJson_(r.evidence.requests)!==canonicalProposalJson_(s.requests) || canonicalProposalJson_(r.evidence.journal)!==canonicalProposalJson_(s.journal) ||
+          r.evidence.journeyPolicyHash!==s.journeyPolicyHash || r.evidence.commercialEvidenceHash!==f.commercialEvidenceHash)
+        throw new Error('La retención incierta no corresponde a la propuesta aprobada.');
+    }
     return {ok:true,kind:data.kind,canActivate:false,resolved:false,financialFinal:false,snapshot:s,snapshotHash:data.snapshotHash};
   }
 
   async function requestStagingProposal_(input) {
     assertStagingProposalContext_();
     const retainedInventory=stagingRetainedInventory_(input);
-    // Pin the supported V13 backend; this UI update needs no backend replacement.
-    const backendHash='4e62e02993a8ec7d69cbe8e97aaa32bf90bfdff4cde13de9928463e23230460a';
+    // Pin the exact backend supporting the reviewed retention contract.
+    const backendHash='edfaad95a796a784e59a54b19c3c76966d39f1e9963af0a9262d99960960a5e4';
     const deviceId=getDeviceId(),health=await transport_({action:'health',args:[],role:'GERENCIA',deviceId}),d=health && health.data;
     if(!health.ok || !d || d.environment!=='STAGING' || d.mainSheetId!=='114VSwo3bXyn_audh1LHr4qqjW5aSDSTP_bR_-Iz5dkg' ||
         d.opsSheetId!=='1NDpuyx6EfCHcoKW9CZ6pwR0oe2JS0aKpTTMa7RdqmlE' || d.build?.sourceSha256!==backendHash)
-      throw new Error('Identidad de backend incompatible. Se requiere el backend staging a443af1 verificado.');
+      throw new Error('Identidad de backend incompatible. Se requiere la pareja exacta de backend e interfaz de retención verificada.');
     const response=await authenticatedTransport_({action:'prepararLimiteHistorico',args:[JSON.parse(JSON.stringify(input))],
       requestId:'PROPOSAL-READ-'+crypto.randomUUID(),deviceId,role:'GERENCIA'});
     if(!response || response.ok!==true)throw new Error(response && response.error || 'No se pudo consultar la propuesta.');
+    const dgn=response.data;
+    if(dgn?.kind==='STAGING_UNCERTAIN_RETENTION_DIAGNOSTIC_V1') {
+      if(dgn.ok!==true || dgn.canActivate!==false || dgn.resolved!==false || dgn.financialFinal!==false || dgn.approvalRequired!==true || 'snapshot' in dgn || 'snapshotHash' in dgn)
+        throw new Error('Diagnóstico incompatible: no debe incluir un snapshot de activación.');
+      await checkedRetentionEvidence_(dgn.evidence,dgn.evidenceHash,input,backendHash);assertStagingProposalContext_();
+      return {format:'DOMUS_STAGING_UNCERTAIN_RETENTION_DIAGNOSTIC_V1',exportedAt:new Date().toISOString(),frontend:window.DOMUS_BUILD.ui,
+        retainedInventory,input:JSON.parse(JSON.stringify(input)),diagnostic:{kind:dgn.kind,canActivate:false,resolved:false,financialFinal:false,
+          approvalRequired:true,evidence:dgn.evidence,evidenceHash:dgn.evidenceHash}};
+    }
     const proposal=await checkedStagingProposal_(response.data,input,backendHash);
     assertStagingProposalContext_();
     return {format:'DOMUS_STAGING_FRESH_START_PROPOSAL_V2',exportedAt:new Date().toISOString(),frontend:window.DOMUS_BUILD.ui,
@@ -10317,7 +10355,15 @@ const DEFAULT_CATALOG = [
         const input=stagingProposalInput_();status.textContent='Comprobando staging y consultando con Gerencia…';
         const result=await requestStagingProposal_(input);
         if(revision!==rev){status.textContent='El formulario cambió durante la consulta. Consulta de nuevo el inventario corregido.';return;}
-        artifact=result;download.disabled=false;status.textContent='Propuesta obtenida y huella comprobada. Límite sin activar.';
+        artifact=result;download.disabled=false;
+        if(result.diagnostic) {
+          status.textContent='Diagnóstico obtenido. Se requiere aprobación específica de los 17 grupos antes de generar la propuesta.';
+          download.textContent='Descargar diagnóstico privado';
+          $('proposalSummary').textContent='Evidencia SHA-256: '+result.diagnostic.evidenceHash+
+            '\n15 grupos de acceso y 2 de guardarropa: FAILED, sin journal, efectos inciertos. No se clasifican como resueltos.'+
+            '\nNo hay snapshotHash. Originales bajo custodia; sin reenvío ni activación.';return;
+        }
+        download.textContent='Descargar propuesta privada';status.textContent='Propuesta obtenida y huella comprobada. Límite sin activar.';
         const p=result.proposal,c=p.snapshot.counts;
         $('proposalSummary').textContent='SHA-256: '+p.snapshotHash+'\nIDs históricos: '+c.historicalIds+' · Inciertos: '+c.uncertainIds+' · Intenciones retenidas: '+c.queueIds+
           '\nDestino de las retenidas: UNKNOWN (sin atribuir a staging). Manifiesto SHA-256: '+result.retainedInventory.manifest.sha256+
@@ -10329,7 +10375,8 @@ const DEFAULT_CATALOG = [
       try {
         assertStagingProposalContext_();if(!artifact || busy)throw new Error('Primero consulta una propuesta válida.');
         const url=URL.createObjectURL(new Blob([JSON.stringify(artifact,null,2)],{type:'application/json'}));
-        const link=document.createElement('a');link.href=url;link.download='DOMUS-propuesta-inicio-'+artifact.proposal.snapshotHash.slice(0,16)+'.json';
+        const link=document.createElement('a');link.href=url;link.download=(artifact.diagnostic?'DOMUS-diagnostico-retencion-':'DOMUS-propuesta-inicio-')+
+          (artifact.diagnostic?artifact.diagnostic.evidenceHash:artifact.proposal.snapshotHash).slice(0,16)+'.json';
         document.body.appendChild(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
       }catch(e){status.textContent=e.message;}
     };

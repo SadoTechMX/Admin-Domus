@@ -1,5 +1,7 @@
 # Consulta nativa de la propuesta de inicio
 
+> **Actualización 11 noviembre:** [Retención específica de 17 grupos inciertos](STAGING_UNCERTAIN_RETENTION_20261111.md), UI `20261111-uncertain-retention-22`. La nueva pareja backend/Index permite descargar un diagnóstico sin snapshotHash y exige aprobación exacta de su evidencia antes de proponer el límite. Las instrucciones de instalación de sólo Index y la huella V13 inferiores describen la entrega anterior; no aplican a esta nueva pareja. Los campos de manifiesto y custodia permanecen vigentes.
+
 Base backend `a443af16cde4a56735932f70262f598a66379066`; adaptación de formulario sobre `9f37f9e3fe91ba94563f453c5a3b832a897f4706`. Coordinación reportó backend V13 e interfaz V14 instalados, inventario de 14 perfiles Chrome cerrados de iMac y 15 intenciones github.io de destino histórico desconocido; Steven indicó que las pruebas se realizaron sólo allí. Es evidencia recibida, no una nueva lectura desde cloud. Esta adaptación está LOCAL_TESTED, no instalada. No requiere cambiar backend, permisos, credenciales, libros o propiedades de aprobación.
 
 ## Acceso soportado

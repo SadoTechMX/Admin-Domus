@@ -2,6 +2,7 @@
 // Actual generated Index + V13 backend modules in Chromium; no real Google.
 const {chromium}=require('playwright'),http=require('http'),fs=require('fs'),path=require('path'),assert=require('assert/strict');
 const {fixture}=require('./staging_opening_isolation_regressions'),root=path.resolve(__dirname,'..');
+const {addGroups}=require('./staging_uncertain_retention_regressions');
 const copy=v=>JSON.parse(JSON.stringify(v));
 // Synthetic identities only. The real 15 pairs/archives remain on the iMac;
 // this fixture proves exact preservation, not a cotejo of that private evidence.
@@ -21,6 +22,7 @@ const server=http.createServer((req,res)=>{
  try{
   async function pageFixture(options={}){
    const b=fixture('STAGING');if(options.denied)b.ctx.Session.getActiveUser=()=>({getEmail:()=> 'unprivileged@example.invalid'});
+   if(options.retainedGroups)addGroups(b);
    if(options.activeJournal)b.ctx.journalSheet_(b.main).appendRow(['SYNTHETIC-active-journal','cajaSimpleRegistrar','PREPARED','[]','{}','2026-11-10T00:00:00.000Z']);
    const before=snapshot(b),props=new Map(b.props),calls=[],errors=[];let printCalls=0;
    // A query must never enter a financial write, replay, binding or row growth.
@@ -132,6 +134,40 @@ const server=http.createServer((req,res)=>{
    assert((await t.page.locator('#proposalStatus').innerText()).includes('journal incompleto'));
    assert.equal(await t.page.locator('#proposalDownload').isDisabled(),true);await t.check();passed++;
    console.log('PASS an active journal still blocks a proposal with 15 unknown retained IDs; no recovery or writes attempted');await t.context.close();
+  }
+  {
+   const t=await pageFixture({retainedGroups:true}),p=t.page;await t.fill();await p.locator('#proposalRetainedCount').fill('15');
+   await p.locator('#proposalQueue').fill(JSON.stringify(retainedPairs));await t.submit();await p.waitForFunction(()=>!document.getElementById('proposalDownload').disabled);
+   assert((await p.locator('#proposalStatus').innerText()).includes('Se requiere aprobación específica'));
+   const download=p.waitForEvent('download');await p.locator('#proposalDownload').click();const dl=await download;
+   assert(dl.suggestedFilename().startsWith('DOMUS-diagnostico-retencion-'));
+   const raw=fs.readFileSync(await dl.path(),'utf8'),d=JSON.parse(raw);
+   assert.equal(d.format,'DOMUS_STAGING_UNCERTAIN_RETENTION_DIAGNOSTIC_V1');assert(!('proposal' in d));assert(!raw.includes('snapshotHash'));
+   assert.equal(d.diagnostic.approvalRequired,true);assert.equal(d.diagnostic.canActivate,false);assert.equal(d.diagnostic.evidence.groups.length,17);
+   assert.equal(d.diagnostic.evidenceHash,t.b.ctx.historyHash_(d.diagnostic.evidence));assert(!raw.includes('DO_NOT_EXPORT_PRIVATE_BODY'));
+   assert(!/sessionToken|fixture-secret|fixture-cashier-token/.test(raw));assert.deepEqual(d.input.queue,retainedPairs);await t.check();passed++;
+   console.log('PASS real read route exports only 17-group diagnosis before approval, no snapshotHash, bodies, replay or financial writes');
+   const key='DOMUS_STAGING_UNCERTAIN_RETENTION_APPROVAL_V1',approval=JSON.stringify({version:1,mode:'STAGING_ACCESS_WARDROBE_17_V1',approved:true,
+    evidenceHash:d.diagnostic.evidenceHash,approvalReference:'SYNTHETIC reviewer approval',confirmStationsHeld:true,confirmBackupVerified:true,acknowledgeUnresolvedHistory:true});
+   t.b.props.set(key,approval);t.props.set(key,approval); // Explicit synthetic configuration, never performed by the page.
+   await t.submit();await p.waitForFunction(()=>document.getElementById('proposalStatus').textContent.includes('Propuesta obtenida'));
+   const second=p.waitForEvent('download');await p.locator('#proposalDownload').click();const proposed=JSON.parse(fs.readFileSync(await (await second).path(),'utf8'));
+   assert.equal(proposed.proposal.snapshot.retainedUncertain.evidenceHash,d.diagnostic.evidenceHash);assert.equal(proposed.proposal.snapshot.counts.retainedUncertainIds,17);
+   assert.equal(proposed.proposal.canActivate,false);assert.equal(proposed.proposal.resolved,false);assert(!('diagnostic' in proposed));
+   assert.equal(t.b.props.has('DOMUS_STAGING_FRESH_START_APPROVAL_V1'),false);await t.check();passed++;
+   console.log('PASS separately configured mock evidence approval permits a proposal, never boundary activation');await t.context.close();
+  }
+  for(const kind of ['snapshotHash','private-body','wrong-hash','wrong-count']){
+   const t=await pageFixture({retainedGroups:true,respond:(p,r)=>{
+    if(p.action==='prepararLimiteHistorico'){
+     if(kind==='snapshotHash')r.data.snapshotHash='a'.repeat(64);
+     if(kind==='private-body')r.data.evidence.groups[0].response='DO_NOT_EXPORT_PRIVATE_BODY';
+     if(kind==='wrong-hash')r.data.evidenceHash='a'.repeat(64);
+     if(kind==='wrong-count')r.data.evidence.counts.groups=16;
+    }return r;
+   }});await t.fill();await t.submit();await t.page.waitForFunction(()=>!document.getElementById('proposalSubmit').disabled);
+   assert(await t.page.locator('#proposalDownload').isDisabled());await t.check();passed++;
+   console.log('PASS unsafe retention diagnosis rejected without export: '+kind);await t.context.close();
   }
   for(const options of [{environment:'PRODUCTION'},{native:false},{queue:'[{"clientContract":"domus-outbox-v2","requestId":"prior","status":"RETRY"}]'},{queue:'broken-json'},{pending:true},{hold:true}]){
    const t=await pageFixture(options);assert.equal(await t.page.locator('#proposalSubmit').isDisabled(),true);assert.equal(t.calls.length,0);await t.check();
