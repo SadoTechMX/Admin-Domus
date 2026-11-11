@@ -1,3 +1,5 @@
+> Actualización de lectura del 11 noviembre: [optimización y pareja requerida](HISTORY_READ_OPTIMIZATION_20261111.md), UI `20261111-history-read-23`. Sustituye la versión/hash de instalación de esta nota, conserva el contrato y las aprobaciones. Corrección no instalada; no repetir la consulta real pendiente.
+
 # Consulta nativa de la propuesta de inicio
 
 > **Actualización 11 noviembre:** [Retención específica de 17 grupos inciertos](STAGING_UNCERTAIN_RETENTION_20261111.md), UI `20261111-uncertain-retention-22`. La nueva pareja backend/Index permite descargar un diagnóstico sin snapshotHash y exige aprobación exacta de su evidencia antes de proponer el límite. Las instrucciones de instalación de sólo Index y la huella V13 inferiores describen la entrega anterior; no aplican a esta nueva pareja. Los campos de manifiesto y custodia permanecen vigentes.

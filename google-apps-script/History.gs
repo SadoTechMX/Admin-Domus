@@ -10,6 +10,43 @@ function historyHash_(value) {
   const hash=computePayloadHash_(JSON.parse(JSON.stringify(value)));
   if(!/^[a-f0-9]{64}$/.test(hash))throw historyError_('No se pudo acreditar la huella SHA-256.');return hash;
 }
+function historyReadView_(source) {
+  // Ephemeral, read-only view for ONE prepararLimiteHistorico call under lock.
+  // No CacheService/global state; never used by registration, ACK or replay.
+  const sheets=new Map(),bookId=source.getId();let zone;
+  const gridCopy=rows=>rows.map(row=>row.map(value=>value instanceof Date?new Date(value.getTime()):value));
+  const book=Object.freeze({getId:()=>bookId,getSpreadsheetTimeZone:()=>{
+    if(zone===undefined)zone=source.getSpreadsheetTimeZone();return zone;
+  },getSheetByName:name=>{
+    if(sheets.has(name))return sheets.get(name).view;
+    const sheet=source.getSheetByName(name);
+    if(!sheet){sheets.set(name,{view:null});return null;}
+    const lastRow=sheet.getLastRow(),width=sheet.getLastColumn(),sheetName=sheet.getName(),ranges=new Map();
+    const view=Object.freeze({getName:()=>sheetName,getLastRow:()=>lastRow,getLastColumn:()=>width,
+      getRange:(row,column,height=1,columns=1)=>{
+        if([row,column,height,columns].some(n=>!Number.isSafeInteger(n) || n<1))throw historyError_('Rango de diagnóstico inválido.');
+        const key=[row,column,height,columns].join(':');
+        if(!ranges.has(key)) {
+          let range,values,formulas;
+          const read=kind=>{
+            if(!range)range=sheet.getRange(row,column,height,columns);
+            if(kind==='values'){if(values===undefined)values=gridCopy(range.getValues());return gridCopy(values);}
+            if(formulas===undefined)formulas=gridCopy(range.getFormulas());return gridCopy(formulas);
+          };
+          ranges.set(key,Object.freeze({getValues:()=>read('values'),getFormulas:()=>read('formulas')}));
+        }
+        return ranges.get(key);
+      }});
+    sheets.set(name,{view:view,lastRow:lastRow,width:width});return view;
+  }});
+  return {book:book,assertDimensions:()=>{
+    sheets.forEach((entry,name)=>{
+      const current=source.getSheetByName(name);
+      if(!!current!==!!entry.view || (current && (current.getLastRow()!==entry.lastRow || current.getLastColumn()!==entry.width)))
+        throw historyError_('Las dimensiones de las hojas cambiaron durante el diagnóstico. No se emitió una propuesta; conservar la evidencia.');
+    });
+  }};
+}
 function historyPrefix_(sheet,lastRow,width) {
   if(!sheet || !Number.isInteger(lastRow) || lastRow<1 || sheet.getLastRow()<lastRow)throw historyError_('Falta el rango original.');
   const range=sheet.getRange(1,1,lastRow,width);
@@ -250,9 +287,10 @@ function prepararLimiteHistorico(p) {
   authRequireContext_('prepararLimiteHistorico');
   if(!CONFIG.managers.includes(_authContext.principal))throw historyError_('Se requiere la identidad efectiva de Gerencia.');
   return withLock_(CONFIG.lockTimeoutMs,()=>{
-    const m=SpreadsheetApp.openById(CONFIG.mainSheetId);
+    const read=historyReadView_(SpreadsheetApp.openById(CONFIG.mainSheetId)),m=read.book;
     if(historyBoundary_(m))throw historyError_('Ya existe un límite; no reemplazarlo.');
     const candidate=historySnapshot_(m,p,null,true);
+    read.assertDimensions();
     if(candidate.kind==='STAGING_UNCERTAIN_RETENTION_DIAGNOSTIC_V1')return candidate;
     return Object.assign({ok:true,kind:candidate.snapshot.freshStart?'STAGING_FRESH_START_PROPOSAL':candidate.snapshot.isolation?'STAGING_TEST_OPENING_PROPOSAL':'LEGACY_HISTORY_PROPOSAL',canActivate:false,resolved:false,financialFinal:false},candidate);
   });

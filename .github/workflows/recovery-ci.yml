@@ -45,6 +45,7 @@ jobs:
       - run: node tests/staging_prepared_output_regressions.js
       - run: node tests/staging_fresh_start_regressions.js
       - run: node tests/staging_uncertain_retention_regressions.js
+      - run: node tests/history_read_view_regressions.js
       - run: node tests/journey_operations_regressions.js
       - run: node tests/history_boundary_regressions.js
       - run: node tests/journal_integrity_regressions.js

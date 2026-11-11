@@ -1,3 +1,5 @@
+> Actualización de lectura del 11 noviembre: [optimización y pareja requerida](HISTORY_READ_OPTIMIZATION_20261111.md), UI `20261111-history-read-23`. Sustituye la versión/hash de instalación de esta nota, conserva el contrato y las aprobaciones. Corrección no instalada; no repetir la consulta real pendiente.
+
 # Retención específica de 17 grupos inciertos en staging
 
 Base `e17068a600a793303c7f8ea4b3906e66e95873ff`. Coordinación informó que la consulta real V15 se detuvo en un FAILED de acceso, y que su respaldo contiene 17 grupos bloqueantes: 15 accesos y 2 guardarropa, sin journal, además de las nueve solicitudes del prototipo ya contempladas. No hay otros rechazos 422 acreditados según ese cotejo. No se leyeron esos registros desde cloud ni se publican sus IDs; las pruebas de esta entrega usan datos sintéticos.
