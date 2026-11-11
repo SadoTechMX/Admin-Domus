@@ -1,3 +1,5 @@
+> Aprobación específica recibida para una huella concreta: [auxiliar privado del editor](RETENTION_PROPERTY_ADMIN_20261111.md). Permite inspección y creación acotada de la propiedad con identidad Gerencia; no cambia el Web App ni autoriza activación. No ejecutado en Google.
+
 > Actualización de lectura del 11 noviembre: [optimización y pareja requerida](HISTORY_READ_OPTIMIZATION_20261111.md), UI `20261111-history-read-23`. Sustituye la versión/hash de instalación de esta nota, conserva el contrato y las aprobaciones. Corrección no instalada; no repetir la consulta real pendiente.
 
 # Retención específica de 17 grupos inciertos en staging
