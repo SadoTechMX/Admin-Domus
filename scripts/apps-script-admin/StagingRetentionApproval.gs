@@ -1,6 +1,7 @@
 'use strict';
-// Editor-only companion. NOT part of the deployed bundle or release-manifest.
-// All functions are private to google.script.run; no dispatcher action is added.
+// Private administrative core. NOT part of the bundle or release-manifest.
+// Underscore functions are private to google.script.run, but an installed public
+// bridge can call them. Identity checks do NOT establish an editor-only origin.
 // Fill the local input only after reviewing the private diagnostic. Never commit it.
 function domusRetencionAdminEntrada_() {
   return {artifact:null,approvalReference:'',expectedPropertyState:null,
@@ -48,7 +49,9 @@ function domusRetencionAdminLeer_() {
   return withLock_(CONFIG.lockTimeoutMs,()=>Object.assign({ok:true,status:'READ_ONLY'},
     domusRetencionAdminResumen_(PropertiesService.getScriptProperties().getProperty(domusRetencionAdminClave_()))));
 }
-function domusRetencionAdminCrear_(input) {
+function domusRetencionAdminGuardaFinalVersion_() {return 'RETENTION_FINAL_GUARD_V1';}
+function domusRetencionAdminCrear_(input,beforeWrite) {
+  if(beforeWrite!==undefined && typeof beforeWrite!=='function')domusRetencionAdminFallo_('RETENTION_ADMIN_FINAL_GUARD_INVALID');
   const principal=domusRetencionAdminIdentidad_();
   return withLock_(CONFIG.lockTimeoutMs,()=>{
     const store=PropertiesService.getScriptProperties(),key=domusRetencionAdminClave_(),original=store.getProperty(key);
@@ -90,6 +93,9 @@ function domusRetencionAdminCrear_(input) {
       approvalReference:input.approvalReference,confirmStationsHeld:true,confirmBackupVerified:true,acknowledgeUnresolvedHistory:true,
       recordedBy:principal,recordedAt:new Date().toISOString(),tool:'STAGING_RETENTION_PROPERTY_ADMIN_V1',backendSourceSha256:BACKEND_BUILD.sourceSha256};
     const serialized=JSON.stringify(approval);
+    // Optional private caller guard, inside the lock and outside the uncertain-write
+    // catch. The temporary bridge rechecks its fixed identity/deadline here.
+    if(beforeWrite)beforeWrite();
     try {store.setProperty(key,serialized);if(store.getProperty(key)!==serialized)throw new Error('READBACK_MISMATCH');}
     catch(_){domusRetencionAdminFallo_('RETENTION_ADMIN_WRITE_UNCERTAIN_INSPECT_ONLY');}
     return Object.assign({ok:true,status:'CREATED'},domusRetencionAdminResumen_(serialized),{currentEvidenceChecked:true});

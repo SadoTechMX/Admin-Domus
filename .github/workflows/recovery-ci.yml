@@ -47,6 +47,7 @@ jobs:
       - run: node tests/staging_uncertain_retention_regressions.js
       - run: node tests/history_read_view_regressions.js
       - run: node tests/retention_property_admin_regressions.js
+      - run: node tests/retention_bridge_regressions.js
       - run: node tests/journey_operations_regressions.js
       - run: node tests/history_boundary_regressions.js
       - run: node tests/journal_integrity_regressions.js
