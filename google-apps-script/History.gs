@@ -11,39 +11,58 @@ function historyHash_(value) {
   if(!/^[a-f0-9]{64}$/.test(hash))throw historyError_('No se pudo acreditar la huella SHA-256.');return hash;
 }
 function historyReadView_(source) {
-  // Ephemeral, read-only view for ONE prepararLimiteHistorico call under lock.
-  // No CacheService/global state; never used by registration, ACK or replay.
+  // One immutable grid per sheet: overlapping ranges MUST share the same cells.
+  // Re-read captured values/formulas before returning. This detects observed
+  // changes, not an atomic transaction against writers outside this script lock.
   const sheets=new Map(),bookId=source.getId();let zone;
-  const gridCopy=rows=>rows.map(row=>row.map(value=>value instanceof Date?new Date(value.getTime()):value));
+  const cellCopy=value=>value instanceof Date?new Date(value.getTime()):value;
+  const gridCopy=rows=>rows.map(row=>row.map(cellCopy));
+  const cellEqual=(a,b)=>a instanceof Date || b instanceof Date?
+    a instanceof Date && b instanceof Date && Object.is(a.getTime(),b.getTime()):typeof a===typeof b && Object.is(a,b);
+  const gridEqual=(a,b)=>a.length===b.length && a.every((r,i)=>r.length===b[i].length && r.every((v,j)=>cellEqual(v,b[i][j])));
+  const changed=()=>{throw historyError_('La evidencia cambió durante el diagnóstico (valores, fórmulas, identidad o dimensiones). No se emitió una propuesta; conservar la evidencia.');};
   const book=Object.freeze({getId:()=>bookId,getSpreadsheetTimeZone:()=>{
     if(zone===undefined)zone=source.getSpreadsheetTimeZone();return zone;
   },getSheetByName:name=>{
     if(sheets.has(name))return sheets.get(name).view;
     const sheet=source.getSheetByName(name);
     if(!sheet){sheets.set(name,{view:null});return null;}
-    const lastRow=sheet.getLastRow(),width=sheet.getLastColumn(),sheetName=sheet.getName(),ranges=new Map();
-    const view=Object.freeze({getName:()=>sheetName,getLastRow:()=>lastRow,getLastColumn:()=>width,
+    const lastRow=sheet.getLastRow(),width=sheet.getLastColumn(),sheetName=sheet.getName();
+    const sheetId=typeof sheet.getSheetId==='function'?sheet.getSheetId():null;
+    const entry={lastRow:lastRow,width:width,sheetId:sheetId,values:null,formulas:null,view:null};
+    const capture=()=>{
+      if(entry.values!==null)return;
+      if(!lastRow || !width){entry.values=[];entry.formulas=[];return;}
+      const range=sheet.getRange(1,1,lastRow,width);
+      entry.values=gridCopy(range.getValues());entry.formulas=gridCopy(range.getFormulas());
+    };
+    entry.view=Object.freeze({getName:()=>sheetName,getLastRow:()=>lastRow,getLastColumn:()=>width,
       getRange:(row,column,height=1,columns=1)=>{
-        if([row,column,height,columns].some(n=>!Number.isSafeInteger(n) || n<1))throw historyError_('Rango de diagnóstico inválido.');
-        const key=[row,column,height,columns].join(':');
-        if(!ranges.has(key)) {
-          let range,values,formulas;
-          const read=kind=>{
-            if(!range)range=sheet.getRange(row,column,height,columns);
-            if(kind==='values'){if(values===undefined)values=gridCopy(range.getValues());return gridCopy(values);}
-            if(formulas===undefined)formulas=gridCopy(range.getFormulas());return gridCopy(formulas);
-          };
-          ranges.set(key,Object.freeze({getValues:()=>read('values'),getFormulas:()=>read('formulas')}));
-        }
-        return ranges.get(key);
+        if([row,column,height,columns,row+height,column+columns].some(n=>!Number.isSafeInteger(n) || n<1))throw historyError_('Rango de diagnóstico inválido.');
+        const read=kind=>{
+          capture();const grid=entry[kind];
+          return Array.from({length:height},(_,i)=>Array.from({length:columns},(_,j)=>
+            row+i<=lastRow && column+j<=width?cellCopy(grid[row+i-1][column+j-1]):''));
+        };
+        return Object.freeze({getValues:()=>read('values'),getFormulas:()=>read('formulas')});
       }});
-    sheets.set(name,{view:view,lastRow:lastRow,width:width});return view;
+    sheets.set(name,entry);return entry.view;
   }});
-  return {book:book,assertDimensions:()=>{
+  const dimensions=(current,entry)=>{
+    if(!!current!==!!entry.view || (current && (current.getLastRow()!==entry.lastRow || current.getLastColumn()!==entry.width ||
+      (entry.sheetId!==null && (typeof current.getSheetId!=='function' || current.getSheetId()!==entry.sheetId)))))changed();
+  };
+  // Keep the existing method name for private callers, with stronger semantics.
+  return {book:book,version:'HISTORY_CONSISTENT_READ_V2',assertDimensions:()=>{
+    if(source.getId()!==bookId || (zone!==undefined && source.getSpreadsheetTimeZone()!==zone))changed();
     sheets.forEach((entry,name)=>{
-      const current=source.getSheetByName(name);
-      if(!!current!==!!entry.view || (current && (current.getLastRow()!==entry.lastRow || current.getLastColumn()!==entry.width)))
-        throw historyError_('Las dimensiones de las hojas cambiaron durante el diagnóstico. No se emitió una propuesta; conservar la evidencia.');
+      const current=source.getSheetByName(name);dimensions(current,entry);
+      if(current && entry.values!==null && entry.lastRow && entry.width) {
+        const range=current.getRange(1,1,entry.lastRow,entry.width);
+        const values=gridCopy(range.getValues()),formulas=gridCopy(range.getFormulas());
+        if(!gridEqual(entry.values,values) || !gridEqual(entry.formulas,formulas))changed();
+      }
+      dimensions(source.getSheetByName(name),entry);
     });
   }};
 }

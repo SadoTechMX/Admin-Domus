@@ -1,5 +1,7 @@
 # Aprobación de retención: utilidad privada del editor
 
+> **Lectura, corrección posterior:** después del timeout confirmado, el núcleo exige un [lector consistente V2](HISTORY_READ_CONSISTENCY_20261111.md). El auxiliar generado permite revalidar en V16 sin cambiar su build; ya no se permite volver automáticamente al recorrido lento ni a la caché por rangos V1. Preservar la entrada privada existente y revisar el delta antes de instalar.
+
 > **Actualización posterior, 11 noviembre:** la vía de menú descrita abajo requiere contenedor y no sirve para el staging reportado como standalone. Steven autorizó un [puente temporal acotado](RETENTION_TEMPORARY_BRIDGE_20261111.md), accesible por `/dev`, con identidad fijada y expiración; no es editor-only. La prohibición anterior de una envoltura pública queda sustituida únicamente para ese puente autorizado. Conservar el núcleo/entrada privada y seguir el nuevo procedimiento, sin crear versión, desplegar ni activar.
 
 IMPLEMENTED / LOCAL_TESTED. Coordinación informó que el auxiliar anterior fue guardado en el editor, pero el selector muestra «Sin funciones». La corrección de entrada siguiente no se ha instalado ni probado en Google; no se ha activado el límite. Steven autorizó **preparar la propuesta**, reteniendo los 17 grupos de staging vinculados a `708c295c42adbbb7adb215de78f46e6c0f24a14508a4b2eb734024d839dbb94b`; no autorizó activar el límite. Esa huella queda fijada en el código. La evidencia real permanece privada; los casos positivos usan una autorización sintética explícita sólo dentro del fixture.

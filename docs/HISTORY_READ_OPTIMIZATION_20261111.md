@@ -1,5 +1,7 @@
 # Lecturas de la propuesta histórica: optimización acotada
 
+> **Corrección posterior:** la caché por rango de esta versión tiene una carrera reproducida entre validación y huella cuando cambia contenido sin cambiar dimensiones. No usar `178008c` como solución validada a ese riesgo. Ver [lector consistente y auxiliar compatible con V16](HISTORY_READ_CONSISTENCY_20261111.md). La espera inicialmente incierta fue confirmada después por coordinación como timeout del puente V16, con aprobación ausente en lectura posterior.
+
 Estado: IMPLEMENTED / LOCAL_TESTED, sin instalación ni activación de esta corrección. Base `21895402734d75a66ba7c4bcc47139662aa22c9e`, reportada por coordinación como staging V16 instalado. No se consultó de nuevo el Web App, Sheets, colas ni ejecuciones reales desde cloud.
 
 ## Incidente y causa comprobable

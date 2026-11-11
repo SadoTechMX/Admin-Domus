@@ -1,5 +1,7 @@
 # Puente temporal para la aprobación específica de retención
 
+> **Tras el timeout confirmado de V16:** no repetir el recorrido anterior. La [corrección de lectura consistente](HISTORY_READ_CONSISTENCY_20261111.md) añade `StagingRetentionReadView.gs` y actualiza el núcleo privado; preservar su entrada y el backend V16. El puente/lector de propiedad de esta entrega siguen intactos. La nueva lectura requiere su revisión y cotejo antes de cualquier instalación o intento.
+
 IMPLEMENTED / LOCAL_TESTED / NOT_INSTALLED. Steven autorizó expresamente preparar este puente para la única huella `708c295c42adbbb7adb215de78f46e6c0f24a14508a4b2eb734024d839dbb94b`. Permite registrar esa aprobación, nunca activar el límite. Esta entrega no instala archivos, ejecuta Google, escribe propiedades reales ni crea versiones o despliegues.
 
 Sustituye la vía de menú de [RETENTION_PROPERTY_ADMIN_20261111.md](RETENTION_PROPERTY_ADMIN_20261111.md) para el proyecto staging reportado como standalone. El menú no acredita un contenedor y no se usará para eludir ese bloqueo.

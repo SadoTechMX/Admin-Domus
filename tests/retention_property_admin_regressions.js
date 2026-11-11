@@ -109,8 +109,9 @@ for(const mode of ['throw-before','write-then-throw','readback-diff'])test('unce
  assert(!JSON.stringify(t.logs).includes('PRIVATE_ERROR'));assert.equal(t.writes.length,mode==='throw-before'?0:1);
  if(mode!=='throw-before'){t.ctx.PropertiesService.getScriptProperties=original;assert.equal(t.create().status,'EXISTING_PRESERVED');assert.equal(t.writes.length,1);}
 });
-test('older backend read path still recomputes evidence without a view or data mutation',()=>{
- const t=fixture();t.syntheticApproval();t.ctx.historyReadView_=undefined;const before=snapshot(t);assert.equal(t.create().status,'CREATED');assert.equal(snapshot(t),before);
+test('older backend without the reviewed companion stops instead of repeating the timed-out read path',()=>{
+ const t=fixture();t.syntheticApproval();t.ctx.historyReadView_=undefined;const before=snapshot(t);
+ assert.throws(t.create,/CONSISTENT_READ_REQUIRED/);assert.equal(t.writes.length,0);assert.equal(snapshot(t),before);
 });
 test('property read failures do not leak their message or imply absence',()=>{
  const t=fixture();t.ctx.PropertiesService.getScriptProperties=()=>({getProperty(){throw Error('SECRET_READ_FAILURE');}});

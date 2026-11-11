@@ -25,7 +25,8 @@ function domusRetencionAdminIdentidad_() {
     domusRetencionAdminFallo_('RETENTION_ADMIN_STAGING_ONLY');
   if(typeof BACKEND_BUILD==='undefined' || ![
     'edfaad95a796a784e59a54b19c3c76966d39f1e9963af0a9262d99960960a5e4',
-    '48897795ee48ddeb4a6ff5b49673e1e3054e595b544615e9c709f5cabfc36d4c'
+    '48897795ee48ddeb4a6ff5b49673e1e3054e595b544615e9c709f5cabfc36d4c',
+    'ae76a4b2799bbf636b498cade21391755daf847eb1676f77cd3cc6e96262933e'
   ].includes(BACKEND_BUILD.sourceSha256))domusRetencionAdminFallo_('RETENTION_ADMIN_BUILD_UNREVIEWED');
   return active;
 }
@@ -74,12 +75,16 @@ function domusRetencionAdminCrear_(input,beforeWrite) {
     try {
       const source=SpreadsheetApp.openById(CONFIG.mainSheetId);
       stagingIsolationEnvironment_(source);
-      // Preserve the approved backend's identity; use its read view if available.
-      const read=typeof historyReadView_==='function'?historyReadView_(source):{book:source,assertDimensions:function(){}};
+      // The separately reviewed companion can accelerate V16 without replacing
+      // its backend/build. Never fall back to the unsafe V1 range cache or repeat
+      // the unbounded legacy read path after a timeout.
+      const read=typeof domusRetencionReadView_==='function'?domusRetencionReadView_(source):
+        typeof historyReadView_==='function'?historyReadView_(source):null;
+      if(!read || read.version!=='HISTORY_CONSISTENT_READ_V2')domusRetencionAdminFallo_('RETENTION_ADMIN_CONSISTENT_READ_REQUIRED');
       if(historyBoundary_(read.book))domusRetencionAdminFallo_('RETENTION_ADMIN_BOUNDARY_EXISTS');
       candidate=historySnapshot_(read.book,p,null,true);read.assertDimensions();
     } catch(error) {
-      if(error.retentionAdminCode==='RETENTION_ADMIN_BOUNDARY_EXISTS')throw error;
+      if(['RETENTION_ADMIN_BOUNDARY_EXISTS','RETENTION_ADMIN_CONSISTENT_READ_REQUIRED'].includes(error.retentionAdminCode))throw error;
       domusRetencionAdminFallo_('RETENTION_ADMIN_EVIDENCE_REVALIDATION_FAILED');
     }
     if(!candidate || candidate.kind!=='STAGING_UNCERTAIN_RETENTION_DIAGNOSTIC_V1' || candidate.canActivate!==false ||

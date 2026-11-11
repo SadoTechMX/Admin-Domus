@@ -269,7 +269,7 @@
   window.DOMUS_BUILD = {
     baseCommit: '2b7ba1f4030b1013555b93cb96cfcb594141fdcb',
     buildId: 'repair-reconcile-20261105',
-    ui: '20261111-history-read-23',
+    ui: '20261111-history-read-24',
     environment: isProductionLocked ? 'PRODUCTION' : 'STAGING'
   };
 
@@ -6733,7 +6733,7 @@ const DEFAULT_CATALOG = [
     assertStagingProposalContext_();
     const retainedInventory=stagingRetainedInventory_(input);
     // Pin the exact backend supporting the reviewed retention contract.
-    const backendHash='48897795ee48ddeb4a6ff5b49673e1e3054e595b544615e9c709f5cabfc36d4c';
+    const backendHash='ae76a4b2799bbf636b498cade21391755daf847eb1676f77cd3cc6e96262933e';
     const deviceId=getDeviceId(),health=await transport_({action:'health',args:[],role:'GERENCIA',deviceId}),d=health && health.data;
     if(!health.ok || !d || d.environment!=='STAGING' || d.mainSheetId!=='114VSwo3bXyn_audh1LHr4qqjW5aSDSTP_bR_-Iz5dkg' ||
         d.opsSheetId!=='1NDpuyx6EfCHcoKW9CZ6pwR0oe2JS0aKpTTMa7RdqmlE' || d.build?.sourceSha256!==backendHash)
