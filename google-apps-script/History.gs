@@ -10,6 +10,16 @@ function historyHash_(value) {
   const hash=computePayloadHash_(JSON.parse(JSON.stringify(value)));
   if(!/^[a-f0-9]{64}$/.test(hash))throw historyError_('No se pudo acreditar la huella SHA-256.');return hash;
 }
+// Only read endpoints use this scope; mutation/recovery paths retain their guards.
+function operationalRead_(read,withOps,finish) {
+  return withLock_(CONFIG.lockTimeoutMs,()=>{
+    const main=historyReadView_(SpreadsheetApp.openById(CONFIG.mainSheetId));
+    const ops=withOps?historyReadView_(SpreadsheetApp.openById(CONFIG.opsSheetId)):null;
+    const result=read(main.book,ops?ops.book:null);
+    main.assertDimensions();if(ops)ops.assertDimensions();
+    return finish?finish(result,main.book):result;
+  });
+}
 function historyReadView_(source) {
   // One immutable grid per sheet: overlapping ranges MUST share the same cells.
   // Re-read captured values/formulas before returning. This detects observed
@@ -38,13 +48,20 @@ function historyReadView_(source) {
     };
     entry.view=Object.freeze({getName:()=>sheetName,getLastRow:()=>lastRow,getLastColumn:()=>width,
       getRange:(row,column,height=1,columns=1)=>{
+        if(typeof row==='string') {
+          const match=/^([A-Z]+)([1-9][0-9]*)(?::([A-Z]+)([1-9][0-9]*))?$/.exec(row);
+          if(!match || column!==undefined)throw historyError_('Rango de lectura inválido.');
+          const col=s=>Array.from(s).reduce((n,c)=>n*26+c.charCodeAt(0)-64,0);
+          row=Number(match[2]);column=col(match[1]);
+          height=match[4]?Number(match[4])-row+1:1;columns=match[3]?col(match[3])-column+1:1;
+        }
         if([row,column,height,columns,row+height,column+columns].some(n=>!Number.isSafeInteger(n) || n<1))throw historyError_('Rango de diagnóstico inválido.');
         const read=kind=>{
           capture();const grid=entry[kind];
           return Array.from({length:height},(_,i)=>Array.from({length:columns},(_,j)=>
             row+i<=lastRow && column+j<=width?cellCopy(grid[row+i-1][column+j-1]):''));
         };
-        return Object.freeze({getValues:()=>read('values'),getFormulas:()=>read('formulas')});
+        return Object.freeze({getValues:()=>read('values'),getFormulas:()=>read('formulas'),getValue:()=>read('values')[0][0],getFormula:()=>read('formulas')[0][0]});
       }});
     sheets.set(name,entry);return entry.view;
   }});

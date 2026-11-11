@@ -28,13 +28,20 @@ function domusRetencionReadView_(source) {
     };
     entry.view=Object.freeze({getName:()=>sheetName,getLastRow:()=>lastRow,getLastColumn:()=>width,
       getRange:(row,column,height=1,columns=1)=>{
+        if(typeof row==='string') {
+          const match=/^([A-Z]+)([1-9][0-9]*)(?::([A-Z]+)([1-9][0-9]*))?$/.exec(row);
+          if(!match || column!==undefined)throw historyError_('Rango de lectura inválido.');
+          const col=s=>Array.from(s).reduce((n,c)=>n*26+c.charCodeAt(0)-64,0);
+          row=Number(match[2]);column=col(match[1]);
+          height=match[4]?Number(match[4])-row+1:1;columns=match[3]?col(match[3])-column+1:1;
+        }
         if([row,column,height,columns,row+height,column+columns].some(n=>!Number.isSafeInteger(n) || n<1))throw historyError_('Rango de diagnóstico inválido.');
         const read=kind=>{
           capture();const grid=entry[kind];
           return Array.from({length:height},(_,i)=>Array.from({length:columns},(_,j)=>
             row+i<=lastRow && column+j<=width?cellCopy(grid[row+i-1][column+j-1]):''));
         };
-        return Object.freeze({getValues:()=>read('values'),getFormulas:()=>read('formulas')});
+        return Object.freeze({getValues:()=>read('values'),getFormulas:()=>read('formulas'),getValue:()=>read('values')[0][0],getFormula:()=>read('formulas')[0][0]});
       }});
     sheets.set(name,entry);return entry.view;
   }});

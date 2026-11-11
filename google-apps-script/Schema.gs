@@ -30,7 +30,7 @@ function cashOperatingPeriod_(book, now) {
   try {
     const sheet=book.getSheetByName('SEMANA'),zone=book.getSpreadsheetTimeZone();
     if(!sheet || !zone || !(now instanceof Date) || !Number.isFinite(now.getTime()))return result;
-    result.timeZone=zone;result.today=Utilities.formatDate(now,zone,'yyyy-MM-dd');
+    result.checkedAt=now.getTime();result.timeZone=zone;result.today=Utilities.formatDate(now,zone,'yyyy-MM-dd');
     const dates=sheet.getRange('B7:B8').getValues().map(r=>r[0]);
     if(dates.some(d=>!(d instanceof Date) || !Number.isFinite(d.getTime())))return result;
     result.start=Utilities.formatDate(dates[0],zone,'yyyy-MM-dd');

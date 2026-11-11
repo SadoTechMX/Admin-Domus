@@ -27,7 +27,7 @@ async function main(){
    let data={};
    if(action==='authCrearSesion')data={token:'FIXTURE-'+body.role};
    else if(action==='health')data={environment:'STAGING',mainSheetId:'114VSwo3bXyn_audh1LHr4qqjW5aSDSTP_bR_-Iz5dkg',opsSheetId:'1NDpuyx6EfCHcoKW9CZ6pwR0oe2JS0aKpTTMa7RdqmlE'};
-   else if(action==='cajaSimpleDatos')data={phase:'Solar',operatingPeriod:{allowed:true,message:'Fixture period'},products:[],accounts:[],activities:['QA event'],staff:['QA']};
+   else if(action==='cajaSimpleDatos')data={phase:'Solar',operatingPeriod:{allowed:true,checkedAt:Date.now(),timeZone:'UTC',today:new Date().toISOString().slice(0,10),start:'2020-01-01',end:'2040-01-01',message:'Fixture period'},products:[],accounts:[],activities:['QA event'],staff:['QA']};
    else if(action==='cajaSimpleRegistrar'){
     calls.push(body);await new Promise(resolve=>pending.set(body.requestId,async json=>{pending.delete(body.requestId);await route.fulfill({json});resolve();}));return;
    }
@@ -35,14 +35,18 @@ async function main(){
   });
   const pages=await Promise.all([context.newPage(),context.newPage()]);
   await Promise.all(pages.map(p=>p.goto(`http://127.0.0.1:${port}/?env=staging&vista=caja`)));
-  for(const p of pages){await p.waitForFunction(()=>window.__review&&window.__review.STATE.lastSyncTimestamp);await p.evaluate(()=>clearInterval(window.__review.STATE.pollTimer));}
+  for(const p of pages){await p.waitForFunction(()=>window.__review&&window.__review.STATE.operatingPeriod.checkedAt&&!window.__review.STATE.backendReadPromise);await p.evaluate(()=>{window.__review.STATE.pollEnabled=false;clearTimeout(window.__review.STATE.pollTimer);});}
   const [a,b]=pages;
   // Barrier forces both tabs to wait at the exact storage transaction boundary.
   await a.evaluate(()=>{window.barrier=navigator.locks.request('domus-outbox-store',()=>new Promise(resolve=>window.releaseBarrier=resolve));});
   await a.waitForFunction(()=>window.releaseBarrier);
   const first=a.evaluate(()=>window.__review.call('A')),second=b.evaluate(()=>window.__review.call('B'));
+  first.catch(()=>{});second.catch(()=>{}); // Keep cleanup from masking the original assertion failure.
+  await a.waitForFunction(async()=>{const locks=await navigator.locks.query();return locks.pending.filter(l=>l.name==='domus-outbox-store').length>=2;});
   await a.evaluate(()=>window.releaseBarrier());
-  await a.waitForFunction(()=>window.__review.getOutbox().length===2);
+  await a.waitForFunction(()=>window.__review.getOutbox().length===2,{},{timeout:10000}).catch(async e=>{
+   console.error('SYNTHETIC_BARRIER_DIAGNOSTIC',JSON.stringify(await Promise.all(pages.map(p=>p.evaluate(async()=>({outbox:window.__review.getOutbox(),locks:await navigator.locks.query(),mode:window.__review.STATE.mode}))))));throw e;
+  });
   const waitForRequest=async id=>{for(let i=0;i<100&&!pending.has(id);i++)await new Promise(r=>setTimeout(r,10));assert(pending.has(id),id);};
   await waitForRequest('A');await waitForRequest('B');
   assert.deepEqual((await a.evaluate(()=>window.__review.getOutbox().map(q=>q.requestId))).sort(),['A','B']);

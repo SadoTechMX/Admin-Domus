@@ -12,7 +12,12 @@
  */
 function cajaSimpleDatos() {
   authRequireContext_('cajaSimpleDatos');
-  const m = SpreadsheetApp.openById(CONFIG.mainSheetId);
+  return operationalRead_(cajaSimpleDatosRead_,false,(data,m)=>{
+    // Evaluate after the slow read/revalidation, including a midnight crossing.
+    data.operatingPeriod=cashOperatingPeriod_(m,new Date());return data;
+  });
+}
+function cajaSimpleDatosRead_(m) {
   const s = m.getSheetByName('CAJA 2');
   const phase = String(s.getRange('F2').getValue()) || 'Solar';
   const sheetCat = m.getSheetByName('CATALOGO');

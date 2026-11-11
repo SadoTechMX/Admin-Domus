@@ -12,10 +12,10 @@ function ui(){
 }
 const books=b=>JSON.stringify([b.main,b.ops].map(book=>[...book.sheets].map(([name,s])=>[name,[...s.cells]])));
 (async()=>{
-for(const [mode,destination,role,actions] of [['caja','','CAJA',['cajaSimpleDatos','comandasSimpleDatos']],['comandas','','BARRA',['comandasSimpleDatos']],['comandas','Cocina','COCINA',['comandasSimpleDatos']],['accesos','','ACCESOS',['accesoSimpleDatos']]])await test('sync '+mode+'/'+role+' only requests its permitted data, even before phase initialization',()=>{
+for(const [mode,destination,role,actions] of [['caja','','CAJA',['cajaSimpleDatos','comandasSimpleDatos']],['comandas','','BARRA',['comandasSimpleDatos']],['comandas','Cocina','COCINA',['comandasSimpleDatos']],['accesos','','ACCESOS',['accesoSimpleDatos']]])await test('sync '+mode+'/'+role+' only requests its permitted data, even before phase initialization',async()=>{
  const t=ui(),calls=[];t.ctx.closeCajaLockModal();t.load('syncBackendData');Object.assign(t.ctx.STATE,{mode,kdsFilterDest:destination,phaseSyncedFromServer:false});
- t.ctx.callBackend=(action)=>calls.push({action,role:t.ctx.getStationRole()});t.ctx.syncBackendData();assert.deepEqual(calls,actions.map(action=>({action,role})));
- calls.length=0;t.ctx.STATE.phaseSyncedFromServer=true;t.ctx.syncBackendData();assert.deepEqual(calls,actions.map(action=>({action,role})));
+ t.ctx.callBackend=(action,args,ok)=>{calls.push({action,role:t.ctx.getStationRole()});ok({activeActivity:"QA event"});};t.ctx.renderJourney_=()=>{};t.ctx.renderCatalog=()=>{};t.ctx.updateKdsBadgeCount=()=>{};t.ctx.updateAccesosBadge=()=>{};await t.ctx.syncBackendData();assert.deepEqual(calls,actions.map(action=>({action,role})));
+ calls.length=0;t.ctx.STATE.phaseSyncedFromServer=true;await t.ctx.syncBackendData();assert.deepEqual(calls,actions.map(action=>({action,role})));
 });
 await test('visible Caja unlock pauses polling in every mode, without requesting another role',()=>{
  const t=ui();t.load('syncBackendData');let calls=0;t.ctx.callBackend=()=>calls++;

@@ -86,8 +86,9 @@ function kdsAssertDeliveryRequest_(body,m,replaying) {
  */
 function comandasSimpleDatos(token) {
   authRequireContext_('comandasSimpleDatos');
-  const m = SpreadsheetApp.openById(CONFIG.mainSheetId);
-  const o = SpreadsheetApp.openById(CONFIG.opsSheetId);
+  return operationalRead_(comandasSimpleDatosRead_,true);
+}
+function comandasSimpleDatosRead_(m,o) {
   const sComandas = m.getSheetByName('COMANDAS');
   const oResurtido = o ? o.getSheetByName('RESURTIDO') : null;
 

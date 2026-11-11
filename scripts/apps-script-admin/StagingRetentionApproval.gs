@@ -26,7 +26,8 @@ function domusRetencionAdminIdentidad_() {
   if(typeof BACKEND_BUILD==='undefined' || ![
     'edfaad95a796a784e59a54b19c3c76966d39f1e9963af0a9262d99960960a5e4',
     '48897795ee48ddeb4a6ff5b49673e1e3054e595b544615e9c709f5cabfc36d4c',
-    'ae76a4b2799bbf636b498cade21391755daf847eb1676f77cd3cc6e96262933e'
+    'ae76a4b2799bbf636b498cade21391755daf847eb1676f77cd3cc6e96262933e',
+    'b07de85635e3e297ddc7decf45a195094619beb42bf7a1f9bbac0e71728a8e61'
   ].includes(BACKEND_BUILD.sourceSha256))domusRetencionAdminFallo_('RETENTION_ADMIN_BUILD_UNREVIEWED');
   return active;
 }

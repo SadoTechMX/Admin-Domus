@@ -169,7 +169,7 @@ function turnoAbrir(p) {
 
 function turnoEstado() {
   authRequireContext_('turnoEstado');
-  return withLock_(CONFIG.lockTimeoutMs,()=>journeyState_(SpreadsheetApp.openById(CONFIG.mainSheetId)));
+  return operationalRead_(journeyState_);
 }
 function journeyState_(m) {
   const policy=journeyPolicy_(m);if(!policy)return {enabled:false,active:null};

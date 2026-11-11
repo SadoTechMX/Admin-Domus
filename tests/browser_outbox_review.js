@@ -84,7 +84,7 @@ async function main(){
    const p=req.postDataJSON();apiCalls.push(p.action);let data={};
    if(p.action==='authCrearSesion')data={token:'QA-'+p.role};
    if(p.action==='health')data={environment:'STAGING',mainSheetId:'114VSwo3bXyn_audh1LHr4qqjW5aSDSTP_bR_-Iz5dkg',opsSheetId:'1NDpuyx6EfCHcoKW9CZ6pwR0oe2JS0aKpTTMa7RdqmlE'};
-   if(p.action==='cajaSimpleDatos')data={phase:'Solar',operatingPeriod:{allowed:true,message:'Fixture period'},products:[{name:'QA drink',group:'Bebidas',price:40,sku:'QA-01',destination:'Barra'}],accounts:[],activities:['QA event'],staff:['QA']};
+   if(p.action==='cajaSimpleDatos')data={phase:'Solar',operatingPeriod:{allowed:true,checkedAt:Date.now(),timeZone:'UTC',today:new Date().toISOString().slice(0,10),start:'2020-01-01',end:'2040-01-01',message:'Fixture period'},products:[{name:'QA drink',group:'Bebidas',price:40,sku:'QA-01',destination:'Barra'}],accounts:[],activities:['QA event'],staff:['QA']};
    if(p.action==='cajaSimpleRegistrar'){
     await new Promise(resolve=>{held={payload:p,finish:async()=>{await route.fulfill({json:{ok:true,requestId:p.requestId,data:{ok:true,ticket:'QA-account',receipt:'QA-receipt',paid:true,verified:true,paymentStatus:'CONFIRMADA',total:40,method:'Efectivo'}}});resolve();}};});return;
    }

@@ -3841,7 +3841,7 @@ html, body {
   window.DOMUS_BUILD = {
     baseCommit: '2b7ba1f4030b1013555b93cb96cfcb594141fdcb',
     buildId: 'repair-reconcile-20261105',
-    ui: '20261111-history-read-24',
+    ui: '20261111-operational-reads-25',
     environment: isProductionLocked ? 'PRODUCTION' : 'STAGING'
   };
 
@@ -7187,154 +7187,173 @@ const DEFAULT_CATALOG = [
   function syncBackendData() {
     // Caja's explicit unlock owns authentication while this dialog is open.
     // Do not start background BARRA/CAJA prompts beneath it.
-    if($('cajaLockModal')?.classList.contains('open'))return;
-    // Phase is read with Caja's catalog, never by borrowing a KDS/access role.
-    if (STATE.mode === 'caja') {
-      callBackend('cajaSimpleDatos', [], data => {
-        STATE.journey=data.journey || {enabled:false,active:null};
-        renderJourney_();
-        STATE.operatingPeriod=data.operatingPeriod && typeof data.operatingPeriod.allowed==='boolean' ? data.operatingPeriod :
-          {allowed:false,message:'El servidor no acreditó el periodo operativo. Revisar la versión instalada antes de cobrar.'};
-        const periodStatus=$('cashPeriodStatus');
-        if(periodStatus){periodStatus.textContent=STATE.operatingPeriod.message;periodStatus.style.color=STATE.operatingPeriod.allowed?'var(--text-muted)':'var(--rose-400)';}
-        if (data.phase) {
-          STATE.phase = data.phase;
-          STATE.phaseSyncedFromServer = true;
-          const badge = $('currentPhaseBadge');
-          if (badge) badge.textContent = `Fase ${data.phase}`;
-        }
-        if (data.products && data.products.length) {
-          // FUENTE DE VERDAD: sólo el catálogo que el backend confirma como vendible.
-          // DEFAULT_CATALOG se usa únicamente para enriquecer presentación; nunca para
-          // introducir productos que Google Sheets no reconozca por nombre exacto.
-          const canonMapByName = new Map(DEFAULT_CATALOG.map(c => [c.name.trim().toLowerCase(), c]));
-          const catalogMap = new Map();
+    if(STATE.backendReadPromise)return STATE.backendReadPromise;
+    if($('cajaLockModal')?.classList.contains('open')){scheduleBackendPoll_();return Promise.resolve();}
+    if(STATE.pollTimer)clearTimeout(STATE.pollTimer);
+    const mode=STATE.mode,role=getStationRole();
+    const current=()=>STATE.mode===mode && getStationRole()===role && !$('cajaLockModal')?.classList.contains('open');
+    STATE.pollFailed=false;
+    const read=(action,success,failure)=>new Promise((resolve,reject)=>{
+      if(!current()){resolve();return;}
+      callBackend(action,[],data=>{
+        try{if(current())success(data);resolve();}catch(e){reject(e);}
+      },err=>{try{if(current())failure(err);}finally{reject(err);}});
+    });
+    const run=async()=>{
+      const started=performance.now();
+      // Phase is read with Caja's catalog, never by borrowing a KDS/access role.
+      if (mode === 'caja') {
+        setCashPeriod_({allowed:false,message:'Consultando Caja; espera la respuesta antes de cobrar…'});
+        await read('cajaSimpleDatos', data => {
+          STATE.journey=data.journey || {enabled:false,active:null};
+          renderJourney_();
+          setCashPeriod_(data.operatingPeriod,performance.now()-started);
+          if (data.phase) {
+            STATE.phase = data.phase;
+            STATE.phaseSyncedFromServer = true;
+            const badge = $('currentPhaseBadge');
+            if (badge) badge.textContent = `Fase ${data.phase}`;
+          }
+          if (data.products && data.products.length) {
+            // FUENTE DE VERDAD: sólo el catálogo que el backend confirma como vendible.
+            // DEFAULT_CATALOG se usa únicamente para enriquecer presentación; nunca para
+            // introducir productos que Google Sheets no reconozca por nombre exacto.
+            const canonMapByName = new Map(DEFAULT_CATALOG.map(c => [c.name.trim().toLowerCase(), c]));
+            const catalogMap = new Map();
 
-          data.products.forEach(bp => {
-            const serverName = String(bp.name || '').trim();
-            const bName = serverName.toLowerCase();
-            if (!serverName || bName.includes('— staff')) return;
+            data.products.forEach(bp => {
+              const serverName = String(bp.name || '').trim();
+              const bName = serverName.toLowerCase();
+              if (!serverName || bName.includes('— staff')) return;
 
-            const canon = canonMapByName.get(bName);
-            const group = (canon && canon.group) || bp.group || '';
-            const routeHint = (group + ' ' + serverName).toLowerCase();
-            const destination = (canon && canon.destination) || bp.destination ||
-              (/sushi|comida|alimento|cocina|cannab|jujutsu/.test(routeHint) ? 'Cocina' : 'Barra');
+              const canon = canonMapByName.get(bName);
+              const group = (canon && canon.group) || bp.group || '';
+              const routeHint = (group + ' ' + serverName).toLowerCase();
+              const destination = (canon && canon.destination) || bp.destination ||
+                (/sushi|comida|alimento|cocina|cannab|jujutsu/.test(routeHint) ? 'Cocina' : 'Barra');
 
-            catalogMap.set(bName, {
-              ...(canon || {}),
-              ...bp,
-              // Conservar SIEMPRE el nombre y precio exactos entregados por el servidor.
-              name: serverName,
-              price: Number(bp.price),
-              priceSolar: Number(bp.price),
-              priceLunar: Number(bp.price),
-              group: group,
-              destination: destination
+              catalogMap.set(bName, {
+                ...(canon || {}),
+                ...bp,
+                // Conservar SIEMPRE el nombre y precio exactos entregados por el servidor.
+                name: serverName,
+                price: Number(bp.price),
+                priceSolar: Number(bp.price),
+                priceLunar: Number(bp.price),
+                group: group,
+                destination: destination
+              });
             });
-          });
 
-          // En producción no se mezclan productos guardados sólo en localStorage:
-          // primero deben existir y ser devueltos por CATALOGO en Google Sheets.
-          if (!STATE.isProductionLocked) {
+            // En producción no se mezclan productos guardados sólo en localStorage:
+            // primero deben existir y ser devueltos por CATALOGO en Google Sheets.
+            if (!STATE.isProductionLocked) {
+              try {
+                const custom = JSON.parse(localStorage.getItem('domus_custom_products') || '[]');
+                if (Array.isArray(custom) && custom.length) {
+                  custom.forEach(p => {
+                    const key = String(p.name || '').trim().toLowerCase();
+                    if (key && !catalogMap.has(key)) catalogMap.set(key, p);
+                  });
+                }
+              } catch (e) {}
+            }
+
+            STATE.products = Array.from(catalogMap.values());
+            renderCategoryChips();
+            renderCatalog();
+          }
+          if (data.accounts) {
+            STATE.openAccounts = data.accounts;
+            renderAccountDropdown();
+          }
+          if (data.activities) {
+            STATE.activities = data.activities;
+            renderActivityDropdown();
+          }
+          if (data.lastReceipt) {
+            STATE.lastReceiptInfo = data.lastReceipt;
+          }
+          renderCatalog();
+        }, err => {
+          setCashPeriod_({allowed:false,message:'No se pudo verificar Caja: '+err.message+'. Sondeo detenido; usa Sincronizar para reintentar.'});
+          STATE.phaseSyncedFromServer=false;
+        });
+      }
+
+      // 2. Comandas en Modo Comandas y Modo Caja
+      if (mode === 'comandas' || mode === 'caja') {
+        await read('comandasSimpleDatos', d => {
+          if (d.orders) {
+            const currentKeys = new Set(d.orders.map(o => o.key));
+            if (STATE.seenOrderKeys.size > 0) {
+              const hasNew = [...currentKeys].some(k => !STATE.seenOrderKeys.has(k));
+              if (hasNew) playChime('alert');
+            }
+            STATE.seenOrderKeys = currentKeys;
+            STATE.comandas = d.orders;
+          }
+          if (d.history) STATE.historyComandas = d.history;
+          if (d.requests) STATE.restockRequests = d.requests;
+
+          updateKdsBadgeCount();
+          if (mode === 'comandas') renderComandasBoard();
+        }, err => {
+          console.warn('Fallo al refrescar comandas:', err);
+        });
+      }
+
+      // 3. Accesos exclusivamente en Modo Accesos
+      if (mode === 'accesos') {
+        const eventReadRevision = STATE.eventChangeRevision;
+        await read('accesoSimpleDatos', data => {
+          if (STATE.eventChangePending || eventReadRevision !== STATE.eventChangeRevision) return;
+          STATE.activityPolicyPending = data.activityPolicyPending === true;
+          if (Array.isArray(data.activities) && (data.activities.length || STATE.activityPolicyPending)) {
+            STATE.eventsList = data.activities;
+          }
+          // REGLA DE ORO DE GOBERNANZA:
+          // Si el backend devuelve activeActivity válido, USARLO incondicionalmente
+          // aunque su fecha sea el día calendario anterior (evento nocturno sobre medianoche).
+          if (data.activeActivity) {
+            STATE.activeActivity = data.activeActivity;
+            localStorage.setItem('domus_active_event', data.activeActivity);
+          } else if (STATE.activityPolicyPending) {
+            STATE.activeActivity = '';
+          } else if (!STATE.activeActivity) {
+            const forza = (STATE.eventsList || []).find(e => e.name && e.name.includes('Forza'));
+            STATE.activeActivity = forza ? forza.name : (STATE.eventsList[0] ? STATE.eventsList[0].name : 'Forza · sábado');
+          }
+          if (data.recentAccess) {
+            const backendRecords = data.recentAccess
+              .filter(isRealAccessRecord)
+              .filter(r => !STATE.deletedAccessIds.has(r.id || r.rowId))
+              .map(r => {
+                const id = r.id || r.rowId;
+                if (STATE.editedAccessMap[id]) {
+                  return { ...r, ...STATE.editedAccessMap[id] };
+                }
+                return r;
+              });
+            STATE.recentAccessList=backendRecords;
             try {
-              const custom = JSON.parse(localStorage.getItem('domus_custom_products') || '[]');
-              if (Array.isArray(custom) && custom.length) {
-                custom.forEach(p => {
-                  const key = String(p.name || '').trim().toLowerCase();
-                  if (key && !catalogMap.has(key)) catalogMap.set(key, p);
-                });
-              }
+              localStorage.setItem('domus_custom_access', JSON.stringify(STATE.recentAccessList.slice(0, 50)));
             } catch (e) {}
           }
-
-          STATE.products = Array.from(catalogMap.values());
-          renderCategoryChips();
-          renderCatalog();
-        }
-        if (data.accounts) {
-          STATE.openAccounts = data.accounts;
-          renderAccountDropdown();
-        }
-        if (data.activities) {
-          STATE.activities = data.activities;
-          renderActivityDropdown();
-        }
-        if (data.lastReceipt) {
-          STATE.lastReceiptInfo = data.lastReceipt;
-        }
-        renderCatalog();
-      }, err => {
-        console.warn('No se pudo leer datos de Caja desde el servidor:', err);
-      });
-    }
-
-    // 2. Comandas en Modo Comandas y Modo Caja
-    if (STATE.mode === 'comandas' || STATE.mode === 'caja') {
-      callBackend('comandasSimpleDatos', [], d => {
-        if (d.orders) {
-          const currentKeys = new Set(d.orders.map(o => o.key));
-          if (STATE.seenOrderKeys.size > 0) {
-            const hasNew = [...currentKeys].some(k => !STATE.seenOrderKeys.has(k));
-            if (hasNew) playChime('alert');
-          }
-          STATE.seenOrderKeys = currentKeys;
-          STATE.comandas = d.orders;
-        }
-        if (d.history) STATE.historyComandas = d.history;
-        if (d.requests) STATE.restockRequests = d.requests;
-
-        updateKdsBadgeCount();
-        if (STATE.mode === 'comandas') renderComandasBoard();
-      }, err => {
-        console.warn('Fallo al refrescar comandas:', err);
-      });
-    }
-
-    // 3. Accesos exclusivamente en Modo Accesos
-    if (STATE.mode === 'accesos') {
-      const eventReadRevision = STATE.eventChangeRevision;
-      callBackend('accesoSimpleDatos', [], data => {
-        if (STATE.eventChangePending || eventReadRevision !== STATE.eventChangeRevision) return;
-        STATE.activityPolicyPending = data.activityPolicyPending === true;
-        if (Array.isArray(data.activities) && (data.activities.length || STATE.activityPolicyPending)) {
-          STATE.eventsList = data.activities;
-        }
-        // REGLA DE ORO DE GOBERNANZA:
-        // Si el backend devuelve activeActivity válido, USARLO incondicionalmente
-        // aunque su fecha sea el día calendario anterior (evento nocturno sobre medianoche).
-        if (data.activeActivity) {
-          STATE.activeActivity = data.activeActivity;
-          localStorage.setItem('domus_active_event', data.activeActivity);
-        } else if (STATE.activityPolicyPending) {
-          STATE.activeActivity = '';
-        } else if (!STATE.activeActivity) {
-          const forza = (STATE.eventsList || []).find(e => e.name && e.name.includes('Forza'));
-          STATE.activeActivity = forza ? forza.name : (STATE.eventsList[0] ? STATE.eventsList[0].name : 'Forza · sábado');
-        }
-        if (data.recentAccess) {
-          const backendRecords = data.recentAccess
-            .filter(isRealAccessRecord)
-            .filter(r => !STATE.deletedAccessIds.has(r.id || r.rowId))
-            .map(r => {
-              const id = r.id || r.rowId;
-              if (STATE.editedAccessMap[id]) {
-                return { ...r, ...STATE.editedAccessMap[id] };
-              }
-              return r;
-            });
-          STATE.recentAccessList=backendRecords;
-          try {
-            localStorage.setItem('domus_custom_access', JSON.stringify(STATE.recentAccessList.slice(0, 50)));
-          } catch (e) {}
-        }
-        updateAccesosBadge();
-        renderAccesosView();
-      }, err => {
-        console.warn('Accesos: enlace de Google notificó:', err);
-      });
-    }
+          updateAccesosBadge();
+          renderAccesosView();
+        }, err => {
+          console.warn('Accesos: enlace de Google notificó:', err);
+        });
+      }
+    };
+    STATE.backendReadPromise=Promise.resolve().then(run).catch(err=>{
+      STATE.pollFailed=true;updateSyncPill('error');
+      console.warn('Consulta detenida; reintento manual sin reenviar operaciones:',err);
+    }).finally(()=>{STATE.backendReadPromise=null;scheduleBackendPoll_();});
+    return STATE.backendReadPromise;
   }
+
 
   function updateAccesosBadge() {
     const badge = $('accessActiveCountBadge');
@@ -7346,12 +7365,46 @@ const DEFAULT_CATALOG = [
     badge.textContent = activeCount;
   }
 
-  function startPolling() {
-    if (STATE.pollTimer) clearInterval(STATE.pollTimer);
-    STATE.pollTimer = setInterval(() => {
-      if (document.hidden) return; // Pausa en pestañas en segundo plano
+  function scheduleBackendPoll_() {
+    if(STATE.pollTimer)clearTimeout(STATE.pollTimer);
+    STATE.pollTimer=null;
+    if(!STATE.pollEnabled || STATE.pollFailed || STATE.backendReadPromise)return;
+    STATE.pollTimer=setTimeout(()=>{
+      if(document.hidden){scheduleBackendPoll_();return;}
       syncBackendData();
-    }, 10000);
+    },10000);
+  }
+
+  function startPolling() {
+    STATE.pollEnabled=true;scheduleBackendPoll_();
+  }
+
+  function setCashPeriod_(period,duration=0) {
+    STATE.operatingPeriod=period && typeof period.allowed==='boolean'?period:
+      {allowed:false,message:'El servidor no acreditó el periodo operativo. Revisar la versión instalada antes de cobrar.'};
+    STATE.periodClock={mono:performance.now(),wall:Date.now(),duration:Math.max(0,duration)};
+    if(STATE.operatingPeriod.allowed)cashPeriodAllowed_();
+    const el=$('cashPeriodStatus');
+    if(el){el.textContent=STATE.operatingPeriod.message;el.style.color=STATE.operatingPeriod.allowed?'var(--text-muted)':'var(--rose-400)';}
+  }
+
+  function cashPeriodAllowed_() {
+    const p=STATE.operatingPeriod,c=STATE.periodClock;
+    if(!p || p.allowed!==true)return false;
+    try {
+      if(!c || !Number.isFinite(p.checkedAt) || !p.timeZone || !/^\d{4}-\d{2}-\d{2}$/.test(p.today) ||
+          !(p.start<=p.today && p.today<=p.end))throw Error('Periodo sin fecha/zona acreditadas.');
+      // Server clock plus elapsed monotonic/wall time; include full transit time
+      // conservatively. A suspended tab or a slow response cannot extend a day.
+      const elapsed=Math.max(0,performance.now()-c.mono,Date.now()-c.wall)+c.duration;
+      const parts=new Intl.DateTimeFormat('en-CA',{timeZone:p.timeZone,year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date(p.checkedAt+elapsed));
+      const part=k=>parts.find(v=>v.type===k).value;
+      if(part('year')+'-'+part('month')+'-'+part('day')!==p.today)throw Error('Cambió la fecha operativa del libro.');
+      return true;
+    }catch(e){
+      p.allowed=false;p.message=e.message+' Sincroniza Caja antes de cobrar; no cambiar la fecha de venta.';
+      const el=$('cashPeriodStatus');if(el){el.textContent=p.message;el.style.color='var(--rose-400)';}return false;
+    }
   }
 
   function updateKdsBadgeCount() {
@@ -7645,7 +7698,7 @@ const DEFAULT_CATALOG = [
   let activePaymentMethod = 'Efectivo';
 
   function openPaymentModal() {
-    if(!STATE.operatingPeriod || STATE.operatingPeriod.allowed!==true){toast(STATE.operatingPeriod?.message || 'Periodo operativo sin verificar.','warn');return;}
+    if(!cashPeriodAllowed_()){toast(STATE.operatingPeriod?.message || 'Periodo operativo sin verificar.','warn');return;}
     const customer = $('customerNameInput').value.trim();
     if (!customer && !STATE.selectedAccountTicket) {
       toast('Por favor escribe el nombre o apodo del cliente.', 'warn');
@@ -7737,7 +7790,7 @@ const DEFAULT_CATALOG = [
   let paymentInFlight = false;
   async function confirmPaymentAndDispatch(isPaid) {
     if(paymentInFlight)return;
-    if(!STATE.operatingPeriod || STATE.operatingPeriod.allowed!==true){toast(STATE.operatingPeriod?.message || 'Periodo operativo sin verificar.','warn');return;}
+    if(!cashPeriodAllowed_()){toast(STATE.operatingPeriod?.message || 'Periodo operativo sin verificar.','warn');return;}
     if(STATE.journey?.enabled && !STATE.journey.active?.openingRequestId){toast('Abre una jornada antes de registrar la venta.','warn');return;}
     if (STATE.pendingSaleId && localStorage.getItem('domus_confirmation_' + STATE.pendingSaleId)) settleConfirmedBasket_(STATE.pendingSaleId);
     if ((!$('activitySelect') || !$('activitySelect').value)) {
@@ -10305,7 +10358,7 @@ const DEFAULT_CATALOG = [
     assertStagingProposalContext_();
     const retainedInventory=stagingRetainedInventory_(input);
     // Pin the exact backend supporting the reviewed retention contract.
-    const backendHash='ae76a4b2799bbf636b498cade21391755daf847eb1676f77cd3cc6e96262933e';
+    const backendHash='b07de85635e3e297ddc7decf45a195094619beb42bf7a1f9bbac0e71728a8e61';
     const deviceId=getDeviceId(),health=await transport_({action:'health',args:[],role:'GERENCIA',deviceId}),d=health && health.data;
     if(!health.ok || !d || d.environment!=='STAGING' || d.mainSheetId!=='114VSwo3bXyn_audh1LHr4qqjW5aSDSTP_bR_-Iz5dkg' ||
         d.opsSheetId!=='1NDpuyx6EfCHcoKW9CZ6pwR0oe2JS0aKpTTMa7RdqmlE' || d.build?.sourceSha256!==backendHash)

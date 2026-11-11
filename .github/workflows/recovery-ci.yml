@@ -21,6 +21,8 @@ jobs:
       - run: node tests/client_recovery_regressions.js
       - run: node tests/reconciliation_regressions.js
       - run: node tests/station_routing_regressions.js
+      - run: node tests/operational_reads_regressions.js
+      - run: node tests/polling_regressions.js
       - run: node tests/review_regressions.js
       - run: node tests/reload_rejection_regressions.js
       - run: node tests/master_transport_regressions.js
@@ -67,6 +69,7 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - run: node tests/browser_local_regressions.js
       - run: node tests/browser_station_routing.js
+      - run: node tests/browser_polling.js
       - run: node tests/browser_staging_proposal.js
       - run: node tests/browser_outbox_concurrency.js
       - run: node tests/browser_transfer_review.js

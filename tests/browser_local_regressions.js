@@ -27,7 +27,7 @@ async function main(){
    let data;
    if(action==='authCrearSesion')data={token:'FIXTURE-ONLY-'+body.role,role:body.role};
    else if(action==='health')data={environment:'STAGING',mainSheetId:'114VSwo3bXyn_audh1LHr4qqjW5aSDSTP_bR_-Iz5dkg',opsSheetId:'1NDpuyx6EfCHcoKW9CZ6pwR0oe2JS0aKpTTMa7RdqmlE'};
-   else if(action==='cajaSimpleDatos')data={phase:'Solar',operatingPeriod:{allowed:true,message:'Fixture period'},products:[{name:'QA drink',group:'Bebidas',price:40,priceSolar:40,priceLunar:50,sku:'QA-01',destination:'Barra',provider:'DOMUS'}],accounts:[],activities:['QA event'],staff:['QA'],canCourtesy:false};
+   else if(action==='cajaSimpleDatos')data={phase:'Solar',operatingPeriod:{allowed:true,checkedAt:Date.now(),timeZone:'UTC',today:new Date().toISOString().slice(0,10),start:'2020-01-01',end:'2040-01-01',message:'Fixture period'},products:[{name:'QA drink',group:'Bebidas',price:40,priceSolar:40,priceLunar:50,sku:'QA-01',destination:'Barra',provider:'DOMUS'}],accounts:[],activities:['QA event'],staff:['QA'],canCourtesy:false};
    else if(action==='comandasSimpleDatos')data={orders:[],history:[],requests:[],team:['QA'],version:'fixture'};
    else if(action==='accesoSimpleDatos')data={activeActivity:'QA event',activities:[{name:'QA event',date:'2026-10-30',status:'Confirmado',type:'Fiesta',priceGeneral:100,pricePareja:180,priceTrio:250,priceGuardarropa:20,ticketTypes:[{id:'General',name:'General',price:100,persons:1}]}],recentAccess:[],metrics:{totalAttendance:0}};
    else if(action==='cajaSimpleRegistrar'){

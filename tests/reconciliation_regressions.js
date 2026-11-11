@@ -13,14 +13,14 @@ function storage() {
 function setup(options={}) {
   const localStorage = options.storage || storage(), sessionStorage = storage(), calls = [], notices = [], cells={};
   const locks = options.locks || require('./mock_web_locks')();
-  const ctx = vm.createContext({console, Date, JSON, Map, Set, Promise, Error, crypto,
+  const ctx = vm.createContext({console, Date, JSON, Map, Set, Promise, Error, crypto, performance, Intl, setTimeout, clearTimeout,
     localStorage, sessionStorage, sessionRequests:new Map(), isOutboxCoreRunning:false, outboxStoreHeld_:false, paymentInFlight:false, activePaymentMethod:'Efectivo',
     STATE:{mode:'caja',operator:'Fixture',cart:[],operatingPeriod:{allowed:true,message:'Fixture period'},isNativeGas:false,isProductionLocked:false,apiUrl:'https://fixture.invalid'},
     MUTATION_ACTIONS:new Set(['cajaSimpleRegistrar','confirmarTransferencia','cancelarTransferenciaNoRecibida','vincularPagoExistente','comandasSimpleAccion','accesoCambiarActividad','cambiarFase']),
     updateSyncPill(){}, updateOutboxUI(){}, notifyOutboxTabs(){}, cacheQuerySnapshot(){},
     toast:(...args)=>notices.push(args), playChime(){}, syncBackendData(){},
     clearCart(){ctx.STATE.cart=[];}, renderActivityDropdown(){}, window:{navigator:{locks}}, getDeviceId:()=> 'fixture-device',
-    $:id=>cells[id]||(cells[id]={value:({customerNameInput:'Fixture',cashReceivedInput:'100',cashTipInput:'0',activitySelect:'QA event'})[id]||'',disabled:false,textContent:'',innerHTML:'',classList:{add(){},remove(){},toggle(){}},focus(){}}),
+    $:id=>cells[id]||(cells[id]={value:({customerNameInput:'Fixture',cashReceivedInput:'100',cashTipInput:'0',activitySelect:'QA event'})[id]||'',disabled:false,textContent:'',style:{},innerHTML:'',classList:{add(){},remove(){},toggle(){}},focus(){}}),
     closePaymentModal(){}, showReceiptModal(){}, openCashDrawer_(){}, printReceiptDirect:()=>Promise.resolve(),
     money:n=>'$'+n,escapeHtml:s=>String(s).replace(/</g,'&lt;'),
     transport_:async payload=>{calls.push(copy(payload));return {ok:true,data:{receipt:'fixture-receipt',paid:true}};}
@@ -31,10 +31,11 @@ function setup(options={}) {
     const end = source.indexOf('\n  }',start)+4;
     vm.runInContext(source.slice(start,end),ctx);
   }
-  for (const name of ['outboxReviewRequired_','assertOutboxTraffic_','validateReviewSnapshot_','assertOutboxStoreWritable_','withOutboxTraffic_',
+  for (const name of ['setCashPeriod_','cashPeriodAllowed_','scheduleBackendPoll_','outboxReviewRequired_','assertOutboxTraffic_','validateReviewSnapshot_','assertOutboxStoreWritable_','withOutboxTraffic_',
     'isSessionExpiredError','getStationRole','getSessionToken','setSessionToken','clearSessionToken',
     'ensureSessionToken','authenticatedTransport_','validSaleResult_','validTransferResult_','validTransferCancellationResult_','validExistingPaymentResult_','validJourneyContext_','validMovementJourney_','validJourneyResult_','validateBackendResponse_','getOutbox','withOutboxStore_','saveOutbox','enqueueOutbox','isSaleRejectionWithoutEffects_','classifyMutationFailure',
     'retainConfirmation_','saleDraftSnapshot_','settleConfirmedBasket_','recoverReceipt_','migrateLegacyOutbox_','sincronizarOutboxCore_','callBackend','recordOutboxFailure_','calculateCartTotal','mixedPaymentInput_','confirmPaymentAndDispatch']) load(name);
+  ctx.setCashPeriod_({allowed:true,checkedAt:Date.now(),timeZone:'UTC',today:new Date().toISOString().slice(0,10),start:'2020-01-01',end:'2040-01-01',message:'Fixture period'});
   ctx.setSessionToken('old-CAJA','CAJA');ctx.setSessionToken('old-BARRA','BARRA');
   const call = (action,args) => new Promise((resolve,reject)=>ctx.callBackend(action,args,resolve,reject));
   const item = (id='fixture-sale') => ({clientContract:'domus-outbox-v2',requestId:id,action:'cajaSimpleRegistrar',args:[{id,requestId:id,customer:'Fixture',items:[{sku:'QA',qty:1}],paid:true}],role:'CAJA',deviceId:'fixture-device',operatorId:'Fixture',status:'RETRY'});
