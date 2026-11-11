@@ -23,9 +23,10 @@ La recuperación llama al mismo endpoint idempotente: puede devolver un ACK exis
 
 ## Pruebas
 
-- `write_priority_regressions.js`: 12 casos de código real con mocks. Contención antes de ledger; espera de lectura y una sola apertura $0 por REST/nativo; captura del cuerpo original aunque cambie el formulario; conservación tras 500/recarga y tras fallo de presentación posterior al ACK; reintento manual del mismo ID sin duplicación; pausa persistente; lectura fallida conserva la cola byte por byte; cambio concurrente del cuerpo bloquea; serialización local; confirmación/cancelación y ambigüedad.
+- `write_priority_regressions.js`: 13 casos de código real con mocks. Contención antes de ledger; espera de lectura y una sola apertura $0 por REST/nativo; captura del cuerpo original aunque cambie el formulario; conservación tras 500/recarga y tras fallo de presentación posterior al ACK; reintento manual del mismo ID sin duplicación; pausa persistente; lectura fallida conserva la cola byte por byte; cambio concurrente del cuerpo bloquea; serialización local; confirmación/cancelación y ambigüedad.
 - `browser_write_priority.js`: cuatro recorridos Chromium, interfaz estática REST y HTML nativo generado. Lecturas demoradas 95 s con reloj simulado, apertura nueva y recuperación explícita, máximo una apertura y pausa durante la siguiente lectura. No hay dinero, folios ni datos reales.
 - Regresiones de jornadas, contratos ACK, cobro mixto, transporte, pausa/custodia, dos pestañas, sondeos y guardrails. El fixture previo de recorrido de jornada necesitó aceptar y comprobar el nuevo diálogo de confirmación; su timeout inicial era la espera de una recuperación que el navegador cancelaba al no atender el diálogo.
+- La CI inicial `42980856874` se detuvo en `test_hotfix_v13.py`: buscaba la llamada directa anterior del botón y el selector anterior como cadenas literales. Se actualiza la ruta estructural a la confirmación explícita y se añade ejecución real del cliente que acredita que CONFIRMED/REQUIRES_REVIEW/REJECTED permanecen intactos, aun con selección explícita. No se omite el control ni se relaja elegibilidad.
 - Build y manifiesto acreditan que sólo cambian `js/app.js`, `index.html` e `Index.html`; no se modifican módulos backend. La CI exacta del SHA se entrega por separado.
 
 ## Paso operativo propuesto; no ejecutado

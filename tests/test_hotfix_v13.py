@@ -71,7 +71,10 @@ def run_suite():
     retry_match = re.search(r"(?:bindEvent\('btnOutboxRetry',\s*'click'|btnRetryOutbox\.addEventListener\('click')[\s\S]*?\}\);", js_content)
     assert retry_match, "No se encontró el event listener de btnOutboxRetry"
     retry_block = retry_match.group(0)
-    assert "processOutbox()" in retry_block, "El botón debe delegar al sincronizador con bloqueo"
+    assert "retryOutboxFromUi_()" in retry_block, "El botón debe pasar por la confirmación de recuperación"
+    retry_ui = js_content.split('  function retryOutboxFromUi_() {', 1)[1].split('\n  }', 1)[0]
+    assert "processOutbox(q.requestId,outboxIntentIdentity_(q))" in retry_ui, "La jornada confirmada debe conservar identidad e ID"
+    assert "confirm(" in retry_ui and "saveOutbox" not in retry_ui, "La confirmación no debe reescribir la cola"
     assert "saveOutbox" not in retry_block, "El botón no debe reescribir snapshots de la cola"
     # Verificar que NO hay asignación incondicional a toda la cola
     assert "getOutbox().map(it => {\n          it.status = 'RETRY';" not in retry_block, "No debe resetear incondicionalmente toda la cola"
@@ -141,7 +144,8 @@ def run_suite():
     # Test 11: CONFIRMED no se vuelve a enviar
     # --------------------------------------------------------------------------
     print("\n[Test 11] Operaciones CONFIRMED son retiradas de la cola pendiente y no se reenvían...")
-    assert "queue.find(it => it.status === 'LOCAL_PENDING' || it.status === 'RETRY')" in js_content, "pendingItems debe incluir solo LOCAL_PENDING o RETRY"
+    assert "queue.find(eligible)" in js_content, "La selección debe aplicar el predicado de elegibilidad"
+    assert "['LOCAL_PENDING','RETRY'].includes(it.status)" in js_content, "pendingItems debe incluir solo LOCAL_PENDING o RETRY"
     subprocess.run(['node', 'tests/review_regressions.js'], check=True, capture_output=True, text=True)
     assert "if (onError) onError(err);" in js_content, "Un error determinista no debe ejecutar la ruta de éxito"
     print("✅ TEST 11 PASS: CONFIRMED no se reenvía y REQUIRES_REVIEW persiste sin falso éxito.")

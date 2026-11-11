@@ -80,6 +80,12 @@ await test('a post-write refresh exception cannot reclassify a confirmed opening
  const result=await t.call('turnoAbrir',[{requestId:'SYNTHETIC-confirmed-refresh',scopeId:'A',openingFloat:0}]);await tick();
  assert.equal(result.openingRequestId,'SYNTHETIC-confirmed-refresh');assert.equal(result.localOutbox,undefined);assert.equal(t.ctx.getOutbox().length,0);assert(t.localStorage.getItem('domus_confirmation_SYNTHETIC-confirmed-refresh'));
 });
+await test('manual and automatic recovery cannot send or rewrite CONFIRMED, REQUIRES_REVIEW or REJECTED',async()=>{
+ const t=ui();for(const status of ['CONFIRMED','REQUIRES_REVIEW','REJECTED']){
+  const q={...t.item('SYNTHETIC-'+status),action:'turnoAbrir',status,args:[{requestId:'SYNTHETIC-'+status,scopeId:'A',openingFloat:0}]};await t.seed([q]);const before=t.localStorage.getItem('domus_outbox');
+  await t.ctx.sincronizarOutboxCore_();await t.ctx.sincronizarOutboxCore_(q.requestId,t.ctx.outboxIntentIdentity_(q));assert.equal(t.localStorage.getItem('domus_outbox'),before);assert.equal(t.calls.length,0);
+ }
+});
 await test('UI manual recovery names original ID and amount; cancellation sends nothing; ambiguous multiple journeys stay held',async()=>{
  const t=ui(),q={...t.item('SYNTHETIC-manual'),action:'turnoAbrir',args:[{requestId:'SYNTHETIC-manual',scopeId:'A',openingFloat:0}]};await t.seed([q]);let prompt,sent=[];t.ctx.confirm=text=>{prompt=text;return false;};t.ctx.processOutbox=id=>sent.push(id);
  t.ctx.retryOutboxFromUi_();assert(prompt.includes(q.requestId));assert(prompt.includes('$0'));assert.deepEqual(sent,[]);t.ctx.confirm=()=>true;t.ctx.retryOutboxFromUi_();assert.deepEqual(sent,[q.requestId]);
