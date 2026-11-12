@@ -35,7 +35,7 @@ async function ui(b,options={}){
  for(const n of ['captureOutboxEvidence_','reviewEvidence_','reviewReleaseDecision_','preserveOutboxForReview_','releaseReviewedOutbox_',
   'reviewJourneyCandidate_','reviewJourneyPayload_','validReviewJourneyAck_','recoverReviewedJourney_','reviewJourneyReleaseDecision_'])t.load(n);
  const source=options.bundle?fs.readFileSync(root+'/google-apps-script/Index.html','utf8'):clientSource;
- for(const n of ['qaCanonical_','qaDigest_','qaClientKeys_','qaUnconfirmedCapture_','qaObserveUnconfirmedClient_','qaObservationExpectedSource_','qaObservationTransport_']){
+ for(const n of ['qaCanonical_','qaDigest_','qaClientKeys_','qaUnconfirmedCapture_','qaObserveUnconfirmedClient_','qaObservationExpectedSource_','qaObservationTransport_','qaReleaseKeys_','qaReleaseStorageSeal_','qaReviewSafeCode_','qaReviewErrorText_','qaReviewDiagnostics_','qaReviewUiState_','qaReviewUiRefresh_','qaReviewUiRun_','qaReauthenticateClient_']){
   const start=source.search(new RegExp('  (?:async )?function '+n+'\\('));assert(start>=0,n);const end=source.indexOf('\n  }',start)+4;vm.runInContext(source.slice(start,end),t.ctx);
  }
  t.sessionStorage.setItem('domus_session_token_CAJA',b.observationToken);

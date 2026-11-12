@@ -16,20 +16,20 @@ function approval(b,proposal){const now=Date.now();b.props.set(APPROVAL,JSON.str
  await new Promise(r=>server.listen(0,'127.0.0.1',r));const origin='http://127.0.0.1:'+server.address().port;let browser;
  try {
   browser=await chromium.launch({headless:true,...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE?{executablePath:process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE}:{})});
-  async function fixture(mode='EXISTING_ACK',behavior={}){
+  async function fixture(mode='EXISTING_ACK',behavior={},missingSession=false){
    const {t,b}=await client(mode,{origin}),context=await browser.newContext(),calls=[],errors=[],external=[],state={};
    const before=t.localStorage.getItem(K.attempt);
    await context.route('**/*',route=>{if(new URL(route.request().url()).origin===origin)return route.continue();external.push(route.request().url());return route.abort();});
    await context.exposeBinding('syntheticDispatch',async(_,p)=>{
-    assert(['consultarAperturaQa','prepararRecuperacionQaAusente','recuperarAperturaQaAusente','prepararLiberacionQa','reservarLiberacionQa','consultarLiberacionQa','confirmarLiberacionQa'].includes(p.action),'Forbidden RPC: '+p.action);calls.push(copy(p));
+    assert((missingSession?['health','authCrearSesion']:[]).concat(['consultarAperturaQa','prepararRecuperacionQaAusente','recuperarAperturaQaAusente','prepararLiberacionQa','reservarLiberacionQa','consultarLiberacionQa','confirmarLiberacionQa']).includes(p.action),'Forbidden RPC: '+p.action);calls.push(copy(p));
     const r=b.ctx.dispatchNativeAction(copy(p));if(p.action==='prepararLiberacionQa' && r.ok)state.proposal=copy(r.data);
     if(behavior[p.action])return behavior[p.action](r,p,state);return r;
    });
    await context.addInitScript(({values,token})=>{
     if(localStorage.getItem('synthetic-audited-seeded')===null){for(const [k,v] of values)localStorage.setItem(k,v);localStorage.setItem('synthetic-audited-seeded','yes');}
-    sessionStorage.setItem('domus_session_token_CAJA',token);
+    if(token)sessionStorage.setItem('domus_session_token_CAJA',token);
     window.google={script:{run:{withSuccessHandler:resolve=>({withFailureHandler:reject=>({dispatchNativeAction:p=>window.syntheticDispatch(p).then(resolve,reject)})})}}};
-   },{values:[...t.localStorage.data],token:b.observationToken});
+   },{values:[...t.localStorage.data],token:missingSession?null:b.observationToken});
    const open=async()=>{const page=await context.newPage();page.on('pageerror',e=>errors.push(e.message));await page.goto(origin+'/?revision=cola');await page.locator('#queueAuditedRelease').waitFor({state:'visible'});return page;};
    const page=await open();
    const click=async(id,accept=true,p=page)=>{p.once('dialog',d=>accept?d.accept():d.dismiss());await p.locator('#'+id).click();};
@@ -39,7 +39,7 @@ function approval(b,proposal){const now=Date.now();b.props.set(APPROVAL,JSON.str
    };
    const held=async()=>{assert.equal(await page.evaluate(k=>localStorage.getItem(k),K.attempt),before);assert(await page.evaluate(k=>localStorage.getItem(k)!==null,K.hold));};
    const finish=async()=>{await click('qaCommitRelease');await page.waitForFunction(k=>localStorage.getItem(k)!==null,K.receipt);await held();await click('qaFinalizeRelease');await page.waitForFunction(k=>localStorage.getItem(k)===null,K.hold);assert.equal(await page.evaluate(k=>localStorage.getItem(k),K.attempt),before);};
-   const clean=async()=>{assert.deepEqual(errors,[]);assert(!calls.some(p=>['authCrearSesion','turnoAbrir','cajaSimpleRegistrar'].includes(p.action)));assert(!(await page.evaluate(()=>JSON.stringify(Object.values(localStorage)))).includes(b.observationToken));await context.close();};
+   const clean=async()=>{assert.deepEqual(errors,[]);assert(!calls.some(p=>(missingSession?['turnoAbrir','cajaSimpleRegistrar']:['authCrearSesion','turnoAbrir','cajaSimpleRegistrar']).includes(p.action)));const saved=await page.evaluate(()=>JSON.stringify(Object.values(localStorage)));assert(!saved.includes(b.observationToken));for(const key of b.props.keys())if(key.startsWith('ses:'))assert(!saved.includes(key.slice(4)));await context.close();};
    return {t,b,page,context,calls,state,before,open,click,prepare,held,finish,clean,external};
   }
   await test('review boot, unchecked prepare, cancelled reserve and reload never mutate',async()=>{
@@ -58,7 +58,7 @@ function approval(b,proposal){const now=Date.now();b.props.set(APPROVAL,JSON.str
   for(const action of ['reservarLiberacionQa','confirmarLiberacionQa'])await test('lost '+action+' reply is recovered only by read-only ticket query',async()=>{
    const f=await fixture('EXISTING_ACK',{[action]:()=>{throw Error('SYNTHETIC_LOST_REPLY');}});await f.prepare();await f.click('qaReserveRelease');
    if(action==='confirmarLiberacionQa'){await f.page.waitForFunction(k=>localStorage.getItem(k)!==null,K.prepared);await f.click('qaCommitRelease');}
-   await f.page.waitForFunction(()=>document.getElementById('queueReviewStatus').textContent.startsWith('No se completó el paso auditado.'));await f.held();await f.page.locator('#qaQueryRelease').click();await f.page.waitForFunction(()=>document.getElementById('queueReviewStatus').textContent.startsWith('Consulta sin reenviar:'));
+   await f.page.waitForFunction(()=>document.getElementById('queueReviewStatus').textContent.startsWith('No se completó el paso ['));await f.held();await f.page.locator('#qaQueryRelease').click();await f.page.waitForFunction(()=>document.getElementById('queueReviewStatus').textContent.startsWith('Consulta sin reenviar:'));
    assert.equal(f.calls.filter(p=>p.action===action).length,1);if(action==='reservarLiberacionQa')await f.finish();else{await f.click('qaFinalizeRelease');await f.page.waitForFunction(k=>localStorage.getItem(k)===null,K.hold);}await f.clean();
   });
   await test('two held tabs compete for one reservation, and background tab cannot retry it',async()=>{
@@ -73,7 +73,32 @@ function approval(b,proposal){const now=Date.now();b.props.set(APPROVAL,JSON.str
   await test('interrupted local cleanup resumes only its exact prefix after reload',async()=>{
    const f=await fixture();await f.prepare();await f.click('qaReserveRelease');await f.page.waitForFunction(k=>localStorage.getItem(k)!==null,K.prepared);await f.click('qaCommitRelease');await f.page.waitForFunction(k=>localStorage.getItem(k)!==null,K.receipt);
    await f.page.evaluate(()=>{const remove=Storage.prototype.removeItem;Storage.prototype.removeItem=function(k){if(k==='domus_outbox_review_settled_v1'){Storage.prototype.removeItem=remove;throw Error('SYNTHETIC_QUOTA');}return remove.call(this,k);};});
-   await f.click('qaFinalizeRelease');await f.page.waitForFunction(()=>document.getElementById('queueReviewStatus').textContent.startsWith('No se completó el paso auditado.'));await f.held();await f.page.reload();await f.page.locator('#queueAuditedRelease').waitFor();await f.click('qaFinalizeRelease');await f.page.waitForFunction(k=>localStorage.getItem(k)===null,K.hold);assert.equal(f.calls.filter(p=>p.action==='confirmarLiberacionQa').length,1);await f.clean();
+   await f.click('qaFinalizeRelease');await f.page.waitForFunction(()=>document.getElementById('queueReviewStatus').textContent.startsWith('No se completó el paso ['));await f.held();await f.page.reload();await f.page.locator('#queueAuditedRelease').waitFor();await f.click('qaFinalizeRelease');await f.page.waitForFunction(k=>localStorage.getItem(k)===null,K.hold);assert.equal(f.calls.filter(p=>p.action==='confirmarLiberacionQa').length,1);await f.clean();
+  });
+
+  await test('token missing: safe diagnosis and failed observation send nothing; explicit auth is separate',async()=>{
+   const f=await fixture('ABSENT',{},true),books=snapshot(f.b);f.b.manager();
+   await f.page.locator('#queueReviewDiagnose').click();const diagnostic=JSON.parse(await f.page.locator('#queueReviewDiagnostic').textContent());assert.equal(diagnostic.sessionTokenPresent,false);assert.equal(diagnostic.code,'QA_OBSERVATION_EXISTING_CAJA_SESSION_REQUIRED');assert.equal(f.calls.length,0);
+   await f.page.locator('#queueObservationAttested').check();await f.click('queueObserveOpening');await f.page.waitForFunction(()=>document.getElementById('queueReviewStatus').textContent.includes('QA_OBSERVATION_EXISTING_CAJA_SESSION_REQUIRED'));assert.equal(f.calls.length,0);
+   await f.page.locator('#queueAuthAttested').check();await f.click('queueReviewAuthenticate',false);assert.equal(f.calls.length,0);await f.held();
+   await f.click('queueReviewAuthenticate');await f.page.waitForFunction(()=>document.getElementById('queueReviewStatus').textContent.startsWith('Sesión CAJA general preparada'));
+   assert.deepEqual(f.calls.map(p=>p.action),['health','authCrearSesion']);assert.equal(await f.page.evaluate(()=>localStorage.getItem('domus_outbox_review_journey_observation_v1')),null);await f.held();assert.equal(snapshot(f.b),books);
+   await f.click('queueObserveOpening');await f.page.waitForFunction(()=>localStorage.getItem('domus_outbox_review_journey_observation_v1')!==null);assert.deepEqual(f.calls.map(p=>p.action),['health','authCrearSesion','consultarAperturaQa']);await f.held();assert.equal(snapshot(f.b),books);await f.clean();
+  });
+  await test('navigation during authentication discards late token and keeps hold without query',async()=>{
+   let answer;const f=await fixture('ABSENT',{authCrearSesion:r=>new Promise(resolve=>answer=()=>resolve(r))},true);f.b.manager();
+   await f.page.locator('#queueAuthAttested').check();await f.click('queueReviewAuthenticate');while(!answer)await new Promise(r=>setImmediate(r));
+   await f.page.reload();await f.page.locator('#queueAuditedRelease').waitFor();answer();await f.held();
+   assert.equal(await f.page.evaluate(()=>sessionStorage.getItem('domus_session_token_CAJA')!==null),false);assert.deepEqual(f.calls.map(p=>p.action),['health','authCrearSesion']);await f.clean();
+  });
+
+  await test('second explicit authentication discards the earlier approval proposal before any reserve',async()=>{
+   const f=await fixture('EXISTING_ACK',{},true);f.b.manager();await f.page.locator('#queueAuthAttested').check();await f.click('queueReviewAuthenticate');
+   await f.page.waitForFunction(()=>document.getElementById('queueReviewStatus').textContent.startsWith('Sesión CAJA general preparada'));await f.prepare();assert.equal(await f.page.locator('#qaReserveRelease').isDisabled(),false);
+   f.b.ctx.Session.getActiveUser=()=>({getEmail:()=> 'sadotechfet@gmail.com'});await f.click('queueReviewAuthenticate');
+   await f.page.waitForFunction(()=>document.getElementById('queueReviewStatus').textContent.startsWith('Sesión CAJA general preparada') && document.getElementById('qaReleaseProof').textContent==='');
+   assert.equal(await f.page.locator('#qaReserveRelease').isDisabled(),true);assert.equal(await f.page.locator('#qaReleaseApproval').inputValue(),'');assert.equal(await f.page.locator('#qaReleaseEvidence').inputValue(),'');
+   assert(!f.calls.some(p=>p.action==='reservarLiberacionQa'));assert.equal(await f.page.evaluate(k=>localStorage.getItem(k),K.intent),null);await f.held();await f.clean();
   });
   console.log(JSON.stringify({suite:'browser-absent-audited-release',passed,browser:browser.version(),generatedPair:true,realGoogle:false,realOperations:0,deployments:0,automaticRetries:0}));
  } finally {if(browser)await browser.close();await new Promise(r=>server.close(r));}

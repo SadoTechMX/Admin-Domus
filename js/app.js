@@ -711,6 +711,161 @@
     if(proof)proof.seal=seal;return receipt.ticketId;
   }
 
+  // This is explicit authentication, not an opening retry and not a read-only
+  // session. The unchanged server issues a general CAJA credential for up to 12h.
+  function qaReviewSafeCode_(error) {
+    const allowed=['QA_REVIEW_LEGACY_TARGET_MISMATCH','QA_REVIEW_LEGACY_AUTH_DENIED','QA_REVIEW_LEGACY_OPENING_UNCONFIRMED','QA_REVIEW_LEGACY_NATIVE_UNVERIFIED','QA_REVIEW_READY','QA_REVIEW_SESSION_UNVERIFIED','QA_REVIEW_CONSENT_REQUIRED','QA_REVIEW_CANCELLED','QA_REVIEW_BUSY','QA_REVIEW_DOCUMENT_CLOSED',
+      'QA_REVIEW_STORAGE_UNAVAILABLE','QA_REVIEW_CRYPTO_UNAVAILABLE','QA_REVIEW_EVIDENCE_INVALID','QA_REVIEW_UNKNOWN_ERROR',
+      'QA_REAUTH_PRIOR_RECONCILIATION','QA_REAUTH_HEALTH_REJECTED','QA_REAUTH_TARGET_MISMATCH','QA_REAUTH_DENIED','QA_REAUTH_RESPONSE_INVALID',
+      'QA_REAUTH_SESSION_INVALID','QA_REAUTH_SESSION_CHANGED','QA_REAUTH_EVIDENCE_CHANGED','QA_REAUTH_TIMEOUT_UNCONFIRMED','QA_REAUTH_TRANSPORT_UNCONFIRMED','QA_REAUTH_STORAGE_UNCERTAIN',
+      'QA_OBSERVATION_ADAPTER_REQUIRED','QA_OBSERVATION_ATTEMPT_INVALID','QA_OBSERVATION_EXISTS_PRESERVED','QA_OBSERVATION_CONSENT_CHANGED',
+      'QA_OBSERVATION_LOCAL_EVIDENCE_CHANGED','QA_OBSERVATION_NATIVE_STAGING_REQUIRED','QA_OBSERVATION_EXISTING_CAJA_SESSION_REQUIRED',
+      'QA_OBSERVATION_SESSION_CHANGED','QA_OBSERVATION_READ_REJECTED_PRESERVE_HOLD','QA_OBSERVATION_QUERY_TIMEOUT_PRESERVE_HOLD',
+      'QA_OBSERVATION_TRANSPORT_UNCONFIRMED','QA_OBSERVATION_REPORT_INVALID','QA_OBSERVATION_EVIDENCE_INVALID','QA_OBSERVATION_HASH_INVALID',
+      'QA_OBSERVATION_ACK_INVALID','QA_OBSERVATION_UNCERTAIN_ACK','QA_OBSERVATION_WRITE_UNCERTAIN_PRESERVE_HOLD'];
+    const code=typeof error==='string'?error:error?.code || error?.message;
+    if(allowed.includes(code))return code;
+    const legacyMessages={
+      'Entorno, libros o build revisado no coinciden; no se envió la apertura.':'QA_REVIEW_LEGACY_TARGET_MISMATCH',
+      'Google no autorizó CAJA. No se envió la apertura.':'QA_REVIEW_LEGACY_AUTH_DENIED',
+      'Apertura sin confirmar. Cola y retención conservadas; no hay reintento automático. Descargar evidencia y revisar antes de otra acción.':'QA_REVIEW_LEGACY_OPENING_UNCONFIRMED',
+      'Entorno nativo sin acreditar; conservar revisión.':'QA_REVIEW_LEGACY_NATIVE_UNVERIFIED'};
+    if(Object.prototype.hasOwnProperty.call(legacyMessages,code))return legacyMessages[code];
+    if(error?.name==='SecurityError' || error?.name==='QuotaExceededError')return 'QA_REVIEW_STORAGE_UNAVAILABLE';
+    const evidenceErrors=['Recuperación disponible sólo en la app nativa de staging.','Espera a que termine la preservación.',
+      'La evidencia cambió; conservar y revisar.','Esta vía exige una sola apertura QA y ninguna venta pendiente.',
+      'Apertura no elegible: se conservan estado, identidad y evidencia.','Marca de revisión inválida.',
+      'Copia de revisión incompleta; conservar sin sustituir.','Archivo de revisión incompleto.'];
+    return evidenceErrors.includes(code)?'QA_REVIEW_EVIDENCE_INVALID':'QA_REVIEW_UNKNOWN_ERROR';
+  }
+  function qaReviewErrorText_(error) {
+    const code=qaReviewSafeCode_(error),messages={
+      QA_REVIEW_LEGACY_TARGET_MISMATCH:'Entorno, libros o build revisado no coinciden; no se envió la apertura.',
+      QA_REVIEW_LEGACY_AUTH_DENIED:'Google no autorizó CAJA. No se envió la apertura.',
+      QA_REVIEW_LEGACY_OPENING_UNCONFIRMED:'Apertura sin confirmar. Cola y retención conservadas; no hay reintento automático. Descargar evidencia y revisar antes de otra acción.',
+      QA_REVIEW_LEGACY_NATIVE_UNVERIFIED:'Entorno nativo sin acreditar; conservar revisión.',
+      QA_REVIEW_CONSENT_REQUIRED:'Falta el cotejo o la autorización explícita.',QA_REVIEW_CANCELLED:'Acción cancelada. Si la autenticación ya se envió, su sesión puede existir en el servidor hasta expirar; no se guardará una respuesta tardía.',
+      QA_REVIEW_BUSY:'Hay otro paso de revisión en curso.',QA_REVIEW_DOCUMENT_CLOSED:'La pantalla dejó de estar activa. Recarga para revisar.',
+      QA_REVIEW_STORAGE_UNAVAILABLE:'El navegador no permite leer o guardar el almacenamiento requerido.',QA_REVIEW_CRYPTO_UNAVAILABLE:'No está disponible la verificación criptográfica local.',
+      QA_REVIEW_EVIDENCE_INVALID:'Las copias o la intención original no cumplen la revisión.',QA_REVIEW_UNKNOWN_ERROR:'Falló una comprobación local; no se mostraron datos de la excepción.',
+      QA_REAUTH_PRIOR_RECONCILIATION:'Ya existe recuperación o liberación iniciada. Esta autenticación no está disponible; conserva el protocolo y solicita revisión.',
+      QA_REAUTH_HEALTH_REJECTED:'No se pudo acreditar el destino antes de autenticar.',QA_REAUTH_TARGET_MISMATCH:'Entorno, libros o build no coinciden con staging revisado.',
+      QA_REAUTH_DENIED:'Google no autorizó la autenticación de Gerencia como CAJA. No se solicitarán claves ni habrá fallback.',
+      QA_REAUTH_RESPONSE_INVALID:'La respuesta de autenticación no cumple el contrato esperado.',QA_REAUTH_SESSION_INVALID:'La sesión recibida no coincide con identidad, duración o principal de Google requeridos.',
+      QA_REAUTH_SESSION_CHANGED:'Cambió la sesión local durante la autenticación.',QA_REAUTH_EVIDENCE_CHANGED:'Cambió la evidencia durante la autenticación.',
+      QA_REAUTH_TIMEOUT_UNCONFIRMED:'La autenticación quedó sin respuesta confirmada. No se reintenta ni se acepta una respuesta tardía.',
+      QA_REAUTH_TRANSPORT_UNCONFIRMED:'El transporte de autenticación quedó sin confirmar. No se reintenta.',QA_REAUTH_STORAGE_UNCERTAIN:'No se pudo verificar el guardado de la sesión. No se ejecutará ninguna consulta automáticamente.',
+      QA_OBSERVATION_ADAPTER_REQUIRED:'Faltan Web Locks para consultar con la evidencia retenida.',QA_OBSERVATION_ATTEMPT_INVALID:'El intento original no cumple el formato o vínculo esperado.',
+      QA_OBSERVATION_EXISTS_PRESERVED:'Ya existe una observación conservada; no se sustituye.',QA_OBSERVATION_CONSENT_CHANGED:'El cotejo ya no corresponde a la evidencia actual.',
+      QA_OBSERVATION_LOCAL_EVIDENCE_CHANGED:'La evidencia cambió durante la consulta.',QA_OBSERVATION_NATIVE_STAGING_REQUIRED:'Se requiere la aplicación nativa de staging.',
+      QA_OBSERVATION_EXISTING_CAJA_SESSION_REQUIRED:'No hay token CAJA en esta pestaña. Esto no demuestra que una sesión anterior haya expirado.',
+      QA_OBSERVATION_SESSION_CHANGED:'La sesión cambió durante la consulta.',QA_OBSERVATION_READ_REJECTED_PRESERVE_HOLD:'El servidor rechazó la consulta o devolvió un envelope inválido; no se asume que sea sólo expiración.',
+      QA_OBSERVATION_QUERY_TIMEOUT_PRESERVE_HOLD:'La consulta agotó su espera. No se reintenta ni se acepta una respuesta tardía.',
+      QA_OBSERVATION_TRANSPORT_UNCONFIRMED:'La consulta no obtuvo respuesta confirmada del transporte.',QA_OBSERVATION_WRITE_UNCERTAIN_PRESERVE_HOLD:'No se pudo verificar el guardado de la observación.'};
+    return 'No se completó el paso ['+code+']. '+(messages[code] || 'La respuesta no cumple las comprobaciones de evidencia.')+' Conserva el intento y la retención; no hay reenvíos automáticos.';
+  }
+  function qaReviewDiagnostics_() {
+    const d={format:'DOMUS_QA_REVIEW_DIAGNOSTIC_V1',nativeStaging:window.DOMUS_NATIVE_BOOT?.environment==='STAGING',bridgeAvailable:!!window.google?.script?.run,
+      locksAvailable:!!window.navigator?.locks?.request,cryptoAvailable:typeof crypto!=='undefined' && !!crypto.subtle?.digest && typeof TextEncoder!=='undefined',
+      storageReadable:false,sessionTokenPresent:false,candidateValid:false,originalAttemptValid:false,observationPresent:false,restrictedArtifactsPresent:false,
+      canAuthenticate:false,code:'QA_REVIEW_READY',reauthCode:'QA_REVIEW_READY'};
+    try {
+      const token=sessionStorage.getItem('domus_session_token_CAJA');d.sessionTokenPresent=typeof token==='string' && !!token;
+      d.observationPresent=localStorage.getItem('domus_outbox_review_journey_observation_v1')!==null;
+      for(let n=0;n<localStorage.length;n++){const key=localStorage.key(n);if(key && (key==='domus_outbox_qa_absent_recovery_v1' || key.startsWith('domus_outbox_qa_release_')))d.restrictedArtifactsPresent=true;}
+      localStorage.getItem('domus_outbox_review_hold_v1');d.storageReadable=true;
+    } catch(_) {d.code=d.reauthCode='QA_REVIEW_STORAGE_UNAVAILABLE';return d;}
+    if(!d.nativeStaging || !d.bridgeAvailable)d.code='QA_OBSERVATION_NATIVE_STAGING_REQUIRED';
+    else if(!d.locksAvailable)d.code='QA_OBSERVATION_ADAPTER_REQUIRED';
+    else if(!d.cryptoAvailable)d.code='QA_REVIEW_CRYPTO_UNAVAILABLE';
+    else {
+      try {reviewJourneyCandidate_();d.candidateValid=true;qaUnconfirmedCapture_();d.originalAttemptValid=true;}
+      catch(err){d.code=qaReviewSafeCode_(err);if(d.code==='QA_REVIEW_UNKNOWN_ERROR')d.code='QA_REVIEW_EVIDENCE_INVALID';}
+    }
+    d.reauthCode=d.restrictedArtifactsPresent?'QA_REAUTH_PRIOR_RECONCILIATION':d.code;
+    d.canAuthenticate=d.reauthCode==='QA_REVIEW_READY';
+    if(d.code==='QA_REVIEW_READY')d.code=d.observationPresent?'QA_OBSERVATION_EXISTS_PRESERVED':d.sessionTokenPresent?'QA_REVIEW_SESSION_UNVERIFIED':'QA_OBSERVATION_EXISTING_CAJA_SESSION_REQUIRED';
+    return d;
+  }
+  function qaReviewUiState_() {
+    if(!window.DOMUS_QA_REVIEW_UI_STATE) {
+      const state={busy:false,closed:false,generation:0,authEpoch:0,authAbort:null,refreshers:new Set()};window.DOMUS_QA_REVIEW_UI_STATE=state;
+      window.addEventListener?.('pagehide',()=>{state.closed=true;state.generation++;if(state.authAbort)state.authAbort();});
+    }
+    return window.DOMUS_QA_REVIEW_UI_STATE;
+  }
+  function qaReviewUiRefresh_() {
+    const state=qaReviewUiState_();if(state.closed)return;
+    for(const refresh of state.refreshers){try{refresh();}catch(_){/* A diagnostic click can report storage failure without leaking its contents. */}}
+  }
+  async function qaReviewUiRun_(status,fn) {
+    const state=qaReviewUiState_();if(state.busy || state.closed)return;
+    state.busy=true;qaReviewUiRefresh_();
+    try {return await fn(state);}catch(err){if(!state.closed)status.textContent=qaReviewErrorText_(err);}
+    finally {state.authAbort=null;state.busy=false;qaReviewUiRefresh_();}
+  }
+  async function qaReauthenticateClient_(consent,signal) {
+    const diagnostic=qaReviewDiagnostics_();if(!diagnostic.canAuthenticate)throw new Error(diagnostic.reauthCode);
+    const state=qaReviewUiState_(),generation=state.generation,capture=qaUnconfirmedCapture_(),item=capture.candidate.item,
+      seal=qaReleaseStorageSeal_(),key='domus_session_token_CAJA',previous=sessionStorage.getItem(key),bridge=window.google.script.run;
+    if(consent?.confirmGeneralSession!==true || consent.destinationAttested!==true || consent.requestId!==item.requestId ||
+        consent.binding!==capture.candidate.binding || consent.attemptRaw!==capture.attemptRaw)throw new Error('QA_REVIEW_CONSENT_REQUIRED');
+    const check=()=>{
+      if(signal?.aborted)throw new Error('QA_REVIEW_CANCELLED');
+      if(state.closed || state.generation!==generation)throw new Error('QA_REVIEW_DOCUMENT_CLOSED');
+      if(window.DOMUS_NATIVE_BOOT?.environment!=='STAGING' || window.google?.script?.run!==bridge)throw new Error('QA_OBSERVATION_NATIVE_STAGING_REQUIRED');
+      if(qaUnconfirmedCapture_().seal!==capture.seal || qaReleaseStorageSeal_()!==seal)throw new Error('QA_REAUTH_EVIDENCE_CHANGED');
+      if(sessionStorage.getItem(key)!==previous)throw new Error('QA_REAUTH_SESSION_CHANGED');
+    };
+    const invoke=async action=>{
+      check();let timer,onAbort;
+      try {
+        const response=await new Promise((resolve,reject)=>{
+          onAbort=()=>reject(new Error('QA_REVIEW_CANCELLED'));signal?.addEventListener('abort',onAbort,{once:true});check();
+          timer=setTimeout(()=>reject(new Error('QA_REAUTH_TIMEOUT_UNCONFIRMED')),30000);
+          const payload={action,args:action==='health'?[]:['CAJA',item.operatorId,item.deviceId,''],requestId:'',role:'CAJA',deviceId:item.deviceId};
+          bridge.withSuccessHandler(resolve).withFailureHandler(()=>reject(new Error('QA_REAUTH_TRANSPORT_UNCONFIRMED'))).dispatchNativeAction(payload);
+        });check();
+        const copy=JSON.parse(JSON.stringify(response));
+        if(copy?.ok===false)throw new Error(action==='health'?'QA_REAUTH_HEALTH_REJECTED':'QA_REAUTH_DENIED');
+        if(!qaClientKeys_(copy,['ok','data','requestId','role']) || copy.ok!==true || copy.requestId!=='' || copy.role!=='PUBLIC' || JSON.stringify(copy).length>5000)
+          throw new Error('QA_REAUTH_RESPONSE_INVALID');
+        return copy.data;
+      } finally {clearTimeout(timer);if(onAbort)signal?.removeEventListener('abort',onAbort);}
+    };
+    check();
+    return window.navigator.locks.request('domus-outbox-traffic',{ifAvailable:true},async traffic=>{
+      if(!traffic)throw new Error('QA_REVIEW_BUSY');check();
+      return window.navigator.locks.request('domus-outbox-store',{ifAvailable:true},async store=>{
+        if(!store)throw new Error('QA_REVIEW_BUSY');check();
+        // Even an uncertain authentication can change the Google principal.
+        // Retire every ephemeral proposal before the first authentication RPC.
+        state.authEpoch++;qaReviewUiRefresh_();check();
+        const health=await invoke('health');check();
+        if(!qaClientKeys_(health,['status','environment','mainSheetId','opsSheetId','build']) || health.status!=='HEALTHY' || health.environment!=='STAGING' ||
+            health.mainSheetId!=='114VSwo3bXyn_audh1LHr4qqjW5aSDSTP_bR_-Iz5dkg' || health.opsSheetId!=='1NDpuyx6EfCHcoKW9CZ6pwR0oe2JS0aKpTTMa7RdqmlE' ||
+            !qaClientKeys_(health.build,['id','sourceSha256','schema']) || health.build.sourceSha256!==qaObservationExpectedSource_() ||
+            typeof health.build.id!=='string' || !health.build.id || typeof health.build.schema!=='string' || !health.build.schema)
+          throw new Error('QA_REAUTH_TARGET_MISMATCH');
+        check();const started=Date.now(),session=await invoke('authCrearSesion');check();const now=Date.now();
+        // The unchanged backend reads Date.now() twice. Allow at most 1000ms
+        // between those calls; this does not alter its nominal 12h configuration.
+        if(!qaClientKeys_(session,['token','role','deviceId','operator','principal','created','expires']) || typeof session.token!=='string' ||
+            !session.token || session.token.trim()!==session.token || session.token.length>2000 || /[\u0000-\u001f\u007f]/.test(session.token) ||
+            session.role!=='CAJA' || session.deviceId!==item.deviceId || session.operator!==item.operatorId ||
+            typeof session.principal!=='string' || session.principal.length>254 || session.principal!==session.principal.toLowerCase() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(session.principal) ||
+            !Number.isSafeInteger(session.created) || !Number.isSafeInteger(session.expires) || session.created<started-60000 || session.created>now+60000 ||
+            session.expires<=now || session.expires<=session.created || session.expires-session.created>43201000)
+          throw new Error('QA_REAUTH_SESSION_INVALID');
+        check();
+        try {sessionStorage.setItem(key,session.token);if(sessionStorage.getItem(key)!==session.token)throw new Error('READBACK');}
+        catch(_){throw new Error('QA_REAUTH_STORAGE_UNCERTAIN');}
+        // Only the token is retained. No query, mutation, navigation or normal boot.
+        return {ok:true,kind:'DOMUS_QA_REAUTH_RESULT_V1',role:'CAJA',sessionType:'GENERAL',maxDurationHours:12,expiresAt:session.expires};
+      });
+    });
+  }
+
   function qaMountReleaseUi_(status) {
     const section=document.createElement('section');section.id='queueAuditedRelease';
     section.innerHTML='<h2>Conciliación y liberación auditada QA</h2><p>Preparar sólo consulta. Antes de recuperar ausencia, usa Consultar apertura sin reenviar para conservar una observación de ausencia. Ausencia no demuestra que no hubo efectos. La recuperación puede crear la apertura original de $0; requiere aprobación exacta de Gerencia. No habilita otras estaciones.</p>'+
@@ -721,8 +876,14 @@
       '<p><button id="qaQueryRelease" type="button" disabled>Consultar ticket, sólo lectura</button> <button id="qaCommitRelease" type="button" disabled>Archivar y confirmar liberación</button> <button id="qaFinalizeRelease" type="button" disabled>Finalizar cierre local</button></p>'+
       '<p>Si se pierde una respuesta, consulta el ticket. No se repite reserva ni commit. Cerrar o recargar conserva la retención; una operación ya enviada puede terminar. El archivo local no sustituye una copia externa inmutable ni acredita que clientes antiguos estén detenidos.</p>';
     document.getElementById('queueOpeningObservation').after(section);
-    const el=id=>document.getElementById(id),k=qaReleaseKeys_();let busy=false,fresh=null;
+    const el=id=>document.getElementById(id),k=qaReleaseKeys_(),shared=qaReviewUiState_();let fresh=null,freshEpoch=shared.authEpoch;
     const refresh=()=>{
+      // Invalidate first, before any storage read could interrupt this refresh.
+      if(freshEpoch!==shared.authEpoch){
+        fresh=null;freshEpoch=shared.authEpoch;el('qaReleaseProof').textContent='';
+        el('qaReleaseApproval').value='';el('qaReleaseEvidence').value='';
+      }
+      const busy=shared.busy || shared.closed;
       const reserved=localStorage.getItem(k.intent)!==null,committed=localStorage.getItem(k.commit)!==null,prepared=localStorage.getItem(k.prepared)!==null,receipt=localStorage.getItem(k.receipt)!==null;
       let eligible=false,ack=false,absent=false;try{qaUnconfirmedCapture_();eligible=true;const report=JSON.parse(localStorage.getItem(k.observation) || 'null')?.report;ack=!!report?.ack;absent=report?.status==='OBSERVED_ABSENT' && report.ack===null;}catch(_){}
       el('qaPrepareAbsent').disabled=busy || !eligible || reserved || ack || localStorage.getItem(k.recovery)!==null;
@@ -737,7 +898,7 @@
       const a=el('qaReleaseApproval').value.trim(),h=el('qaReleaseEvidence').value.trim();
       if(!a || !/^[a-f0-9]{64}$/.test(h))throw new Error('Escribe el ID de aprobación y el hash exacto de la propuesta.');return {approvalId:a,confirmEvidenceHash:h};
     };
-    const run=async fn=>{if(busy)return;busy=true;refresh();try{await fn();}catch(_){status.textContent='No se completó el paso auditado. Conserva toda la evidencia y la retención. Si existe una reserva o commit, usa Consultar ticket; no se reintenta ninguna apertura ni se renueva la sesión.';}finally{busy=false;refresh();}};
+    const run=fn=>qaReviewUiRun_(status,fn);
     for(const [id,mode] of [['qaPrepareAbsent','ABSENT'],['qaPrepareAck','ACK']])el(id).onclick=()=>run(async()=>{
       const c=consent();if(!c.destinationAttested)throw new Error('Cotejo requerido');
       fresh=null;const result=await qaPrepareReleaseClient_(mode,c);fresh=result;
@@ -769,7 +930,7 @@
       status.textContent='Cierre auditado completado: '+result.ticketId+'. Evidencia original conservada; no se enviaron aperturas, ventas ni impresión durante el cierre.';
       const link=document.createElement('a');link.href=reviewReturnUrl_();link.target='_top';link.textContent='Abrir la app de esta estación';el('queueReviewContinue').replaceChildren(link);
     });
-    window.addEventListener?.('storage',()=>{fresh=null;refresh();});refresh();return {refresh};
+    window.addEventListener?.('storage',()=>{fresh=null;qaReviewUiRefresh_();});shared.refreshers.add(refresh);refresh();return {refresh};
   }
 
   function qaObservationExpectedSource_() {return '76563229067fb0f49ce66a7d7a2db478a68cbaa76a8d761df41b0ed948c32334';}
@@ -843,6 +1004,10 @@
         '<p>Consulta autenticada de sólo lectura. Mantiene UNCONFIRMED y la retención, aunque observe un ACK.</p>'+
         '<label><input type="checkbox" id="queueObservationAttested"> Cotejé el ID original y el destino staging.</label>'+
         '<button id="queueObserveOpening" type="button">Consultar una vez, sin reenviar</button></section>'+
+        '<section id="queueReviewAuthentication"><h2>Autenticación separada para revisión</h2><p>Esta acción crea una sesión CAJA general de hasta 12 horas mediante la identidad de Gerencia en Google. No es una sesión limitada a lectura. Sólo guardará el token en esta pestaña; no consulta, abre, vende, imprime ni libera la retención automáticamente.</p>'+
+        '<p>Si ya empezó una recuperación de ausencia o liberación auditada, esta vía permanece bloqueada para conservar su identidad.</p>'+
+        '<label><input type="checkbox" id="queueAuthAttested"> Cotejé el ID/dispositivo original y autorizo crear la sesión CAJA general de hasta 12 horas en staging.</label>'+
+        '<p><button id="queueReviewDiagnose" type="button">Diagnóstico local sin enviar</button> <button id="queueReviewAuthenticate" type="button">Autenticar CAJA, sin consultar</button> <button id="queueReviewAuthCancel" type="button" disabled>Cancelar espera de autenticación</button></p><pre id="queueReviewDiagnostic" style="white-space:pre-wrap"></pre></section>'+
         '<p>Guarda el archivo de forma privada. Incluye los cuerpos originales y recibos disponibles, sin verificar cobros contra el servidor.</p>'+
         '<p>Cierra clientes de versiones anteriores: no conocen este bloqueo. Una solicitud ya enviada puede haber tenido efectos.</p>'+
         '<p>Las intenciones inciertas permanecen bloqueadas. Cerrar una revisión resuelta conserva su archivo y no reenvía operaciones.</p></main>';
@@ -853,32 +1018,48 @@
       const release=document.getElementById('queueReviewRelease');
       let audited=null;
       if(typeof qaMountReleaseUi_==='function')audited=qaMountReleaseUi_(status);
-      let observationBusy=false;
+      const shared=qaReviewUiState_();
       const refresh=()=>{
         if(audited)audited.refresh();
-        const decision=reviewReleaseDecision_();document.getElementById('queueReviewDecision').textContent=decision.message;release.disabled=!decision.allowed;
+        const decision=reviewReleaseDecision_();document.getElementById('queueReviewDecision').textContent=decision.message;release.disabled=shared.busy || shared.closed || !decision.allowed;
+        document.getElementById('queueReviewAuthenticate').disabled=shared.busy || shared.closed;
+        document.getElementById('queueReviewDiagnose').disabled=shared.busy || shared.closed;
+        document.getElementById('queueReviewAuthCancel').disabled=!shared.authAbort;
         try {
           const c=reviewJourneyCandidate_(),section=document.getElementById('queueJourneyRecovery');section.hidden=false;
           document.getElementById('queueJourneyIdentity').textContent='ID: '+c.item.requestId+' · ámbito: '+c.item.args[0].scopeId+' · fondo: $0 · destino: STAGING · build revisado.';
-          document.getElementById('queueJourneyRecover').disabled=localStorage.getItem('domus_outbox_review_journey_v1')!==null;
+          document.getElementById('queueJourneyRecover').disabled=shared.busy || shared.closed || localStorage.getItem('domus_outbox_review_journey_v1')!==null;
         } catch(_) {document.getElementById('queueJourneyRecovery').hidden=true;}
         try {
           qaUnconfirmedCapture_();document.getElementById('queueOpeningObservation').hidden=false;
-          document.getElementById('queueObserveOpening').disabled=observationBusy || localStorage.getItem('domus_outbox_review_journey_observation_v1')!==null;
+          document.getElementById('queueObserveOpening').disabled=shared.busy || shared.closed || localStorage.getItem('domus_outbox_review_journey_observation_v1')!==null;
         } catch(_) {document.getElementById('queueOpeningObservation').hidden=true;}
       };
-      document.getElementById('queueObserveOpening').onclick=async()=>{
-        if(observationBusy)return;observationBusy=true;refresh();
-        try {
-          const capture=qaUnconfirmedCapture_(),destinationAttested=document.getElementById('queueObservationAttested').checked;
-          if(!destinationAttested)throw new Error('Coteja el ID y destino staging antes de consultar.');
-          if(!confirm('Consultar la apertura '+capture.candidate.item.requestId+' sin reenviar ni liberar la retención. ¿Continuar?'))return;
-          const result=await qaObserveUnconfirmedClient_({requestId:capture.candidate.item.requestId,binding:capture.candidate.binding,attemptRaw:capture.attemptRaw,destinationAttested});
-          status.textContent=(result.report.status==='OBSERVED_CONFIRMED'?'ACK durable concordante observado.':result.report.status==='OBSERVED_ABSENT'?'No se observaron registros durables; esto no demuestra ausencia de efectos.':'Evidencia sin resolución.')+' UNCONFIRMED y retención conservados. No se habilitan reintentos.';
-        } catch(_) {status.textContent='No se completó la consulta. Se requieren sesión CAJA vigente y evidencia intacta. Conserva el intento y la retención; no se reenviaron operaciones.';}
-        finally {observationBusy=false;refresh();}
+      shared.refreshers.add(refresh);
+      document.getElementById('queueReviewDiagnose').onclick=()=>{
+        if(shared.busy || shared.closed)return;
+        const diagnostic=qaReviewDiagnostics_();document.getElementById('queueReviewDiagnostic').textContent=JSON.stringify(diagnostic,null,2);
+        status.textContent='Diagnóstico local ['+diagnostic.code+']. No se enviaron solicitudes. La presencia de token no acredita su vigencia.';
       };
-      document.getElementById('queueJourneyRecover').onclick=async()=>{
+      document.getElementById('queueReviewAuthCancel').onclick=()=>{if(shared.authAbort)shared.authAbort();};
+      document.getElementById('queueReviewAuthenticate').onclick=()=>qaReviewUiRun_(status,async()=>{
+        const diagnostic=qaReviewDiagnostics_();if(!diagnostic.canAuthenticate)throw new Error(diagnostic.reauthCode);
+        const capture=qaUnconfirmedCapture_(),attested=document.getElementById('queueAuthAttested').checked;
+        if(!attested)throw new Error('QA_REVIEW_CONSENT_REQUIRED');
+        if(!confirm('Crear una sesión CAJA GENERAL de hasta 12 horas con tu identidad autorizada de Gerencia en Google, para el dispositivo y operador del intento original en STAGING. No es una sesión limitada a lectura. No consultará ni reenviará ninguna operación, y la retención continuará. ¿Autorizas esta autenticación separada?')){status.textContent='Autenticación cancelada antes del envío. Retención intacta.';return;}
+        const controller=new AbortController();shared.authAbort=()=>controller.abort();qaReviewUiRefresh_();
+        const result=await qaReauthenticateClient_({requestId:capture.candidate.item.requestId,binding:capture.candidate.binding,attemptRaw:capture.attemptRaw,destinationAttested:true,confirmGeneralSession:true},controller.signal);
+        if(!shared.closed)status.textContent='Sesión CAJA general preparada por separado, hasta '+new Date(result.expiresAt).toISOString()+'. No se realizó ninguna consulta. La retención continúa; consultar requiere otro clic explícito.';
+      });
+      document.getElementById('queueObserveOpening').onclick=()=>qaReviewUiRun_(status,async()=>{
+        const diagnostic=qaReviewDiagnostics_();if(diagnostic.code!=='QA_REVIEW_SESSION_UNVERIFIED')throw new Error(diagnostic.code);
+        const capture=qaUnconfirmedCapture_(),destinationAttested=document.getElementById('queueObservationAttested').checked;
+        if(!destinationAttested)throw new Error('QA_REVIEW_CONSENT_REQUIRED');
+        if(!confirm('Consultar la apertura '+capture.candidate.item.requestId+' sin reenviar ni liberar la retención. ¿Continuar?'))return;
+        const result=await qaObserveUnconfirmedClient_({requestId:capture.candidate.item.requestId,binding:capture.candidate.binding,attemptRaw:capture.attemptRaw,destinationAttested});
+        if(!shared.closed)status.textContent=(result.report.status==='OBSERVED_CONFIRMED'?'ACK durable concordante observado.':result.report.status==='OBSERVED_ABSENT'?'No se observaron registros durables; esto no demuestra ausencia de efectos.':'Evidencia sin resolución.')+' UNCONFIRMED y retención conservados. No se habilitan reintentos.';
+      });
+      document.getElementById('queueJourneyRecover').onclick=()=>qaReviewUiRun_(status,async()=>{
         const button=document.getElementById('queueJourneyRecover');button.disabled=true;
         try {
           const c=reviewJourneyCandidate_(),reference=document.getElementById('queueJourneyReference').value;
@@ -888,9 +1069,9 @@
           status.textContent='Recuperación explícita en curso. No cierres esta pestaña; la app y las demás operaciones siguen detenidas.';
           await recoverReviewedJourney_({binding:c.binding,requestId:c.item.requestId,reference,destinationAttested});
           status.textContent='Apertura confirmada y evidencia guardada. La retención sigue activa hasta el cierre explícito de revisión.';
-        } catch(err) {status.textContent=err.message;} finally {refresh();}
-      };
-      release.onclick=async()=>{
+        } catch(err) {status.textContent=qaReviewErrorText_(err);}
+      });
+      release.onclick=()=>qaReviewUiRun_(status,async()=>{
         release.disabled=true;
         try {
           const returnUrl=reviewReturnUrl_();
@@ -898,8 +1079,8 @@
           status.textContent='Revisión cerrada y archivada. El cierre no envió ninguna operación.';
           const link=document.createElement('a');link.href=returnUrl;link.target='_top';link.textContent='Abrir la app';
           document.getElementById('queueReviewContinue').appendChild(link);
-        } catch(err) {status.textContent='No se cerró la revisión: '+err.message;release.disabled=!reviewReleaseDecision_().allowed;}
-      };
+        } catch(err) {status.textContent=qaReviewErrorText_(err);}
+      });
       preserveOutboxForReview_().then(()=>{
         status.textContent='Revisión persistida. Cola original y copias conservadas. No hay envíos automáticos; revisa los efectos de solicitudes anteriores.';
         refresh();
@@ -943,7 +1124,7 @@
   window.DOMUS_BUILD = {
     baseCommit: 'db6805886538cd5f59506b17dd04747f4ca57695',
     buildId: 'repair-reconcile-20261105',
-    ui: '20261111-audited-release-29',
+    ui: '20261112-review-auth-30',
     environment: isProductionLocked ? 'PRODUCTION' : 'STAGING'
   };
 

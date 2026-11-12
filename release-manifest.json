@@ -22,12 +22,12 @@
     "google-apps-script/Events.gs": "cb8bb3724764a6aceed38a25728145f410c44223391163337c0c461fcd4b666d",
     "google-apps-script/Operations.gs": "c0c5dae092efaa1ad2a6496ec19edeb1f655b124fc3bdcbdc5f7efe719768010",
     "google-apps-script/Api.gs": "c09a0f9980b560e668eb6720b6a84f87bf555214f8db8269b0c8937d6706aa4e",
-    "js/app.js": "a86ebc65f5bab093af3e0b8c87d3c9e1b5d9b3fd9f0c504c5d1503236b81ef7e",
-    "index.html": "eb0bc0ea3f0290573b014385502dda4702a378aba1572eeefaeee6adbc700af1",
+    "js/app.js": "9b1f9e5ecb05b23ea42e0918acf4430d924af418f65575448d1a984b0c1254c1",
+    "index.html": "b2dca48fffc89d1f6634d091e15cddfe8e52d7d99f75d3fa96bec3a81dc527d1",
     "services/print-bridge/server.py": "4349be73ee7e563956c7e3091fe44f06f9ce4d4e485323b2f388d30dd93ce6c9",
     "google-apps-script/Build.gs": "439bf0e44b0517f4118097452927830e5c9dc30ee44662cf945f0127ec3c49f8",
     "google-apps-script/DOMUS_PRODUCTION_BUNDLE.gs": "aa1dab3d0e17463ebc9e716f97d5f764e326f41702ef240b94203f4f02c6a419",
     "google-apps-script/DOMUS_STAGING_BUNDLE.gs": "f37d7832614c6fadc81c4bb9649ba69f54ff0556476d95237bd231d361042531",
-    "google-apps-script/Index.html": "e1533741b03dbd3ab1c284052c0fe319645367c3b5276170c5943f4ff5ec9885"
+    "google-apps-script/Index.html": "18da5e68618aa93f79e698048669baa90e584490a9be8f8e4c276c4e1e1d876f"
   }
 }

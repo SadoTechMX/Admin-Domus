@@ -28,6 +28,7 @@ jobs:
       - run: node tests/write_priority_regressions.js
       - run: node tests/held_opening_regressions.js
       - run: node tests/unconfirmed_observation_regressions.js
+      - run: node tests/review_auth_regressions.js
       - run: node tests/absent_recovery_regressions.js
       - run: node tests/absent_recovery_client_regressions.js
       - run: node tests/audited_release_regressions.js
