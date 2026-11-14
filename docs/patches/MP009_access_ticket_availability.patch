@@ -1,0 +1,882 @@
+--- /dev/null
++++ b/docs/ACCESS_TICKET_AVAILABILITY.md
+@@ -0,0 +1,39 @@
++# Disponibilidad de tipos de acceso por evento
++
++DOMUS-MP-009 · 13/11/2026, America/Mexico_City · candidato `LOCAL_TESTED`.
++
++## Contrato compatible
++
++La columna M de `ACTIVIDADES` ya admite un array JSON de tipos adicionales. Cada entrada puede incluir `enabled`, estrictamente booleano. Una entrada con `enabled: false` deshabilita su ID para ese evento. Es una regla de disponibilidad; el precio histórico no cambia ni se convierte en cero.
++
++Ejemplo sintético para conservar el precio del tipo y dejar de ofrecerlo:
++
++```json
++[{"id":"Trío","name":"Trío (3 Asistentes)","price":389,"persons":3,"enabled":false}]
++```
++
++Los arrays anteriores sin `enabled` siguen funcionando. El texto libre de M sigue siendo una nota. Antes de sustituir ese texto por JSON, se debe conservar su contenido completo en la nota nativa de la misma celda y verificar ambos campos. La propiedad opcional `notes` también se conserva, pero forma parte de los datos que la API entrega al cliente; no es necesaria para esta política.
++
++`false` domina entradas duplicadas y sus alias. La comparación de tipos normaliza espacios extremos, mayúsculas y tildes. Un flag no booleano, un ID inválido asociado a un flag o un elemento de array inválido bloquea las opciones del evento con una indicación para revisar la configuración. No se modifica el acuerdo comercial, el evento activo, las tarifas de los otros tipos ni los registros anteriores.
++
++## Alcance por despliegue
++
++| Componente | Comportamiento preparado |
++| --- | --- |
++| `js/app.js` y `index.html` | El selector omite los tipos deshabilitados; descarta selecciones obsoletas, impide confirmarlas y muestra «No disponible» en Eventos & Tarifas. Cache/UI: `20261113-MP009`. |
++| `Access.gs` y bloque equivalente del bundle de producción | Lee la configuración vigente en el servidor y rechaza nuevos registros del tipo deshabilitado en cualquier canal antes de escribir en ACCESO/COBROS. No usa flags enviados por el cliente. Conserva la recuperación existente de operaciones confirmadas antes de aplicar la nueva regla. |
++| `google-apps-script/Index.html` | Mismo comportamiento visual preparado para la interfaz nativa. |
++
++Publicar únicamente GitHub Pages **no despliega el backend de Apps Script ni su interfaz nativa**. Con la API anterior, Pages recibe la marca porque la API concatena el array de M sin eliminar campos. La interfaz nativa anterior puede seguir mostrando el tipo y la API anterior puede seguir aceptándolo. La protección del servidor y de la interfaz nativa requiere desplegar esos componentes en el proyecto correcto y comprobarlos; el commit por sí solo no prueba ejecución.
++
++La regla existente que bloquea cobros de taquilla cuando el acuerdo está «Por validar» permanece intacta. Ocultar una opción no aprueba acuerdos ni activa el evento. El selector de actividad actual persiste un cambio global; no debe usarse para una inspección sin autorización de activación.
++
++## Verificación local
++
++```bash
++node tests/access-ticket-availability.test.js
++```
++
++La suite usa fixtures sintéticas y no accede a la red. Comprueba compatibilidad, exclusión y alias, configuración inválida, selección obsoleta, totales de opciones habilitadas, tabla de tarifas, siete canales del servidor, ausencia de nuevas escrituras para tipos rechazados, recuperación previa, acuerdo pendiente y concordancia de espejos. Las pruebas locales no equivalen a validación en Staging ni a un despliegue.
++
++Para comprobar Pages después de publicarlo: verificar la nueva versión del asset, sincronizar datos y observar la fila del evento en Eventos & Tarifas. No generar un acceso/cobro ni modificar el evento activo para efectuar esa comprobación.
+--- a/google-apps-script/Access.gs
++++ b/google-apps-script/Access.gs
+@@ -33,6 +33,69 @@
+ /**
+  * Consulta de eventos activos y registros de acceso en vivo
+  */
++function accessTicketKey_(value) {
++  return String(value || '').trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
++}
++
++// La marca false domina duplicados y alias; nunca convierte una tarifa en cero.
++function accessTicketAvailability_(types, configurationError) {
++  const disabled = Object.create(null);
++  let invalid = Boolean(configurationError);
++  const entries = Array.isArray(types) ? types : [];
++  entries.forEach(t => {
++    if (!t || typeof t !== 'object' || Array.isArray(t)) { invalid = true; return; }
++    if (Object.prototype.hasOwnProperty.call(t, 'enabled')) {
++      if (typeof t.enabled !== 'boolean' || typeof t.id !== 'string' || !accessTicketKey_(t.id)) { invalid = true; return; }
++      if (t.enabled === false) disabled[accessTicketKey_(t.id)] = true;
++    }
++  });
++  // Los nombres también son aceptados por el backend histórico como tipo.
++  let changed = true;
++  while (changed) {
++    changed = false;
++    entries.forEach(t => {
++      if (!t || typeof t !== 'object') return;
++      const id = accessTicketKey_(t.id);
++      const name = accessTicketKey_(t.name);
++      if (disabled[id] || disabled[name]) {
++        [id, name].filter(Boolean).forEach(key => {
++          if (!disabled[key]) { disabled[key] = true; changed = true; }
++        });
++      }
++    });
++  }
++  return { disabled, invalid };
++}
++
++function accessConfiguredTicketTypes_(row) {
++  const types = [
++    { id: 'General', name: 'General (1 Asistente)', price: typeof row[4] === 'number' ? row[4] : (parseFloat(row[4]) || 0), persons: 1 },
++    { id: 'Pareja', name: 'Pareja (2 Asistentes)', price: typeof row[5] === 'number' ? row[5] : (parseFloat(row[5]) || 0), persons: 2 },
++    { id: 'Trío', name: 'Trío (3 Asistentes)', price: typeof row[6] === 'number' ? row[6] : (parseFloat(row[6]) || 0), persons: 3 }
++  ];
++  const notes = String(row[12] || '').trim();
++  if (notes.startsWith('[')) {
++    try {
++      const custom = JSON.parse(notes);
++      if (!Array.isArray(custom)) throw new Error('Array requerido');
++      types.push.apply(types, custom);
++    } catch (e) {
++      throw accessTicketPolicyError_('ACCESS_TICKET_POLICY_INVALID', 'La configuración de tipos de entrada no es válida.');
++    }
++  }
++  if (accessTicketAvailability_(types).invalid) {
++    throw accessTicketPolicyError_('ACCESS_TICKET_POLICY_INVALID', 'enabled debe ser booleano y tener un id de tipo.');
++  }
++  return types;
++}
++
++function accessTicketPolicyError_(code, message) {
++  const err = new Error(code + ': ' + message);
++  err.code = code;
++  err.status = 400;
++  return err;
++}
++
+ function accesoSimpleDatos() {
+   const m = SpreadsheetApp.openById(CONFIG.mainSheetId);
+   const sAct = m.getSheetByName('ACTIVIDADES');
+@@ -55,20 +118,11 @@
+         pGua = isNaN(parsed) ? 50 : parsed;
+       }
+ 
+-      // Tipos de boletos del evento (estándar + personalizados en notas col M)
+-      let customTicketTypes = [];
+-      try {
+-        if (r[12] && String(r[12]).trim().startsWith('[')) {
+-          customTicketTypes = JSON.parse(r[12]);
+-        }
+-      } catch (e) {}
+-
+-      const ticketTypes = [
+-        { id: 'General', name: 'General (1 Asistente)', price: pGen, persons: 1 },
+-        { id: 'Pareja', name: 'Pareja (2 Asistentes)', price: pPar, persons: 2 },
+-        { id: 'Trío', name: 'Trío (3 Asistentes)', price: pTrio, persons: 3 },
+-        ...customTicketTypes
+-      ];
++      // Conserva marcas enabled:false para clientes que muestran disponibilidad.
++      let ticketTypes = [];
++      let ticketPolicyError = '';
++      try { ticketTypes = accessConfiguredTicketTypes_(r); }
++      catch (e) { ticketPolicyError = e.code || 'ACCESS_TICKET_POLICY_INVALID'; }
+ 
+       activities.push({
+         name: String(r[0]),
+@@ -81,6 +135,7 @@
+         priceGuardarropa: pGua,
+         capacity: Number(r[8]) || 150,
+         status: String(r[11] || 'Confirmado'),
++        ticketPolicyError: ticketPolicyError,
+         ticketTypes: ticketTypes
+       });
+     }
+@@ -318,6 +373,20 @@
+           date: Utilities.formatDate(new Date(), 'America/Mexico_City', 'yyyy-MM-dd HH:mm'),
+           message: `Acceso previamente confirmado (recuperado de COBROS): Folio ${existingPay[3] || existingPay[0]}`
+         };
++      }
++    }
++
++    // Evaluar la disponibilidad vigente después de recuperar operaciones ya confirmadas.
++    // Se aplica a todos los canales y se lee del servidor, nunca del payload.
++    const policySheet = m.getSheetByName('ACTIVIDADES');
++    if (policySheet && policySheet.getLastRow() >= 7) {
++      const policyRows = policySheet.getRange('A7:M' + policySheet.getLastRow()).getValues();
++      const policyRow = policyRows.find(r => String(r[0] || '').trim().toLowerCase() === activity.toLowerCase());
++      if (policyRow) {
++        const policy = accessTicketAvailability_(accessConfiguredTicketTypes_(policyRow));
++        if (policy.disabled[accessTicketKey_(ticketTypeId)]) {
++          throw accessTicketPolicyError_('ACCESS_TICKET_TYPE_UNAVAILABLE', 'Tipo de entrada no disponible para este evento.');
++        }
+       }
+     }
+ 
+--- a/google-apps-script/DOMUS_PRODUCTION_BUNDLE.gs
++++ b/google-apps-script/DOMUS_PRODUCTION_BUNDLE.gs
+@@ -1562,6 +1562,69 @@
+ /**
+  * Consulta de eventos activos y registros de acceso en vivo
+  */
++function accessTicketKey_(value) {
++  return String(value || '').trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
++}
++
++// La marca false domina duplicados y alias; nunca convierte una tarifa en cero.
++function accessTicketAvailability_(types, configurationError) {
++  const disabled = Object.create(null);
++  let invalid = Boolean(configurationError);
++  const entries = Array.isArray(types) ? types : [];
++  entries.forEach(t => {
++    if (!t || typeof t !== 'object' || Array.isArray(t)) { invalid = true; return; }
++    if (Object.prototype.hasOwnProperty.call(t, 'enabled')) {
++      if (typeof t.enabled !== 'boolean' || typeof t.id !== 'string' || !accessTicketKey_(t.id)) { invalid = true; return; }
++      if (t.enabled === false) disabled[accessTicketKey_(t.id)] = true;
++    }
++  });
++  // Los nombres también son aceptados por el backend histórico como tipo.
++  let changed = true;
++  while (changed) {
++    changed = false;
++    entries.forEach(t => {
++      if (!t || typeof t !== 'object') return;
++      const id = accessTicketKey_(t.id);
++      const name = accessTicketKey_(t.name);
++      if (disabled[id] || disabled[name]) {
++        [id, name].filter(Boolean).forEach(key => {
++          if (!disabled[key]) { disabled[key] = true; changed = true; }
++        });
++      }
++    });
++  }
++  return { disabled, invalid };
++}
++
++function accessConfiguredTicketTypes_(row) {
++  const types = [
++    { id: 'General', name: 'General (1 Asistente)', price: typeof row[4] === 'number' ? row[4] : (parseFloat(row[4]) || 0), persons: 1 },
++    { id: 'Pareja', name: 'Pareja (2 Asistentes)', price: typeof row[5] === 'number' ? row[5] : (parseFloat(row[5]) || 0), persons: 2 },
++    { id: 'Trío', name: 'Trío (3 Asistentes)', price: typeof row[6] === 'number' ? row[6] : (parseFloat(row[6]) || 0), persons: 3 }
++  ];
++  const notes = String(row[12] || '').trim();
++  if (notes.startsWith('[')) {
++    try {
++      const custom = JSON.parse(notes);
++      if (!Array.isArray(custom)) throw new Error('Array requerido');
++      types.push.apply(types, custom);
++    } catch (e) {
++      throw accessTicketPolicyError_('ACCESS_TICKET_POLICY_INVALID', 'La configuración de tipos de entrada no es válida.');
++    }
++  }
++  if (accessTicketAvailability_(types).invalid) {
++    throw accessTicketPolicyError_('ACCESS_TICKET_POLICY_INVALID', 'enabled debe ser booleano y tener un id de tipo.');
++  }
++  return types;
++}
++
++function accessTicketPolicyError_(code, message) {
++  const err = new Error(code + ': ' + message);
++  err.code = code;
++  err.status = 400;
++  return err;
++}
++
+ function accesoSimpleDatos() {
+   const m = SpreadsheetApp.openById(CONFIG.mainSheetId);
+   const sAct = m.getSheetByName('ACTIVIDADES');
+@@ -1584,20 +1647,11 @@
+         pGua = isNaN(parsed) ? 50 : parsed;
+       }
+ 
+-      // Tipos de boletos del evento (estándar + personalizados en notas col M)
+-      let customTicketTypes = [];
+-      try {
+-        if (r[12] && String(r[12]).trim().startsWith('[')) {
+-          customTicketTypes = JSON.parse(r[12]);
+-        }
+-      } catch (e) {}
+-
+-      const ticketTypes = [
+-        { id: 'General', name: 'General (1 Asistente)', price: pGen, persons: 1 },
+-        { id: 'Pareja', name: 'Pareja (2 Asistentes)', price: pPar, persons: 2 },
+-        { id: 'Trío', name: 'Trío (3 Asistentes)', price: pTrio, persons: 3 },
+-        ...customTicketTypes
+-      ];
++      // Conserva marcas enabled:false para clientes que muestran disponibilidad.
++      let ticketTypes = [];
++      let ticketPolicyError = '';
++      try { ticketTypes = accessConfiguredTicketTypes_(r); }
++      catch (e) { ticketPolicyError = e.code || 'ACCESS_TICKET_POLICY_INVALID'; }
+ 
+       activities.push({
+         name: String(r[0]),
+@@ -1610,6 +1664,7 @@
+         priceGuardarropa: pGua,
+         capacity: Number(r[8]) || 150,
+         status: String(r[11] || 'Confirmado'),
++        ticketPolicyError: ticketPolicyError,
+         ticketTypes: ticketTypes
+       });
+     }
+@@ -1847,6 +1902,20 @@
+           date: Utilities.formatDate(new Date(), 'America/Mexico_City', 'yyyy-MM-dd HH:mm'),
+           message: `Acceso previamente confirmado (recuperado de COBROS): Folio ${existingPay[3] || existingPay[0]}`
+         };
++      }
++    }
++
++    // Evaluar la disponibilidad vigente después de recuperar operaciones ya confirmadas.
++    // Se aplica a todos los canales y se lee del servidor, nunca del payload.
++    const policySheet = m.getSheetByName('ACTIVIDADES');
++    if (policySheet && policySheet.getLastRow() >= 7) {
++      const policyRows = policySheet.getRange('A7:M' + policySheet.getLastRow()).getValues();
++      const policyRow = policyRows.find(r => String(r[0] || '').trim().toLowerCase() === activity.toLowerCase());
++      if (policyRow) {
++        const policy = accessTicketAvailability_(accessConfiguredTicketTypes_(policyRow));
++        if (policy.disabled[accessTicketKey_(ticketTypeId)]) {
++          throw accessTicketPolicyError_('ACCESS_TICKET_TYPE_UNAVAILABLE', 'Tipo de entrada no disponible para este evento.');
++        }
+       }
+     }
+ 
+--- a/google-apps-script/Index.html
++++ b/google-apps-script/Index.html
+@@ -3471,7 +3471,7 @@
+ 
+         <!-- Build Version Footer -->
+         <footer class="app-version-footer" style="text-align: center; font-size: 0.72rem; color: var(--text-muted, #71717a); padding: 8px 16px; border-top: 1px solid rgba(255,255,255,0.05); user-select: none;">
+-          <span id="domusBuildLabel">DOMUS OS · UI 20261029-06 · PRODUCTION</span>
++          <span id="domusBuildLabel">DOMUS OS · UI 20261113-MP009 · PRODUCTION</span>
+         </footer>
+ 
+         <!-- Toast Container -->
+@@ -3512,7 +3512,7 @@
+   // Metadatos canónicos del build de frontend
+   window.DOMUS_BUILD = {
+     commit: 'e93a52d',
+-    ui: '20261029-06',
++    ui: '20261113-MP009',
+     environment: isProductionLocked ? 'PRODUCTION' : 'STAGING'
+   };
+ 
+@@ -8172,6 +8172,52 @@
+     updateAccessSummary();
+   }
+ 
++  function accessTicketKey_(value) {
++    return String(value || '').trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
++  }
++
++  // La marca false domina duplicados y alias; nunca convierte una tarifa en cero.
++  function accessTicketAvailability_(types, configurationError) {
++    const disabled = Object.create(null);
++    let invalid = Boolean(configurationError);
++    const entries = Array.isArray(types) ? types : [];
++    entries.forEach(t => {
++      if (!t || typeof t !== 'object' || Array.isArray(t)) { invalid = true; return; }
++      if (Object.prototype.hasOwnProperty.call(t, 'enabled')) {
++        if (typeof t.enabled !== 'boolean' || typeof t.id !== 'string' || !accessTicketKey_(t.id)) { invalid = true; return; }
++        if (t.enabled === false) disabled[accessTicketKey_(t.id)] = true;
++      }
++    });
++    // Los nombres también son aceptados por el backend histórico como tipo.
++    let changed = true;
++    while (changed) {
++      changed = false;
++      entries.forEach(t => {
++        if (!t || typeof t !== 'object') return;
++        const id = accessTicketKey_(t.id);
++        const name = accessTicketKey_(t.name);
++        if (disabled[id] || disabled[name]) {
++          [id, name].filter(Boolean).forEach(key => {
++            if (!disabled[key]) { disabled[key] = true; changed = true; }
++          });
++        }
++      });
++    }
++    return { disabled, invalid };
++  }
++
++  function accessTicketUnavailable_(event, type) {
++    const policy = accessTicketAvailability_(event.ticketTypes, event.ticketPolicyError);
++    return policy.invalid || Boolean(policy.disabled[accessTicketKey_(type)]);
++  }
++
++  function accessEventPriceLabel_(event, type, value) {
++    const policy = accessTicketAvailability_(event.ticketTypes, event.ticketPolicyError);
++    if (policy.invalid) return 'Revisar configuración';
++    if (policy.disabled[accessTicketKey_(type)]) return 'No disponible';
++    return '$' + Number(value || 0).toFixed(2);
++  }
++
+   function renderEntryTypesGrid() {
+     const container = $('entryTypesContainer');
+     if (!container) return;
+@@ -8184,8 +8230,11 @@
+     const pTrio = (ev.priceTrio !== undefined && ev.priceTrio !== null && ev.priceTrio !== '') ? Number(ev.priceTrio) : 0;
+ 
+     // Tipos de boletos pertenecientes al evento
++    const policy = accessTicketAvailability_(ev.ticketTypes, ev.ticketPolicyError);
+     let types = [];
+-    if (isForza) {
++    if (policy.invalid) {
++      types = [];
++    } else if (isForza) {
+       types = [
+         { id: 'General', label: 'General (1 Asistente)', price: isCourtesy ? 0 : 150, persons: 1, icon: '👤', tag: isCourtesy ? '$0.00 (Cortesía)' : '$150.00 DOMUS' },
+         { id: 'Pareja', label: 'Pareja (2 Asistentes)', price: isCourtesy ? 0 : 300, persons: 2, icon: '👥', tag: isCourtesy ? '$0.00 (Cortesía)' : '$300.00 DOMUS' },
+@@ -8208,15 +8257,22 @@
+       ];
+     }
+ 
++    const seen = new Set();
++    types = policy.invalid ? [] : types.filter(t => {
++      const key = accessTicketKey_(t.id);
++      if (policy.disabled[key] || policy.disabled[accessTicketKey_(t.label)] || seen.has(key)) return false;
++      seen.add(key);
++      return true;
++    });
+     if (!STATE.accessSelectedType || !types.some(t => t.id === STATE.accessSelectedType)) {
+-      STATE.accessSelectedType = types[0].id;
++      STATE.accessSelectedType = types.length ? types[0].id : '';
+     }
+ 
+     if ($('activeEventTicketCountText')) {
+-      $('activeEventTicketCountText').textContent = `${types.length} tarifas configuradas`;
+-    }
+-
+-    container.innerHTML = types.map(t => {
++      $('activeEventTicketCountText').textContent = policy.invalid ? 'Revisar configuración de tarifas' : `${types.length} tarifas disponibles`;
++    }
++
++    container.innerHTML = types.length ? types.map(t => {
+       const isSelected = STATE.accessSelectedType === t.id;
+       const priceText = t.tag || `$${t.price.toFixed(2)}`;
+       return `
+@@ -8226,7 +8282,7 @@
+           <div class="entry-type-price">${priceText}</div>
+         </div>
+       `;
+-    }).join('');
++    }).join('') : '<p class="text-muted">No hay tarifas de entrada disponibles. Revisa la configuración del evento.</p>';
+ 
+     container.querySelectorAll('.entry-type-card, .entry-type-btn').forEach(card => {
+       card.addEventListener('click', () => {
+@@ -8249,6 +8305,10 @@
+   }
+ 
+   function setAccessEntryType(type) {
++    if (accessTicketUnavailable_(getActiveEvent(), type)) {
++      toast('Tipo de entrada no disponible para este evento.', 'warn');
++      return;
++    }
+     STATE.accessSelectedType = type;
+ 
+     const container = $('entryTypesContainer');
+@@ -8302,6 +8362,9 @@
+ 
+   function calculateAccessSubtotal() {
+     const ev = getActiveEvent();
++    if (!STATE.accessSelectedType || accessTicketUnavailable_(ev, STATE.accessSelectedType)) {
++      return { unavailable: true, faceValue: 0, persons: 0, doorEntryCharge: 0, wardrobeCost: 0, doorTotal: 0, commercialTotal: 0, isForza: false };
++    }
+     const channel = STATE.accessSalesChannel || 'BOLETERA_EXTERNA';
+     const isForza = (ev.name || '').toLowerCase().includes('forza') || (ev.organizer || '').toUpperCase() === 'FORZA';
+     
+@@ -8357,7 +8420,18 @@
+   }
+ 
+   function updateAccessSummary() {
+-    const { faceValue, persons, doorEntryCharge, wardrobeCost, doorTotal, commercialTotal, isForza } = calculateAccessSubtotal();
++    const subtotal = calculateAccessSubtotal();
++    if (subtotal.unavailable) {
++      ['summaryFaceValue', 'summaryDoorEntryAmount', 'summaryWardrobeAmount', 'summaryTotalAdmission', 'accessCashChangeText'].forEach(id => {
++        if ($(id)) $(id).textContent = '—';
++      });
++      if ($('btnConfirmAccess')) {
++        $('btnConfirmAccess').disabled = true;
++        $('btnConfirmAccess').textContent = 'Selecciona una tarifa disponible';
++      }
++      return;
++    }
++    const { faceValue, persons, doorEntryCharge, wardrobeCost, doorTotal, commercialTotal, isForza } = subtotal;
+ 
+     if ($('summaryFaceValue')) $('summaryFaceValue').textContent = `$${faceValue.toFixed(2)}`;
+     if ($('summaryFaceValueLabel')) {
+@@ -8468,6 +8542,11 @@
+   let isRegisteringAccess = false;
+ 
+   function confirmAccessAndRegister() {
++    if (!STATE.accessSelectedType || accessTicketUnavailable_(getActiveEvent(), STATE.accessSelectedType)) {
++      toast('Tipo de entrada no disponible. Revisa las tarifas del evento.', 'warn');
++      updateAccessSummary();
++      return;
++    }
+     if (STATE.eventChangePending) {
+       toast('Espera la confirmación del evento antes de registrar accesos.', 'warn');
+       return;
+@@ -8841,9 +8920,9 @@
+             <div style="font-size: 0.75rem; color: var(--text-muted);">${escapeHtml(ev.type || '')} · ${escapeHtml(ev.organizer || 'DOMUS')}</div>
+           </td>
+           <td style="font-size: 0.82rem; color: var(--text-muted);">${escapeHtml(ev.date || '---')}</td>
+-          <td><strong>$${Number(ev.priceGeneral || 0).toFixed(2)}</strong></td>
+-          <td><strong>$${Number(ev.pricePareja || 0).toFixed(2)}</strong></td>
+-          <td><strong>$${Number(ev.priceTrio || 0).toFixed(2)}</strong></td>
++          <td><strong>${accessEventPriceLabel_(ev, 'General', ev.priceGeneral)}</strong></td>
++          <td><strong>${accessEventPriceLabel_(ev, 'Pareja', ev.pricePareja)}</strong></td>
++          <td><strong>${accessEventPriceLabel_(ev, 'Trío', ev.priceTrio)}</strong></td>
+           <td><span style="color: var(--gold-primary);">$${Number(ev.priceGuardarropa || 50).toFixed(2)}</span></td>
+           <td style="font-size: 0.82rem;">${ev.capacity || 150} pers.</td>
+           <td>
+--- a/index.html
++++ b/index.html
+@@ -1312,14 +1312,14 @@
+ 
+         <!-- Build Version Footer -->
+         <footer class="app-version-footer" style="text-align: center; font-size: 0.72rem; color: var(--text-muted, #71717a); padding: 8px 16px; border-top: 1px solid rgba(255,255,255,0.05); user-select: none;">
+-          <span id="domusBuildLabel">DOMUS OS · UI 20261029-06 · PRODUCTION</span>
++          <span id="domusBuildLabel">DOMUS OS · UI 20261113-MP009 · PRODUCTION</span>
+         </footer>
+ 
+         <!-- Toast Container -->
+         <div class="toast-container" id="toastContainer" aria-live="polite"></div>
+ 
+         <!-- Script -->
+-        <script src="js/app.js?v=20261029-06"></script>
++        <script src="js/app.js?v=20261113-MP009"></script>
+ </body>
+ 
+ </html>
+--- a/js/app.js
++++ b/js/app.js
+@@ -31,7 +31,7 @@
+   // Metadatos canónicos del build de frontend
+   window.DOMUS_BUILD = {
+     commit: 'e93a52d',
+-    ui: '20261029-06',
++    ui: '20261113-MP009',
+     environment: isProductionLocked ? 'PRODUCTION' : 'STAGING'
+   };
+ 
+@@ -4699,6 +4699,52 @@
+     updateAccessSummary();
+   }
+ 
++  function accessTicketKey_(value) {
++    return String(value || '').trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
++  }
++
++  // La marca false domina duplicados y alias; nunca convierte una tarifa en cero.
++  function accessTicketAvailability_(types, configurationError) {
++    const disabled = Object.create(null);
++    let invalid = Boolean(configurationError);
++    const entries = Array.isArray(types) ? types : [];
++    entries.forEach(t => {
++      if (!t || typeof t !== 'object' || Array.isArray(t)) { invalid = true; return; }
++      if (Object.prototype.hasOwnProperty.call(t, 'enabled')) {
++        if (typeof t.enabled !== 'boolean' || typeof t.id !== 'string' || !accessTicketKey_(t.id)) { invalid = true; return; }
++        if (t.enabled === false) disabled[accessTicketKey_(t.id)] = true;
++      }
++    });
++    // Los nombres también son aceptados por el backend histórico como tipo.
++    let changed = true;
++    while (changed) {
++      changed = false;
++      entries.forEach(t => {
++        if (!t || typeof t !== 'object') return;
++        const id = accessTicketKey_(t.id);
++        const name = accessTicketKey_(t.name);
++        if (disabled[id] || disabled[name]) {
++          [id, name].filter(Boolean).forEach(key => {
++            if (!disabled[key]) { disabled[key] = true; changed = true; }
++          });
++        }
++      });
++    }
++    return { disabled, invalid };
++  }
++
++  function accessTicketUnavailable_(event, type) {
++    const policy = accessTicketAvailability_(event.ticketTypes, event.ticketPolicyError);
++    return policy.invalid || Boolean(policy.disabled[accessTicketKey_(type)]);
++  }
++
++  function accessEventPriceLabel_(event, type, value) {
++    const policy = accessTicketAvailability_(event.ticketTypes, event.ticketPolicyError);
++    if (policy.invalid) return 'Revisar configuración';
++    if (policy.disabled[accessTicketKey_(type)]) return 'No disponible';
++    return '$' + Number(value || 0).toFixed(2);
++  }
++
+   function renderEntryTypesGrid() {
+     const container = $('entryTypesContainer');
+     if (!container) return;
+@@ -4711,8 +4757,11 @@
+     const pTrio = (ev.priceTrio !== undefined && ev.priceTrio !== null && ev.priceTrio !== '') ? Number(ev.priceTrio) : 0;
+ 
+     // Tipos de boletos pertenecientes al evento
++    const policy = accessTicketAvailability_(ev.ticketTypes, ev.ticketPolicyError);
+     let types = [];
+-    if (isForza) {
++    if (policy.invalid) {
++      types = [];
++    } else if (isForza) {
+       types = [
+         { id: 'General', label: 'General (1 Asistente)', price: isCourtesy ? 0 : 150, persons: 1, icon: '👤', tag: isCourtesy ? '$0.00 (Cortesía)' : '$150.00 DOMUS' },
+         { id: 'Pareja', label: 'Pareja (2 Asistentes)', price: isCourtesy ? 0 : 300, persons: 2, icon: '👥', tag: isCourtesy ? '$0.00 (Cortesía)' : '$300.00 DOMUS' },
+@@ -4735,15 +4784,22 @@
+       ];
+     }
+ 
++    const seen = new Set();
++    types = policy.invalid ? [] : types.filter(t => {
++      const key = accessTicketKey_(t.id);
++      if (policy.disabled[key] || policy.disabled[accessTicketKey_(t.label)] || seen.has(key)) return false;
++      seen.add(key);
++      return true;
++    });
+     if (!STATE.accessSelectedType || !types.some(t => t.id === STATE.accessSelectedType)) {
+-      STATE.accessSelectedType = types[0].id;
++      STATE.accessSelectedType = types.length ? types[0].id : '';
+     }
+ 
+     if ($('activeEventTicketCountText')) {
+-      $('activeEventTicketCountText').textContent = `${types.length} tarifas configuradas`;
+-    }
+-
+-    container.innerHTML = types.map(t => {
++      $('activeEventTicketCountText').textContent = policy.invalid ? 'Revisar configuración de tarifas' : `${types.length} tarifas disponibles`;
++    }
++
++    container.innerHTML = types.length ? types.map(t => {
+       const isSelected = STATE.accessSelectedType === t.id;
+       const priceText = t.tag || `$${t.price.toFixed(2)}`;
+       return `
+@@ -4753,7 +4809,7 @@
+           <div class="entry-type-price">${priceText}</div>
+         </div>
+       `;
+-    }).join('');
++    }).join('') : '<p class="text-muted">No hay tarifas de entrada disponibles. Revisa la configuración del evento.</p>';
+ 
+     container.querySelectorAll('.entry-type-card, .entry-type-btn').forEach(card => {
+       card.addEventListener('click', () => {
+@@ -4776,6 +4832,10 @@
+   }
+ 
+   function setAccessEntryType(type) {
++    if (accessTicketUnavailable_(getActiveEvent(), type)) {
++      toast('Tipo de entrada no disponible para este evento.', 'warn');
++      return;
++    }
+     STATE.accessSelectedType = type;
+ 
+     const container = $('entryTypesContainer');
+@@ -4829,6 +4889,9 @@
+ 
+   function calculateAccessSubtotal() {
+     const ev = getActiveEvent();
++    if (!STATE.accessSelectedType || accessTicketUnavailable_(ev, STATE.accessSelectedType)) {
++      return { unavailable: true, faceValue: 0, persons: 0, doorEntryCharge: 0, wardrobeCost: 0, doorTotal: 0, commercialTotal: 0, isForza: false };
++    }
+     const channel = STATE.accessSalesChannel || 'BOLETERA_EXTERNA';
+     const isForza = (ev.name || '').toLowerCase().includes('forza') || (ev.organizer || '').toUpperCase() === 'FORZA';
+     
+@@ -4884,7 +4947,18 @@
+   }
+ 
+   function updateAccessSummary() {
+-    const { faceValue, persons, doorEntryCharge, wardrobeCost, doorTotal, commercialTotal, isForza } = calculateAccessSubtotal();
++    const subtotal = calculateAccessSubtotal();
++    if (subtotal.unavailable) {
++      ['summaryFaceValue', 'summaryDoorEntryAmount', 'summaryWardrobeAmount', 'summaryTotalAdmission', 'accessCashChangeText'].forEach(id => {
++        if ($(id)) $(id).textContent = '—';
++      });
++      if ($('btnConfirmAccess')) {
++        $('btnConfirmAccess').disabled = true;
++        $('btnConfirmAccess').textContent = 'Selecciona una tarifa disponible';
++      }
++      return;
++    }
++    const { faceValue, persons, doorEntryCharge, wardrobeCost, doorTotal, commercialTotal, isForza } = subtotal;
+ 
+     if ($('summaryFaceValue')) $('summaryFaceValue').textContent = `$${faceValue.toFixed(2)}`;
+     if ($('summaryFaceValueLabel')) {
+@@ -4995,6 +5069,11 @@
+   let isRegisteringAccess = false;
+ 
+   function confirmAccessAndRegister() {
++    if (!STATE.accessSelectedType || accessTicketUnavailable_(getActiveEvent(), STATE.accessSelectedType)) {
++      toast('Tipo de entrada no disponible. Revisa las tarifas del evento.', 'warn');
++      updateAccessSummary();
++      return;
++    }
+     if (STATE.eventChangePending) {
+       toast('Espera la confirmación del evento antes de registrar accesos.', 'warn');
+       return;
+@@ -5368,9 +5447,9 @@
+             <div style="font-size: 0.75rem; color: var(--text-muted);">${escapeHtml(ev.type || '')} · ${escapeHtml(ev.organizer || 'DOMUS')}</div>
+           </td>
+           <td style="font-size: 0.82rem; color: var(--text-muted);">${escapeHtml(ev.date || '---')}</td>
+-          <td><strong>$${Number(ev.priceGeneral || 0).toFixed(2)}</strong></td>
+-          <td><strong>$${Number(ev.pricePareja || 0).toFixed(2)}</strong></td>
+-          <td><strong>$${Number(ev.priceTrio || 0).toFixed(2)}</strong></td>
++          <td><strong>${accessEventPriceLabel_(ev, 'General', ev.priceGeneral)}</strong></td>
++          <td><strong>${accessEventPriceLabel_(ev, 'Pareja', ev.pricePareja)}</strong></td>
++          <td><strong>${accessEventPriceLabel_(ev, 'Trío', ev.priceTrio)}</strong></td>
+           <td><span style="color: var(--gold-primary);">$${Number(ev.priceGuardarropa || 50).toFixed(2)}</span></td>
+           <td style="font-size: 0.82rem;">${ev.capacity || 150} pers.</td>
+           <td>
+--- /dev/null
++++ b/tests/access-ticket-availability.test.js
+@@ -0,0 +1,195 @@
++'use strict';
++
++// Pruebas sintéticas, sin red ni credenciales. node tests/access-ticket-availability.test.js
++const fs = require('node:fs');
++const path = require('node:path');
++const vm = require('node:vm');
++const assert = require('node:assert/strict');
++const crypto = require('node:crypto');
++const root = path.resolve(__dirname, '..');
++const read = p => fs.readFileSync(path.join(root, p), 'utf8');
++const app = read('js/app.js');
++const access = read('google-apps-script/Access.gs');
++const native = read('google-apps-script/Index.html');
++const bundle = read('google-apps-script/DOMUS_PRODUCTION_BUNDLE.gs');
++const results = [];
++function test(name, fn) {
++  try { fn(); results.push({ name, passed: true }); }
++  catch (e) { results.push({ name, passed: false, error: e.message }); }
++}
++function section(source, start, end) {
++  const a = source.indexOf(start);
++  const b = source.indexOf(end, a + start.length);
++  assert.ok(a >= 0 && b > a, start);
++  return source.slice(a, b);
++}
++const frontRanges = [
++  ['  function accessTicketKey_', '  function renderEntryTypesGrid'],
++  ['  function renderEntryTypesGrid', '  function renderWardrobeSelector'],
++  ['  function calculateAccessSubtotal', '  function updateAccesosKpis'],
++  ['  function confirmAccessAndRegister', '  function setAccessTab'],
++  ['  function renderEventsTable', '  function changeActiveEvent']
++];
++const frontSource = frontRanges.map(([a,b]) => section(app,a,b)).join('\n');
++const standard = [
++  { id:'General', name:'General (1 Asistente)', price:137, persons:1 },
++  { id:'Pareja', name:'Pareja (2 Asistentes)', price:251, persons:2 },
++  { id:'Trío', name:'Trío (3 Asistentes)', price:389, persons:3 }
++];
++const marker = { id:'Trío', name:'Trío (3 Asistentes)', price:389, persons:3, enabled:false };
++function makeEvent(extra = [marker]) {
++  return { name:'Evento sintético', organizer:'Productora sintética', priceGeneral:137, pricePareja:251, priceTrio:389, priceGuardarropa:37, ticketTypes:[...standard, ...extra] };
++}
++function front(event = makeEvent()) {
++  const elements = {};
++  const element = id => elements[id] || (elements[id] = {
++    textContent:'', innerHTML:'', disabled:false, value:'', style:{}, dataset:{},
++    querySelectorAll:()=>[], classList:{add(){},remove(){},toggle(){}}, focus(){}
++  });
++  const ctx = {
++    STATE:{accessSelectedType:'Trío', accessSalesChannel:'TAQUILLA_DOMUS', accessWardrobeQty:1, activeActivity:event.name, eventsList:[event]},
++    $:element, getActiveEvent:()=>event, escapeHtml:String, DEFAULT_EVENTS:[],
++    document:{querySelector:()=>null}, isRegisteringAccess:false, toast:()=>{},
++    setTimeout:()=>{throw new Error('No se debe registrar una opción deshabilitada');}, console
++  };
++  vm.createContext(ctx); vm.runInContext(frontSource,ctx);
++  return {ctx,elements,element};
++}
++function row(notes = JSON.stringify([marker]), status = 'Confirmado') {
++  const r = Array(13).fill('');
++  r[0]='Evento sintético'; r[4]=137; r[5]=251; r[6]=389; r[7]=37; r[11]=status; r[12]=notes;
++  return r;
++}
++function back(activityRow = row(), replay = null) {
++  const writes = [];
++  const sheet = name => ({
++    getLastRow:()=>name==='ACTIVIDADES'?7:6,
++    getRange:()=>({
++      getValues:()=>name==='ACTIVIDADES'?[activityRow]:name==='COBROS'&&replay?[replay]:[],
++      setValues:values=>writes.push({sheet:name,values})
++    })
++  });
++  const ctx = {
++    CONFIG:{mainSheetId:'synthetic-only',lockTimeoutMs:137}, withLock_:(_ms,fn)=>fn(),
++    SpreadsheetApp:{openById:()=>({getSheetByName:sheet}),flush(){}},
++    Utilities:{formatDate:()=> '2026-11-13 20:00'}, console:{log(){}},
++    PropertiesService:{getScriptProperties:()=>({getProperty:()=> 'Evento sintético'})}
++  };
++  vm.createContext(ctx);vm.runInContext(access,ctx);
++  return {ctx,writes};
++}
++const payload = (type='Trío',channel='TAQUILLA_DOMUS') => ({ activity:'Evento sintético', ticketTypeId:type, salesChannel:channel, faceValue:389, customer:'Invitado sintético', wardrobeQty:0, id:'synthetic-request' });
++
++test('Sintaxis del frontend, backend, bundle y espejo nativo',()=>{
++  new vm.Script(app); new vm.Script(access); new vm.Script(bundle);
++  const script = section(native, '<script>','</script>').slice('<script>'.length);
++  new vm.Script(script);
++});
++test('Sin flags conserva tres tipos; texto histórico no es configuración',()=>{
++  const {ctx}=back(row('Nota histórica de prueba'));
++  assert.equal(ctx.accessConfiguredTicketTypes_(row('Nota histórica de prueba')).length,3);
++  assert.equal(ctx.accessTicketAvailability_(standard).invalid,false);
++});
++test('Array anterior de personalizados conserva tipos y notas sin modificar',()=>{
++  const extra=[{id:'CUSTOM_A',name:'Tarifa A',price:30,persons:1,notes:'Histórico sintético'}, {id:'CUSTOM_B',name:'Tarifa B',price:40,persons:1}];
++  const {ctx}=back();const configured=ctx.accessConfiguredTicketTypes_(row(JSON.stringify(extra)));
++  assert.equal(configured.length,5);assert.equal(configured[3].notes,'Histórico sintético');
++});
++test('False domina duplicados, mayúsculas, tildes y alias',()=>{
++  const {ctx}=front();
++  const policy=ctx.accessTicketAvailability_([...standard,marker,{id:' TRIO ',name:'Alias de prueba',enabled:true},{id:'OTHER',name:'Alias de prueba',enabled:true}]);
++  for(const key of ['trio','trio (3 asistentes)','alias de prueba','other']) assert.equal(policy.disabled[key],true);
++});
++test('Flags no booleanos e IDs vacíos fallan cerrados',()=>{
++  const {ctx}=front();
++  for(const enabled of ['false',0,null]) assert.equal(ctx.accessTicketAvailability_([{id:'Trío',enabled}]).invalid,true);
++  assert.equal(ctx.accessTicketAvailability_([{id:'',enabled:false}]).invalid,true);
++  assert.equal(ctx.accessTicketAvailability_([{id:{},enabled:false}]).invalid,true);
++  assert.equal(ctx.accessTicketAvailability_([null]).invalid,true);
++});
++test('Selector elimina Trío, conserva Pareja y General y cambia selección obsoleta',()=>{
++  const {ctx,elements}=front();ctx.renderEntryTypesGrid();
++  const html=elements.entryTypesContainer.innerHTML;
++  assert.ok(html.includes('data-entry-type="General"'));assert.ok(html.includes('data-entry-type="Pareja"'));
++  assert.ok(!html.includes('data-entry-type="Trío"'));assert.ok(!html.includes('$389.00'));
++  assert.equal(ctx.STATE.accessSelectedType,'General');assert.equal(elements.wardrobeUnitPriceText.textContent,'$37.00 c/u');
++});
++test('Sin flags el selector conserva tres opciones',()=>{
++  const {ctx,elements}=front(makeEvent([]));ctx.renderEntryTypesGrid();
++  assert.ok(elements.entryTypesContainer.innerHTML.includes('data-entry-type="Trío"'));
++  assert.equal(ctx.STATE.accessSelectedType,'Trío');
++});
++test('Política invalida muestra estado explícito y no habilita fallback',()=>{
++  for(const bad of [{...marker,enabled:'false'},null]) {
++    const {ctx,elements}=front(makeEvent([bad]));ctx.renderEntryTypesGrid();ctx.updateAccessSummary();
++    assert.equal(ctx.STATE.accessSelectedType,'');assert.ok(!elements.entryTypesContainer.innerHTML.includes('data-entry-type='));
++    assert.equal(elements.btnConfirmAccess.disabled,true);assert.equal(elements.summaryTotalAdmission.textContent,'—');
++  }
++});
++test('Lista enteramente deshabilitada no falla ni ofrece una entrada gratuita',()=>{
++  const {ctx,elements}=front(makeEvent(standard.map(t=>({...t,enabled:false}))));
++  ctx.renderEntryTypesGrid();ctx.updateAccessSummary();
++  assert.equal(ctx.STATE.accessSelectedType,'');assert.equal(elements.btnConfirmAccess.disabled,true);
++  assert.equal(elements.summaryFaceValue.textContent,'—');
++});
++test('Cálculo y confirmación rechazan una selección Trío obsoleta',()=>{
++  const {ctx,elements}=front();
++  assert.equal(ctx.calculateAccessSubtotal().unavailable,true);
++  ctx.confirmAccessAndRegister();assert.equal(elements.btnConfirmAccess.disabled,true);
++  ctx.STATE.accessSelectedType='General';ctx.setAccessEntryType('Trío');assert.equal(ctx.STATE.accessSelectedType,'General');
++});
++test('Tarifa de pareja y guardarropa permanecen independientes',()=>{
++  const {ctx}=front();ctx.STATE.accessSelectedType='Pareja';const subtotal=ctx.calculateAccessSubtotal();
++  assert.equal(subtotal.faceValue,251);assert.equal(subtotal.persons,2);assert.equal(subtotal.wardrobeCost,37);assert.equal(subtotal.doorTotal,288);
++});
++test('Eventos y Tarifas muestra No disponible, no el precio histórico del Trío',()=>{
++  const {ctx,elements}=front();ctx.renderEventsTable();const html=elements.eventsTableBody.innerHTML;
++  assert.ok(html.includes('No disponible'));assert.ok(!html.includes('$389.00'));assert.ok(html.includes('$137.00'));assert.ok(html.includes('$251.00'));assert.ok(html.includes('$37.00'));
++});
++test('Rama especial y cortesía también respetan disponibilidad',()=>{
++  const event=makeEvent();event.organizer='FORZA';const {ctx,elements}=front(event);ctx.STATE.accessSalesChannel='CORTESIA';ctx.renderEntryTypesGrid();
++  assert.ok(!elements.entryTypesContainer.innerHTML.includes('data-entry-type="Trío"'));
++});
++test('Servidor rechaza nuevos Trío y alias en siete canales, sin ACCESO/COBROS',()=>{
++  for(const channel of ['TAQUILLA_DOMUS','TRANSFERENCIA_DIRECTA','BOLETERA_EXTERNA','PREVENTA_DOMUS','CORTESIA','LISTA','MEMBRESIA']) {
++    for(const type of ['Trío','TRIO','Trío (3 Asistentes)']) {
++      const {ctx,writes}=back();assert.throws(()=>ctx.accesoSimpleRegistrar(payload(type,channel)),e=>e.code==='ACCESS_TICKET_TYPE_UNAVAILABLE');assert.equal(writes.length,0);
++    }
++  }
++});
++test('Servidor ignora la habilitación recibida del cliente',()=>{
++  const {ctx,writes}=back();const p=payload();p.enabled=true;p.ticketTypes=[{id:'Trío',enabled:true}];
++  assert.throws(()=>ctx.accesoSimpleRegistrar(p),e=>e.code==='ACCESS_TICKET_TYPE_UNAVAILABLE');assert.equal(writes.length,0);
++});
++test('Servidor conserva registro General/Pareja y guardarropa cuando acuerdo permite',()=>{
++  for(const type of ['General','Pareja','SOLO_GUARDARROPA']) {
++    const {ctx,writes}=back();const p=payload(type);p.faceValue=type==='General'?137:type==='Pareja'?251:0;p.wardrobeQty=1;p.wardrobeUnitPrice=37;
++    const res=ctx.accesoSimpleRegistrar(p);assert.equal(res.ok,true);assert.equal(res.wardrobeAmount,37);assert.equal(writes.filter(w=>w.sheet==='ACCESO').length,1);
++  }
++});
++test('No se altera el bloqueo de acuerdo Por validar para tipos habilitados',()=>{
++  const {ctx,writes}=back(row(JSON.stringify([marker]),'Por validar'));
++  assert.throws(()=>ctx.accesoSimpleRegistrar(payload('General')),e=>e.code==='EVENT_PRICING_NOT_CONFIRMED');assert.equal(writes.length,0);
++});
++test('Servidor rechaza configuración inválida antes de nuevas escrituras',()=>{
++  for(const notes of ['[{"id":"Trío","enabled":"false"}]','[{malformed']) {
++    const {ctx,writes}=back(row(notes));assert.throws(()=>ctx.accesoSimpleRegistrar(payload('General','CORTESIA')),e=>e.code==='ACCESS_TICKET_POLICY_INVALID');assert.equal(writes.length,0);
++  }
++});
++test('Recuperación confirmada en COBROS precede a la nueva política',()=>{
++  const replay=Array(14).fill('');replay[0]='REC-SYNTHETIC';replay[3]='A-SYNTHETIC';replay[5]=389;replay[8]='ACCESO-WEB:synthetic-request';
++  const {ctx,writes}=back(row(),replay);const res=ctx.accesoSimpleRegistrar(payload());
++  assert.equal(res.ok,true);assert.equal(res.rowId,'A-SYNTHETIC');assert.equal(writes.length,0);
++});
++test('Espejos contienen el mismo delta y cache del frontend cambia',()=>{
++  for(const [a,b] of frontRanges) assert.equal(section(app,a,b),section(native,a,b));
++  for(const [a,b] of [['function accessTicketKey_','function accesoSimpleDatos'],['function accesoSimpleRegistrar','function guardarropaDevolver']]) {
++    assert.equal(section(access,a,b),section(bundle,a,b));
++  }
++  assert.ok(read('index.html').includes('js/app.js?v=20261113-MP009'));
++});
++
++const hashes = Object.fromEntries(['js/app.js','index.html','google-apps-script/Access.gs','google-apps-script/Index.html','google-apps-script/DOMUS_PRODUCTION_BUNDLE.gs'].map(p=>[p,crypto.createHash('sha256').update(read(p)).digest('hex')]));
++const report = { network:false, fixtures:'synthetic', passed:results.filter(r=>r.passed).length, total:results.length, hashes, results };
++console.log(JSON.stringify(report,null,2));
++if(report.passed!==report.total) process.exitCode=1;
