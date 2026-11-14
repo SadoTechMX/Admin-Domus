@@ -1,0 +1,114 @@
+{
+  "review_id": "DOMUS-MP-003-REV-MP-CONTRACT",
+  "reviewer": "Independent agent requisitos_mercadopago",
+  "reviewed_at": "2026-11-13T18:04:11.437989-06:00",
+  "timezone": "America/Mexico_City",
+  "module": "DOMUS_MercadoPagoSync.gs",
+  "code_sha256": "ce2cad2f375c8bc83ed7417ee144a71b5ee63df1589b1b2fa7cd7536af703c23",
+  "status": "LOCAL_CONTRACT_CHECKS_PASSED_NOT_DEPLOYED",
+  "scope": "Pure source/plan validation and static review of Mercado Pago XLSX contract, file preservation, phases, optional SKU and publication claims.",
+  "fixture": "Synthetic products only. No real catalogue, provider data, account IDs or credentials are included.",
+  "checks": {
+    "code_sha256": "ce2cad2f375c8bc83ed7417ee144a71b5ee63df1589b1b2fa7cd7536af703c23",
+    "passed": 8,
+    "failed": 0,
+    "results": [
+      {
+        "name": "93 approved products produce 186 unique variants in two phases",
+        "status": "PASS"
+      },
+      {
+        "name": "60-character exported name accepted and 61 rejected",
+        "status": "PASS"
+      },
+      {
+        "name": "Price range accepted and zero, string, NaN, boolean rejected",
+        "status": "PASS"
+      },
+      {
+        "name": "994 exported rows exceed the 993-row capacity",
+        "status": "PASS"
+      },
+      {
+        "name": "A 201st category is rejected without replacing existing categories",
+        "status": "PASS"
+      },
+      {
+        "name": "An empty product source does not manufacture supplier or product rows",
+        "status": "PASS"
+      },
+      {
+        "name": "A product pending approval is excluded from newly generated rows",
+        "status": "PASS"
+      },
+      {
+        "name": "Bootstrap rejects equal names with conflicting prices",
+        "status": "PASS"
+      }
+    ]
+  },
+  "resolved_findings": [
+    {
+      "severity": "P1",
+      "issue": "Fixed source column positions could silently exchange phase prices after header changes.",
+      "resolution": "Exact header guards added for A/B/D/J/M/Q, row 3."
+    },
+    {
+      "severity": "P2",
+      "issue": "Workbook path checks did not verify template version or semantic headers.",
+      "resolution": "Exact guards added for MLM_DEFAULT_DOCUMENT, doc_version 1.0.6 and target headers."
+    },
+    {
+      "severity": "P2",
+      "issue": "Optional nonempty manually supplied SKU values were not checked for duplicates.",
+      "resolution": "Static review confirmed DEST_SKU_DUPLICATE guard for existing F5:F997 values. Column F remains outside the write allowlist; SKU is not treated as a Mercado Pago upsert key."
+    }
+  ],
+  "remaining_review_item": {
+    "status": "NONE_IN_REVIEWED_LOCAL_SCOPE",
+    "note": "Deployment and real Google Apps Script execution remain unverified."
+  },
+  "static_conclusions": [
+    "Only product cells B/C/I and category cells B6:B205 are changed by the writer.",
+    "Untouched ZIP parts are preserved and checked by hash.",
+    "Solar/Eclipse and Lunar are phases; no event identifiers are created or inferred.",
+    "Provider records do not automatically become product records.",
+    "SKU is optional and does not establish Mercado Pago upsert semantics.",
+    "Reported status separates file generation from Mercado Pago import and terminal verification.",
+    "Products removed or no longer approved are retained as HOLD entries; heldVariants requires review before import, rather than implying a mirror of active products."
+  ],
+  "limits": [
+    "These checks execute local JavaScript in Node; Google Apps Script services were not executed.",
+    "No triggers were installed, no live API write was performed and no Mercado Pago import was tested by this reviewer.",
+    "No claim of publication or synchronization to terminals is made.",
+    "An updated module requires re-running the checks; this evidence identifies the exact reviewed code hash."
+  ],
+  "reproduction": {
+    "runtime": "Node.js with built-in fs, vm and crypto modules; no network access required.",
+    "working_directory": "Directory containing DOMUS_MercadoPagoSync.gs and review_mp_contract.json.",
+    "command": "node -e 'eval(JSON.parse(require(\"fs\").readFileSync(\"review_mp_contract.json\",\"utf8\")).reproduction.script)' DOMUS_MercadoPagoSync.gs",
+    "script": "const fs=require('fs'), vm=require('vm'), crypto=require('crypto');\nconst modulePath=process.argv[1] || 'DOMUS_MercadoPagoSync.gs';\nconst code=fs.readFileSync(modulePath,'utf8');\nconst context={console}; vm.createContext(context); vm.runInContext(code,context);\nconst results=[];\nfunction test(name,fn){try{fn();results.push({name,status:'PASS'})}catch(e){results.push({name,status:'FAIL',error:String(e)})}}\nfunction equal(a,b){if(a!==b)throw Error(`${a} != ${b}`)}\nfunction rejects(fn,errorCode){try{fn()}catch(e){equal(e.dmpCode,errorCode);return}throw Error('Did not reject')}\nfunction row(id,name,category,solar,lunar,status='Aprobado'){return[id,name,category,solar,lunar,status]}\nfunction emptyWorkbook(){const products={},categories={};for(let i=5;i<=997;i++)products[i]={row:i,name:'',price:'',category:'',empty:true};for(let i=6;i<=205;i++)categories[i]='';return{products,categories}}\nconst syntheticRows=Array.from({length:93},(_,i)=>row('PROD-'+String(i+1).padStart(3,'0'),'Producto prueba '+(i+1),'Categoria prueba',40,45));\ntest('93 approved products produce 186 unique variants in two phases',()=>{const s=context.DMP_source_(syntheticRows);equal(s.variants.length,186);equal(new Set(s.variants.map(v=>v.key)).size,186);equal(new Set(s.variants.map(v=>v.phase)).size,2)});\ntest('60-character exported name accepted and 61 rejected',()=>{context.DMP_source_([row('PROD-001','A'.repeat(44),'Categoria prueba',40,45)]);rejects(()=>context.DMP_source_([row('PROD-001','A'.repeat(45),'Categoria prueba',40,45)]),'EXPORTED_NAME_TOO_LONG')});\ntest('Price range accepted and zero, string, NaN, boolean rejected',()=>{for(const v of [.01,999999999])equal(context.DMP_price_(v,'BAD_PRICE'),v);for(const v of [0,'40',NaN,true])rejects(()=>context.DMP_price_(v,'BAD_PRICE'),'BAD_PRICE')});\ntest('994 exported rows exceed the 993-row capacity',()=>{const rows=Array.from({length:497},(_,i)=>row('PROD-'+String(i+1).padStart(3,'0'),'Producto prueba '+i,'Categoria prueba',40,45));rejects(()=>context.DMP_source_(rows),'PRODUCT_CAPACITY_EXCEEDED')});\ntest('A 201st category is rejected without replacing existing categories',()=>{const wb=emptyWorkbook();for(let i=6;i<=205;i++)wb.categories[i]='Categoria '+i;const s=context.DMP_source_([row('PROD-001','Producto prueba','Categoria nueva',40,45)]);rejects(()=>context.DMP_plan_(s,wb,null),'CATEGORY_CAPACITY_EXCEEDED')});\ntest('An empty product source does not manufacture supplier or product rows',()=>{const p=context.DMP_plan_(context.DMP_source_([]),emptyWorkbook(),null);equal(p.changes.length,0);equal(p.manifest.products.length,0)});\ntest('A product pending approval is excluded from newly generated rows',()=>{const p=context.DMP_plan_(context.DMP_source_([row('PROD-001','Producto prueba','Categoria prueba',40,45,'Pendiente')]),emptyWorkbook(),null);equal(p.changes.length,0);equal(p.pending,1)});\ntest('Bootstrap rejects equal names with conflicting prices',()=>{const wb=emptyWorkbook(),s=context.DMP_source_([row('PROD-001','Producto prueba','Categoria prueba',40,45)]);wb.products[5]={row:5,name:s.variants[0].name,price:99,category:'Categoria prueba',empty:false};rejects(()=>context.DMP_plan_(s,wb,null),'BOOTSTRAP_MISMATCH')});\nconst failed=results.filter(r=>r.status!=='PASS').length;\nconsole.log(JSON.stringify({code_sha256:crypto.createHash('sha256').update(code).digest('hex'),passed:results.length-failed,failed,results},null,2));\nif(failed)process.exitCode=1;"
+  },
+  "review_history": [
+    {
+      "reviewed_at": "2026-11-13T18:00:21.064857-06:00",
+      "code_sha256": "63defc69f9d3afc57448e440ac819450616ceebb987e629bdd6e5b1d2767d072",
+      "passed": 8,
+      "failed": 0,
+      "pending_item_at_that_revision": "Optional nonempty duplicate SKU guard."
+    },
+    {
+      "reviewed_at": "2026-11-13T18:02:36.511071-06:00",
+      "code_sha256": "c449f7e827e7dd78fbe7fb687a38c95c4667349ee962197f7eab746e8aefd696",
+      "passed": 8,
+      "failed": 0,
+      "pending_item_at_that_revision": "None within Mercado Pago contract review scope."
+    }
+  ],
+  "latest_reconciliation": {
+    "reason": "Final candidate added installation completeness guard, explicit ZIP MIME for unzip and python3 test runner.",
+    "static_review": "Read DMP_assertInstalled_ and its calls before planning/writing and before enabling; it checks installer identity and all three saved trigger IDs. Read explicit application/zip blob construction and python3 runner.",
+    "contract_change": "No change to source projection, phase semantics, target B/C/I mapping, category range, SKU handling or publication-state boundary.",
+    "validation": "Same eight independent synthetic contract checks re-run, all passed. No live Apps Script or API actions."
+  }
+}

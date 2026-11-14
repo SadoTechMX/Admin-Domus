@@ -339,3 +339,15 @@
 
 
 
+
+
+### 2026-11-13 · DOMUS-MP-003 · Exportación ALQUIMIA a XLSX de Mercado Pago
+
+- **Alcance:** módulo independiente en `integrations/mercadopago/`, versionado en rama aislada. Se preservan los bundles, configuración, inventario, cobros y funciones del POS existentes.
+- **Estado:** `IMPLEMENTED` + `LOCAL_TESTED`. Suite del módulo: **34/34 PASS**, fixtures anónimos y adaptadores locales de Apps Script/Drive/ZIP/XML, sin red. Revisión independiente de contrato: **8/8 PASS**. La revisión local de estado, recuperación, scopes y disparadores cerró sin bloqueantes detectados.
+- **Candidato probado:** SHA-256 de `DOMUS_MercadoPagoSync.gs`: `ce2cad2f375c8bc83ed7417ee144a71b5ee63df1589b1b2fa7cd7536af703c23`. Evidencia reproducible en `test_results.json`, `review_mp_contract.json` y `tests/` del módulo.
+- **Comportamiento:** fuente aprobada de Alquimia; identidad producto+fase; escritura de nombre, precio y categoría en el mismo XLSX; preservación del resto del paquete; diario previo y recuperación de escrituras inciertas; bajas retenidas para revisión; pausa y guardia de instalación completa.
+- **Configuración privada:** IDs del maestro y del XLSX mediante ScriptProperties; no se publican identificadores nuevos ni catálogos reales. El fragmento de scopes se une al manifiesto existente y no lo reemplaza.
+- **Pendiente de verificación real:** proyecto Apps Script asociado al maestro, autorización, instalación de los tres disparadores y ejecución con lectura posterior. No se ha desplegado ni activado este módulo. La sesión del editor de Google no permitió completar esa etapa durante la tarea.
+- **Límite Mercado Pago:** actualizar el XLSX no acredita importación ni publicación en terminales. La plantilla es de altas; no se presume actualización idempotente por nombre o SKU. El flujo de cambios y su recepción en Mercado Pago requieren evidencia propia.
+- **Siguiente paso:** seguir el README del módulo en el proyecto real verificado, comprobar la instalación inicialmente pausada y la primera ejecución; después validar importación y terminales por separado. Este hito no recertifica los estados históricos de producción documentados arriba.

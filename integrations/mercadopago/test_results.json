@@ -1,0 +1,34 @@
+{
+  "task_id": "DOMUS-MP-003",
+  "status": "LOCAL_TESTED_NOT_DEPLOYED",
+  "utc": "2026-11-14T00:04:11.439460+00:00",
+  "mexico_city": "2026-11-13T18:04:11.439460-06:00",
+  "module": "DOMUS_MercadoPagoSync.gs",
+  "module_sha256": "ce2cad2f375c8bc83ed7417ee144a71b5ee63df1589b1b2fa7cd7536af703c23",
+  "command": "node tests/run_tests.js",
+  "runtime": {
+    "node": "v24.22.1",
+    "python": "Python 3 standard library"
+  },
+  "fixture": "Anonymous synthetic products and ZIP/XML; no external IDs, catalog or credentials",
+  "result": {
+    "tests": 34,
+    "passed": 34,
+    "failed": 0,
+    "network": false
+  },
+  "scope": [
+    "Pure source/plan validation",
+    "ZIP structure and lexical cell preservation",
+    "Simulated Drive media update and exact readback",
+    "Append-only journal and before/after/uncertain recovery",
+    "Idempotent paused installation and complete trigger gate",
+    "Pause under lock and partial installation owner guard"
+  ],
+  "limits": [
+    "Google Apps Script and live OAuth were not executed",
+    "No triggers were installed remotely",
+    "No live Drive writes were made by this module",
+    "No Mercado Pago import or terminal publication was verified"
+  ]
+}
